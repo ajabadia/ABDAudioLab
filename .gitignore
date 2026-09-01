@@ -1,0 +1,19 @@
+# Build and temporary files
+build/
+bin/
+out/
+.vs/
+*.user
+*.suo
+CMakeSettings.json
+
+# Exported LUTs and raw measurement datasets (RNF-10)
+exported_luts/
+captures/
+*.wav
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.cache/
+.vscode/
