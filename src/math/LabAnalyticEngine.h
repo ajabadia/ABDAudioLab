@@ -45,6 +45,13 @@ struct GainAnalysisResult
     StatisticalPair snrDb;
 };
 
+struct CyclicModulatorAnalysisResult
+{
+    StatisticalPair rateHz;
+    StatisticalPair depthPercent;
+    StatisticalPair asymmetry;
+};
+
 /**
  * @brief Core mathematical and statistical analysis engine.
  */
@@ -55,6 +62,12 @@ public:
     ~LabAnalyticEngine() = default;
 
     static StatisticalPair calculateStatistics(const std::vector<float>& dataset);
+
+    static float calculateSignalToNoiseRatioDb(const std::vector<float>& signalBuffer, float baselineNoiseRmsDb = -90.0f);
+    static bool isMeasurementConfidenceAcceptable(float snrDb, float minThresholdDb = 18.0f) noexcept
+    {
+        return snrDb >= minThresholdDb;
+    }
 
     static FilterAnalysisResult analyzeFilterPasses(const std::vector<std::vector<float>>& recordedPasses,
                                                    const std::vector<float>& inverseFilter,
@@ -74,6 +87,9 @@ public:
 
     static GainAnalysisResult analyzeGainTones(const std::vector<std::vector<float>>& recordedPasses,
                                               double sampleRate);
+
+    static CyclicModulatorAnalysisResult analyzeCyclicModulator(const std::vector<std::vector<float>>& recordedPasses,
+                                                               double sampleRate);
 };
 
 } // namespace abdaudiolab::math

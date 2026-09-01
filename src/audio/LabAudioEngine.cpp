@@ -134,19 +134,106 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
     if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
         std::copy_n(tempProcessBuffer.data(), numSamples, outputChannelData[1]);
 
+    // Measure Output Levels (Peak & RMS)
+    float outSumSqL = 0.0f, outPeakValL = 0.0f;
+    float outSumSqR = 0.0f, outPeakValR = 0.0f;
+    if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float s = std::abs(outputChannelData[0][i]);
+            if (s > outPeakValL) outPeakValL = s;
+            outSumSqL += s * s;
+        }
+    }
+    if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
+    {
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float s = std::abs(outputChannelData[1][i]);
+            if (s > outPeakValR) outPeakValR = s;
+            outSumSqR += s * s;
+        }
+    }
+    outputPeakL.store(outPeakValL, std::memory_order_relaxed);
+    outputPeakR.store(outPeakValR, std::memory_order_relaxed);
+    outputRmsL.store(numSamples > 0 ? std::sqrt(outSumSqL / static_cast<float>(numSamples)) : 0.0f, std::memory_order_relaxed);
+    outputRmsR.store(numSamples > 0 ? std::sqrt(outSumSqR / static_cast<float>(numSamples)) : 0.0f, std::memory_order_relaxed);
+
+    float trim = inputTrimGain.load(std::memory_order_relaxed);
+
     // If Mock Hardware is active, process signal through simulated DSP loopback
     if (mockHardware != nullptr)
     {
         mockHardware->processAudioBlock(tempProcessBuffer.data(), tempProcessBuffer.data(), numSamples);
+        if (std::abs(trim - 1.0f) > 0.001f)
+        {
+            for (int i = 0; i < numSamples; ++i)
+                tempProcessBuffer[static_cast<size_t>(i)] *= trim;
+        }
         receiver.processBlock(tempProcessBuffer.data(), numSamples);
+
+        // Measure mock input levels
+        float inSumSq = 0.0f, inPeakVal = 0.0f;
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float s = std::abs(tempProcessBuffer[static_cast<size_t>(i)]);
+            if (s > inPeakVal) inPeakVal = s;
+            inSumSq += s * s;
+        }
+        inputPeakL.store(inPeakVal, std::memory_order_relaxed);
+        inputPeakR.store(inPeakVal, std::memory_order_relaxed);
+        float rmsVal = numSamples > 0 ? std::sqrt(inSumSq / static_cast<float>(numSamples)) : 0.0f;
+        inputRmsL.store(rmsVal, std::memory_order_relaxed);
+        inputRmsR.store(rmsVal, std::memory_order_relaxed);
     }
     else
     {
         // Receive from physical ADC input (Channel 0 / Return line)
+        float inSumSqL = 0.0f, inPeakValL = 0.0f;
+        float inSumSqR = 0.0f, inPeakValR = 0.0f;
+
         if (numInputChannels > 0 && inputChannelData[0] != nullptr)
         {
-            receiver.processBlock(inputChannelData[0], numSamples);
+            // Apply input trim gain
+            if (std::abs(trim - 1.0f) > 0.001f)
+            {
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    float s = inputChannelData[0][i] * trim;
+                    tempProcessBuffer[static_cast<size_t>(i)] = s;
+                    float absS = std::abs(s);
+                    if (absS > inPeakValL) inPeakValL = absS;
+                    inSumSqL += absS * absS;
+                }
+                receiver.processBlock(tempProcessBuffer.data(), numSamples);
+            }
+            else
+            {
+                for (int i = 0; i < numSamples; ++i)
+                {
+                    float absS = std::abs(inputChannelData[0][i]);
+                    if (absS > inPeakValL) inPeakValL = absS;
+                    inSumSqL += absS * absS;
+                }
+                receiver.processBlock(inputChannelData[0], numSamples);
+            }
         }
+
+        if (numInputChannels > 1 && inputChannelData[1] != nullptr)
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                float absS = std::abs(inputChannelData[1][i]);
+                if (absS > inPeakValR) inPeakValR = absS;
+                inSumSqR += absS * absS;
+            }
+        }
+
+        inputPeakL.store(inPeakValL, std::memory_order_relaxed);
+        inputPeakR.store(inPeakValR, std::memory_order_relaxed);
+        inputRmsL.store(numSamples > 0 ? std::sqrt(inSumSqL / static_cast<float>(numSamples)) : 0.0f, std::memory_order_relaxed);
+        inputRmsR.store(numSamples > 0 ? std::sqrt(inSumSqR / static_cast<float>(numSamples)) : 0.0f, std::memory_order_relaxed);
     }
 }
 

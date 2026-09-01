@@ -1,7 +1,7 @@
 #pragma once
 
 #include "HardwareController.h"
-#include "RoutingValidator.h"
+#include "AiraRoutingValidator.h"
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <vector>
 
@@ -10,10 +10,11 @@ namespace abdaudiolab::hardware
 
 enum class AiraModel : uint8_t
 {
-    Bitrazer = 0x15,
-    Demora   = 0x16,
-    Torcido  = 0x17,
-    Scooper  = 0x18
+    GenericModular = 0x00,
+    Bitrazer       = 0x15,
+    Demora         = 0x16,
+    Torcido        = 0x17,
+    Scooper        = 0x18
 };
 
 /**
@@ -294,7 +295,7 @@ private:
     AiraModel targetModel;
     std::unique_ptr<juce::MidiOutput> midiOut;
     std::unique_ptr<juce::MidiInput> midiIn;
-    RoutingValidator routingValidator;
+    AiraRoutingValidator routingValidator;
     std::array<uint8_t, 6> slotTypes { 0 };
 };
 

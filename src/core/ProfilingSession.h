@@ -18,13 +18,16 @@ struct ParameterStep
 
 struct TestCase
 {
+    int queueItemIndex { 0 };
+    int pointIndexInTest { 0 };
+    int totalPointsInTest { 1 };
     std::string testId;
-    std::string functionalBlockType; // TimeDynamic, SpectrumFilter, AmplitudeGain, WaveShaper, CyclicModulator
+    std::string functionalBlockType; // TimeDynamic, SpectrumFilter, AmplitudeGain, WaveShaper, CyclicModulator, NoiseFloor
     audio::StimulusType stimulusType { audio::StimulusType::LogFarinaSweep };
     double stimulusDurationSec { 2.0 };
     float startFreqHz { 20.0f };
     float endFreqHz { 20000.0f };
-    int numPasses { 3 };
+    int numPasses { 1 };
     double stabilizationWaitMs { 50.0 };
 
     std::vector<ParameterStep> parameterSteps;
@@ -53,6 +56,7 @@ public:
     [[nodiscard]] const std::vector<TestCase>& getTestCases() const noexcept { return testCases; }
 
     void setMetadata(const ProfilingMetadata& meta) { metadata = meta; }
+    void addTestCase(const TestCase& tc) { testCases.push_back(tc); }
 
     // Pre-built profiling test suites
     static ProfilingSession createFilterSuite(const std::string& hardwareName, const std::string& operatorMode, int cutSteps = 8, int resSteps = 4);
@@ -60,6 +64,7 @@ public:
     static ProfilingSession createDelaySuite(const std::string& hardwareName, const std::string& operatorMode, int timeSteps = 8, int fbSteps = 4);
     static ProfilingSession createWaveShaperSuite(const std::string& hardwareName, const std::string& operatorMode, int driveSteps = 10);
     static ProfilingSession createGainVcaSuite(const std::string& hardwareName, const std::string& operatorMode, int gainSteps = 10);
+    static ProfilingSession createChorusModulatorSuite(const std::string& hardwareName, const std::string& operatorMode, int rateSteps = 8, int depthSteps = 4);
     static ProfilingSession createDefaultMockSession();
 
 private:

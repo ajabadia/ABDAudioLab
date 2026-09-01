@@ -52,12 +52,17 @@ juce_add_gui_app(ABDAudioLab
 target_sources(ABDAudioLab
     PRIVATE
         src/main.cpp
+        src/BuildVersion.h
         
         # Core Architecture
         src/core/ProfilingSession.h
         src/core/ProfilingSession.cpp
         src/core/ProfilingSequencer.h
         src/core/ProfilingSequencer.cpp
+        src/core/HardwareContractRegistry.h
+        src/core/HardwareContractRegistry.cpp
+        src/core/SessionSerializer.h
+        src/core/SessionSerializer.cpp
         
         # Audio Engine & DSP
         src/audio/LabStimulusGenerator.h
@@ -72,13 +77,44 @@ target_sources(ABDAudioLab
         src/math/LabAnalyticEngine.cpp
         src/math/FarinaDeconvolver.h
         src/math/FarinaDeconvolver.cpp
+        src/math/NoiseFloorTracker.h
+        src/math/NoiseFloorTracker.cpp
+        src/math/SplineInterpolator2D.h
+        src/math/LoopbackCalibrator.h
+        src/math/LoopbackCalibrator.cpp
         
-        # Hardware Control Contracts
+        # Hardware Control Contracts & Validation
         src/hardware/HardwareController.h
         src/hardware/MidiCcController.h
         src/hardware/AiraSysExController.h
         src/hardware/ManualAnalogueController.h
         src/hardware/MockHardwareController.h
+        src/hardware/RoutingValidator.h
+        
+        # GUI & Interactive Visualizers (SoundID Architecture)
+        src/gui/SoundIdTheme.h
+        src/gui/SoundIdCurvePlotter.h
+        src/gui/SoundIdCurvePlotter.cpp
+        src/gui/SoundIdMeterStrip.h
+        src/gui/SoundIdMeterStrip.cpp
+        src/gui/SoundIdSuiteList.h
+        src/gui/SoundIdSuiteList.cpp
+        src/gui/SlideInDrawer.h
+        src/gui/SlideInDrawer.cpp
+        src/gui/InfoDrawer.h
+        src/gui/InfoDrawer.cpp
+        src/gui/AboutModalDialog.h
+        src/gui/AboutModalDialog.cpp
+        src/gui/LoopbackCalibrationModal.h
+        src/gui/LoopbackCalibrationModal.cpp
+        src/gui/TestConfigModal.h
+        src/gui/TestConfigModal.cpp
+        src/gui/SoundIdSplashScreen.h
+        src/gui/HardwareSelectorPill.h
+        src/gui/LiveCurvePlotter.h
+        src/gui/LiveCurvePlotter.cpp
+        src/gui/StereoVuMeter.h
+        src/gui/StereoVuMeter.cpp
         
         # Exporting & Code Generation
         src/export/LutExporter.h

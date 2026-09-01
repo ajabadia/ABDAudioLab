@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iomanip>
 #include <nlohmann/json.hpp>
+#include <chrono>
+#include <ctime>
 
 namespace abdaudiolab::exporting
 {
@@ -61,42 +63,106 @@ bool LutExporter::exportToCppHeader(const std::string& destinationHeaderPath,
 
     out << "};\n\n";
     out << "} // namespace abdaudiolab::lut\n";
-
     return true;
 }
 
 bool LutExporter::exportToJsonReport(const std::string& destinationJsonPath,
-                                     const core::ProfilingMetadata& metadata,
-                                     const std::vector<MeasuredPoint>& points)
+                                    const core::ProfilingMetadata& metadata,
+                                    const std::vector<MeasuredPoint>& points)
 {
-    nlohmann::json j;
-    j["metadata"]["hardware_name"] = metadata.hardwareName;
-    j["metadata"]["target_module"] = metadata.targetModule;
-    j["metadata"]["operator_mode"] = metadata.operatorMode;
-    j["metadata"]["sample_rate"] = metadata.sampleRate;
-    j["metadata"]["bit_depth"] = metadata.bitDepth;
-    j["metadata"]["total_points"] = points.size();
+    nlohmann::json root;
+    root["generator"] = "ABDAudioLab Analytic Engine";
+    root["hardwareName"] = metadata.hardwareName;
+    root["targetModule"] = metadata.targetModule;
+    root["operatorMode"] = metadata.operatorMode;
+    root["sampleRate"] = metadata.sampleRate;
+    root["totalPoints"] = points.size();
 
-    j["points"] = nlohmann::json::array();
+    nlohmann::json ptsJson = nlohmann::json::array();
     for (const auto& p : points)
     {
         nlohmann::json pj;
-        pj["test_id"] = p.testId;
-        pj["param_1"] = p.param1Normalized;
-        pj["param_2"] = p.param2Normalized;
-        pj["primary_mean"] = p.muSigmaValue.mean;
-        pj["primary_std_dev"] = p.muSigmaValue.stdDev;
-        pj["secondary_mean"] = p.secondaryValue.mean;
-        pj["secondary_std_dev"] = p.secondaryValue.stdDev;
+        pj["testId"] = p.testId;
+        pj["p1"] = p.param1Normalized;
+        pj["p2"] = p.param2Normalized;
+        pj["mu"] = p.muSigmaValue.mean;
+        pj["sigma"] = p.muSigmaValue.stdDev;
+        pj["secondary_mu"] = p.secondaryValue.mean;
+        pj["secondary_sigma"] = p.secondaryValue.stdDev;
         pj["thd_percent"] = p.thdValue.mean;
-        j["points"].push_back(pj);
+        ptsJson.push_back(pj);
     }
+    root["measuredPoints"] = ptsJson;
 
     std::ofstream out(destinationJsonPath);
     if (!out.is_open())
         return false;
 
-    out << j.dump(2);
+    out << std::setw(2) << root << std::endl;
+    return true;
+}
+
+bool LutExporter::exportSessionManifest(const std::string& destinationManifestPath,
+                                       const SessionManifestData& manifest,
+                                       const std::vector<MeasuredPoint>& points)
+{
+    nlohmann::json root;
+    root["sessionManifestVersion"] = "2.0";
+    
+    // Timestamp
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    char buf[100];
+    if (std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now_c)))
+    {
+        root["timestamp"] = std::string(buf);
+    }
+
+    // Hardware Details
+    nlohmann::json hwJson;
+    hwJson["id"] = manifest.hardwareId;
+    hwJson["name"] = manifest.hardwareName;
+    hwJson["brand"] = manifest.brand;
+    hwJson["functionId"] = manifest.functionId;
+    hwJson["functionName"] = manifest.functionName;
+    hwJson["blockType"] = manifest.blockType;
+    hwJson["deviceType"] = manifest.deviceType;
+    root["hardware"] = hwJson;
+
+    // Audio & Calibration
+    nlohmann::json audioJson;
+    audioJson["sampleRate"] = manifest.sampleRate;
+    audioJson["bufferSize"] = manifest.bufferSize;
+    audioJson["inputAutoTrimGainDb"] = manifest.autoTrimGainDb;
+    audioJson["noiseFloorRmsDb"] = manifest.noiseFloorRmsDb;
+    audioJson["averageSnrDb"] = manifest.averageSnrDb;
+    root["audioCalibration"] = audioJson;
+
+    // Custom Grid Configuration Used
+    nlohmann::json gridJson = nlohmann::json::array();
+    for (const auto& g : manifest.gridConfig)
+    {
+        nlohmann::json gj;
+        gj["controlName"] = g.controlName;
+        gj["stepsCount"] = g.stepCount;
+        gj["evaluatedValues"] = g.evaluatedValues;
+        gridJson.push_back(gj);
+    }
+    root["gridConfigurationUsed"] = gridJson;
+
+    root["totalPointsMeasured"] = points.size();
+
+    // Output Artifacts
+    nlohmann::json artJson;
+    artJson["cppHeaderTable"] = manifest.cppHeaderFilename;
+    artJson["jsonReport"] = manifest.jsonReportFilename;
+    root["outputArtifacts"] = artJson;
+
+    std::ofstream out(destinationManifestPath);
+    if (!out.is_open())
+        return false;
+
+    out << std::setw(2) << root << std::endl;
     return true;
 }
 

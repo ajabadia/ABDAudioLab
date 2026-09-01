@@ -276,6 +276,47 @@ ProfilingSession ProfilingSession::createGainVcaSuite(const std::string& hardwar
     return session;
 }
 
+ProfilingSession ProfilingSession::createChorusModulatorSuite(const std::string& hardwareName, const std::string& operatorMode, int rateSteps, int depthSteps)
+{
+    ProfilingSession session;
+    session.metadata.hardwareName = hardwareName;
+    session.metadata.targetModule = "CYCLIC_MODULATOR_SCAN";
+    session.metadata.operatorMode = operatorMode;
+    session.metadata.sampleRate = 96000.0;
+    session.metadata.bitDepth = 24;
+
+    int totalRates = std::max(2, rateSteps);
+    int totalDepths = std::max(1, depthSteps);
+    int id = 1;
+
+    for (int r = 0; r < totalRates; ++r)
+    {
+        float rateVal = static_cast<float>(r) / static_cast<float>(totalRates - 1);
+        for (int d = 0; d < totalDepths; ++d)
+        {
+            float depthVal = static_cast<float>(d) / static_cast<float>(std::max(1, totalDepths - 1));
+
+            TestCase tc;
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "TC_MOD_%03d", id++);
+            tc.testId = buf;
+            tc.functionalBlockType = "CyclicModulator";
+            tc.stimulusType = audio::StimulusType::SineWave1kHz;
+            tc.stimulusDurationSec = 2.0; // 2.0s capture for LFO cycles
+            tc.numPasses = 2;
+            tc.stabilizationWaitMs = 50.0;
+
+            ParameterStep pRate { 1, "RATE", rateVal, static_cast<int>(rateVal * 127.0f) };
+            ParameterStep pDepth { 2, "DEPTH", depthVal, static_cast<int>(depthVal * 127.0f) };
+            tc.parameterSteps.push_back(pRate);
+            tc.parameterSteps.push_back(pDepth);
+
+            session.testCases.push_back(tc);
+        }
+    }
+    return session;
+}
+
 ProfilingSession ProfilingSession::createDefaultMockSession()
 {
     return createFilterSuite("MOCK_VA_RESONANT_FILTER", "MOCK_DSP", 5, 3);

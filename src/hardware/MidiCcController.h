@@ -92,6 +92,31 @@ public:
         return true;
     }
 
+    /**
+     * @brief Send 14-bit NRPN parameter message (CC 99, 98, 6, 38).
+     */
+    bool sendNrpn(int nrpnParam, int value14Bit)
+    {
+        if (!isConnected())
+            return false;
+
+        uint8_t paramMsb = static_cast<uint8_t>((nrpnParam >> 7) & 0x7F);
+        uint8_t paramLsb = static_cast<uint8_t>(nrpnParam & 0x7F);
+        uint8_t valMsb = static_cast<uint8_t>((value14Bit >> 7) & 0x7F);
+        uint8_t valLsb = static_cast<uint8_t>(value14Bit & 0x7F);
+
+        midiOut->sendMessageNow(juce::MidiMessage::controllerEvent(channel, 99, paramMsb));
+        midiOut->sendMessageNow(juce::MidiMessage::controllerEvent(channel, 98, paramLsb));
+        midiOut->sendMessageNow(juce::MidiMessage::controllerEvent(channel, 6, valMsb));
+        midiOut->sendMessageNow(juce::MidiMessage::controllerEvent(channel, 38, valLsb));
+        return true;
+    }
+
+    void mapNrpn(int paramIndex, int nrpnParam)
+    {
+        nrpnMapping[paramIndex] = nrpnParam;
+    }
+
     bool setupSubmodule(int /*slotIndex*/, uint8_t /*typeId*/) override
     {
         return true; // No-op on generic CC synths
@@ -111,6 +136,7 @@ private:
     int channel { 1 };
     std::unique_ptr<juce::MidiOutput> midiOut;
     std::map<int, uint8_t> cachedValues;
+    std::map<int, int> nrpnMapping;
 };
 
 } // namespace abdaudiolab::hardware
