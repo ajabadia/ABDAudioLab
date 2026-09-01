@@ -1113,4 +1113,30 @@ Guía de consulta de los archivos de investigación ubicados en `docs/google ia 
 
 ---
 
+## 18. ESPECIFICACIÓN TÉCNICA DE AMPLIACIÓN (FASE 1.5)
+
+### 18.1 Requisitos Funcionales del Core y Motor DSP
+
+| ID | Requisito | Descripción |
+|---|---|---|
+| `RF-27` | **Muestreo Periódico del Suelo de Ruido** | El secuenciador ejecutará un interludio de silencio automático cada $N$ minutos (500 ms silencio + 500 ms captura) y calculará $Noise_{RMS}$ y la huella FFT en 32 bandas, exportando `Analogue_Noise_Timeline.h` para modelar deriva térmica en el DAW. |
+| `RF-28` | **Compensación de Error Loopback** | El motor registrará la latencia fija y la respuesta en frecuencia de la propia interfaz de audio en un test previo directo (salida $\rightarrow$ entrada) y la restará matemáticamente de las mediciones de hardware posterior. |
+| `RF-29` | **Índice de Confianza y SNR Mínimo** | Cada punto de medición evaluará el SNR respecto al suelo de ruido. Si el SNR es $< 18\text{ dB}$, el robot reintentará la captura o emitirá una alerta de mal contacto. |
+| `RF-30` | **Auto-Trim de Ganancia a $-3\text{ dBfs}$** | Fase previa de calibración de ganancia donde el motor inyecta un tono y autoajusta el escalado digital para que el pico roce $-3\text{ dBfs}$ sin saturar el ADC. |
+| `RF-31` | **Bloque Funcional `CyclicModulator`** | 5º bloque funcional que analiza efectos de modulación cíclica (Chorus, Flanger, LFO) midiendo frecuencia en Hz, profundidad e irregularidad de onda. |
+| `RF-32` | **Barrido Multinivel de Amplitud** | Inyección de estímulos a diferentes escalones de volumen ($-18, -12, -6, 0\text{ dBfs}$) para extraer curvas de transferencia no lineales dependientes del nivel de excitación. |
+| `RF-33` | **Interpolador Multidimensional 2D** | Motor de interpolación bilineal/bicúbica para expandir matrices cuantizadas (ej. 16x16) a resolución completa 128x128 en las Look-Up Tables generadas. |
+| `RF-34` | **Checkpoints de Sesión y Recuperación** | Guardado periódico del progreso en `session_checkpoint.json` para reanudar sesiones nocturnas si ocurre una desconexión accidental del hardware. |
+
+### 18.2 Requisitos Funcionales de la Interfaz Gráfica (GUI)
+
+| ID | Requisito | Descripción |
+|---|---|---|
+| `RF-35` | **Live Curve Plotter** | Gráfico interactivo 2D en pantalla que renderiza dinámicamente la curva de respuesta $(\mu)$ y la franja sombreada de dispersión $(\pm\sigma)$ en tiempo real. |
+| `RF-36` | **Live FFT & 2D Heatmap** | Visualizador en vivo del espectro de frecuencias de retorno y mapa de calor interactivo para escaneos bidimensionales (ej. Cutoff vs Resonancia). |
+| `RF-37` | **Vúmetros Estéreo y Calibración** | Medidores visuales de nivel RMS/Pico con LED de clipping e indicador visual de $-3\text{ dBfs}$. |
+| `RF-38` | **Profile Builder & Batch Queue** | Diseñador interactivo de perfiles de prueba y gestor de cola de tareas por lotes desatendidas. |
+
+---
+
 *Fin del documento. Cualquier cambio de especificación se realiza mediante PR que modifique este archivo, referenciando los identificadores `RF-nn` / `RNF-nn` afectados.*
