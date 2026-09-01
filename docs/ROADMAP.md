@@ -38,14 +38,15 @@ gantt
 - [x] **Subfase 1.1: Entorno de Compilación y Configuración**
   - CMake 3.22+ configurado con C++20, JUCE 8.0.4 y `nlohmann_json`.
   - Script `build.bat` con detección automática de Visual Studio 18 (2026) y compilación paralela Release.
-- [x] **Subfase 1.2: Capa de Abstracción de Hardware**
+- [x] **Subfase 1.2: Capa de Abstracción de Hardware y Validación**
   - Contrato abstracto `IHardwareController` puro e independiente.
   - `MockHardwareController` (simulación DSP interna de filtro resonante y ruido térmico).
   - `AiraSysExController` (Roland AIRA por USB SysEx `RQ1`/`DT1` y CC 11..16).
+  - `RoutingValidator` (Validación de conexiones ilegales `RF-25` y catálogo normativo de 31 submódulos `RF-26`).
   - `MidiCcController` (dispositivos MIDI Continuous Controller genéricos).
   - `ManualAnalogueController` (módulos analógicos/Eurorack con guía interactiva para operador humano).
 - [x] **Subfase 1.3: Motor de Audio en Tiempo Real**
-  - `LabStimulusGenerator` (7 tipos de estímulo: Silencio, Dirac Delta, Farina Sweep logarítmico, Ruido Blanco LCG, Ruido Rosa, Tono 1 kHz, Rampa).
+  - `LabStimulusGenerator` (9 tipos de estímulo: Silencio, Dirac Delta, `SyncPulses3` pre-roll de sincronización, Farina Sweep logarítmico, Ruido Blanco LCG, Ruido Rosa, Tono 1 kHz, Onda Cuadrada 1 kHz, Rampa de amplitud).
   - `LabAudioReceiver` (Búfer circular lock-free con `AbstractFifo` y disparo por umbral de amplitud a -40 dBfs).
   - `LabAudioEngine` (Cadena jerárquica de 3 pasos de inicialización de audio, `ScopedNoDenormals` e inyector atómico de tono de prueba a 1 kHz).
 - [x] **Subfase 1.4: Motor Matemático y Estadístico**
@@ -55,8 +56,9 @@ gantt
   - `ProfilingSession` (Generación de suites de prueba para Filtros, ADSR, Delays, Saturadores, VCAs y carga de JSON).
   - `ProfilingSequencer` (Máquina de estados en segundo plano con calibración de línea e interludios de ruido de fondo).
   - `LutExporter` (Exportación de archivos `.h` con `alignas(16) static const AbdBatchedPoint` y reportes `.json`).
-- [x] **Subfase 1.6: Consola de Control de Usuario**
+- [x] **Subfase 1.6: Consola de Control de Usuario y Publicación**
   - Interfaz gráfica standalone con diálogo de configuración de Audio y Puertos MIDI (In/Out), selector de los 4 modos de hardware, selector de suites de test, cartel de operador manual (confirmación con Barra Espaciadora) y monitor de logs.
+  - Repositorio Git inicializado y publicado en [https://github.com/ajabadia/ABDAudioLab](https://github.com/ajabadia/ABDAudioLab).
 
 ---
 

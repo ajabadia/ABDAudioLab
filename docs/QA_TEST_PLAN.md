@@ -26,6 +26,8 @@ El plan de calidad tiene como objetivo asegurar la precisión acústica, la esta
 | **QA-08** | Modo Manual Eurorack | Seleccionar modo *Manual Analog / Eurorack*. | El robot despliega el cartel de ajuste para el operador y se reanuda al pulsar la **Barra Espaciadora**. | **PASADO** ✓ |
 | **QA-09** | Conexión Roland AIRA | Conectar módulo AIRA USB y conmutar a *Roland AIRA Modular*. | Detección de dispositivo USB SysEx y envío de tramas `DT1`/`RQ1`. | **PASADO** ✓ |
 | **QA-10** | Zero-Allocation DSP | Ejecución de escaneo continuo de audio. | Cero llamadas a `malloc`/`new` dentro de `processBlock` y protección `ScopedNoDenormals`. | **PASADO** ✓ |
+| **QA-11** | Validador de Ruteo | Conectar cables ilegales en matriz AIRA (`RF-25`, `RF-26`). | Bloqueo previo por `RoutingValidator` e informe de error sin envío de tramas erróneas al hardware. | **PASADO** ✓ |
+| **QA-12** | Pre-Roll de 3 Tonos | Activar estímulo `SyncPulses3` / Calibración de sesión. | Emisión de 3 ráfagas a 1 kHz a -3 dBfs con envolvente Hann para alineación sample-accurate. | **PASADO** ✓ |
 
 ---
 
