@@ -1,163 +1,151 @@
-# Arquitectura de Software y Diseño de Sistema — ABDAudioLab
+# Arquitectura de Software — ABDAudioLab
 
-**Proyecto:** ABDAudioLab — Universal Black-Box Musical Hardware Profiler  
-**Versión:** 1.0.0  
-**Fecha:** 2026-09-01  
-**Estándar:** C++20 / JUCE 8.0.4 / CMake  
-
----
-
-## 1. Visión y Principios Arquitectónicos
-
-ABDAudioLab está estructurado bajo principios estrictos de **Spec-Driven Development (SDD)** y **Zero-Allocation Real-Time Safety**:
-
-1. **Desacoplamiento Absoluto (Contratos Asépticos)**:
-   El secuenciador y el motor analítico no tienen conocimiento de marcas o protocolos propietarios; interactúan exclusivamente a través de interfaces C++ abstractas (`IHardwareController`).
-2. **Aislamiento del Hilo de Audio**:
-   El hilo de procesamiento de audio en tiempo real ejecuta con latencia determinista (< 5 ms). Todas las reservas de memoria dinámica (`new`, `malloc`, `std::vector::resize`) y llamadas a sistema (I/O, logs) están estrictamente prohibidas en el hilo de audio.
-3. **Comunicación Sin Bloqueos (Lock-Free FIFO)**:
-   El intercambio de bloques de señal entre el hilo de audio y el hilo de análisis en segundo plano se realiza mediante colas circulares SPSC (`juce::AbstractFifo`).
-4. **Fuente Única de Verdad**:
-   La sesión de perfilado se rige por un esquema de datos plano (`ProfilingSession`), que dicta el orden de los estímulos, parámetros y repeticiones.
+**Proyecto:** ABDAudioLab — perfilador de hardware musical de caja negra
+**Versión del documento:** 1.1.0
+**Actualizado:** 2026-09-03
+**Tecnología:** C++20, JUCE 8, CMake, ABDScope y WebView2 (Windows)
 
 ---
 
-## 2. Diagrama de Capas del Sistema
+## 1. Alcance y estado de esta arquitectura
 
-```
-+-------------------------------------------------------------------------------+
-|                       CAPA 1: PRESENTACIÓN & CONSOLA GUI                      |
-|                           (src/main.cpp - JUCE GUI)                           |
-|  - Selector de Dispositivos Audio & MIDI (WASAPI/DirectSound)                |
-|  - Selector de Modo de Hardware (Mock, AIRA, CC, Eurorack Manual)             |
-|  - Selector de Suite de Pruebas & Carga de JSON Personalizado                 |
-|  - Monitor de Logs en Tiempo Real con Timestamps                              |
-|  - Cartel Interactivo de Operador Manual (Confirmación por Barra Espaciadora) |
-+---------------------------------------+---------------------------------------+
-                                        |
-                                        v
-+-------------------------------------------------------------------------------+
-|                      CAPA 2: NÚCLEO Y SECUENCIADOR (CORE)                     |
-|                 (src/core/ProfilingSequencer.h/.cpp)                          |
-|  - Máquina de Estados en Hilo Secundario (juce::Thread)                      |
-|  - Calibración de Línea (Noise Floor Baseline & Loopback Check)               |
-|  - Estabilización Paramétrica & Sincronización de Pasos                       |
-|  - Control de Interludios Periódicos de Ruido Térmico                         |
-+-------------------+-----------------------------------+-----------------------+
-                    |                                   |
-                    v                                   v
-+---------------------------------------+   +-----------------------------------+
-|  CAPA 3: ABSTRACCIÓN DE HARDWARE      |   |  CAPA 4: MOTOR MATEMÁTICO & DSP   |
-|         (src/hardware/)               |   |          (src/math/)              |
-|  - IHardwareController (Contrato)     |   |  - FarinaDeconvolver              |
-|  - MockHardwareController (Simulador) |   |    (Filtro inverso -6dB/oct, FFT, |
-|  - AiraSysExController (Roland AIRA)  |   |     separación armónica THD %)    |
-|  - MidiCcController (MIDI CC Genérico)|   |  - LabAnalyticEngine              |
-|  - ManualAnalogueController (Manual)  |   |    (Cálculo de µ y σ para 5 tipos)|
-+-------------------+-------------------+   +-----------------+-----------------+
-                    |                                         ^
-                    | (Control)                               | (Búferes)
-                    v                                         |
-+-------------------------------------------------------------+-----------------+
-|                  CAPA 5: MOTOR DE AUDIO EN TIEMPO REAL                        |
-|                            (src/audio/)                                       |
-|  - LabAudioEngine (Callback juce::AudioIODeviceCallback con ScopedNoDenormals)|
-|  - LabStimulusGenerator (Farina Sweep, Dirac, Ruido LCG, Rampa, Tono 1kHz)    |
-|  - LabAudioReceiver (FIFO Lock-Free Ring Buffer con Disparo por Umbral)       |
-|  - Generador de Tono Diagnóstico Atómico (1 kHz)                              |
-+---------------------------------------+---------------------------------------+
-                                        |
-                                        v
-+-------------------------------------------------------------------------------+
-|                       CAPA 6: EXPORTACIÓN Y GENERACIÓN                        |
-|                           (src/export/LutExporter)                            |
-|  - Cabecera C++20: alignas(16) static const AbdBatchedPoint (chowdsp_utils)   |
-|  - Reporte JSON: Metadatos, puntos de prueba y matrices completas (µ, σ)      |
-+-------------------------------------------------------------------------------+
-```
+Este documento describe la arquitectura **actualmente integrada en el ejecutable**. Distingue entre componentes implementados, integración verificada mediante pruebas simuladas y capacidades pendientes de comprobar con hardware físico.
 
----
+No describe propuestas futuras como WASM, ni considera una capacidad terminada solo porque exista una clase o un borrador de UI en el repositorio.
 
-## 3. Detalle de Componentes y Flujo de Datos
+### Estado de verificación
 
-### 3.1 Flujo de Ejecución de una Toma de Medición
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Usuario
-    participant GUI as Consola GUI (main.cpp)
-    participant Seq as ProfilingSequencer (Worker Thread)
-    participant HW as HardwareController (MIDI/SysEx/Manual)
-    participant Gen as LabStimulusGenerator (Audio Thread)
-    participant Rec as LabAudioReceiver (Audio Thread)
-    participant Math as LabAnalyticEngine (Worker Thread)
-    participant Exp as LutExporter
-
-    Usuario->>GUI: Pulsa "START PROFILING SESSION"
-    GUI->>Seq: startSession(session, outputDir, baseName)
-    Seq->>Seq: Estado: LINE_CALIBRATION
-    Seq->>Gen: setStimulus(Silence, 0.5s)
-    Seq->>Rec: armContinuousCapture(0.5s)
-    Rec-->>Seq: Captura de ruido basal finalizada
-
-    loop Por cada Caso de Prueba (Test Case)
-        Seq->>HW: setParameter(index, normalizedValue)
-        alt Modo Manual (Eurorack)
-            HW->>GUI: Muestra Prompt "Gira CUTOFF a 0.75 y pulsa ESPACIO"
-            Usuario->>GUI: Pulsa Barra Espaciadora
-            GUI->>Seq: confirmOperatorStep()
-        end
-        Seq->>Seq: Estado: WAIT_FOR_STABILIZATION (50ms)
-        Seq->>Rec: armCapture(samplesToRecord, -40dBfs Trigger)
-        Seq->>Gen: setStimulus(LogFarinaSweep, duration, f1, f2)
-        Note over Gen,Rec: El hilo de audio emite el barrido y captura el retorno al superar el umbral
-        Rec-->>Seq: Captura completada
-        Seq->>Rec: retrieveRecordedData(recordedPasses)
-        Seq->>Math: analyzeFilterPasses(recordedPasses, inverseFilter)
-        Math-->>Seq: Devuelve (µ, σ, THD %)
-    end
-
-    Seq->>Exp: exportToCppHeader(path, metadata, points)
-    Seq->>Exp: exportToJsonReport(path, metadata, points)
-    Seq->>GUI: Notifica Estado: FINISHED
-```
-
----
-
-## 4. Garantías de Seguridad en Tiempo Real (Real-Time Safety)
-
-| Regla | Implementación en ABDAudioLab |
+| Estado | Significado |
 |---|---|
-| **Zero Memory Allocation** | Búferes preasignados en `LabAudioReceiver::prepare` y `LabStimulusGenerator::prepare`. Ningún vector se redimensiona dentro de `processBlock`. |
-| **Lock-Free Threading** | Uso de `juce::AbstractFifo` y variables atómicas (`std::atomic<bool>`, `std::atomic<int>`). Ningún mutex bloquea el hilo de audio. |
-| **Denormal Protection** | Invocación de `juce::ScopedNoDenormals noDenormals;` en el inicio del callback `LabAudioEngine::audioDeviceIOCallbackWithContext`. |
-| **Entropy & Random Safety** | Prohibido el constructor por defecto de `juce::Random`. El generador de ruido blanco/rosa utiliza un LCG determinista inline (`randomSeed = randomSeed * 1664525u + 1013904223u`). |
-| **Device Fallback Chain** | Cadena jerárquica de 3 pasos en `LabAudioEngine::initializeAudioDevices` para evitar bloqueos por desconexión de dispositivos. |
+| Implementado | El código forma parte del producto o de sus dependencias de build. |
+| Verificado en simulación | Hay prueba automatizada sin dispositivo físico. |
+| Pendiente de banco | Requiere interfaz de audio, cableado o hardware real. |
 
 ---
 
-## 5. Reglas "Never Again" y Patrones de la Skill `juce-audio-hybrid-plugin`
+## 2. Capas actuales
 
-Para garantizar la estabilidad y evitar los errores documentados en proyectos previos de sintetizadores y plugins híbridos:
+```text
++------------------------------------------------------------------------------+
+| Presentación JUCE (main.cpp)                                                  |
+| SoundID UI, cola de ensayos, drawer, diálogos, calibración y ventanas Scope |
++-----------------------------------+------------------------------------------+
+                                    |
+                                    v
++------------------------------- Core ----------------------------------------+
+| ProfilingSequencer | ProfilingSession | contratos JSON | serialización       |
+| SessionSerializer  | análisis y exportación                                  |
++---------------------+-----------------------------+--------------------------+
+                      |                             |
+                      v                             v
++-----------------------------+   +-------------------------------------------+
+| Hardware                    |   | Audio/DSP                                 |
+| IHardwareController          |   | LabAudioEngine                            |
+| Mock, MIDI CC, SysEx, manual |   | estímulo, captura, trim, FFT y métricas  |
++-----------------------------+   +--------------------+----------------------+
+                                                       |
+                                                       v
++------------------------- ABDScope ------------------------------------------+
+| ScopeDataCollector: Hardware In (DUT) | Stimulus Generator | Diagnostic 1kHz|
+| ScopeTap SPSC -> serializador JSON -> JuceWebScopeComponent -> WebView2     |
++------------------------------------------------------------------------------+
+```
 
-### 5.1 Modo de Diagnóstico Multi-Punto y Aislamiento por Bypass Modular
-Cuando se produzca silencio o una medición anómala durante una sesión, el sistema aplica la matriz de aislamiento modular:
-* **Inyección de Tono Diagnóstico (440 Hz / 1 kHz)**: Emisión atómica directa en la salida para aislar fallos del DAC/driver frente a problemas en el hardware analógico o enrutamiento.
-* **Matriz de Localización de Fallos**:
-  - Tono audible en salida pero señal de retorno ausente $\rightarrow$ Fallo de cableado, atenuador o selector de entrada ADC.
-  - Retorno saturado / recortado $\rightarrow$ Ganancia excesiva de entrada; requiere atenuación previa (Gain Staging a $-3\text{ dBfs}$).
-  - Fluctuación excesiva constante ($\sigma > 20\%$) $\rightarrow$ Inestabilidad térmica o acoplamiento por bucle de masa (*ground loop*).
+### 2.1 Presentación
 
-### 5.2 Patrón de Doble Representación (Dual Representation Pattern)
-* **Nivel C++ Nativo / Core**: Utiliza XML para volcado de configuración persistente (`AudioSettings.xml`), inicialización de dispositivos y tablas internas `alignas(16)`.
-* **Nivel Transporte / Reportes**: Utiliza JSON Schema estricto (`TestProfile.json`, reportes exportados `.json`) para garantizar la interoperabilidad sin acoplamiento a frameworks de C++.
+`MainContentComponent` compone la UI y actualmente sigue coordinando parte de la selección de hardware, el ciclo de sesión, persistencia y scopes. Es el principal foco de acoplamiento pendiente de extraer.
 
-### 5.3 Contrato de Normalización Estricta `[0.0, 1.0]` y Des-normalización
-* Todos los controladores y puentes de parámetros transportan valores normalizados `[0.0, 1.0]`.
-* La des-normalización a rangos físicos (MIDI `0..127`, Hz, ms) se realiza explícitamente en C++ mediante `std::lround()` para evitar truncados accidentales a cero que silencien el procesamiento.
+Componentes principales:
 
-### 5.4 Directrices de Portabilidad y Compilación WASM (para Fase 4)
-* **Single-File Packaging**: Inclusión de `-s SINGLE_FILE=1` para embeber el binario Base64 sin peticiones de red asíncronas en AudioWorklets.
-* **Heap Export**: Inclusión explícita de `HEAPF32` en `EXPORTED_RUNTIME_METHODS` para transferencias de buffers de audio con cero copias.
-* **Asignador de Memoria**: Uso de `-s MALLOC=emmalloc` para latencia mínima y huella reducida.
+- `SoundIdSuiteList`, `TestEditorPanel` y `SlideInDrawer`: configuración de ensayos y hardware.
+- `LoopbackCalibrationModal`: calibración DAC -> ADC y ajuste de ganancia de entrada.
+- `ScopeFloatingWindow`: scope C++ nativo heredado, pendiente de retirada cuando ABDScope Web cubra el flujo requerido.
+- `ScopeWebFloatingWindow`: contenedor del scope WebView2 de ABDScope.
+
+### 2.2 Core, sesión y hardware
+
+`ProfilingSequencer` se ejecuta en un hilo de JUCE y usa `IHardwareController` para desacoplar la automatización de los protocolos concretos. Coordina estímulo, captura, análisis y exportación.
+
+Los contratos JSON se cargan mediante `HardwareContractRegistry`; los controladores disponibles incluyen Mock DSP, MIDI CC, Roland AIRA SysEx y operación analógica manual.
+
+`SessionSerializer` está integrado para paquetes de sesión, recuperación y persistencia. `SessionManager` y `HardwareManager` existen como clases de extracción, pero no son aún los orquestadores efectivos de `main.cpp`; deben tratarse como trabajo en curso, no como límites arquitectónicos consolidados.
+
+### 2.3 Motor de audio y tiempo real
+
+`LabAudioEngine` implementa `juce::AudioIODeviceCallback` y es el único punto de I/O en tiempo real.
+
+- Inicializa el dispositivo con una cadena de recuperación de tres pasos.
+- Preasigna buffers L/R por canal antes de procesar audio.
+- Genera estímulos en el DAC mediante `LabStimulusGenerator`.
+- Procesa ADC físico o el loopback del Mock DSP con `LabAudioReceiver`.
+- Publica picos/RMS y FFT para la UI.
+- Aplica `juce::ScopedNoDenormals` al inicio del callback.
+
+Regla: no se permiten reservas de memoria, I/O de disco, logs ni bloqueos en el callback. La ausencia de estas operaciones se revisa en código; la garantía de latencia debe medirse en banco y no se declara aún como una cifra contractual.
+
+### 2.4 Telemetría ABDScope
+
+ABDScope recibe `float` PCM estéreo por taps SPSC. Solo el tap activo recibe muestras, por lo que los scopes nativo y web no deben abrirse simultáneamente sobre el mismo tap.
+
+| Tap | Fuente | Uso y estado |
+|---|---|---|
+| `Hardware In (DUT)` | ADC físico tras trim, o salida del Mock DSP | Verificado en simulación unitaria (L/R + trim + JSON); pendiente de loopback físico con hardware real. |
+| `Stimulus Generator` | Señal enviada al DAC | Verificado en simulación unitaria (generación + tap + JSON). |
+| `Diagnostic 1kHz` | Referencia virtual para el scope; tono físico cuando se activa el modo diagnóstico | Verificado en simulación unitaria; valida renderizado y telemetría, no prueba el ADC por sí solo. |
+
+El camino web es:
+
+```text
+ScopeTap -> ScopeFrameSerializer -> JSON (timeDataL/timeDataR, RMS, peak)
+         -> JuceWebScopeComponent (30 Hz) -> window.__pushScopeFrame()
+         -> ABDScope WebUI
+```
+
+La prueba `test_AudioEngineBounds.cpp` verifica en simulación unitaria que los tres taps (`Hardware In`, `Stimulus Generator` y `Diagnostic 1kHz`) reciben sus señales respectivas, que el trim simétrico se aplica a L/R y que el serializador produce el esquema JSON esperado. No sustituye una prueba de WebView2 real en ventana ni una prueba de audio físico.
+
+### 2.5 Exportación
+
+La salida no se limita a LUT y JSON. El sistema incluye:
+
+- `LutExporter` para tablas y reportes estructurados.
+- `CertificationReportExporter` para reportes de medición.
+- `NamDatasetExporter` para datasets de calibración NAM/RTNeural.
+- `SessionSerializer` para paquetes de sesión y recuperación.
+
+---
+
+## 3. Flujo de una medida
+
+```text
+Usuario/configuración
+  -> ProfilingSequencer (hilo worker)
+  -> IHardwareController: aplica parámetros
+  -> LabStimulusGenerator: genera estímulo en el callback de audio
+  -> DAC -> DUT físico -> ADC                 [pendiente de banco]
+  -> LabAudioReceiver: captura y dispara
+  -> LabAnalyticEngine: análisis
+  -> exportadores / sesión
+
+En paralelo: ADC o Mock -> tap ABDScope -> JSON -> Scope Web
+```
+
+En modo Mock, `Hardware In` representa la salida del DSP simulado. No debe usarse como evidencia de que el ADC físico, el cableado o el DUT real funcionan.
+
+---
+
+## 4. Verificación pendiente
+
+Estas tareas no se consideran completadas hasta contar con resultado reproducible:
+
+1. **Loopback físico DAC -> ADC**: seno conocido, comparación de `Stimulus Generator` y `Hardware In`, comprobación de ganancia, latencia y ambos canales en interfaz física real.
+2. **Smoke test de WebView2**: validación en ejecución del componente gráfico real, temporizador de 30 fps, comunicación IPC y dibujo en canvas web.
+3. **Medición de carga y latencia**: evaluación de tiempo de CPU y jitter del callback bajo tamaños de bloque estándar (64 a 512 muestras) en banco de pruebas.
+
+---
+
+## 5. Decisiones y deuda técnica
+
+- **ABDScope Web es el destino estratégico.** El scope C++ nativo es temporal; no se añadirán nuevas funciones a él salvo correcciones necesarias.
+- **MainContentComponent necesita extracción gradual.** Los candidatos son control de hardware, flujo de sesión y composición de UI.
+- **SessionManager y HardwareManager requieren adopción o eliminación.** No deben permanecer como una segunda arquitectura sin uso.
+- **WASM no forma parte de la arquitectura vigente.** Cuando se decida, deberá registrarse en un ADR o en el roadmap con sus restricciones propias.

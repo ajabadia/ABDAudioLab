@@ -100,9 +100,13 @@ ABDAudioLab/
 
 ---
 
-## 5. Próximos Pasos para la Fase 2
+## 5. Próximos Pasos y Roadmap Técnico
 
-1. Conectar una tarjeta de sonido física con un cable patch entre la salida y la entrada (Lazo Loopback).
-2. Ejecutar la calibración de línea para registrar la coloración basal del conversor D/A $\rightarrow$ A/D.
-3. Conectar el módulo físico **Roland AIRA** por USB y cables de audio, seleccionar el modo *Roland AIRA Modular* y lanzar el barrido automático de los filtros y efectos base.
-4. Verificar los archivos `.h` y `.json` resultantes en la carpeta `exported_luts/`.
+1. **Calibración de Línea Loopback**: Conectar interfaz con cable patch (DAC Out 1 -> ADC In 1) y ejecutar el asistente de auto-trim.
+2. **Pruebas y Perfilado de Hardware Real**: Conectar Roland AIRA u otros sintetizadores para perfilado automático/asistido.
+3. **Automatización MIDI (Ítem 1.7.13)**: Automatización de notas MIDI/CCs/Sysex para sintetizadores sin inyección de estímulo interno.
+4. **Calidad de Código, Unit Tests & Real-Time Hardening (Ítem 1.7.14)**:
+   - Reemplazar fallbacks estáticos en `LabAnalyticEngine` por métricas analíticas 100% reales.
+   - Implementar suite de Unit Tests en `src/tests/` (Catch2/CTest).
+   - Documentación Doxygen completa de encabezados públicos.
+   - Auditoría estricta `Zero Heap Allocation` en el hilo de audio real-time.

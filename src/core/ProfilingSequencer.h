@@ -37,6 +37,7 @@ public:
     using ProgressCallback = std::function<void(float progress0to1, const juce::String& currentTask, SequencerState state)>;
     using PointMeasuredCallback = std::function<void(const exporting::MeasuredPoint& pt)>;
     using TestIndexCallback = std::function<void(int queueIndex, int currentPointInTest, int totalPointsInTest)>;
+    using OperatorStepCallback = std::function<void(const TestCase& currentTestCase, int stepIndex, int totalSteps)>;
 
     ProfilingSequencer(audio::LabAudioEngine& audioEngine,
                        hardware::IHardwareController& hardwareController);
@@ -45,6 +46,12 @@ public:
     void setProgressCallback(ProgressCallback cb) { progressCallback = std::move(cb); }
     void setPointMeasuredCallback(PointMeasuredCallback cb) { pointMeasuredCallback = std::move(cb); }
     void setTestIndexCallback(TestIndexCallback cb) { testIndexCallback = std::move(cb); }
+    void setOperatorStepCallback(OperatorStepCallback cb) { operatorStepCallback = std::move(cb); }
+    void setHardwareController(hardware::IHardwareController* newHardware) noexcept
+    {
+        if (newHardware != nullptr)
+            hardware = newHardware;
+    }
 
     bool startSession(const ProfilingSession& session,
                       const juce::File& outputDirectory,
@@ -64,7 +71,7 @@ public:
 
 private:
     audio::LabAudioEngine& audioEngine;
-    hardware::IHardwareController& hardware;
+    hardware::IHardwareController* hardware { nullptr };
 
     ProfilingSession activeSession;
     juce::File exportDir;
@@ -78,6 +85,7 @@ private:
     ProgressCallback progressCallback;
     PointMeasuredCallback pointMeasuredCallback;
     TestIndexCallback testIndexCallback;
+    OperatorStepCallback operatorStepCallback;
     std::vector<exporting::MeasuredPoint> measuredPoints;
     math::NoiseFloorTracker noiseTracker;
 

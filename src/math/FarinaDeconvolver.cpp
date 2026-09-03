@@ -10,6 +10,29 @@ FarinaDeconvolver::FarinaDeconvolver()
 {
 }
 
+std::vector<float> FarinaDeconvolver::generateLogFarinaSweep(double sampleRate, double durationSec, float startFreqHz, float endFreqHz)
+{
+    const int totalSamples = static_cast<int>(std::lround(durationSec * sampleRate));
+    std::vector<float> sweep(static_cast<size_t>(totalSamples), 0.0f);
+
+    const double twoPi = 2.0 * std::numbers::pi;
+    const double w1 = twoPi * startFreqHz;
+    const double w2 = twoPi * endFreqHz;
+    const double T = durationSec;
+    const double logRatio = std::log(w2 / w1);
+    const double K = (w1 * T) / logRatio;
+    const double L = T / logRatio;
+
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        double t = static_cast<double>(i) / sampleRate;
+        double phase = K * (std::exp(t / L) - 1.0);
+        sweep[static_cast<size_t>(i)] = static_cast<float>(std::sin(phase));
+    }
+
+    return sweep;
+}
+
 std::vector<float> FarinaDeconvolver::generateInverseFilter(double sampleRate, double durationSec, float startFreqHz, float endFreqHz)
 {
     const int totalSamples = static_cast<int>(std::lround(durationSec * sampleRate));
@@ -40,6 +63,18 @@ std::vector<float> FarinaDeconvolver::generateInverseFilter(double sampleRate, d
     return invFilter;
 }
 
+std::vector<float> FarinaDeconvolver::extractImpulseResponse(const std::vector<float>& recordedResponse,
+                                                              const std::vector<float>& stimulusSweep,
+                                                              double sampleRate,
+                                                              double sweepDurationSec,
+                                                              float startFreqHz,
+                                                              float endFreqHz)
+{
+    auto invFilter = generateInverseFilter(sampleRate, sweepDurationSec, startFreqHz, endFreqHz);
+    auto res = deconvolve(recordedResponse, invFilter, sampleRate, sweepDurationSec, startFreqHz, endFreqHz);
+    return res.fullDeconvolvedIR;
+}
+
 DeconvolutionResult FarinaDeconvolver::deconvolve(const std::vector<float>& recordedResponse,
                                                  const std::vector<float>& inverseFilter,
                                                  double sampleRate,
@@ -63,32 +98,36 @@ DeconvolutionResult FarinaDeconvolver::deconvolve(const std::vector<float>& reco
     const size_t fftSize = 1ULL << fftOrder;
     juce::dsp::FFT fft(fftOrder);
 
-    std::vector<std::complex<float>> buffer1(fftSize, { 0.0f, 0.0f });
-    std::vector<std::complex<float>> buffer2(fftSize, { 0.0f, 0.0f });
+    std::vector<std::complex<float>> in1(fftSize, { 0.0f, 0.0f });
+    std::vector<std::complex<float>> in2(fftSize, { 0.0f, 0.0f });
+    std::vector<std::complex<float>> out1(fftSize, { 0.0f, 0.0f });
+    std::vector<std::complex<float>> out2(fftSize, { 0.0f, 0.0f });
 
     for (size_t i = 0; i < n1; ++i)
-        buffer1[i] = { recordedResponse[i], 0.0f };
+        in1[i] = { recordedResponse[i], 0.0f };
 
     for (size_t i = 0; i < n2; ++i)
-        buffer2[i] = { inverseFilter[i], 0.0f };
+        in2[i] = { inverseFilter[i], 0.0f };
 
-    fft.perform(buffer1.data(), buffer1.data(), false);
-    fft.perform(buffer2.data(), buffer2.data(), false);
+    fft.perform(in1.data(), out1.data(), false);
+    fft.perform(in2.data(), out2.data(), false);
 
     // Frequency-domain multiplication
+    std::vector<std::complex<float>> mult(fftSize, { 0.0f, 0.0f });
     for (size_t i = 0; i < fftSize; ++i)
     {
-        buffer1[i] = buffer1[i] * buffer2[i];
+        mult[i] = out1[i] * out2[i];
     }
 
     // Inverse FFT
-    fft.perform(buffer1.data(), buffer1.data(), true);
+    std::vector<std::complex<float>> timeDomain(fftSize, { 0.0f, 0.0f });
+    fft.perform(mult.data(), timeDomain.data(), true);
 
     result.fullDeconvolvedIR.resize(convLen);
     float normFactor = 1.0f / static_cast<float>(fftSize);
     for (size_t i = 0; i < convLen; ++i)
     {
-        result.fullDeconvolvedIR[i] = buffer1[i].real() * normFactor;
+        result.fullDeconvolvedIR[i] = timeDomain[i].real() * normFactor;
     }
 
     // Locate main peak (linear impulse response arrival)

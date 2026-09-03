@@ -6,17 +6,22 @@ namespace abdaudiolab::gui
 
 SoundIdCurvePlotter::SoundIdCurvePlotter()
 {
-    btnCurve.setButtonText(juce::String::fromUTF8(u8"Curve (μ ± σ)"));
-    btnHeatmap.setButtonText(juce::String::fromUTF8(u8"2D Heatmap"));
+    btnCurve.setButtonText(juce::String::fromUTF8(u8"Curve (\u03bc \u00b1 \u03c3)"));
+    btnHeatmap.setButtonText("2D Heatmap");
+    btnSpectrum.setButtonText("Spectrum FFT");
 
-    btnCurve.setTooltip("Display statistical mean response curve (μ) with shaded confidence band (±σ)");
-    btnHeatmap.setTooltip("Display 2D parameter excitation grid heatmap");
+    btnCurve.setTooltip(juce::String::fromUTF8(u8"Display statistical mean response curve (\u03bc) with shaded confidence band (\u00b1\u03c3)"));
+    btnHeatmap.setTooltip("Display 2D parameter excitation grid heatmap with Viridis color scale");
+    btnSpectrum.setTooltip("Live FFT spectrum analyzer (20 Hz - 20 kHz, logarithmic)");
 
     addAndMakeVisible(btnCurve);
     addAndMakeVisible(btnHeatmap);
+    addAndMakeVisible(btnSpectrum);
+    addChildComponent(spectrumAnalyzer);
 
     btnCurve.onClick = [this] { setViewMode(ViewMode::FrequencyCurve); };
     btnHeatmap.onClick = [this] { setViewMode(ViewMode::Heatmap2D); };
+    btnSpectrum.onClick = [this] { setViewMode(ViewMode::SpectrumFFT); };
     setViewMode(ViewMode::FrequencyCurve);
 }
 
@@ -24,6 +29,7 @@ void SoundIdCurvePlotter::clear()
 {
     std::lock_guard<std::mutex> lock(pointsMutex);
     points.clear();
+    highlightedPointIndex = -1;
     repaint();
 }
 
@@ -36,23 +42,67 @@ void SoundIdCurvePlotter::addMeasuredPoint(const exporting::MeasuredPoint& point
     juce::MessageManager::callAsync([this] { repaint(); });
 }
 
+void SoundIdCurvePlotter::setPoints(const std::vector<exporting::MeasuredPoint>& newPoints)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    points = newPoints;
+    highlightedPointIndex = -1;
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::removePoint(int index)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    if (index >= 0 && index < static_cast<int>(points.size()))
+    {
+        points.erase(points.begin() + index);
+        highlightedPointIndex = -1;
+    }
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::setHighlightedPointIndex(int index)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    highlightedPointIndex = index;
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
 void SoundIdCurvePlotter::setViewMode(ViewMode mode)
 {
     currentView = mode;
-    btnCurve.setColour(juce::TextButton::buttonColourId, mode == ViewMode::FrequencyCurve ? SoundIdTheme::pillBlackBg : SoundIdTheme::pillWhiteBg);
-    btnCurve.setColour(juce::TextButton::textColourOffId, mode == ViewMode::FrequencyCurve ? juce::Colours::white : SoundIdTheme::textPrimary);
 
-    btnHeatmap.setColour(juce::TextButton::buttonColourId, mode == ViewMode::Heatmap2D ? SoundIdTheme::pillBlackBg : SoundIdTheme::pillWhiteBg);
-    btnHeatmap.setColour(juce::TextButton::textColourOffId, mode == ViewMode::Heatmap2D ? juce::Colours::white : SoundIdTheme::textPrimary);
+    auto setTab = [](juce::TextButton& btn, bool active) {
+        btn.setColour(juce::TextButton::buttonColourId, active ? SoundIdTheme::pillBlackBg : SoundIdTheme::pillWhiteBg);
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : SoundIdTheme::textPrimary);
+    };
+
+    setTab(btnCurve, mode == ViewMode::FrequencyCurve);
+    setTab(btnHeatmap, mode == ViewMode::Heatmap2D);
+    setTab(btnSpectrum, mode == ViewMode::SpectrumFFT);
+
+    spectrumAnalyzer.setVisible(mode == ViewMode::SpectrumFFT);
     repaint();
+    resized();
 }
 
 void SoundIdCurvePlotter::resized()
 {
     auto area = getLocalBounds();
-    auto topBar = area.removeFromTop(32);
-    btnCurve.setBounds(topBar.removeFromRight(130).reduced(2));
-    btnHeatmap.setBounds(topBar.removeFromRight(110).reduced(2));
+    auto topBar = area.removeFromTop(32).reduced(4, 2);
+
+    // Tab buttons aligned to the right with compact spacing
+    btnSpectrum.setBounds(topBar.removeFromRight(102));
+    topBar.removeFromRight(4);
+    btnHeatmap.setBounds(topBar.removeFromRight(92));
+    topBar.removeFromRight(4);
+    btnCurve.setBounds(topBar.removeFromRight(102));
+
+    // Spectrum analyzer fills the plot area when visible
+    if (currentView == ViewMode::SpectrumFFT)
+    {
+        spectrumAnalyzer.setBounds(area.reduced(4, 0));
+    }
 }
 
 void SoundIdCurvePlotter::paint(juce::Graphics& g)
@@ -65,8 +115,13 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
-    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f);
+    // Reserve right side for buttons (310px) so legend never overlaps tab buttons
+    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(310.0f);
     drawLegend(g, headerArea);
+
+    // Skip painting plot content when spectrum is active (it's a child component)
+    if (currentView == ViewMode::SpectrumFFT)
+        return;
 
     auto plotArea = bounds.reduced(16.0f, 12.0f);
 
@@ -84,23 +139,37 @@ void SoundIdCurvePlotter::drawLegend(juce::Graphics& g, juce::Rectangle<float> l
 {
     g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("Parameter & Frequency Response Curves", legendArea.removeFromLeft(280.0f), juce::Justification::centredLeft, true);
 
-    auto drawDot = [&](const juce::String& text, juce::Colour col, float width)
+    juce::String title;
+    if (currentView == ViewMode::FrequencyCurve)
+        title = "Parameter & Response Curves";
+    else if (currentView == ViewMode::Heatmap2D)
+        title = "2D Parameter Excitation Heatmap";
+    else
+        title = "Live FFT Spectrum Analyzer";
+
+    // Compact title width
+    g.drawText(title, legendArea.removeFromLeft(215.0f), juce::Justification::centredLeft, true);
+
+    if (currentView == ViewMode::FrequencyCurve)
     {
-        auto itemArea = legendArea.removeFromLeft(width);
-        float cy = itemArea.getCentreY();
-        g.setColour(col);
-        g.fillEllipse(itemArea.getX(), cy - 4.0f, 8.0f, 8.0f);
+        auto drawDot = [&](const juce::String& text, juce::Colour col, float width)
+        {
+            if (legendArea.getWidth() < width) return;
+            auto itemArea = legendArea.removeFromLeft(width);
+            float cy = itemArea.getCentreY();
+            g.setColour(col);
+            g.fillEllipse(itemArea.getX(), cy - 4.0f, 8.0f, 8.0f);
 
-        g.setColour(SoundIdTheme::textSecondary);
-        g.setFont(juce::FontOptions(11.5f));
-        g.drawText(text, itemArea.withTrimmedLeft(12.0f), juce::Justification::centredLeft, true);
-    };
+            g.setColour(SoundIdTheme::textSecondary);
+            g.setFont(juce::FontOptions(11.0f));
+            g.drawText(text, itemArea.withTrimmedLeft(11.0f), juce::Justification::centredLeft, true);
+        };
 
-    drawDot(juce::String::fromUTF8(u8"Mean (μ)"), SoundIdTheme::accentGreen, 90.0f);
-    drawDot(juce::String::fromUTF8(u8"±σ Band"), SoundIdTheme::accentPurple, 90.0f);
-    drawDot("THD %", SoundIdTheme::accentAmber, 80.0f);
+        drawDot(juce::String::fromUTF8(u8"Mean (\u03bc)"), SoundIdTheme::accentGreen, 72.0f);
+        drawDot(juce::String::fromUTF8(u8"\u00b1\u03c3 Band"), SoundIdTheme::accentPurple, 72.0f);
+        drawDot("THD %", SoundIdTheme::accentAmber, 55.0f);
+    }
 }
 
 void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<float> plotArea)
@@ -228,10 +297,22 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
         float px = gridBounds.getX() + normX * gridBounds.getWidth();
         float py = gridBounds.getY() + normY * gridBounds.getHeight();
 
-        g.setColour(juce::Colours::white);
-        g.fillEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f);
-        g.setColour(SoundIdTheme::accentGreen);
-        g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
+        if (static_cast<int>(i) == highlightedPointIndex)
+        {
+            g.setColour(SoundIdTheme::accentAmber.withAlpha(0.4f));
+            g.fillEllipse(px - 10.0f, py - 10.0f, 20.0f, 20.0f);
+            g.setColour(SoundIdTheme::accentAmber);
+            g.fillEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f);
+            g.setColour(juce::Colours::white);
+            g.drawEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f, 1.5f);
+        }
+        else
+        {
+            g.setColour(juce::Colours::white);
+            g.fillEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f);
+            g.setColour(SoundIdTheme::accentGreen);
+            g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
+        }
     }
 }
 
@@ -245,6 +326,10 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
         g.drawText("No 2D parameter grid data collected yet.", plotArea, juce::Justification::centred, true);
         return;
     }
+
+    // Reserve space for color bar on the right
+    auto colorBarArea = plotArea.removeFromRight(24.0f);
+    plotArea.removeFromRight(8.0f);
 
     int gridDim = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(points.size()))));
     if (gridDim < 2) gridDim = 2;
@@ -260,21 +345,92 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
     }
     if (std::abs(maxVal - minVal) < 1e-4f) maxVal += 1.0f;
 
+    // Draw cells with Viridis color map
     for (size_t i = 0; i < points.size(); ++i)
     {
         int row = static_cast<int>(i / static_cast<size_t>(gridDim));
         int col = static_cast<int>(i % static_cast<size_t>(gridDim));
 
         float normVal = (points[i].muSigmaValue.mean - minVal) / (maxVal - minVal);
-        juce::Colour cellColor = juce::Colour::fromHSV(0.35f + (normVal * 0.45f), 0.7f, 0.9f, 1.0f);
+        juce::Colour cellColor = viridisColor(normVal);
 
         auto cellRect = juce::Rectangle<float>(plotArea.getX() + col * cellW,
                                                 plotArea.getY() + row * cellH,
                                                 cellW - 1.0f,
                                                 cellH - 1.0f);
         g.setColour(cellColor);
-        g.fillRoundedRectangle(cellRect, 3.0f);
+        g.fillRoundedRectangle(cellRect, 2.0f);
+
+        // Value text overlay on large cells
+        if (cellW > 32.0f && cellH > 18.0f)
+        {
+            g.setColour(normVal > 0.5f ? juce::Colours::white : SoundIdTheme::textPrimary);
+            g.setFont(juce::FontOptions(std::min(9.0f, cellH * 0.5f)));
+            g.drawText(juce::String(points[i].muSigmaValue.mean, 1), cellRect, juce::Justification::centred, false);
+        }
     }
+
+    // Axis labels
+    g.setColour(SoundIdTheme::textMuted);
+    g.setFont(juce::FontOptions(10.0f));
+    g.drawText("Param 1 ->", plotArea.withHeight(14.0f).translated(0.0f, plotArea.getHeight() + 2.0f), juce::Justification::centred, true);
+
+    // Vertical color bar with Viridis gradient
+    for (int y = 0; y < static_cast<int>(colorBarArea.getHeight()); ++y)
+    {
+        float normY = 1.0f - (static_cast<float>(y) / colorBarArea.getHeight());
+        g.setColour(viridisColor(normY));
+        g.fillRect(colorBarArea.getX(), colorBarArea.getY() + static_cast<float>(y), colorBarArea.getWidth(), 1.0f);
+    }
+    g.setColour(SoundIdTheme::borderCard);
+    g.drawRoundedRectangle(colorBarArea, 2.0f, 1.0f);
+
+    // Min/Max labels
+    g.setColour(SoundIdTheme::textMuted);
+    g.setFont(juce::FontOptions(9.0f));
+    g.drawText(juce::String(maxVal, 1), colorBarArea.translated(0.0f, -12.0f).withHeight(12.0f), juce::Justification::centred, false);
+    g.drawText(juce::String(minVal, 1), colorBarArea.translated(0.0f, colorBarArea.getHeight() + 1.0f).withHeight(12.0f), juce::Justification::centred, false);
+}
+
+// Viridis perceptually uniform color map (simplified 8-stop gradient)
+juce::Colour SoundIdCurvePlotter::viridisColor(float t) noexcept
+{
+    t = std::clamp(t, 0.0f, 1.0f);
+
+    // Viridis key colors (from matplotlib)
+    struct ColorStop { float pos; uint8_t r, g, b; };
+    static constexpr ColorStop stops[] = {
+        { 0.00f,  68,   1, 84 },
+        { 0.14f,  72,  35, 116 },
+        { 0.29f,  64,  67, 135 },
+        { 0.43f,  52,  94, 141 },
+        { 0.57f,  33, 144, 140 },
+        { 0.71f,  53, 183, 121 },
+        { 0.86f, 143, 215,  68 },
+        { 1.00f, 253, 231,  37 }
+    };
+
+    // Find segment
+    int idx = 0;
+    for (int i = 0; i < 7; ++i)
+    {
+        if (t >= stops[i].pos && t <= stops[i + 1].pos)
+        {
+            idx = i;
+            break;
+        }
+    }
+
+    float segT = (t - stops[idx].pos) / (stops[idx + 1].pos - stops[idx].pos);
+    segT = std::clamp(segT, 0.0f, 1.0f);
+
+    auto lerp = [](uint8_t a, uint8_t b, float f) -> uint8_t {
+        return static_cast<uint8_t>(static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * f);
+    };
+
+    return juce::Colour(lerp(stops[idx].r, stops[idx + 1].r, segT),
+                        lerp(stops[idx].g, stops[idx + 1].g, segT),
+                        lerp(stops[idx].b, stops[idx + 1].b, segT));
 }
 
 } // namespace abdaudiolab::gui

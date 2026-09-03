@@ -50,6 +50,22 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
                 c.model = midiObj.value("model", std::string(""));
                 c.modelIdHex = midiObj.value("modelIdHex", std::string(""));
                 c.autoDetectSysEx = midiObj.value("autoDetectSysEx", std::string(""));
+
+                c.midiIdentity.manufacturer = c.manufacturer;
+                c.midiIdentity.manufacturerIdHex = midiObj.value("manufacturerIdHex", std::string(""));
+                c.midiIdentity.model = c.model;
+                c.midiIdentity.modelIdHex = c.modelIdHex;
+                c.midiIdentity.familyIdHex = midiObj.value("familyIdHex", std::string(""));
+                c.midiIdentity.sysexHeaderHex = midiObj.value("sysexHeaderHex", std::string(""));
+
+                if (midiObj.contains("portNameMatches") && midiObj["portNameMatches"].is_array())
+                {
+                    for (const auto& item : midiObj["portNameMatches"])
+                    {
+                        if (item.is_string())
+                            c.midiIdentity.portNameMatches.push_back(item.get<std::string>());
+                    }
+                }
             }
 
             // Parse Functions (Schema v2)

@@ -14,10 +14,11 @@ LabAudioReceiver::LabAudioReceiver()
 void LabAudioReceiver::prepare(double newSampleRate, double maxBufferSeconds)
 {
     sampleRate = (newSampleRate > 0.0) ? newSampleRate : 96000.0;
-    ringBufferSize = static_cast<int>(std::ceil(sampleRate * maxBufferSeconds)) + 4096;
+    int newSize = static_cast<int>(std::ceil(sampleRate * maxBufferSeconds)) + 4096;
     
-    ringBuffer.assign(static_cast<size_t>(ringBufferSize), 0.0f);
-    fifo.setTotalSize(ringBufferSize);
+    ringBuffer.assign(static_cast<size_t>(newSize), 0.0f);
+    fifo.setTotalSize(newSize);
+    ringBufferSize.store(newSize, std::memory_order_release);
     
     reset();
 }
@@ -33,22 +34,24 @@ void LabAudioReceiver::reset()
 void LabAudioReceiver::armCapture(int numSamplesToRecord, float triggerThresholdLinear)
 {
     reset();
-    targetSamples.store(std::min(numSamplesToRecord, ringBufferSize - 1024), std::memory_order_relaxed);
-    triggerThreshold = triggerThresholdLinear;
+    int bufSize = ringBufferSize.load(std::memory_order_acquire);
+    targetSamples.store(std::min(numSamplesToRecord, bufSize - 1024), std::memory_order_relaxed);
+    triggerThreshold.store(triggerThresholdLinear, std::memory_order_relaxed);
     state.store(ReceiverState::WaitingForTrigger, std::memory_order_release);
 }
 
 void LabAudioReceiver::armContinuousCapture(int numSamplesToRecord)
 {
     reset();
-    targetSamples.store(std::min(numSamplesToRecord, ringBufferSize - 1024), std::memory_order_relaxed);
-    triggerThreshold = 0.0f; // Start immediately
+    int bufSize = ringBufferSize.load(std::memory_order_acquire);
+    targetSamples.store(std::min(numSamplesToRecord, bufSize - 1024), std::memory_order_relaxed);
+    triggerThreshold.store(0.0f, std::memory_order_relaxed); // Start immediately
     state.store(ReceiverState::Recording, std::memory_order_release);
 }
 
 void LabAudioReceiver::processBlock(const float* inputBuffer, int numSamples) noexcept
 {
-    auto currentState = state.load(std::memory_order_relaxed);
+    auto currentState = state.load(std::memory_order_acquire);
     if (currentState == ReceiverState::Idle || currentState == ReceiverState::Finished || inputBuffer == nullptr)
         return;
 
@@ -56,10 +59,11 @@ void LabAudioReceiver::processBlock(const float* inputBuffer, int numSamples) no
 
     if (currentState == ReceiverState::WaitingForTrigger)
     {
+        float threshold = triggerThreshold.load(std::memory_order_relaxed);
         // Search for first sample above threshold
         for (int i = 0; i < numSamples; ++i)
         {
-            if (std::abs(inputBuffer[i]) >= triggerThreshold)
+            if (std::abs(inputBuffer[i]) >= threshold)
             {
                 sampleOffset = i;
                 currentState = ReceiverState::Recording;

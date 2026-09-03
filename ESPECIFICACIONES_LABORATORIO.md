@@ -4,11 +4,11 @@
 
 | Campo | Valor |
 |---|---|
-| **Versión del documento** | 1.1 |
-| **Estado** | Aprobado para desarrollo (Actualizado con specs SysEx, FSK y papers de investigación) |
-| **Audiencia** | Equipo de desarrollo (junior), QA, diseño |
-| **Fecha** | 2026-09-01 |
-| **Fuentes y Recursos** | `docs/google ia research/001.txt`, [AIRA_Modular_Effects-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) (Mugenkidou SysEx spec), [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md), [audio-latency-examiner-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/audio-latency-examiner-main/README.md), [NeuralAudio-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/NeuralAudio-main/README.md), [134-AES00.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/134-AES00.pdf) (Angelo Farina Swept-Sine), [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) (Takeo Sasai et al.), [Plan Master PDF](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf), `juce-audio-hybrid-plugin` skill |
+| **Versión del documento** | 1.2 |
+| **Estado** | Aprobado para desarrollo (Actualizado con ABDScope Suite, ResourceProvider y ABDSharedCode) |
+| **Audiencia** | Equipo de desarrollo, QA, diseño |
+| **Fecha** | 2026-09-02 |
+| **Fuentes y Recursos** | `docs/google ia research/001.txt`, [AIRA_Modular_Effects-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) (Mugenkidou SysEx spec), [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md), [audio-latency-examiner-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/audio-latency-examiner-main/README.md), [NeuralAudio-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/NeuralAudio-main/README.md), [134-AES00.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/134-AES00.pdf) (Angelo Farina Swept-Sine), [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) (Takeo Sasai et al.), [Plan Master PDF](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf), `juce-audio-hybrid-plugin` skill, `ABDScope` (`D:\desarrollos\ABDSynths\ABDScope`), `ABDSharedCode` (`D:\desarrollos\ABDSynths\ABDSharedCode`) |
 | **Idioma** | Español (código e identificadores en inglés) |
 
 ---
@@ -26,12 +26,13 @@
 9. [Especificación del protocolo FSK](#9-especificación-del-protocolo-fsk)
 10. [Especificación del laboratorio](#10-especificación-del-laboratorio)
 11. [Especificación del motor analítico](#11-especificación-del-motor-analítico)
-12. [Especificación de la WebUI](#12-especificación-de-la-webui)
+12. [Especificación de la Interfaz de Usuario y Telemetría](#12-especificación-de-la-interfaz-de-usuario-panel-de-control-y-monitorización-del-lab)
 13. [Requisitos no funcionales](#13-requisitos-no-funcionales)
 14. [Criterios de aceptación por fase](#14-criterios-de-aceptación-por-fase)
 15. [Flujo de trabajo del equipo](#15-flujo-de-trabajo-del-equipo)
 16. [Riesgos y preguntas abiertas](#16-riesgos-y-preguntas-abiertas)
 17. [Anexos](#17-anexos)
+18. [Especificación técnica de ampliación (Fase 1.5)](#18-especificación-técnica-de-ampliación-fase-15)
 
 ---
 
@@ -57,12 +58,13 @@ Este documento define, con el máximo nivel de detalle, las especificaciones fun
 - Consola y panel de control/monitorización del laboratorio.
 - Soporte para los 4 módulos Roland AIRA Modular como primer perfil oficial de calibración.
 
-**Excluido de ABDAudioLab (Pertenecen a otros proyectos):**
+**Excluido de ABDAudioLab (Pertenecen a otros proyectos o fases de emulación):**
 
 - **El Editor / Customizer interactivo de parches Roland AIRA** (Proyecto independiente).
-- **El plugin VST3 emulador** (Fase 4 del proyecto padre — el laboratorio solo produce sus datos numéricos de entrada).
+- **Los plugins VST3 / emuladores finales** (Pertenecen a los proyectos de emulación de sintetizadores en `ABDSynths` — el laboratorio solo mide, perfila, analiza y exporta datos numéricos, LUTs y datasets de calibración).
+- **Módem de Audio FSK** (Descartado de este proyecto: el laboratorio se comunica exclusivamente vía USB SysEx, MIDI CC y control guiado).
+- **Inferencia Neuronal en Tiempo Real** (RTNeural pertenece a los plugins VST3/AU de emulación en tiempo real; ABDAudioLab implementa exclusivamente la **Generación y Exportación de Datasets de Calibración NAM / RTNeural** con alineamiento de fase y compensación de latencia, ver `RF-41`).
 - Soporte macOS/Linux.
-- Descifrado automático completo del bitstream FSK (el laboratorio consume el diccionario; su producción es una subtarea de calibración, sección 9.6).
 
 ### 1.3 Audiencia
 
@@ -839,6 +841,37 @@ Uso posterior: detectar deriva térmica del rack; si el ruido de fondo sube (ej.
 | RF-38 | **Desbloqueo de Audio en Web / Standalone**: Ejecutar obligatoriamente `await this.audioCtx.resume()` ante la primera interacción del usuario (`pointerdown` o clic) para desbloquear el motor de audio web en navegadores modernos. |
 | RF-39 | **Contrato de Normalización Estricta [0.0, 1.0]**: Todos los mensajes de sliders/knobs entre WebUI y C++ transportarán valores normalizados en el rango `[0.0, 1.0]`. La des-normalización a unidades físicas o rangos MIDI (`0..127`, `Hz`, `ms`) se realizará en el C++ Bridge utilizando escalado explícito y `std::lround()` para evitar truncados accidentales a cero. |
 
+### 12.9 Módulo de Telemetría Avanzada (ABDScope Suite)
+
+Para la monitorización de señales complejas en tiempo real durante la calibración y el perfilado acústico, el laboratorio integra la suite **ABDScope** (`D:\desarrollos\ABDSynths\ABDScope`) con arquitectura dual desacoplada:
+
+1. **Ventana Flotante WebUI (`Scope (Web)`)**:
+   - Aloja el motor `ABDScope` completo en modo `embedded` dentro de un `juce::DocumentWindow`.
+   - **Multi-Lane Grid**: Visualización de hasta 4 carriles simultáneos con selección independiente de puntos de prueba.
+   - **Espectrograma 2D en Cascada (Waterfall)**: Renderizado continuo acelerado por GPU con mapa de color Viridis/Cyberpunk.
+   - **Modos de Análisis**: Osciloscopio con detector de frecuencia/nota fundamental, analizador de espectro FFT, vectorscopio Lissajous $45^\circ$, medidor de correlación de fase y vúmetros estéreo.
+   - **Entrega Embebida de Recursos (`ResourceProvider`)**: Todos los assets web (`index.html`, módulos ES6 en `src/`) se empaquetan en el binario mediante `juce_add_binary_data(ABDScopeWebAssets)` y se sirven vía `juce::WebBrowserComponent::Options::withResourceProvider(abd::scope::scopeResourceProvider)`. Esto garantiza compatibilidad total con WebView2 sin abrir puertos HTTP ni sufrir bloqueos por políticas CORS locales (`file://`).
+   - **Puntos de Escucha (Audio Taps)**:
+     - `Hardware In (DUT)`: Señal de retorno del dispositivo bajo prueba.
+     - `Stimulus Generator`: Señal analítica generada por el secuenciador.
+     - `Diagnostic 1kHz`: Tono de referencia puro.
+   - **Pipeline Lock-Free**: `ScopeTap` (búfer SPSC lock-free) $\rightarrow$ `ScopeFrameSerializer` (30 FPS decimation pump) $\rightarrow$ JSON Wire Protocol $\rightarrow$ `window.__pushScopeFrame()`.
+
+2. **Ventana Flotante C++ Nativa (`Scope (C++)`)**:
+   - Aloja `abd::scope::JuceScopeComponent` implementado al 100% en JUCE Graphics nativo.
+   - Proporciona un respaldo de telemetría inmediato y ultraligero sin dependencias de WebView2 ni sobrecarga de GPU.
+
+### 12.10 Código Compartido y Actualizaciones Automáticas (ABDSharedCode)
+
+El proyecto adopta la librería corporativa **ABDSharedCode** (`D:\desarrollos\ABDSynths\ABDSharedCode`) siguiendo la filosofía de cero duplicación y módulos puros:
+
+1. **Módulo `ABDShared::AutoUpdater`**:
+   - Comprobador de versiones y releases asíncrono ejecutado en un hilo secundario (`juce::Thread`), completamente desacoplado del hilo de audio y de la GUI.
+   - Consulta a la API de GitHub (`/repos/ajabadia/ABDAudioLab/releases/latest`) comparando el tag remoto con `BuildVersion.h`.
+   - Persistencia de estado de comprobación en `AppData/Roaming/ABDAudioLab/updater_state.json` para respetar los límites de la API.
+   - Integración nativa mediante CMake con fallback automático a `FetchContent` para entornos de integración continua (CI/CD).
+
+
 ---
 
 ## 13. REQUISITOS NO FUNCIONALES
@@ -1127,6 +1160,9 @@ Guía de consulta de los archivos de investigación ubicados en `docs/google ia 
 | `RF-32` | **Barrido Multinivel de Amplitud** | Inyección de estímulos a diferentes escalones de volumen ($-18, -12, -6, 0\text{ dBfs}$) para extraer curvas de transferencia no lineales dependientes del nivel de excitación. |
 | `RF-33` | **Interpolador Multidimensional 2D** | Motor de interpolación bilineal/bicúbica para expandir matrices cuantizadas (ej. 16x16) a resolución completa 128x128 en las Look-Up Tables generadas. |
 | `RF-34` | **Checkpoints de Sesión y Recuperación** | Guardado periódico del progreso en `session_checkpoint.json` para reanudar sesiones nocturnas si ocurre una desconexión accidental del hardware. |
+| `RF-40` | **Identificación de Sistemas Wiener-Hammerstein (LNL)** | Descomposición en cascada Linear-Nonlinear-Linear ($h_1 \rightarrow u+a\cdot u^3 \rightarrow h_2$) ajustada simultáneamente mediante retropropagación analítica y optimizador Adam según Takeo Sasai et al. (2020) para pedales, saturadores analógicos y no-linealidades con memoria. |
+| `RF-41` | **Generación y Exportación de Datasets NAM / RTNeural** | Generación de secuencia de audio multietapa estandarizada (`StimulusType::NamCalibration` con pulsos de sincronía de 1 kHz, ráfagas multinivel de ruido blanco/rosa, barrido sinusoidal dinámico y trenes de pulsos armónicos) y exportación sample-accurate de pares `input.wav` y `target.wav` alineados por correlación cruzada junto con el manifiesto `nam_dataset_manifest.json` para entrenamiento externo con PyTorch. |
+| `RF-42` | **Actualización Automática Desacoplada (AutoUpdater)** | Integración del módulo compartido `ABDShared::AutoUpdater` (procedente de `ABDSharedCode`) conectado a la API de GitHub Releases para la comprobación desatendida y manual de nuevas versiones de `ABDAudioLab`, permitiendo la descarga de binarios actualizados. |
 
 ### 18.2 Requisitos Funcionales de la Interfaz Gráfica (GUI)
 

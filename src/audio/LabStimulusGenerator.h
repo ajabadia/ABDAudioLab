@@ -1,8 +1,10 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
 #include <cstdint>
+#include <atomic>
 
 namespace abdaudiolab::audio
 {
@@ -17,7 +19,8 @@ enum class StimulusType
     SineWave1kHz,
     SquareWave1kHz,
     LogFarinaSweep,
-    AmplitudeRamp
+    AmplitudeRamp,
+    NamCalibration     // Full multi-stage Neural Calibration sequence (Sync, dynamic sweep, noise bursts, multitone transients)
 };
 
 /**
@@ -36,6 +39,13 @@ public:
 
     void setStimulus(StimulusType type, double durationSeconds = 2.0, float startFreqHz = 20.0f, float endFreqHz = 20000.0f);
 
+    /**
+     * @brief Generates a complete standalone NAM calibration sequence buffer.
+     * @param sampleRate Target audio sampling rate (e.g. 48000 or 96000).
+     * @param durationSeconds Total length of the sequence (default 9.0s).
+     */
+    static juce::AudioBuffer<float> generateNamCalibrationBuffer(double sampleRate, double durationSeconds = 9.0);
+
     [[nodiscard]] bool isPlaying() const noexcept { return playing; }
     [[nodiscard]] bool hasFinished() const noexcept { return finished; }
     [[nodiscard]] int64_t getCurrentSampleIndex() const noexcept { return currentSampleIndex; }
@@ -46,11 +56,11 @@ public:
 private:
     double sampleRate { 96000.0 };
     StimulusType currentType { StimulusType::Silence };
-    bool playing { false };
-    bool finished { false };
+    std::atomic<bool> playing { false };
+    std::atomic<bool> finished { false };
 
-    int64_t currentSampleIndex { 0 };
-    int64_t totalSamples { 0 };
+    std::atomic<int64_t> currentSampleIndex { 0 };
+    std::atomic<int64_t> totalSamples { 0 };
 
     float startFreq { 20.0f };
     float endFreq { 20000.0f };

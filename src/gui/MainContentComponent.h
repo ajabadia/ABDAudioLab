@@ -1,0 +1,1724 @@
+/**
+ * @file MainContentComponent.h
+ * @brief Main application content component: hardware selection, session plan, measurement
+ *        sequencing, live visualization, and session management UI orchestration.
+ */
+
+#pragma once
+
+#include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_gui_extra/juce_gui_extra.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+
+#include "BuildVersion.h"
+#include "audio/LabAudioEngine.h"
+#include "core/HardwareContractRegistry.h"
+#include "core/ProfilingSession.h"
+#include "core/ProfilingSequencer.h"
+#include "core/SessionSerializer.h"
+#include "core/SessionManager.h"
+#include "core/HardwareManager.h"
+
+#include "gui/SoundIdTheme.h"
+#include "gui/SoundIdCurvePlotter.h"
+#include "gui/SoundIdMeterStrip.h"
+#include "gui/SoundIdSuiteList.h"
+#include "gui/SlideInDrawer.h"
+#include "gui/InfoDrawer.h"
+#include "gui/AboutModalDialog.h"
+#include "gui/LoopbackCalibrationModal.h"
+#include "gui/HardwareSelectorPill.h"
+#include "gui/SoundIdSplashScreen.h"
+#include "gui/MeasurementHealthPanel.h"
+#include "gui/OperatorStepModalDialog.h"
+#include "gui/ConfirmationModalDialog.h"
+#include "gui/ScopeFloatingWindow.h"
+#include "gui/ScopeWebFloatingWindow.h"
+#include "export/CertificationReportExporter.h"
+#include "export/NamDatasetExporter.h"
+#include "config/AutoUpdaterConfig.h"
+#include <AutoUpdater/AutoUpdater.h>
+
+namespace abdaudiolab
+{
+
+inline std::string mapBadgeToBlockType(const juce::String& badgeText)
+{
+    if (badgeText == "FLT") return "SpectrumFilter";
+    if (badgeText == "ENV") return "TimeDynamic";
+    if (badgeText == "SAT") return "WaveShaper";
+    if (badgeText == "MOD") return "CyclicModulator";
+    if (badgeText == "WNH") return "WienerHammerstein";
+    if (badgeText == "NAM") return "NeuralCalibration";
+    return "AmplitudeGain";
+}
+
+inline hardware::AiraModel mapHardwareIdToAiraModel(const juce::String& hwId)
+{
+    if (hwId == "roland_aira_bitrazer") return hardware::AiraModel::Bitrazer;
+    if (hwId == "roland_aira_demora")   return hardware::AiraModel::Demora;
+    if (hwId == "roland_aira_torcido")  return hardware::AiraModel::Torcido;
+    if (hwId == "roland_aira_scooper")  return hardware::AiraModel::Scooper;
+    return hardware::AiraModel::GenericModular;
+}
+
+inline void applyBadgeForStimulus(gui::QueueItem& item, audio::StimulusType type)
+{
+    if (type == audio::StimulusType::SyncPulses3)
+    {
+        item.badgeText = "ENV";
+        item.badgeColor = juce::Colour(0xff8b5cf6);
+    }
+    else if (type == audio::StimulusType::AmplitudeRamp)
+    {
+        item.badgeText = "SAT";
+        item.badgeColor = juce::Colour(0xfff59e0b);
+    }
+    else if (type == audio::StimulusType::SineWave1kHz)
+    {
+        item.badgeText = "MOD";
+        item.badgeColor = juce::Colour(0xff0284c7);
+    }
+    else
+    {
+        item.badgeText = "FLT";
+        item.badgeColor = juce::Colour(0xff10b981);
+    }
+}
+
+class MonochromeInfoButton : public juce::Button
+{
+public:
+    MonochromeInfoButton() : juce::Button("InfoButton")
+    {
+        setTooltip("System telemetry & active routing information");
+    }
+
+    void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+
+        if (shouldDrawButtonAsDown)
+        {
+            g.setColour(gui::SoundIdTheme::bgCardHover);
+            g.fillEllipse(bounds);
+        }
+        else if (shouldDrawButtonAsHighlighted)
+        {
+            g.setColour(gui::SoundIdTheme::bgCard);
+            g.fillEllipse(bounds);
+        }
+
+        // Circular outline
+        g.setColour(gui::SoundIdTheme::borderCard);
+        g.drawEllipse(bounds.reduced(2.0f), 1.2f);
+
+        // "i" text
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        g.setColour(gui::SoundIdTheme::textPrimary);
+        g.drawText("i", bounds, juce::Justification::centred, false);
+    }
+};
+
+class MainContentComponent : public juce::Component,
+                             public juce::Timer,
+                             public juce::KeyListener
+{
+public:
+    MainContentComponent()
+        : mockController(),
+          sequencer(audioEngine, mockController)
+    {
+        setLookAndFeel(&soundIdTheme);
+
+        // 1. Initialize Audio Engine & Restore State
+        juce::File appData = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("ABDAudioLab");
+        settingsFile = appData.getChildFile("AudioSettings.xml");
+        audioEngine.initializeAudioDevices(settingsFile);
+        audioEngine.setMockHardware(&mockController);
+
+        // Load Contract Specifications Dynamically from contracts/hardware/ via relative traversal
+        std::vector<juce::File> roots = {
+            juce::File::getCurrentWorkingDirectory(),
+            juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory()
+        };
+
+        for (auto root : roots)
+        {
+            for (int i = 0; i < 6; ++i)
+            {
+                auto direct = root.getChildFile("contracts").getChildFile("hardware");
+                if (direct.isDirectory() && contractRegistry.loadContractsFromDirectory(direct))
+                    break;
+
+                auto shared = root.getChildFile("ABDSharedAssets").getChildFile("contracts");
+                if (shared.isDirectory() && contractRegistry.loadContractsFromDirectory(shared))
+                    break;
+
+                auto siblingShared = root.getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
+                if (siblingShared.isDirectory() && contractRegistry.loadContractsFromDirectory(siblingShared))
+                    break;
+
+                root = root.getParentDirectory();
+            }
+            if (contractRegistry.hasContracts())
+                break;
+        }
+
+        if (!contractRegistry.hasContracts())
+        {
+            juce::Logger::writeToLog("[HardwareContractRegistry ERROR] " + juce::String(contractRegistry.getLastError()));
+        }
+
+        // Default export directory
+        exportDirectory = juce::File::getCurrentWorkingDirectory().getChildFile("exported_luts");
+        exportDirectory.createDirectory();
+
+        // 2. Setup Manual Controller Callback (Only active in Manual Analogue mode)
+        manualController.setPromptCallback([this](const juce::String& paramName, float norm, int raw) {
+            juce::MessageManager::callAsync([this, paramName, norm, raw]() {
+                manualPromptLabel.setText("MANUAL ACTION: Adjust [" + paramName + "] to " + 
+                                          juce::String(norm, 2) + " (Raw: " + juce::String(raw) + ") and press SPACEBAR", 
+                                          juce::dontSendNotification);
+                confirmManualButton.setEnabled(true);
+                confirmManualButton.setVisible(true);
+                manualPromptLabel.setVisible(true);
+                resized();
+            });
+        });
+
+        // 3. UI Header
+        titleLabel.setText("ABDAudioLab", juce::dontSendNotification);
+        titleLabel.setFont(juce::FontOptions(20.0f, juce::Font::bold));
+        titleLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::textPrimary);
+        addAndMakeVisible(titleLabel);
+
+        // Populate Hardware Selector from Contract Registry
+        std::vector<gui::HardwareItem> hwItems;
+        for (const auto& c : contractRegistry.getContracts())
+        {
+            gui::HardwareItem item;
+            item.id = juce::String(c.id);
+            item.displayName = juce::String(c.displayName);
+            item.description = juce::String(c.description);
+            item.category = juce::String(c.deviceType);
+            item.brand = juce::String(c.brand);
+            item.brandLogo = juce::String(c.brandLogo);
+            item.modelImage = juce::String(c.modelImage);
+
+            for (const auto& f : c.functions)
+            {
+                gui::FunctionItem fItem;
+                fItem.id = juce::String(f.id);
+                fItem.name = juce::String(f.name);
+                fItem.blockType = juce::String(f.blockType);
+                fItem.stimulusOutput = juce::String(f.routingGuide.stimulusOutput);
+                fItem.responseInput = juce::String(f.routingGuide.responseInput);
+                fItem.notes = juce::String(f.routingGuide.notes);
+                fItem.captureMode = juce::String(f.captureMode);
+                fItem.defaultBurstDurationSec = f.defaultBurstDurationSec;
+                for (const auto& ctrl : f.controls)
+                {
+                    gui::ControlItem cItem;
+                    cItem.name = juce::String(ctrl.name);
+                    cItem.type = juce::String(ctrl.type);
+                    fItem.controls.push_back(cItem);
+                }
+                item.functions.push_back(fItem);
+            }
+            hwItems.push_back(item);
+        }
+        drawer.setHardwareList(hwItems);
+        drawer.setContracts(contractRegistry.getContracts());
+        drawer.setHardwareLocked(true);
+
+        // Header Action Buttons
+        btnFileMenu.setButtonText("File v");
+        btnFileMenu.setTooltip("Session management: New, Open, Save, Save As, Target Folder, and Exit");
+        btnFileMenu.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnFileMenu.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+        btnFileMenu.onClick = [this] { drawer.openFileDrawer(exportDirectory.getFullPathName()); };
+        addAndMakeVisible(btnFileMenu);
+
+        btnScopeWeb.setButtonText("Scope (Web)");
+        btnScopeWeb.setTooltip("Open ABDScope Studio Web Telemetry visualizer (Multi-Lane, Waterfall, Freeze, Snapshot)");
+        btnScopeWeb.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnScopeWeb.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+        btnScopeWeb.onClick = [this] { toggleScopeWebWindow(); };
+        addAndMakeVisible(btnScopeWeb);
+
+        btnScopeNative.setButtonText("Scope (C++)");
+        btnScopeNative.setTooltip("Open ABDScope Native C++ visualizer (Oscilloscope, FFT, Lissajous, Phase)");
+        btnScopeNative.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnScopeNative.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+        btnScopeNative.onClick = [this] { toggleScopeWindow(); };
+        addAndMakeVisible(btnScopeNative);
+
+        btnCalibratePill.setButtonText("Line Calibration: -3.0 dBFS");
+        btnCalibratePill.setTooltip("Run loopback line calibration wizard to characterize DAC->ADC latency and frequency response");
+        btnCalibratePill.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+        btnCalibratePill.onClick = [this] { loopbackModal.showDialog(this); };
+        addAndMakeVisible(btnCalibratePill);
+
+        juce::String initialHwName = hwItems.empty() ? "Mock VA DSP (Self-Test)" : hwItems[0].displayName;
+        juce::String initialFuncName = (!hwItems.empty() && !hwItems[0].functions.empty()) ? hwItems[0].functions[0].name : "Standard";
+        btnHardwareSelector.setHardwareInfo(initialHwName, initialFuncName, drawer.getActiveModelRasterImage(), gui::HardwareConnectionStatus::NotApplicable);
+        btnHardwareSelector.onClick = [this] { drawer.openHardwareDrawer(); };
+        addAndMakeVisible(btnHardwareSelector);
+
+        // Info Button (Opens Setup & Telemetry Drawer)
+        btnInfo.onClick = [this] { showInfoDrawer(); };
+        addAndMakeVisible(btnInfo);
+
+        // 4. Center Curve Plotter & Real-Time Visualization
+        addAndMakeVisible(healthPanel);
+        addAndMakeVisible(curvePlotter);
+
+        // 5. Bottom Test Queue (Session Test Plan & CRUD)
+        suiteList.onAddStandardClicked = [this] {
+            juce::String selectedHwId = drawer.getSelectedHardwareId();
+            juce::String selectedFuncId = drawer.getSelectedFunctionId();
+            const auto* contract = contractRegistry.findContractById(selectedHwId.toStdString());
+            if (contract == nullptr || contract->functions.empty()) return;
+
+            const auto* targetFunc = &contract->functions[0];
+            for (const auto& func : contract->functions)
+            {
+                if (func.id == selectedFuncId.toStdString())
+                {
+                    targetFunc = &func;
+                    break;
+                }
+            }
+
+            const auto& f = *targetFunc;
+            gui::TestConfiguration stdConf;
+            stdConf.testName = juce::String(contract->displayName) + " (" + juce::String(f.name) + ")";
+            if (f.blockType == "TimeDynamic") stdConf.stimulusType = audio::StimulusType::SyncPulses3;
+            else if (f.blockType == "WaveShaper") stdConf.stimulusType = audio::StimulusType::AmplitudeRamp;
+            else if (f.blockType == "CyclicModulator") stdConf.stimulusType = audio::StimulusType::SineWave1kHz;
+            else stdConf.stimulusType = audio::StimulusType::LogFarinaSweep;
+
+            stdConf.burstDurationSec = f.defaultBurstDurationSec > 0.05f ? f.defaultBurstDurationSec : 1.0f;
+            stdConf.captureMode = f.captureMode;
+
+            stdConf.controls.clear();
+            for (size_t k = 0; k < f.controls.size(); ++k)
+            {
+                gui::ControlStepConfig cs;
+                cs.name = f.controls[k].name;
+                cs.type = f.controls[k].type;
+                cs.steps = (k == 0) ? 8 : ((k == 1) ? 4 : 1);
+                stdConf.controls.push_back(cs);
+            }
+
+            drawer.openTestEditorDrawer(stdConf, -1);
+        };
+
+        suiteList.onAddCustomClicked = [this] {
+            gui::TestConfiguration customConf;
+            customConf.testName = "Custom Profile";
+            customConf.stimulusType = audio::StimulusType::LogFarinaSweep;
+            customConf.burstDurationSec = 1.0f;
+            customConf.captureMode = "FIXED_TIME";
+            
+            juce::String selectedHwId = drawer.getSelectedHardwareId();
+            juce::String selectedFuncId = drawer.getSelectedFunctionId();
+            const auto* contract = contractRegistry.findContractById(selectedHwId.toStdString());
+            if (contract != nullptr && !contract->functions.empty())
+            {
+                const auto* targetFunc = &contract->functions[0];
+                for (const auto& func : contract->functions)
+                {
+                    if (func.id == selectedFuncId.toStdString())
+                    {
+                        targetFunc = &func;
+                        break;
+                    }
+                }
+                const auto& f = *targetFunc;
+                for (const auto& c : f.controls)
+                {
+                    gui::ControlStepConfig cs;
+                    cs.name = c.name;
+                    cs.type = c.type;
+                    cs.steps = 4;
+                    customConf.controls.push_back(cs);
+                }
+            }
+            drawer.openTestEditorDrawer(customConf, -1);
+        };
+
+        suiteList.onEditTestClicked = [this](int index, const gui::QueueItem& item) {
+            if (item.status == gui::QueueItemStatus::Completed || item.status == gui::QueueItemStatus::Incomplete)
+            {
+                confirmationModal.show(
+                    this,
+                    "Edit Completed Test",
+                    "Modifying the parameters of '" + item.title + "' will invalidate its recorded measurements.\n\nDo you want to proceed and re-queue this test?",
+                    "Edit & Invalidate",
+                    "",
+                    "Cancel",
+                    [this, index, item](gui::ConfirmationModalDialog::Result result) {
+                        if (result == gui::ConfirmationModalDialog::Result::Primary)
+                        {
+                            gui::TestConfiguration conf;
+                            conf.testName = item.title;
+                            conf.stimulusType = item.stimulusType;
+                            conf.burstDurationSec = item.burstDurationSec;
+                            conf.captureMode = item.captureMode;
+                            conf.controls = item.controls;
+                            drawer.openTestEditorDrawer(conf, index);
+                        }
+                    }
+                );
+            }
+            else
+            {
+                gui::TestConfiguration conf;
+                conf.testName = item.title;
+                conf.stimulusType = item.stimulusType;
+                conf.burstDurationSec = item.burstDurationSec;
+                conf.captureMode = item.captureMode;
+                conf.controls = item.controls;
+                drawer.openTestEditorDrawer(conf, index);
+            }
+        };
+
+        suiteList.onRequestDeleteTest = [this](int index, const gui::QueueItem& item) {
+            promptDeleteTest(index, item);
+        };
+
+        drawer.onTestConfigConfirmed = [this](const gui::TestConfiguration& conf, int editingIndex) {
+            gui::QueueItem item;
+            item.title = conf.testName;
+            item.stimulusType = conf.stimulusType;
+            item.burstDurationSec = conf.burstDurationSec;
+            item.captureMode = conf.captureMode;
+            item.controls = conf.controls;
+            item.totalPoints = conf.getTotalMeasurementPoints();
+
+            applyBadgeForStimulus(item, conf.stimulusType);
+
+            juce::String formulaStr;
+            for (const auto& c : item.controls) {
+                if (c.steps > 1) {
+                    if (formulaStr.isNotEmpty()) formulaStr += " x ";
+                    formulaStr += juce::String(c.steps);
+                }
+            }
+            item.description = juce::String::fromUTF8(u8"Sweep â€¢ ") + formulaStr + " = " + juce::String(item.totalPoints) + " points";
+            item.status = gui::QueueItemStatus::Queued;
+
+            if (editingIndex >= 0 && editingIndex < suiteList.getQueueSize())
+            {
+                item.id = suiteList.getQueue()[static_cast<size_t>(editingIndex)].id;
+                item.hwId = suiteList.getQueue()[static_cast<size_t>(editingIndex)].hwId;
+                item.funcId = suiteList.getQueue()[static_cast<size_t>(editingIndex)].funcId;
+                suiteList.updateTestInQueue(editingIndex, item);
+            }
+            else
+            {
+                item.id = "test_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
+                suiteList.addTestToQueue(item);
+            }
+        };
+
+        suiteList.onRestartTestClicked = [this](int index) {
+            suiteList.updateItemStatus(index, gui::QueueItemStatus::Queued, 0);
+            startProfilingSession(false);
+        };
+
+        suiteList.onContinueTestClicked = [this](int index) {
+            juce::ignoreUnused(index);
+            startProfilingSession(true);
+        };
+
+        suiteList.onSelectPointClicked = [this](int queueIdx, int pointIdx) {
+            juce::ignoreUnused(queueIdx);
+            curvePlotter.setHighlightedPointIndex(pointIdx);
+        };
+
+        suiteList.onClearPointClicked = [this](int queueIdx, int pointIdx) {
+            handleClearPoint(queueIdx, pointIdx);
+        };
+
+        suiteList.onDeletePointClicked = [this](int queueIdx, int pointIdx) {
+            handleClearPoint(queueIdx, pointIdx);
+        };
+
+        suiteList.onToggleSessionRunClicked = [this](bool start) {
+            if (start) startProfilingSession(false);
+            else stopProfilingSession();
+        };
+
+        suiteList.onDuplicateWarning = [this](const juce::String& msg) {
+            manualPromptLabel.setText(msg, juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            hidePromptAfterDelay(4000);
+        };
+        addAndMakeVisible(suiteList);
+
+        // 6. Right Master Level & Meter Strip
+        meterStrip.onProfilingToggled = [this](bool start) {
+            if (start) startProfilingSession();
+            else stopProfilingSession();
+        };
+        meterStrip.onAutoTrimClicked = [this] {
+            audioEngine.performAutoGainTrim();
+        };
+        addAndMakeVisible(meterStrip);
+
+        // 6. Manual Adjustment Prompt & Operator Correction Controls (Hidden by default)
+        manualPromptLabel.setText("", juce::dontSendNotification);
+        manualPromptLabel.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+        manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
+        manualPromptLabel.setColour(juce::Label::backgroundColourId, gui::SoundIdTheme::bgCard);
+        manualPromptLabel.setVisible(false);
+        addChildComponent(manualPromptLabel);
+
+        btnStepBack.setButtonText("<- STEP BACK");
+        btnStepBack.setTooltip("Return to previous measurement step to redo or adjust physical knob");
+        btnStepBack.onClick = [this] { sequencer.stepBack(); };
+        btnStepBack.setEnabled(false);
+        btnStepBack.setVisible(false);
+        addChildComponent(btnStepBack);
+
+        btnRepeatStep.setButtonText("REPEAT STEP");
+        btnRepeatStep.setTooltip("Re-measure current knob position in case of audio glitch or misadjustment");
+        btnRepeatStep.onClick = [this] { sequencer.repeatCurrentStep(); };
+        btnRepeatStep.setEnabled(false);
+        btnRepeatStep.setVisible(false);
+        addChildComponent(btnRepeatStep);
+
+        confirmManualButton.setButtonText("Confirm Step (Space)");
+        confirmManualButton.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::pillBlackBg);
+        confirmManualButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        confirmManualButton.setEnabled(false);
+        confirmManualButton.setVisible(false);
+        confirmManualButton.onClick = [this] { confirmManualStep(); };
+        addChildComponent(confirmManualButton);
+
+        // 7. Slide-In Drawer & Modals (Overlays on top)
+        drawer.onHardwareSelected = [this](const juce::String& hwId, const juce::String& funcId) {
+            onHardwareSelected(hwId, funcId);
+        };
+        drawer.onChangeExportFolderClicked = [this] {
+            chooseExportFolder();
+        };
+        drawer.onOpenAudioSettingsClicked = [this] {
+            openAudioMidiSettings();
+        };
+        drawer.onAboutClicked = [this] {
+            showAboutDialog();
+        };
+        drawer.onNewSessionClicked = [this] {
+            promptNewSession();
+        };
+        drawer.onOpenSessionClicked = [this] {
+            handleOpenSession();
+        };
+        drawer.onSaveSessionClicked = [this] {
+            handleSaveSession();
+        };
+        drawer.onSaveSessionAsClicked = [this] {
+            handleSaveSessionAs();
+        };
+        drawer.onRevealExportFolderClicked = [this] {
+            if (!exportDirectory.exists())
+                exportDirectory.createDirectory();
+            exportDirectory.revealToUser();
+        };
+        drawer.onExportReportClicked = [this] {
+            exportCertificationReport();
+        };
+        drawer.onExitAppClicked = [this] {
+            confirmAndExit();
+        };
+        drawer.onCheckUpdatesClicked = [this] {
+            checkForAppUpdates(true);
+        };
+        addChildComponent(drawer);
+
+        initializeAutoUpdater();
+
+        loopbackModal.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
+            float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
+            juce::String sign = (gainDb >= 0.0f) ? "+" : "";
+            juce::String msg = "Loopback Calibration complete! Auto-trim applied: " + 
+                               sign + juce::String(gainDb, 1) + " dB (Target: -3.0 dBfs)";
+            manualPromptLabel.setText(msg, juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            hidePromptAfterDelay(4000);
+        };
+        addChildComponent(loopbackModal);
+        addChildComponent(aboutModal);
+        addChildComponent(operatorStepModal);
+        addChildComponent(confirmationModal);
+
+        operatorStepModal.onAccept = [this] { confirmManualStep(); };
+        operatorStepModal.onRepeat = [this] { sequencer.repeatCurrentStep(); };
+        operatorStepModal.onStepBack = [this] { sequencer.stepBack(); };
+        operatorStepModal.onCancel = [this] { stopProfilingSession(); };
+
+        sequencer.setOperatorStepCallback([this](const core::TestCase& tc, int stepIndex, int totalSteps) {
+            juce::MessageManager::callAsync([this, tc, stepIndex, totalSteps] {
+                operatorStepModal.setStepInfo(juce::String(tc.testId), stepIndex, totalSteps, tc.parameterSteps);
+                operatorStepModal.setVisible(true);
+                operatorStepModal.toFront(true);
+                operatorStepModal.grabKeyboardFocus();
+            });
+        });
+
+        // 8. Progress and Sequencer Callbacks
+        sequencer.setProgressCallback([this](float progress, const juce::String& task, core::SequencerState state) {
+            juce::MessageManager::callAsync([this, progress, task, state] {
+                juce::ignoreUnused(progress);
+                if (state == core::SequencerState::WaitingForOperator)
+                {
+                    manualPromptLabel.setText(task, juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    confirmManualButton.setVisible(true);
+                    confirmManualButton.setEnabled(true);
+                    btnRepeatStep.setVisible(true);
+                    btnRepeatStep.setEnabled(true);
+                    btnStepBack.setVisible(totalPointsMeasured > 1);
+                    btnStepBack.setEnabled(totalPointsMeasured > 1);
+                }
+                else if (state == core::SequencerState::CaptureAndAnalyze || state == core::SequencerState::InjectStimulus)
+                {
+                    operatorStepModal.setVisible(false);
+                    confirmManualButton.setEnabled(false);
+                    btnRepeatStep.setEnabled(false);
+                    btnStepBack.setEnabled(false);
+                    manualPromptLabel.setText(task, juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    if (suiteList.getQueueSize() > 0)
+                        suiteList.updateItemStatus(0, gui::QueueItemStatus::Running, totalPointsMeasured);
+                }
+                else if (state == core::SequencerState::Finished)
+                {
+                    operatorStepModal.setVisible(false);
+                    manualPromptLabel.setVisible(false);
+                    confirmManualButton.setVisible(false);
+                    btnRepeatStep.setVisible(false);
+                    btnStepBack.setVisible(false);
+                    meterStrip.setProfilingActive(false);
+                    suiteList.setSessionRunning(false);
+                    for (int i = 0; i < suiteList.getQueueSize(); ++i)
+                    {
+                        if (!suiteList.getQueue()[static_cast<size_t>(i)].isSkipped)
+                            suiteList.updateItemStatus(i, gui::QueueItemStatus::Completed);
+                    }
+                }
+                else if (state == core::SequencerState::ErrorState)
+                {
+                    manualPromptLabel.setText("Session Halted: Insufficient Audio Signal. Connect patch cable (DAC Out 1 -> ADC In 1) & retry.", juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    meterStrip.setProfilingActive(false);
+                    suiteList.setSessionRunning(false);
+                    confirmManualButton.setVisible(false);
+                    btnRepeatStep.setVisible(false);
+                    btnStepBack.setVisible(false);
+                    if (suiteList.getQueueSize() > 0)
+                        suiteList.updateItemStatus(0, gui::QueueItemStatus::Invalidated);
+                }
+            });
+        });
+
+        sequencer.setTestIndexCallback([this](int queueIndex, int currentPoint, int totalPoints) {
+            juce::MessageManager::callAsync([this, queueIndex, currentPoint, totalPoints] {
+                juce::ignoreUnused(totalPoints);
+                for (int i = 0; i < queueIndex; ++i)
+                {
+                    if (!suiteList.getQueue()[static_cast<size_t>(i)].isSkipped &&
+                        suiteList.getQueue()[static_cast<size_t>(i)].status != gui::QueueItemStatus::Completed)
+                    {
+                        suiteList.updateItemStatus(i, gui::QueueItemStatus::Completed);
+                    }
+                }
+                if (queueIndex >= 0 && queueIndex < suiteList.getQueueSize())
+                {
+                    suiteList.updateItemStatus(queueIndex, gui::QueueItemStatus::Running, currentPoint);
+                }
+            });
+        });
+
+        sequencer.setPointMeasuredCallback([this](const exporting::MeasuredPoint& pt) {
+            curvePlotter.addMeasuredPoint(pt);
+            sessionPoints.push_back(pt);
+            totalPointsMeasured++;
+
+            float snrDb = pt.muSigmaValue.stdDev > 0.0001f ? (20.0f * std::log10(std::max(1e-4f, pt.muSigmaValue.mean) / pt.muSigmaValue.stdDev)) : 32.0f;
+            float noiseDb = (pt.secondaryValue.mean < 0.0f) ? pt.secondaryValue.mean : -92.0f;
+            healthPanel.setMeasurementHealth(snrDb, noiseDb, static_cast<int>(sessionPoints.size()), suiteList.getTotalPointCount());
+            healthPanel.setLatestTestId(pt.testId);
+
+            isSessionDirty = true;
+
+            // Trigger non-blocking auto-save update
+            sessionSerializer.triggerIncrementalAutoSave(buildCurrentSessionManifest(), sessionPoints);
+        });
+
+        addKeyListener(this);
+        setWantsKeyboardFocus(true);
+        startTimerHz(30);
+        setSize(1040, 720);
+    }
+
+    ~MainContentComponent() override
+    {
+        if (scopeWebWindow != nullptr)
+        {
+            scopeWebWindow->setVisible(false);
+            scopeWebWindow = nullptr;
+        }
+
+        if (scopeWindow != nullptr)
+        {
+            scopeWindow->setVisible(false);
+            scopeWindow = nullptr;
+        }
+
+        setLookAndFeel(nullptr);
+        removeKeyListener(this);
+        stopTimer();
+        sequencer.stopSession();
+        audioEngine.saveAudioSettings(settingsFile);
+    }
+
+    bool keyPressed(const juce::KeyPress& key, juce::Component*) override
+    {
+        bool isCmdOrCtrl = key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown();
+        bool isShift = key.getModifiers().isShiftDown();
+
+        if (isCmdOrCtrl && isShift && key.getKeyCode() == 'S')
+        {
+            handleSaveSessionAs();
+            return true;
+        }
+        else if (isCmdOrCtrl && key.getKeyCode() == 'S')
+        {
+            handleSaveSession();
+            return true;
+        }
+        else if (isCmdOrCtrl && key.getKeyCode() == 'N')
+        {
+            promptNewSession();
+            return true;
+        }
+        else if (isCmdOrCtrl && key.getKeyCode() == 'O')
+        {
+            handleOpenSession();
+            return true;
+        }
+        else if (key.isKeyCode(juce::KeyPress::spaceKey))
+        {
+            if (confirmManualButton.isEnabled() && confirmManualButton.isVisible())
+            {
+                confirmManualStep();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(gui::SoundIdTheme::bgLight);
+    }
+
+    void resized() override
+    {
+        auto bounds = getLocalBounds().reduced(20);
+        // 1. Top Header Area (Title left, Controls right)
+        auto topArea = bounds.removeFromTop(36);
+        titleLabel.setBounds(topArea.removeFromLeft(140).withHeight(30));
+        topArea.removeFromLeft(4);
+        btnFileMenu.setBounds(topArea.removeFromLeft(70).withHeight(32));
+        topArea.removeFromLeft(6);
+        btnScopeWeb.setBounds(topArea.removeFromLeft(95).withHeight(32));
+        topArea.removeFromLeft(4);
+        btnScopeNative.setBounds(topArea.removeFromLeft(95).withHeight(32));
+        topArea.removeFromLeft(8);
+
+        btnInfo.setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
+        topArea.removeFromRight(8);
+
+        btnHardwareSelector.setBounds(topArea.removeFromRight(340).withHeight(32));
+        topArea.removeFromRight(8);
+
+        btnCalibratePill.setBounds(topArea.removeFromRight(185).withHeight(32));
+
+        bounds.removeFromTop(12);
+
+        // 2. Right Meter Strip
+        auto rightArea = bounds.removeFromRight(120);
+        meterStrip.setBounds(rightArea);
+        bounds.removeFromRight(12);
+
+        // 3. Manual Prompt Banner & Error Correction Controls
+        if (confirmManualButton.isVisible())
+        {
+            auto manualRow = bounds.removeFromBottom(36);
+            confirmManualButton.setBounds(manualRow.removeFromRight(150));
+            manualRow.removeFromRight(8);
+            btnRepeatStep.setBounds(manualRow.removeFromRight(100));
+            manualRow.removeFromRight(8);
+            btnStepBack.setBounds(manualRow.removeFromRight(100));
+            manualRow.removeFromRight(8);
+            manualPromptLabel.setBounds(manualRow);
+            bounds.removeFromBottom(8);
+        }
+
+        // 4. Bottom Test Suite List
+        auto bottomArea = bounds.removeFromBottom(180);
+        suiteList.setBounds(bottomArea);
+
+        bounds.removeFromBottom(12);
+
+        // 5. Center Curve Plotter & Health Panel
+        auto centerArea = bounds;
+        healthPanel.setBounds(centerArea.removeFromTop(26));
+        centerArea.removeFromTop(6);
+        curvePlotter.setBounds(centerArea);
+
+        // 6. Slide-in Drawer & Modals fill full window bounds
+        drawer.setBounds(getLocalBounds());
+        aboutModal.setBounds(getLocalBounds());
+        operatorStepModal.setBounds(getLocalBounds());
+        confirmationModal.setBounds(getLocalBounds());
+    }
+
+    void timerCallback() override
+    {
+        meterStrip.setLevels(audioEngine.getInputPeakL(), audioEngine.getInputPeakR(), audioEngine.getInputRmsL(),
+                             audioEngine.getOutputPeakL(), audioEngine.getOutputPeakR(), audioEngine.getOutputRmsL());
+
+        if (audioEngine.isSpectrumReady())
+        {
+            std::array<float, audio::LabAudioEngine::kSpectrumBins> fftData;
+            audioEngine.getSpectrumMagnitudes(fftData);
+            curvePlotter.getSpectrumAnalyzer().pushSpectrumData(fftData, audioEngine.getCurrentSampleRate());
+        }
+    }
+
+private:
+    void toggleScopeWebWindow()
+    {
+        if (scopeWebWindow == nullptr)
+        {
+            scopeWebWindow = std::make_unique<gui::ScopeWebFloatingWindow>(
+                audioEngine,
+                [this] {
+                    audioEngine.getScopeCollector().deactivateAll();
+                }
+            );
+        }
+
+        if (scopeWebWindow->isVisible())
+        {
+            scopeWebWindow->toFront(true);
+        }
+        else
+        {
+            scopeWebWindow->setVisible(true);
+            scopeWebWindow->toFront(true);
+            scopeWebWindow->onWindowShown();
+        }
+    }
+
+    void toggleScopeWindow()
+    {
+        if (scopeWindow == nullptr)
+        {
+            scopeWindow = std::make_unique<gui::ScopeFloatingWindow>(
+                &audioEngine.getScopeTap(),
+                static_cast<float>(audioEngine.getCurrentSampleRate()),
+                [this] {
+                    audioEngine.getScopeTap().setActive(false);
+                }
+            );
+        }
+
+        if (scopeWindow->isVisible())
+        {
+            scopeWindow->toFront(true);
+        }
+        else
+        {
+            scopeWindow->updateSampleRate(static_cast<float>(audioEngine.getCurrentSampleRate()));
+            scopeWindow->setTap(&audioEngine.getScopeTap());
+            audioEngine.getScopeTap().setActive(true);
+            scopeWindow->setVisible(true);
+            scopeWindow->toFront(true);
+        }
+    }
+
+    void showInfoDrawer()
+    {
+        gui::TelemetryInfo info;
+        auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice();
+        if (device != nullptr)
+        {
+            info.audioDeviceName = device->getName();
+            info.sampleRate = device->getCurrentSampleRate();
+            info.bufferSize = device->getCurrentBufferSizeSamples();
+            info.latencyMs = (info.sampleRate > 0) ? (static_cast<double>(info.bufferSize) * 1000.0 / info.sampleRate) : 0.0;
+        }
+        else
+        {
+            info.audioDeviceName = "Windows Audio (Default)";
+            info.sampleRate = 96000.0;
+            info.bufferSize = 256;
+            info.latencyMs = 2.67;
+        }
+
+        auto midiInputs = juce::MidiInput::getAvailableDevices();
+        if (!midiInputs.isEmpty())
+            info.midiInputName = midiInputs[0].name;
+
+        auto midiOutputs = juce::MidiOutput::getAvailableDevices();
+        if (!midiOutputs.isEmpty())
+            info.midiOutputName = midiOutputs[0].name;
+
+        info.exportDirectoryPath = exportDirectory.getFullPathName();
+        info.autoTrimGainDb = (audioEngine.getInputAutoTrim() > 1e-4f) ? (20.0f * std::log10(audioEngine.getInputAutoTrim())) : 0.0f;
+        info.totalMeasuredPoints = totalPointsMeasured;
+        info.appVersion = version::kAppVersion;
+        info.buildNumber = version::kBuildNumber;
+
+        drawer.openSetupDrawer(info);
+    }
+
+    void chooseExportFolder()
+    {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Select Output Directory for C++ Look-Up Tables & Reports",
+            exportDirectory,
+            "*"
+        );
+
+        fileChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+            [this](const juce::FileChooser& fc) {
+                auto chosen = fc.getResult();
+                if (chosen.isDirectory())
+                {
+                    exportDirectory = chosen;
+                    drawer.openFileDrawer(exportDirectory.getFullPathName());
+                    manualPromptLabel.setText("Target export folder updated to: " + exportDirectory.getFullPathName(), juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    hidePromptAfterDelay(5000);
+                }
+            });
+    }
+
+    void onHardwareSelected(const juce::String& hwId, const juce::String& funcId)
+    {
+        juce::ignoreUnused(funcId);
+        const auto* contract = contractRegistry.findContractById(hwId.toStdString());
+        if (contract == nullptr) return;
+
+        gui::HardwareConnectionStatus connStatus = gui::HardwareConnectionStatus::NotApplicable;
+
+        if (contract->deviceType == "MOCK_DSP")
+        {
+            audioEngine.setMockHardware(&mockController);
+            connStatus = gui::HardwareConnectionStatus::NotApplicable;
+        }
+        else if (contract->deviceType == "AUTOMATED_SYSEX")
+        {
+            audioEngine.setMockHardware(nullptr);
+            hardware::AiraModel model = mapHardwareIdToAiraModel(contract->id);
+            airaController = std::make_unique<hardware::AiraSysExController>(model);
+            bool connected = airaController->connect();
+            connStatus = connected ? gui::HardwareConnectionStatus::Connected : gui::HardwareConnectionStatus::Disconnected;
+        }
+        else if (contract->deviceType == "AUTOMATED_MIDI_CC")
+        {
+            audioEngine.setMockHardware(nullptr);
+            if (midiCcController == nullptr)
+                midiCcController = std::make_unique<hardware::MidiCcController>();
+            bool connected = midiCcController->connect();
+            connStatus = connected ? gui::HardwareConnectionStatus::Connected : gui::HardwareConnectionStatus::Disconnected;
+        }
+        else if (contract->deviceType == "MANUAL_EURORACK" || contract->deviceType == "ANALOGUE_PEDAL")
+        {
+            audioEngine.setMockHardware(nullptr);
+            manualController.connect();
+            connStatus = gui::HardwareConnectionStatus::NotApplicable;
+        }
+
+        btnHardwareSelector.setHardwareInfo(
+            juce::String(contract->displayName),
+            drawer.getActiveFunctionDisplayName(),
+            drawer.getActiveModelRasterImage(),
+            connStatus
+        );
+    }
+
+    void hidePromptAfterDelay(int delayMs = 4000)
+    {
+        juce::Component::SafePointer<MainContentComponent> safeThis(this);
+        juce::Timer::callAfterDelay(delayMs, [safeThis] {
+            if (safeThis != nullptr && safeThis->sequencer.getCurrentState() != core::SequencerState::WaitingForOperator)
+                safeThis->manualPromptLabel.setVisible(false);
+        });
+    }
+
+    void handleClearPoint(int queueIdx, int pointIdx)
+    {
+        juce::ignoreUnused(queueIdx);
+        curvePlotter.removePoint(pointIdx);
+        if (pointIdx >= 0 && pointIdx < static_cast<int>(sessionPoints.size()))
+            sessionPoints.erase(sessionPoints.begin() + pointIdx);
+    }
+
+    void startProfilingSession(bool resumeFromExisting = false)
+    {
+        if (sequencer.isRunningSession())
+            return;
+
+        if (suiteList.getQueueSize() <= 0)
+        {
+            manualPromptLabel.setText("Please add at least one test to the Session Plan before starting.", juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            meterStrip.setProfilingActive(false);
+            return;
+        }
+
+        if (!resumeFromExisting)
+        {
+            suiteList.resetAllStatuses();
+            suiteList.updateItemStatus(0, gui::QueueItemStatus::Running, 0);
+            curvePlotter.clear();
+            sessionPoints.clear();
+            totalPointsMeasured = 0;
+        }
+
+        suiteList.setSessionRunning(true);
+
+        juce::String selectedHwId = drawer.getSelectedHardwareId();
+        juce::String selectedFuncId = drawer.getSelectedFunctionId();
+        const auto* contract = contractRegistry.findContractById(selectedHwId.toStdString());
+
+        hardware::IHardwareController* activeHw = &mockController;
+        std::string modeStr = "MOCK_DSP";
+        std::string hwName = "MOCK_VA_SYNTH";
+
+        if (contract != nullptr)
+        {
+            modeStr = contract->deviceType;
+            hwName = contract->id;
+
+            if (contract->deviceType == "AUTOMATED_SYSEX")
+            {
+                hardware::AiraModel model = mapHardwareIdToAiraModel(contract->id);
+                airaController = std::make_unique<hardware::AiraSysExController>(model);
+                airaController->connect();
+                activeHw = airaController.get();
+            }
+            else if (contract->deviceType == "AUTOMATED_MIDI_CC")
+            {
+                if (midiCcController == nullptr)
+                    midiCcController = std::make_unique<hardware::MidiCcController>();
+                midiCcController->connect();
+                activeHw = midiCcController.get();
+            }
+            else if (contract->deviceType == "MANUAL_EURORACK" || contract->deviceType == "ANALOGUE_PEDAL")
+            {
+                manualController.connect();
+                activeHw = &manualController;
+            }
+        }
+
+        if (contract != nullptr && contract->deviceType == "MOCK_DSP")
+        {
+            audioEngine.setMockHardware(&mockController);
+        }
+        else
+        {
+            audioEngine.setMockHardware(nullptr);
+        }
+
+        sequencer.setHardwareController(activeHw);
+
+        core::ProfilingSession currentProfilingSession = buildProfilingSessionFromQueue(hwName, modeStr);
+        juce::String baseName = juce::String(hwName) + "_" + selectedFuncId;
+
+        if (resumeFromExisting && !sessionPoints.empty())
+        {
+            auto allTestCases = currentProfilingSession.getTestCases();
+            size_t alreadyMeasured = sessionPoints.size();
+            if (alreadyMeasured < allTestCases.size())
+            {
+                std::vector<core::TestCase> remainingTestCases(allTestCases.begin() + alreadyMeasured, allTestCases.end());
+                currentProfilingSession.setTestCases(remainingTestCases);
+            }
+        }
+
+        meterStrip.setProfilingActive(true);
+        sequencer.startSession(currentProfilingSession, exportDirectory, baseName);
+    }
+
+    void stopProfilingSession()
+    {
+        sequencer.stopSession();
+        meterStrip.setProfilingActive(false);
+        suiteList.setSessionRunning(false);
+        confirmManualButton.setVisible(false);
+        btnStepBack.setVisible(false);
+        btnRepeatStep.setVisible(false);
+        manualPromptLabel.setVisible(false);
+        operatorStepModal.setVisible(false);
+
+        // If stopped midway, mark the running item as Incomplete with measured points
+        for (int i = 0; i < suiteList.getQueueSize(); ++i)
+        {
+            if (suiteList.getQueue()[static_cast<size_t>(i)].status == gui::QueueItemStatus::Running)
+            {
+                suiteList.updateItemStatus(i, gui::QueueItemStatus::Incomplete, totalPointsMeasured);
+                break;
+            }
+        }
+
+        resized();
+    }
+
+    void confirmManualStep()
+    {
+        sequencer.confirmOperatorStep();
+        confirmManualButton.setEnabled(false);
+    }
+
+    void openAudioMidiSettings()
+    {
+        auto* selector = new juce::AudioDeviceSelectorComponent(
+            audioEngine.getDeviceManager(),
+            0, 2,
+            0, 2,
+            true,
+            true,
+            false,
+            false
+        );
+        selector->setSize(520, 520);
+
+        juce::DialogWindow::LaunchOptions opt;
+        opt.content.setOwned(selector);
+        opt.dialogTitle = "Audio & MIDI Configuration";
+        opt.dialogBackgroundColour = gui::SoundIdTheme::bgLight;
+        opt.escapeKeyTriggersCloseButton = true;
+        opt.useNativeTitleBar = true;
+        opt.resizable = false;
+        opt.launchAsync();
+    }
+
+    void showAboutDialog()
+    {
+        aboutModal.showDialog(this);
+    }
+
+    core::ProfilingSession buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr)
+    {
+        core::ProfilingSession profSession;
+        core::ProfilingMetadata meta;
+        meta.hardwareName = hwName;
+        meta.targetModule = drawer.getSelectedFunctionId().toStdString();
+        meta.operatorMode = modeStr;
+        meta.sampleRate = audioEngine.getSampleRate();
+        meta.bitDepth = 24;
+        meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+        profSession.setMetadata(meta);
+
+        const auto& queue = suiteList.getQueue();
+        for (int qIdx = 0; qIdx < static_cast<int>(queue.size()); ++qIdx)
+        {
+            const auto& item = queue[static_cast<size_t>(qIdx)];
+            if (item.isSkipped) continue;
+
+            if (item.stimulusType == audio::StimulusType::Silence)
+            {
+                core::TestCase tc;
+                tc.queueItemIndex = qIdx;
+                tc.pointIndexInTest = 1;
+                tc.totalPointsInTest = 1;
+                tc.testId = item.title.toStdString();
+                tc.functionalBlockType = "NoiseFloor";
+                tc.stimulusType = audio::StimulusType::Silence;
+                tc.stimulusDurationSec = (item.burstDurationSec > 0.1f) ? item.burstDurationSec : 0.8;
+                tc.numPasses = 1;
+                tc.stabilizationWaitMs = 50.0;
+                profSession.addTestCase(tc);
+                continue;
+            }
+
+            size_t numControls = item.controls.size();
+            if (numControls == 0)
+            {
+                core::TestCase tc;
+                tc.queueItemIndex = qIdx;
+                tc.pointIndexInTest = 1;
+                tc.totalPointsInTest = 1;
+                tc.testId = item.title.toStdString();
+                tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
+                tc.stimulusType = item.stimulusType;
+                tc.stimulusDurationSec = item.burstDurationSec;
+                tc.startFreqHz = 20.0f;
+                tc.endFreqHz = 20000.0f;
+                tc.numPasses = 1;
+                tc.stabilizationWaitMs = 50.0;
+                profSession.addTestCase(tc);
+                continue;
+            }
+
+            std::vector<int> stepsPerControl(numControls);
+            std::vector<std::string> controlNames(numControls);
+            std::vector<std::string> controlTypes(numControls);
+            std::vector<float> minNorms(numControls);
+            std::vector<float> maxNorms(numControls);
+
+            int totalTestPoints = 1;
+            for (size_t k = 0; k < numControls; ++k)
+            {
+                const auto& c = item.controls[k];
+                stepsPerControl[k] = std::max(1, c.steps);
+                controlNames[k] = c.name.toStdString();
+                controlTypes[k] = c.type.isEmpty() ? "Knob" : c.type.toStdString();
+                minNorms[k] = std::clamp(c.minPct / 100.0f, 0.0f, 1.0f);
+                maxNorms[k] = std::clamp(c.maxPct / 100.0f, minNorms[k], 1.0f);
+                totalTestPoints *= stepsPerControl[k];
+            }
+
+            for (int p = 0; p < totalTestPoints; ++p)
+            {
+                int temp = p;
+                std::vector<int> stepIndices(numControls);
+                for (int k = static_cast<int>(numControls) - 1; k >= 0; --k)
+                {
+                    stepIndices[static_cast<size_t>(k)] = temp % stepsPerControl[static_cast<size_t>(k)];
+                    temp /= stepsPerControl[static_cast<size_t>(k)];
+                }
+
+                core::TestCase tc;
+                tc.queueItemIndex = qIdx;
+                tc.pointIndexInTest = p + 1;
+                tc.totalPointsInTest = totalTestPoints;
+                tc.testId = item.title.toStdString();
+
+                tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
+                tc.stimulusType = item.stimulusType;
+                tc.stimulusDurationSec = item.burstDurationSec;
+                tc.startFreqHz = 20.0f;
+                tc.endFreqHz = 20000.0f;
+                tc.numPasses = 1;
+                tc.stabilizationWaitMs = 50.0;
+
+                for (size_t k = 0; k < numControls; ++k)
+                {
+                    int stepIdx = stepIndices[k];
+                    int sCount = stepsPerControl[k];
+                    float minN = minNorms[k];
+                    float maxN = maxNorms[k];
+
+                    float normVal = (sCount > 1)
+                        ? (minN + (static_cast<float>(stepIdx) / static_cast<float>(sCount - 1)) * (maxN - minN))
+                        : (minN + maxN) * 0.5f;
+
+                    int rawVal = static_cast<int>(std::round(normVal * 127.0f));
+
+                    core::ParameterStep ps;
+                    ps.paramIndex = static_cast<int>(k) + 1;
+                    ps.paramName = controlNames[k];
+                    ps.controlType = controlTypes[k];
+                    ps.minNormalized = minN;
+                    ps.maxNormalized = maxN;
+                    ps.normalizedValue = normVal;
+                    ps.rawValue = rawVal;
+                    ps.id = item.controls[k].id.isNotEmpty() ? item.controls[k].id.toStdString() : ("ctrl_" + std::to_string(k + 1));
+                    ps.sortOrder = item.controls[k].sortOrder;
+                    tc.parameterSteps.push_back(ps);
+                }
+
+                profSession.addTestCase(tc);
+            }
+        }
+        return profSession;
+    }
+
+    core::SessionManifest buildCurrentSessionManifest()
+    {
+        core::SessionManifest sm;
+        sm.appVersion = version::kAppVersion;
+        sm.buildNumber = version::kBuildNumber;
+        sm.formatVersion = "1.0";
+        sm.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+        sm.hardwareId = drawer.getSelectedHardwareId().toStdString();
+        sm.hardwareDisplayName = drawer.getActiveHardwareDisplayName().toStdString();
+        sm.activeFunctionId = drawer.getSelectedFunctionId().toStdString();
+        sm.activeFunctionName = drawer.getActiveFunctionDisplayName().toStdString();
+        sm.sampleRate = audioEngine.getSampleRate();
+        sm.lineCalibrationGainDb = -3.0f;
+        sm.noiseFloorThresholdDb = -85.0f;
+        sm.totalMeasuredPoints = totalPointsMeasured;
+
+        for (const auto& item : suiteList.getQueue())
+        {
+            gui::TestConfiguration tc;
+            tc.testName = item.title;
+            tc.stimulusType = item.stimulusType;
+            tc.burstDurationSec = item.burstDurationSec;
+            tc.captureMode = item.captureMode;
+            tc.controls = item.controls;
+            sm.tests.push_back(tc);
+        }
+        return sm;
+    }
+
+    void applyLoadedSession(const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points)
+    {
+        totalPointsMeasured = 0;
+        sessionPoints = points;
+        curvePlotter.clear();
+        for (const auto& pt : points)
+        {
+            curvePlotter.addMeasuredPoint(pt);
+            totalPointsMeasured++;
+        }
+
+        // Apply Hardware & Function
+        drawer.setSelectedHardwareId(juce::String(manifest.hardwareId));
+        drawer.setHardwareLocked(true);
+
+        const auto* contract = contractRegistry.findContractById(manifest.hardwareId);
+        if (contract != nullptr)
+        {
+            onHardwareSelected(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
+        }
+
+        // Apply Test Queue
+        suiteList.clearQueue();
+        for (const auto& tc : manifest.tests)
+        {
+            gui::QueueItem item;
+            item.title = tc.testName;
+            item.stimulusType = tc.stimulusType;
+            item.burstDurationSec = tc.burstDurationSec;
+            item.captureMode = tc.captureMode;
+            item.controls = tc.controls;
+            item.totalPoints = tc.getTotalMeasurementPoints();
+            item.id = "test_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
+            item.status = (!points.empty()) ? gui::QueueItemStatus::Completed : gui::QueueItemStatus::Queued;
+
+            applyBadgeForStimulus(item, tc.stimulusType);
+
+            suiteList.addTestToQueue(item);
+        }
+
+        manualPromptLabel.setText("Session loaded: " + juce::String(manifest.hardwareDisplayName) + " (" + juce::String(points.size()) + " points)", juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(4000);
+    }
+
+    void handleSaveSession()
+    {
+        if (sessionSerializer.getActiveSessionFile().existsAsFile())
+        {
+            saveSessionToFile(sessionSerializer.getActiveSessionFile());
+            return;
+        }
+        handleSaveSessionAs();
+    }
+
+    void handleSaveSessionAs()
+    {
+        juce::String defaultName = drawer.getActiveHardwareDisplayName().replaceCharacter(' ', '_') + ".abdlabtest";
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Save ABDAudioLab Session Package (.abdlabtest)...",
+            exportDirectory.getChildFile(defaultName),
+            "*.abdlabtest"
+        );
+        auto dialogFlags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting;
+        fileChooser->launchAsync(dialogFlags, [this](const juce::FileChooser& fc) {
+            auto file = fc.getResult();
+            if (file != juce::File())
+            {
+                if (file.getFileExtension() != ".abdlabtest")
+                    file = file.withFileExtension(".abdlabtest");
+
+                saveSessionToFile(file);
+            }
+        });
+    }
+
+    void saveSessionToFile(const juce::File& file)
+    {
+        core::SessionManifest manifest = buildCurrentSessionManifest();
+        bool ok = sessionSerializer.saveSessionToPackage(file, manifest, sessionPoints);
+        if (ok)
+        {
+            isSessionDirty = false;
+
+            // Synchronize & export C++ LUT header & JSON report alongside save to keep dev assets in sync
+            juce::String baseName = file.getFileNameWithoutExtension();
+            juce::File headerFile = exportDirectory.getChildFile(baseName + "_LUT.h");
+            juce::File jsonFile = exportDirectory.getChildFile(baseName + "_Report.json");
+
+            core::ProfilingMetadata meta;
+            meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+            meta.targetModule = drawer.getSelectedFunctionId().toStdString();
+            meta.sampleRate = audioEngine.getCurrentSampleRate();
+            meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+
+            exporting::LutExporter::exportToCppHeader(headerFile.getFullPathName().toStdString(),
+                                                      meta,
+                                                      baseName.toStdString(),
+                                                      sessionPoints);
+
+            exporting::LutExporter::exportToJsonReport(jsonFile.getFullPathName().toStdString(),
+                                                       meta,
+                                                       sessionPoints);
+
+            manualPromptLabel.setText("Session package saved successfully: " + file.getFileName(), juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+
+            // Update file drawer preview
+            drawer.openFileDrawer(exportDirectory.getFullPathName());
+            hidePromptAfterDelay(4000);
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Save Failed",
+                "Could not write session package to:\n" + file.getFullPathName() + "\n\nPlease check disk space and folder permissions.",
+                "OK"
+            );
+        }
+    }
+
+    void exportCertificationReport()
+    {
+        if (!exportDirectory.exists())
+            exportDirectory.createDirectory();
+
+        juce::String hwId = drawer.getSelectedHardwareId();
+        juce::String funcId = drawer.getSelectedFunctionId();
+        juce::String baseName = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
+
+        juce::File htmlFile = exportDirectory.getChildFile(baseName + "_Certification_Report.html");
+
+        exporting::SessionManifestData manifest;
+        manifest.hardwareId = hwId.toStdString();
+        manifest.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+        manifest.functionId = funcId.toStdString();
+        manifest.functionName = drawer.getActiveFunctionDisplayName().toStdString();
+        manifest.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
+        manifest.sampleRate = audioEngine.getCurrentSampleRate();
+
+        bool success = exporting::CertificationReportExporter::exportReportToHtml(
+            htmlFile.getFullPathName().toStdString(),
+            manifest,
+            sessionPoints
+        );
+
+        if (success)
+        {
+            manualPromptLabel.setText("Certification Report exported: " + htmlFile.getFileName(), juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            drawer.openFileDrawer(exportDirectory.getFullPathName());
+            htmlFile.startAsProcess();
+            hidePromptAfterDelay(5000);
+        }
+        else
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Export Failed",
+                "Could not generate HTML Certification Report at:\n" + htmlFile.getFullPathName(),
+                "OK"
+            );
+        }
+    }
+
+    void promptNewSession()
+    {
+        if (isSessionDirty && !sessionPoints.empty())
+        {
+            confirmationModal.show(
+                this,
+                "Unsaved Changes",
+                "The current session contains unsaved measurement points.\nDo you want to save before creating a new session?",
+                "Save",
+                "Don't Save",
+                "Cancel",
+                [this](gui::ConfirmationModalDialog::Result result) {
+                    if (result == gui::ConfirmationModalDialog::Result::Primary)
+                    {
+                        handleSaveSession();
+                        performNewSessionReset();
+                    }
+                    else if (result == gui::ConfirmationModalDialog::Result::Secondary)
+                    {
+                        performNewSessionReset();
+                    }
+                }
+            );
+        }
+        else
+        {
+            performNewSessionReset();
+        }
+    }
+
+    void performNewSessionReset()
+    {
+        suiteList.clearQueue();
+        curvePlotter.clear();
+        sessionPoints.clear();
+        totalPointsMeasured = 0;
+        isSessionDirty = false;
+        sessionSerializer.cleanupTempSession();
+        drawer.setHardwareLocked(false);
+        drawer.openHardwareDrawer();
+        manualPromptLabel.setText("New session initialized. Select hardware and active submodule, then click Accept.", juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(4000);
+    }
+
+    void handleOpenSession()
+    {
+        if (isSessionDirty && !sessionPoints.empty())
+        {
+            confirmationModal.show(
+                this,
+                "Unsaved Changes",
+                "The current session contains unsaved measurement points.\nDo you want to save before opening another session?",
+                "Save",
+                "Don't Save",
+                "Cancel",
+                [this](gui::ConfirmationModalDialog::Result result) {
+                    if (result == gui::ConfirmationModalDialog::Result::Primary)
+                    {
+                        handleSaveSession();
+                        performOpenSessionFileChooser();
+                    }
+                    else if (result == gui::ConfirmationModalDialog::Result::Secondary)
+                    {
+                        performOpenSessionFileChooser();
+                    }
+                }
+            );
+        }
+        else
+        {
+            performOpenSessionFileChooser();
+        }
+    }
+
+    void performOpenSessionFileChooser()
+    {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Open ABDAudioLab Session Package (.abdlabtest)...",
+            exportDirectory,
+            "*.abdlabtest;*.json"
+        );
+        auto dialogFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+        fileChooser->launchAsync(dialogFlags, [this](const juce::FileChooser& fc) {
+            auto file = fc.getResult();
+            if (file.existsAsFile())
+            {
+                core::SessionManifest manifest;
+                std::vector<exporting::MeasuredPoint> points;
+                juce::String err;
+                if (sessionSerializer.loadSessionFromPackage(file, manifest, points, err))
+                {
+                    applyLoadedSession(manifest, points);
+                    isSessionDirty = false;
+                }
+                else
+                {
+                    juce::AlertWindow::showMessageBoxAsync(
+                        juce::AlertWindow::WarningIcon,
+                        "Failed to Open Session",
+                        err,
+                        "OK"
+                    );
+                }
+            }
+        });
+    }
+
+    void promptDeleteTest(int index, const gui::QueueItem& item)
+    {
+        if (item.status == gui::QueueItemStatus::Completed || item.status == gui::QueueItemStatus::Incomplete)
+        {
+            confirmationModal.show(
+                this,
+                "Delete Measured Test",
+                "Test '" + item.title + "' contains recorded measurement data.\n\nWhat would you like to do?",
+                "Discard & Delete",
+                "Mark as Invalid (Keep)",
+                "Cancel",
+                [this, index](gui::ConfirmationModalDialog::Result result) {
+                    if (result == gui::ConfirmationModalDialog::Result::Primary)
+                    {
+                        suiteList.removeTestDirectly(index);
+                        isSessionDirty = true;
+                    }
+                    else if (result == gui::ConfirmationModalDialog::Result::Secondary)
+                    {
+                        suiteList.invalidateTest(index);
+                        isSessionDirty = true;
+                    }
+                }
+            );
+        }
+        else
+        {
+            suiteList.removeTestDirectly(index);
+            isSessionDirty = true;
+        }
+    }
+
+    void confirmAndExit()
+    {
+        if (isSessionDirty && !sessionPoints.empty())
+        {
+            confirmationModal.show(
+                this,
+                "Exit ABDAudioLab",
+                "You have unsaved measurement points in this session. Do you want to save before exiting?",
+                "Save and Exit",
+                "Exit Without Saving",
+                "Cancel",
+                [this](gui::ConfirmationModalDialog::Result result) {
+                    if (result == gui::ConfirmationModalDialog::Result::Primary)
+                    {
+                        handleSaveSession();
+                        juce::JUCEApplication::getInstance()->systemRequestedQuit();
+                    }
+                    else if (result == gui::ConfirmationModalDialog::Result::Secondary)
+                    {
+                        juce::JUCEApplication::getInstance()->systemRequestedQuit();
+                    }
+                }
+            );
+        }
+        else
+        {
+            juce::JUCEApplication::getInstance()->systemRequestedQuit();
+        }
+    }
+
+    void initializeAutoUpdater()
+    {
+        autoUpdater = std::make_unique<ABDShared::AutoUpdater>(config::getAutoUpdaterConfig());
+        autoUpdater->setUpdateCallback([this](const ABDShared::AutoUpdater::UpdateInfo& info, bool isManualCheck) {
+            juce::MessageManager::callAsync([this, info, isManualCheck]() {
+                if (autoUpdater->isUpdateAvailable())
+                {
+                    juce::String msg = "A new version of ABDAudioLab is available!\n\n"
+                                       "Latest Version: " + info.version + "\n"
+                                       "Current Version: " + autoUpdater->getCurrentVersion() + "\n\n"
+                                       "Would you like to open the GitHub releases download page?";
+
+                    confirmationModal.show(
+                        this,
+                        "New Update Available",
+                        msg,
+                        "Download Update",
+                        "",
+                        "Later",
+                        [info](gui::ConfirmationModalDialog::Result result) {
+                            if (result == gui::ConfirmationModalDialog::Result::Primary)
+                            {
+                                if (info.downloadUrl.isNotEmpty())
+                                    juce::URL(info.downloadUrl).launchInDefaultBrowser();
+                                else
+                                    juce::URL("https://github.com/ajabadia/ABDAudioLab/releases").launchInDefaultBrowser();
+                            }
+                        }
+                    );
+                }
+                else if (isManualCheck)
+                {
+                    confirmationModal.show(
+                        this,
+                        "Up to Date",
+                        "You are currently running the latest release of ABDAudioLab (v" + autoUpdater->getCurrentVersion() + ").",
+                        "OK",
+                        "",
+                        "",
+                        [](gui::ConfirmationModalDialog::Result) {}
+                    );
+                }
+            });
+        });
+
+        // Run background check on launch
+        autoUpdater->checkForUpdates(false);
+    }
+
+    void checkForAppUpdates(bool isManual)
+    {
+        if (autoUpdater != nullptr)
+        {
+            autoUpdater->checkForUpdates(isManual);
+        }
+    }
+
+    // Engine & Controllers
+    audio::LabAudioEngine audioEngine;
+    core::HardwareContractRegistry contractRegistry;
+    std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
+    hardware::MockHardwareController mockController;
+    std::unique_ptr<hardware::AiraSysExController> airaController;
+    std::unique_ptr<hardware::MidiCcController> midiCcController;
+    hardware::ManualAnalogueController manualController;
+    core::ProfilingSequencer sequencer;
+    core::SessionSerializer sessionSerializer;
+    std::vector<exporting::MeasuredPoint> sessionPoints;
+
+    gui::SoundIdTheme soundIdTheme;
+    juce::TooltipWindow tooltipWindow { this, 400 };
+
+    // Files & Directories
+    juce::File settingsFile;
+    juce::File exportDirectory;
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    int totalPointsMeasured { 0 };
+    bool isSessionDirty { false };
+
+    // UI Widgets & Visualizers
+    juce::Label titleLabel;
+    juce::TextButton btnFileMenu;
+    juce::TextButton btnScopeWeb;
+    juce::TextButton btnScopeNative;
+    juce::TextButton btnCalibratePill;
+    gui::HardwareSelectorPill btnHardwareSelector;
+    MonochromeInfoButton btnInfo;
+
+    std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
+    std::unique_ptr<gui::ScopeFloatingWindow> scopeWindow;
+
+    gui::SoundIdCurvePlotter curvePlotter;
+    gui::MeasurementHealthPanel healthPanel;
+    gui::SoundIdMeterStrip meterStrip;
+    gui::SoundIdSuiteList suiteList;
+    gui::SlideInDrawer drawer;
+    gui::AboutModalDialog aboutModal;
+    gui::LoopbackCalibrationModal loopbackModal { audioEngine };
+    gui::OperatorStepModalDialog operatorStepModal;
+    gui::ConfirmationModalDialog confirmationModal;
+
+    juce::Label manualPromptLabel;
+    juce::TextButton btnStepBack;
+    juce::TextButton btnRepeatStep;
+    juce::TextButton confirmManualButton;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
+};
+} // namespace abdaudiolab
+

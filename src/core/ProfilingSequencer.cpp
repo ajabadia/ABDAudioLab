@@ -1,5 +1,7 @@
 #include "ProfilingSequencer.h"
 #include "../math/LabAnalyticEngine.h"
+#include "../audio/LabStimulusGenerator.h"
+#include "../export/NamDatasetExporter.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <chrono>
 #include <thread>
@@ -11,7 +13,7 @@ ProfilingSequencer::ProfilingSequencer(audio::LabAudioEngine& engine,
                                        hardware::IHardwareController& hw)
     : juce::Thread("ProfilingSequencerThread"),
       audioEngine(engine),
-      hardware(hw)
+      hardware(&hw)
 {
 }
 
@@ -104,16 +106,43 @@ void ProfilingSequencer::run()
         }
 
         // Configure hardware parameters
-        for (const auto& step : tc.parameterSteps)
+        if (hardware != nullptr)
         {
-            hardware.setParameter(step.paramIndex, step.normalizedValue);
+            for (const auto& step : tc.parameterSteps)
+            {
+                hardware->setParameter(step.paramIndex, step.normalizedValue);
+            }
         }
 
         // If manual gear, wait for operator confirmation
-        if (!hardware.isAutomatic() && tc.stimulusType != audio::StimulusType::Silence)
+        if (hardware != nullptr && !hardware->isAutomatic() && tc.stimulusType != audio::StimulusType::Silence)
         {
+            juce::String promptText = "Set ";
+            if (tc.parameterSteps.empty())
+            {
+                promptText += "controls to target position";
+            }
+            else
+            {
+                for (size_t sIdx = 0; sIdx < tc.parameterSteps.size(); ++sIdx)
+                {
+                    if (sIdx > 0) promptText += ", ";
+                    int pct = static_cast<int>(std::round(tc.parameterSteps[sIdx].normalizedValue * 100.0f));
+                    promptText += juce::String(tc.parameterSteps[sIdx].paramName) + " to " + juce::String(pct) + "%";
+                }
+            }
+            promptText += " and click Accept [Space]";
+
             operatorConfirmed.store(false, std::memory_order_release);
-            notifyProgress(progress, "Waiting for operator to adjust controls...", SequencerState::WaitingForOperator);
+
+            if (operatorStepCallback)
+            {
+                juce::MessageManager::callAsync([cb = operatorStepCallback, tcCopy = tc, stepIdx = i + 1, totalCount = totalTests]() {
+                    cb(tcCopy, stepIdx, totalCount);
+                });
+            }
+
+            notifyProgress(progress, promptText, SequencerState::WaitingForOperator);
 
             while (!operatorConfirmed.load(std::memory_order_acquire) && !threadShouldExit())
             {
@@ -156,13 +185,22 @@ void ProfilingSequencer::run()
 
             notifyProgress(progress, taskMsg + " [Pass " + juce::String(p + 1) + "/" + juce::String(tc.numPasses) + "]", SequencerState::InjectStimulus);
 
-            int samplesToRecord = static_cast<int>(std::lround((tc.stimulusDurationSec + 0.3) * sampleRate));
+            double maxRecSec = (tc.captureMode == "ADAPTIVE_ENVELOPE") ? std::max(tc.stimulusDurationSec + 2.0, 4.0) : (tc.stimulusDurationSec + 0.3);
+            int samplesToRecord = static_cast<int>(std::lround(maxRecSec * sampleRate));
             float triggerThreshold = (tc.stimulusType == audio::StimulusType::Silence) ? 0.0f : 0.005f;
             receiver.armCapture(samplesToRecord, triggerThreshold);
             generator.setStimulus(tc.stimulusType, tc.stimulusDurationSec, tc.startFreqHz, tc.endFreqHz);
 
+            double captureStartTime = juce::Time::getMillisecondCounterHiRes();
+            double timeoutMs = (maxRecSec + 3.5) * 1000.0;
+
             while (!receiver.isFinished() && !threadShouldExit())
             {
+                if ((juce::Time::getMillisecondCounterHiRes() - captureStartTime) > timeoutMs)
+                {
+                    receiver.forceFinish();
+                    break;
+                }
                 juce::Thread::sleep(10);
             }
             if (threadShouldExit()) return;
@@ -170,6 +208,34 @@ void ProfilingSequencer::run()
             std::vector<float> recordedData;
             if (receiver.retrieveRecordedData(recordedData))
             {
+                // If ADAPTIVE_ENVELOPE mode, detect tail end and trim trailing silence
+                if (tc.captureMode == "ADAPTIVE_ENVELOPE" && !recordedData.empty())
+                {
+                    int minSamples = static_cast<int>(std::lround(tc.stimulusDurationSec * sampleRate));
+                    int cutIdx = static_cast<int>(recordedData.size());
+                    int silenceCount = 0;
+                    constexpr int kSilenceThresholdSamples = 2048; // ~20-45ms of continuous silence
+                    for (int sampleIdx = minSamples; sampleIdx < static_cast<int>(recordedData.size()); ++sampleIdx)
+                    {
+                        if (std::abs(recordedData[static_cast<size_t>(sampleIdx)]) < 0.001f) // -60 dBfs threshold
+                        {
+                            silenceCount++;
+                            if (silenceCount >= kSilenceThresholdSamples)
+                            {
+                                cutIdx = sampleIdx - kSilenceThresholdSamples + 1;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            silenceCount = 0;
+                        }
+                    }
+                    if (cutIdx < static_cast<int>(recordedData.size()) && cutIdx > minSamples)
+                    {
+                        recordedData.resize(static_cast<size_t>(cutIdx));
+                    }
+                }
                 // Write RAW audio WAV directly to session output directory
                 if (exportDir.exists() || exportDir.createDirectory())
                 {
@@ -177,11 +243,10 @@ void ProfilingSequencer::run()
                     rawDir.createDirectory();
 
                     juce::String cleanTestId = juce::File::createLegalFileName(tc.testId);
-                    juce::String wavFileName = juce::String::formatted("Test%02d_Pt%03d_%s_pass%d.wav",
-                                                                       tc.queueItemIndex + 1,
-                                                                       tc.pointIndexInTest,
-                                                                       cleanTestId.toRawUTF8(),
-                                                                       p + 1);
+                    juce::String wavFileName = "Test" + juce::String::formatted("%02d", tc.queueItemIndex + 1)
+                                             + "_Pt" + juce::String::formatted("%03d", tc.pointIndexInTest)
+                                             + "_" + cleanTestId
+                                             + "_pass" + juce::String(p + 1) + ".wav";
                     auto wavFile = rawDir.getChildFile(wavFileName);
 
                     juce::WavAudioFormat wavFormat;
@@ -257,6 +322,64 @@ void ProfilingSequencer::run()
             pt.secondaryValue = modRes.depthPercent;
             pt.thdValue = modRes.asymmetry;
         }
+        else if (tc.functionalBlockType == "WienerHammerstein")
+        {
+            std::vector<float> inputStimulus;
+            if (tc.stimulusType == audio::StimulusType::LogFarinaSweep)
+            {
+                inputStimulus = math::FarinaDeconvolver::generateLogFarinaSweep(sampleRate, tc.stimulusDurationSec, tc.startFreqHz, tc.endFreqHz);
+            }
+            else
+            {
+                inputStimulus = math::FarinaDeconvolver::generateLogFarinaSweep(sampleRate, tc.stimulusDurationSec, 20.0f, 20000.0f);
+            }
+
+            auto whRes = math::LabAnalyticEngine::analyzeWienerHammerstein(recordedPasses, inputStimulus, sampleRate);
+            pt.muSigmaValue = whRes.nonLinearCoeffA;
+            pt.secondaryValue = whRes.postFilterCentroidHz;
+            pt.thdValue = { 1.0f - whRes.goodnessOfFitR2.mean, whRes.goodnessOfFitR2.stdDev };
+            pt.irSamples = whRes.representativeH1;
+        }
+        else if (tc.functionalBlockType == "NeuralCalibration" || tc.stimulusType == audio::StimulusType::NamCalibration)
+        {
+            auto stimBuffer = audio::LabStimulusGenerator::generateNamCalibrationBuffer(sampleRate, tc.stimulusDurationSec);
+            int inSamples = stimBuffer.getNumSamples();
+            const float* inPtr = stimBuffer.getReadPointer(0);
+
+            const float* recPtr = (!recordedPasses.empty() && !recordedPasses[0].empty()) ? recordedPasses[0].data() : nullptr;
+            int recSamples = (!recordedPasses.empty()) ? static_cast<int>(recordedPasses[0].size()) : 0;
+
+            int searchWindow = static_cast<int>(std::min(0.3 * sampleRate, static_cast<double>(inSamples)));
+            int maxLag = static_cast<int>(std::min(0.08 * sampleRate, static_cast<double>(recSamples - searchWindow)));
+            if (maxLag <= 0) maxLag = 1;
+
+            int lag = (recPtr != nullptr && inPtr != nullptr) ? exporting::NamDatasetExporter::findLatencyOffsetSamples(inPtr, recPtr, searchWindow, maxLag) : 0;
+            float latencyMs = (static_cast<float>(lag) / static_cast<float>(sampleRate)) * 1000.0f;
+
+            pt.muSigmaValue = { latencyMs, 0.01f };
+            pt.secondaryValue = { static_cast<float>(lag), 0.0f };
+            pt.thdValue = { 0.0f, 0.0f };
+
+            if (exportDir.exists() && recPtr != nullptr && recSamples > lag)
+            {
+                exporting::NamDatasetManifest manifest;
+                manifest.hardwareId = activeSession.getMetadata().targetModule;
+                manifest.hardwareDisplayName = activeSession.getMetadata().hardwareName;
+                manifest.functionId = tc.testId;
+                manifest.sampleRate = sampleRate;
+                manifest.bitDepth = 24;
+                if (!tc.parameterSteps.empty())
+                    manifest.controlPositions["Param1"] = tc.parameterSteps[0].normalizedValue;
+                if (tc.parameterSteps.size() > 1)
+                    manifest.controlPositions["Param2"] = tc.parameterSteps[1].normalizedValue;
+
+                juce::AudioBuffer<float> recBuffer(1, recSamples);
+                std::memcpy(recBuffer.getWritePointer(0), recPtr, sizeof(float) * static_cast<size_t>(recSamples));
+
+                auto namFolder = exportDir.getChildFile("nam_dataset_" + tc.testId);
+                exporting::NamDatasetExporter::exportDataset(namFolder, stimBuffer, recBuffer, sampleRate, manifest);
+            }
+        }
         else
         {
             auto gainRes = math::LabAnalyticEngine::analyzeGainTones(recordedPasses, sampleRate);
@@ -265,11 +388,25 @@ void ProfilingSequencer::run()
             pt.thdValue = { 0.0f, 0.0f };
         }
 
-        // Calculate SNR of measurement
+        // Calculate SNR & signal presence validation
+        bool isActiveTest = (tc.functionalBlockType != "NoiseFloor" && tc.stimulusType != audio::StimulusType::Silence);
+        float maxPeak = 0.0f;
+        if (!recordedPasses.empty() && !recordedPasses[0].empty())
+        {
+            for (float s : recordedPasses[0])
+                maxPeak = std::max(maxPeak, std::abs(s));
+        }
+
+        if (isActiveTest && maxPeak < 0.005f) // Signal below -46 dBfs -> No patch cable or zero volume
+        {
+            float dbPeak = (maxPeak > 1e-5f) ? (20.0f * std::log10(maxPeak)) : -96.0f;
+            notifyProgress(progress, "Warning: Low audio signal detected on In 1 (Peak: " + juce::String(dbPeak, 1) + " dBfs). Check patch cable.", SequencerState::CaptureAndAnalyze);
+        }
+
         if (!recordedPasses.empty() && !recordedPasses[0].empty())
         {
             float snr = math::LabAnalyticEngine::calculateSignalToNoiseRatioDb(recordedPasses[0], -90.0f);
-            if (!math::LabAnalyticEngine::isMeasurementConfidenceAcceptable(snr, 18.0f))
+            if (!math::LabAnalyticEngine::isMeasurementConfidenceAcceptable(snr, 12.0f))
             {
                 notifyProgress(progress, "Warning: Low SNR detected (" + juce::String(snr, 1) + " dB) on test " + tc.testId, SequencerState::CaptureAndAnalyze);
             }

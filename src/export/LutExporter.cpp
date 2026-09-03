@@ -41,8 +41,19 @@ bool LutExporter::exportToCppHeader(const std::string& destinationHeaderPath,
     out << "    float thd_percent;// Total Harmonic Distortion %\n";
     out << "    float reserved;   // 16-byte alignment padding\n";
     out << "};\n\n";
-    out << "static constexpr size_t " << tableName << "_SIZE = " << points.size() << ";\n\n";
-    out << "static const alignas(16) AbdBatchedPoint " << tableName << "[" << tableName << "_SIZE] = {\n";
+    std::string safeName;
+    for (char c : tableName)
+    {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_')
+            safeName += c;
+        else
+            safeName += '_';
+    }
+    if (safeName.empty() || std::isdigit(static_cast<unsigned char>(safeName[0])))
+        safeName = "lut_" + safeName;
+
+    out << "inline constexpr size_t " << safeName << "_SIZE = " << points.size() << ";\n\n";
+    out << "inline const alignas(16) AbdBatchedPoint " << safeName << "[" << safeName << "_SIZE] = {\n";
 
     for (size_t i = 0; i < points.size(); ++i)
     {
@@ -63,7 +74,7 @@ bool LutExporter::exportToCppHeader(const std::string& destinationHeaderPath,
 
     out << "};\n\n";
     out << "} // namespace abdaudiolab::lut\n";
-    return true;
+    return out.good();
 }
 
 bool LutExporter::exportToJsonReport(const std::string& destinationJsonPath,
@@ -99,7 +110,7 @@ bool LutExporter::exportToJsonReport(const std::string& destinationJsonPath,
         return false;
 
     out << std::setw(2) << root << std::endl;
-    return true;
+    return out.good();
 }
 
 bool LutExporter::exportSessionManifest(const std::string& destinationManifestPath,
@@ -163,7 +174,7 @@ bool LutExporter::exportSessionManifest(const std::string& destinationManifestPa
         return false;
 
     out << std::setw(2) << root << std::endl;
-    return true;
+    return out.good();
 }
 
 } // namespace abdaudiolab::exporting

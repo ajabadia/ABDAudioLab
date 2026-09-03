@@ -294,7 +294,7 @@ void LoopbackCalibrationModal::paint(juce::Graphics& g)
 
         g.setFont(juce::FontOptions(11.0f));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText("• Check that Audio Out 1 is connected directly to Audio In 1 with a patch cable.\n• Check that the soundcard input volume is turned up.\n• Ensure Audio Settings are set to the correct physical audio interface.", content.removeFromTop(60.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"• Check that Audio Out 1 is connected directly to Audio In 1 with a patch cable.\n• Check that the soundcard input volume is turned up.\n• Ensure Audio Settings are set to the correct physical audio interface."), content.removeFromTop(60.0f), juce::Justification::centredLeft, true);
     }
 }
 

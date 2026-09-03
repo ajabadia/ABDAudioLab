@@ -4,6 +4,7 @@
 #include <cmath>
 #include <string>
 #include "FarinaDeconvolver.h"
+#include "WienerHammersteinFitter.h"
 
 namespace abdaudiolab::math
 {
@@ -52,6 +53,16 @@ struct CyclicModulatorAnalysisResult
     StatisticalPair asymmetry;
 };
 
+struct WienerHammersteinAnalysisResult
+{
+    StatisticalPair nonLinearCoeffA;      /**< 3rd-order nonlinearity 'a' (mean & stddev). */
+    StatisticalPair preFilterCentroidHz;  /**< Input filter h1 centroid (Hz). */
+    StatisticalPair postFilterCentroidHz; /**< Output filter h2 centroid (Hz). */
+    StatisticalPair goodnessOfFitR2;      /**< R^2 model fit (0.0 to 1.0). */
+    std::vector<float> representativeH1;  /**< Best-fit input filter impulse response. */
+    std::vector<float> representativeH2;  /**< Best-fit output filter impulse response. */
+};
+
 /**
  * @brief Core mathematical and statistical analysis engine.
  */
@@ -90,6 +101,10 @@ public:
 
     static CyclicModulatorAnalysisResult analyzeCyclicModulator(const std::vector<std::vector<float>>& recordedPasses,
                                                                double sampleRate);
+
+    static WienerHammersteinAnalysisResult analyzeWienerHammerstein(const std::vector<std::vector<float>>& recordedPasses,
+                                                                   const std::vector<float>& inputStimulus,
+                                                                   double sampleRate);
 };
 
 } // namespace abdaudiolab::math

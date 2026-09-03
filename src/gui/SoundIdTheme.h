@@ -35,11 +35,11 @@ public:
 
     SoundIdTheme()
     {
-        // Set standard JUCE colors to match Light Theme
         setColour(juce::ResizableWindow::backgroundColourId, bgLight);
         setColour(juce::DocumentWindow::backgroundColourId, bgLight);
         setColour(juce::DialogWindow::backgroundColourId, bgLight);
-        setColour(juce::AlertWindow::backgroundColourId, bgLight);
+        setColour(juce::AlertWindow::backgroundColourId, pillWhiteBg);
+        setColour(juce::AlertWindow::textColourId, textPrimary);
         setColour(juce::AlertWindow::outlineColourId, borderCard);
 
         setColour(juce::Label::textColourId, textPrimary);
@@ -71,6 +71,15 @@ public:
         setColour(juce::TooltipWindow::textColourId, juce::Colours::white);
         setColour(juce::TooltipWindow::outlineColourId, borderCard);
 
+        // TextEditor colours (Sonarworks Nordic Light style: off-white background, dark text, subtle border)
+        setColour(juce::TextEditor::backgroundColourId, pillWhiteBg);
+        setColour(juce::TextEditor::textColourId, textPrimary);
+        setColour(juce::TextEditor::highlightColourId, accentPurpleFill);
+        setColour(juce::TextEditor::highlightedTextColourId, textPrimary);
+        setColour(juce::TextEditor::outlineColourId, borderCard);
+        setColour(juce::TextEditor::focusedOutlineColourId, accentGreen);
+        setColour(juce::TextEditor::shadowColourId, juce::Colours::transparentBlack);
+
         // Slider colours
         setColour(juce::Slider::trackColourId, bgCardHover);
         setColour(juce::Slider::thumbColourId, pillWhiteBg);
@@ -82,6 +91,7 @@ public:
                               bool shouldDrawButtonAsHighlighted,
                               bool shouldDrawButtonAsDown) override
     {
+        juce::ignoreUnused(backgroundColour);
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         float cornerSize = std::min(bounds.getHeight() * 0.5f, 18.0f);
 
@@ -140,6 +150,16 @@ public:
         g.strokePath(arrow, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
+    void drawTextEditorOutline(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
+    {
+        if (textEditor.isEnabled())
+        {
+            auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height)).reduced(0.5f);
+            g.setColour(textEditor.hasKeyboardFocus(true) ? accentGreen : borderCard);
+            g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        }
+    }
+
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
                           float sliderPos, float /*minSliderPos*/, float /*maxSliderPos*/,
                           juce::Slider::SliderStyle /*style*/, juce::Slider& /*slider*/) override
@@ -167,6 +187,22 @@ public:
 
         g.setColour(textSecondary);
         g.fillEllipse(thumbX + 5.0f, thumbY + 5.0f, 6.0f, 6.0f);
+    }
+
+    void drawAlertBox(juce::Graphics& g,
+                      juce::AlertWindow& alert,
+                      const juce::Rectangle<int>& bounds,
+                      juce::TextLayout& textLayout) override
+    {
+        auto b = bounds.toFloat();
+
+        g.setColour(pillWhiteBg);
+        g.fillRoundedRectangle(b, 12.0f);
+
+        g.setColour(borderCard);
+        g.drawRoundedRectangle(b.reduced(0.5f), 12.0f, 1.2f);
+
+        textLayout.draw(g, alert.getLocalBounds().toFloat());
     }
 };
 

@@ -28,7 +28,7 @@ void AboutModalDialog::CardComponent::paint(juce::Graphics& g)
     g.fillRoundedRectangle(badgeRect, 4.0f);
     g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
     g.setColour(juce::Colour(0xff374151));
-    g.drawText("v" + juce::String(version::kAppVersion) + " • #" + juce::String(version::kBuildNumber), badgeRect, juce::Justification::centred, true);
+    g.drawText(juce::String::fromUTF8(u8"v") + juce::String(version::kAppVersion) + juce::String::fromUTF8(u8" • #") + juce::String(version::kBuildNumber), badgeRect, juce::Justification::centred, true);
 
     // Subtitle
     g.setFont(juce::FontOptions(12.0f));
@@ -54,10 +54,10 @@ void AboutModalDialog::CardComponent::paint(juce::Graphics& g)
         g.drawText(text, row, juce::Justification::centredLeft, true);
     };
 
-    drawBullet("• Real-Time DSP Safety:", "Lock-free FIFO & zero-allocation audio threads (JUCE 8).");
-    drawBullet("• Farina Deconvolution:", "Harmonic distortion profiling (H2-H5) & impulse responses.");
-    drawBullet("• Automated Profiling:", "SysEx, NRPN, MIDI CC & manual step-by-step matrix.");
-    drawBullet("• Export Formats:", "High-precision C++ Look-Up Tables & session_manifest.json.");
+    drawBullet(juce::String::fromUTF8(u8"• Real-Time DSP Safety:"), "Lock-free FIFO & zero-allocation audio threads (JUCE 8).");
+    drawBullet(juce::String::fromUTF8(u8"• Farina Deconvolution:"), "Harmonic distortion profiling (H2-H5) & impulse responses.");
+    drawBullet(juce::String::fromUTF8(u8"• Automated Profiling:"), "SysEx, NRPN, MIDI CC & manual step-by-step matrix.");
+    drawBullet(juce::String::fromUTF8(u8"• Export Formats:"), "High-precision C++ Look-Up Tables & session_manifest.json.");
 
     content.removeFromTop(12.0f);
 

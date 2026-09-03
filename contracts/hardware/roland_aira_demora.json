@@ -9,9 +9,12 @@
   "modelImage": "models/roland-demora.webp",
   "midiIdentification": {
     "manufacturer": "Roland",
+    "manufacturerIdHex": "41",
     "model": "Demora",
-    "modelIdHex": "00 00 00 22",
-    "autoDetectSysEx": "F0 7E 10 06 01 F7"
+    "modelIdHex": "16",
+    "sysexHeaderHex": "41 10 00 00 00 16",
+    "autoDetectSysEx": "F0 7E 10 06 01 F7",
+    "portNameMatches": ["DEMORA", "Demora", "AIRA"]
   },
   "functions": [
     {

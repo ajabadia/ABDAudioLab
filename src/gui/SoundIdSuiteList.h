@@ -36,6 +36,7 @@ struct QueueItem
     int currentRunningPoint { 0 };
     bool isPinned { false };      // Pinned Test 0 (Noise Floor) stays at index 0
     bool isSkipped { false };     // Skip / Bypass flag
+    bool isExpanded { false };    // Show / hide detailed step rows
 };
 
 /**
@@ -58,10 +59,18 @@ public:
     void moveTestUp(int index);
     void moveTestDown(int index);
     void toggleTestSkipped(int index);
+    void toggleTestExpanded(int index);
     void clearQueue();
 
     [[nodiscard]] const std::vector<QueueItem>& getQueue() const noexcept { return queue; }
     [[nodiscard]] int getQueueSize() const noexcept { return static_cast<int>(queue.size()); }
+    [[nodiscard]] int getTotalPointCount() const noexcept
+    {
+        int total = 0;
+        for (const auto& item : queue)
+            total += item.totalPoints;
+        return std::max(1, total);
+    }
     [[nodiscard]] bool isTestInQueue(const juce::String& signature) const noexcept;
 
     void updateItemStatus(int index, QueueItemStatus status, int currentPoint = 0);
@@ -72,6 +81,9 @@ public:
     std::function<void(int index, const QueueItem& item)> onRequestDeleteTest;
     std::function<void(int index)> onContinueTestClicked;
     std::function<void(int index)> onRestartTestClicked;
+    std::function<void(int queueIndex, int pointIndex)> onSelectPointClicked;
+    std::function<void(int queueIndex, int pointIndex)> onClearPointClicked;
+    std::function<void(int queueIndex, int pointIndex)> onDeletePointClicked;
     std::function<void()> onAddStandardClicked;
     std::function<void()> onAddCustomClicked;
     std::function<void(bool start)> onToggleSessionRunClicked;

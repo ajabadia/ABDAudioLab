@@ -200,6 +200,16 @@ void SoundIdSuiteList::moveTestDown(int index)
     }
 }
 
+void SoundIdSuiteList::toggleTestExpanded(int index)
+{
+    if (index >= 0 && index < static_cast<int>(queue.size()))
+    {
+        queue[static_cast<size_t>(index)].isExpanded = !queue[static_cast<size_t>(index)].isExpanded;
+        layoutRows();
+        rowsContent.repaint();
+    }
+}
+
 void SoundIdSuiteList::toggleTestSkipped(int index)
 {
     if (index >= 0 && index < static_cast<int>(queue.size()))
@@ -239,8 +249,16 @@ void SoundIdSuiteList::resetAllStatuses()
 
 void SoundIdSuiteList::layoutRows()
 {
-    int rowH = 34;
-    int totalH = static_cast<int>(queue.size()) * rowH;
+    int totalH = 0;
+    for (const auto& item : queue)
+    {
+        totalH += 34; // Main row height
+        if (item.isExpanded)
+        {
+            int shownSubRows = std::min(item.totalPoints, 16);
+            totalH += shownSubRows * 24 + 6;
+        }
+    }
     rowsContent.setSize(viewport.getWidth() > 0 ? viewport.getWidth() - 14 : 700, std::max(totalH, 100));
 }
 
@@ -274,12 +292,13 @@ void SoundIdSuiteList::paint(juce::Graphics& g)
 
 void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
 {
-    int rowHeight = 34;
+    float currentY = 0.0f;
 
     for (size_t i = 0; i < owner.queue.size(); ++i)
     {
         const auto& item = owner.queue[i];
-        auto rowRect = juce::Rectangle<float>(0.0f, static_cast<float>(i * rowHeight), static_cast<float>(getWidth()), static_cast<float>(rowHeight)).reduced(0.0f, 1.0f);
+        auto rowRect = juce::Rectangle<float>(0.0f, currentY, static_cast<float>(getWidth()), 34.0f).reduced(0.0f, 1.0f);
+        currentY += 34.0f;
 
         // Row background
         if (item.status == QueueItemStatus::Running)
@@ -432,7 +451,14 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
         g.setColour(item.isSkipped ? SoundIdTheme::textMuted : SoundIdTheme::accentGreen);
         g.drawText(item.isSkipped ? "BYPASS" : "ACTIVE", bypassPill, juce::Justification::centred, false);
 
-        // 4. Title and Single-line info
+        // Expand Arrow Button
+        auto expandBtn = area.removeFromLeft(16.0f);
+        g.setColour(SoundIdTheme::textSecondary);
+        g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        g.drawText(item.isExpanded ? juce::String::fromUTF8(u8"▼") : juce::String::fromUTF8(u8"▶"), expandBtn, juce::Justification::centred, false);
+        area.removeFromLeft(4.0f);
+
+        // Title and Single-line info
         g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
         g.setColour(item.isSkipped ? SoundIdTheme::textMuted : SoundIdTheme::textPrimary);
         
@@ -441,121 +467,203 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
             fullText += "  --  " + item.description;
 
         g.drawText(fullText, area, juce::Justification::centredLeft, true);
+
+        // Sub-rows when expanded
+        if (item.isExpanded)
+        {
+            int shownSubRows = std::min(item.totalPoints, 16);
+            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            {
+                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                currentY += 24.0f;
+
+                g.setColour(juce::Colour(0xfff8fafc));
+                g.fillRoundedRectangle(subRect, 3.0f);
+                g.setColour(SoundIdTheme::borderSubtle);
+                g.drawRoundedRectangle(subRect.reduced(0.5f), 3.0f, 1.0f);
+
+                auto subArea = subRect.reduced(6.0f, 2.0f);
+                g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+                g.setColour(SoundIdTheme::textPrimary);
+                
+                float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
+                juce::String stepLabel = "Point #" + juce::String(pIdx + 1) + " / " + juce::String(item.totalPoints) + " (" + juce::String(stepPct, 1) + "% Pos)";
+                g.drawText(stepLabel, subArea.removeFromLeft(220.0f), juce::Justification::centredLeft, true);
+
+                auto subActions = subArea.removeFromRight(150.0f);
+
+                auto subDel = subActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 18.0f);
+                g.setColour(juce::Colour(0xfffee2e2));
+                g.fillRoundedRectangle(subDel, 2.0f);
+                g.setColour(SoundIdTheme::accentRed);
+                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                g.drawText("Del", subDel, juce::Justification::centred, false);
+
+                auto subClear = subActions.removeFromRight(42.0f).withSizeKeepingCentre(38.0f, 18.0f);
+                g.setColour(juce::Colour(0xfff1f5f9));
+                g.fillRoundedRectangle(subClear, 2.0f);
+                g.setColour(SoundIdTheme::textSecondary);
+                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                g.drawText("Clear", subClear, juce::Justification::centred, false);
+
+                auto subView = subActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 18.0f);
+                g.setColour(juce::Colour(0xffdcfce7));
+                g.fillRoundedRectangle(subView, 2.0f);
+                g.setColour(SoundIdTheme::accentGreen);
+                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                g.drawText("View", subView, juce::Justification::centred, false);
+            }
+            currentY += 6.0f;
+        }
     }
 }
 
 void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e)
 {
-    int rowHeight = 34;
-    int clickedIndex = static_cast<int>(e.position.y / static_cast<float>(rowHeight));
+    float currentY = 0.0f;
 
-    if (clickedIndex >= 0 && clickedIndex < static_cast<int>(owner.queue.size()))
+    for (size_t i = 0; i < owner.queue.size(); ++i)
     {
-        auto rowRect = juce::Rectangle<float>(0.0f, static_cast<float>(clickedIndex * rowHeight), static_cast<float>(getWidth()), static_cast<float>(rowHeight)).reduced(0.0f, 1.0f);
-        auto area = rowRect.reduced(6.0f, 2.0f);
+        auto rowRect = juce::Rectangle<float>(0.0f, currentY, static_cast<float>(getWidth()), 34.0f).reduced(0.0f, 1.0f);
+        currentY += 34.0f;
 
-        // Click on reorder
-        if (!owner.queue[static_cast<size_t>(clickedIndex)].isPinned)
+        if (rowRect.contains(e.position))
         {
-            auto reorderArea = area.removeFromLeft(36.0f);
-            auto upRect = reorderArea.removeFromLeft(16.0f);
-            if (upRect.contains(e.position))
+            auto area = rowRect.reduced(6.0f, 2.0f);
+
+            // Reorder buttons
+            if (!owner.queue[i].isPinned)
             {
-                owner.moveTestUp(clickedIndex);
-                return;
+                auto reorderArea = area.removeFromLeft(36.0f);
+                auto upRect = reorderArea.removeFromLeft(16.0f);
+                if (upRect.contains(e.position))
+                {
+                    owner.moveTestUp(static_cast<int>(i));
+                    return;
+                }
+                auto downRect = reorderArea.removeFromLeft(16.0f);
+                if (downRect.contains(e.position))
+                {
+                    owner.moveTestDown(static_cast<int>(i));
+                    return;
+                }
             }
-            auto downRect = reorderArea.removeFromLeft(16.0f);
-            if (downRect.contains(e.position))
+            else
             {
-                owner.moveTestDown(clickedIndex);
-                return;
-            }
-        }
-        else
-        {
-            area.removeFromLeft(36.0f);
-        }
-
-        area.removeFromLeft(46.0f); // skip badge
-
-        auto rightActions = area.removeFromRight(290.0f);
-
-        if (!owner.queue[static_cast<size_t>(clickedIndex)].isPinned)
-        {
-            auto delBtn = rightActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 20.0f);
-            if (delBtn.contains(e.position))
-            {
-                owner.removeTestFromQueue(clickedIndex);
-                return;
+                area.removeFromLeft(36.0f);
             }
 
-            auto copyBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
-            if (copyBtn.contains(e.position))
+            area.removeFromLeft(46.0f); // badge
+
+            auto rightActions = area.removeFromRight(290.0f);
+
+            if (!owner.queue[i].isPinned)
             {
-                owner.duplicateTestInQueue(clickedIndex);
+                auto delBtn = rightActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 20.0f);
+                if (delBtn.contains(e.position))
+                {
+                    owner.removeTestFromQueue(static_cast<int>(i));
+                    return;
+                }
+
+                auto copyBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+                if (copyBtn.contains(e.position))
+                {
+                    owner.duplicateTestInQueue(static_cast<int>(i));
+                    return;
+                }
+
+                auto editBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+                if (editBtn.contains(e.position))
+                {
+                    if (owner.onEditTestClicked)
+                        owner.onEditTestClicked(static_cast<int>(i), owner.queue[i]);
+                    return;
+                }
+            }
+            else
+            {
+                rightActions.removeFromRight(112.0f);
+            }
+
+            rightActions.removeFromRight(6.0f);
+
+            if (owner.queue[i].status == QueueItemStatus::Incomplete)
+            {
+                auto contBtn = rightActions.removeFromRight(58.0f).withSizeKeepingCentre(54.0f, 20.0f);
+                if (contBtn.contains(e.position))
+                {
+                    if (owner.onContinueTestClicked) owner.onContinueTestClicked(static_cast<int>(i));
+                    return;
+                }
+                auto resetBtn = rightActions.removeFromRight(50.0f).withSizeKeepingCentre(46.0f, 20.0f);
+                if (resetBtn.contains(e.position))
+                {
+                    if (owner.onRestartTestClicked) owner.onRestartTestClicked(static_cast<int>(i));
+                    return;
+                }
+            }
+            else if (owner.queue[i].status == QueueItemStatus::Invalidated)
+            {
+                auto rerunBtn = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
+                if (rerunBtn.contains(e.position))
+                {
+                    if (owner.onRestartTestClicked) owner.onRestartTestClicked(static_cast<int>(i));
+                    return;
+                }
+            }
+
+            // Bypass pill
+            auto bypassPill = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
+            if (bypassPill.contains(e.position))
+            {
+                owner.toggleTestSkipped(static_cast<int>(i));
                 return;
             }
 
-            auto editBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
-            if (editBtn.contains(e.position))
-            {
-                if (owner.onEditTestClicked)
-                    owner.onEditTestClicked(clickedIndex, owner.queue[static_cast<size_t>(clickedIndex)]);
-                return;
-            }
-        }
-        else
-        {
-            rightActions.removeFromRight(112.0f);
-        }
-
-        rightActions.removeFromRight(6.0f);
-
-        if (owner.queue[static_cast<size_t>(clickedIndex)].status == QueueItemStatus::Incomplete)
-        {
-            auto contBtn = rightActions.removeFromRight(58.0f).withSizeKeepingCentre(54.0f, 20.0f);
-            if (contBtn.contains(e.position))
-            {
-                if (owner.onContinueTestClicked) owner.onContinueTestClicked(clickedIndex);
-                return;
-            }
-            auto resetBtn = rightActions.removeFromRight(50.0f).withSizeKeepingCentre(46.0f, 20.0f);
-            if (resetBtn.contains(e.position))
-            {
-                if (owner.onRestartTestClicked) owner.onRestartTestClicked(clickedIndex);
-                return;
-            }
-        }
-        else if (owner.queue[static_cast<size_t>(clickedIndex)].status == QueueItemStatus::Invalidated)
-        {
-            auto rerunBtn = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
-            if (rerunBtn.contains(e.position))
-            {
-                if (owner.onRestartTestClicked) owner.onRestartTestClicked(clickedIndex);
-                return;
-            }
-        }
-
-        // Status area skip
-        if (owner.queue[static_cast<size_t>(clickedIndex)].isSkipped)
-            rightActions.removeFromRight(70.0f);
-        else if (owner.queue[static_cast<size_t>(clickedIndex)].status == QueueItemStatus::Running)
-            rightActions.removeFromRight(90.0f);
-        else if (owner.queue[static_cast<size_t>(clickedIndex)].status == QueueItemStatus::Completed)
-            rightActions.removeFromRight(70.0f);
-        else if (owner.queue[static_cast<size_t>(clickedIndex)].status == QueueItemStatus::Invalidated)
-            rightActions.removeFromRight(65.0f);
-        else
-            rightActions.removeFromRight(60.0f);
-
-        rightActions.removeFromRight(6.0f);
-
-        // ACTIVE / BYPASS toggle button
-        auto bypassPill = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
-        if (bypassPill.contains(e.position))
-        {
-            owner.toggleTestSkipped(clickedIndex);
+            // Expand arrow or title click toggles expansion
+            owner.toggleTestExpanded(static_cast<int>(i));
             return;
+        }
+
+        // Sub-rows
+        if (owner.queue[i].isExpanded)
+        {
+            int shownSubRows = std::min(owner.queue[i].totalPoints, 16);
+            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            {
+                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                currentY += 24.0f;
+
+                if (subRect.contains(e.position))
+                {
+                    auto subArea = subRect.reduced(6.0f, 2.0f);
+                    subArea.removeFromLeft(220.0f);
+                    auto subActions = subArea.removeFromRight(150.0f);
+
+                    auto subDel = subActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 18.0f);
+                    if (subDel.contains(e.position))
+                    {
+                        if (owner.onDeletePointClicked) owner.onDeletePointClicked(static_cast<int>(i), pIdx);
+                        return;
+                    }
+
+                    auto subClear = subActions.removeFromRight(42.0f).withSizeKeepingCentre(38.0f, 18.0f);
+                    if (subClear.contains(e.position))
+                    {
+                        if (owner.onClearPointClicked) owner.onClearPointClicked(static_cast<int>(i), pIdx);
+                        return;
+                    }
+
+                    auto subView = subActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 18.0f);
+                    if (subView.contains(e.position))
+                    {
+                        if (owner.onSelectPointClicked) owner.onSelectPointClicked(static_cast<int>(i), pIdx);
+                        return;
+                    }
+                }
+            }
+            currentY += 6.0f;
         }
     }
 }

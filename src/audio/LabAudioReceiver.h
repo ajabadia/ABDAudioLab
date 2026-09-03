@@ -35,6 +35,7 @@ public:
 
     [[nodiscard]] ReceiverState getState() const noexcept { return state.load(std::memory_order_relaxed); }
     [[nodiscard]] bool isFinished() const noexcept { return state.load(std::memory_order_relaxed) == ReceiverState::Finished; }
+    void forceFinish() noexcept { state.store(ReceiverState::Finished, std::memory_order_release); }
     [[nodiscard]] int getRecordedSampleCount() const noexcept { return recordedCount.load(std::memory_order_relaxed); }
 
     void processBlock(const float* inputBuffer, int numSamples) noexcept;
@@ -49,11 +50,11 @@ private:
     std::atomic<ReceiverState> state { ReceiverState::Idle };
 
     std::vector<float> ringBuffer;
-    int ringBufferSize { 0 };
+    std::atomic<int> ringBufferSize { 0 };
 
     std::atomic<int> targetSamples { 0 };
     std::atomic<int> recordedCount { 0 };
-    float triggerThreshold { 0.01f };
+    std::atomic<float> triggerThreshold { 0.01f };
 
     juce::AbstractFifo fifo;
 };

@@ -44,11 +44,13 @@ juce::File SessionSerializer::getRecoverableAutoSaveFile() const
 nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest& manifest)
 {
     nlohmann::json j;
+    j["sessionTitle"] = manifest.sessionTitle;
     j["appVersion"] = manifest.appVersion;
     j["buildNumber"] = manifest.buildNumber;
     j["formatVersion"] = manifest.formatVersion;
     j["timestamp"] = manifest.timestamp.empty() ? juce::Time::getCurrentTime().toISO8601(true).toStdString() : manifest.timestamp;
     j["hardwareId"] = manifest.hardwareId;
+    j["hardwareName"] = manifest.hardwareName;
     j["hardwareDisplayName"] = manifest.hardwareDisplayName;
     j["activeFunctionId"] = manifest.activeFunctionId;
     j["activeFunctionName"] = manifest.activeFunctionName;
@@ -67,12 +69,18 @@ nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest&
         tj["captureMode"] = t.captureMode.toStdString();
 
         nlohmann::json ctrls = nlohmann::json::array();
-        for (const auto& c : t.controls)
+        for (size_t idx = 0; idx < t.controls.size(); ++idx)
         {
+            const auto& c = t.controls[idx];
             nlohmann::json cj;
+            std::string cid = c.id.isNotEmpty() ? c.id.toStdString() : ("ctrl_" + std::to_string(idx + 1));
+            cj["id"] = cid;
             cj["name"] = c.name.toStdString();
             cj["type"] = c.type.toStdString();
             cj["steps"] = c.steps;
+            cj["minPct"] = c.minPct;
+            cj["maxPct"] = c.maxPct;
+            cj["sortOrder"] = c.sortOrder;
             ctrls.push_back(cj);
         }
         tj["controls"] = ctrls;
@@ -89,11 +97,13 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
 {
     try
     {
+        if (j.contains("sessionTitle")) outManifest.sessionTitle = j["sessionTitle"].get<std::string>();
         if (j.contains("appVersion")) outManifest.appVersion = j["appVersion"].get<std::string>();
         if (j.contains("buildNumber")) outManifest.buildNumber = j["buildNumber"].get<int>();
         if (j.contains("formatVersion")) outManifest.formatVersion = j["formatVersion"].get<std::string>();
         if (j.contains("timestamp")) outManifest.timestamp = j["timestamp"].get<std::string>();
         if (j.contains("hardwareId")) outManifest.hardwareId = j["hardwareId"].get<std::string>();
+        if (j.contains("hardwareName")) outManifest.hardwareName = j["hardwareName"].get<std::string>();
         if (j.contains("hardwareDisplayName")) outManifest.hardwareDisplayName = j["hardwareDisplayName"].get<std::string>();
         if (j.contains("activeFunctionId")) outManifest.activeFunctionId = j["activeFunctionId"].get<std::string>();
         if (j.contains("activeFunctionName")) outManifest.activeFunctionName = j["activeFunctionName"].get<std::string>();
@@ -118,9 +128,13 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
                     for (const auto& cj : tj["controls"])
                     {
                         gui::ControlStepConfig c;
+                        if (cj.contains("id")) c.id = juce::String(cj["id"].get<std::string>());
                         if (cj.contains("name")) c.name = juce::String(cj["name"].get<std::string>());
                         if (cj.contains("type")) c.type = juce::String(cj["type"].get<std::string>());
                         if (cj.contains("steps")) c.steps = cj["steps"].get<int>();
+                        if (cj.contains("minPct")) c.minPct = cj["minPct"].get<float>();
+                        if (cj.contains("maxPct")) c.maxPct = cj["maxPct"].get<float>();
+                        if (cj.contains("sortOrder")) c.sortOrder = cj["sortOrder"].get<int>();
                         tc.controls.push_back(c);
                     }
                 }
@@ -158,7 +172,10 @@ bool SessionSerializer::saveSessionToPackage(const juce::File& targetPackageFile
         mos.writeInt(numPoints);
         for (const auto& pt : points)
         {
+            mos.writeString(pt.pointId);
             mos.writeString(pt.testId);
+            mos.writeString(pt.blockType);
+            mos.writeString(pt.stimulusType);
             mos.writeFloat(pt.param1Normalized);
             mos.writeFloat(pt.param2Normalized);
             mos.writeFloat(pt.muSigmaValue.mean);
@@ -167,6 +184,8 @@ bool SessionSerializer::saveSessionToPackage(const juce::File& targetPackageFile
             mos.writeFloat(pt.secondaryValue.stdDev);
             mos.writeFloat(pt.thdValue.mean);
             mos.writeFloat(pt.thdValue.stdDev);
+            mos.writeFloat(pt.thdPercent);
+            mos.writeFloat(pt.snrDb);
         }
         pointsFile.replaceWithData(mos.getData(), mos.getDataSize());
     }
@@ -267,7 +286,10 @@ bool SessionSerializer::loadSessionFromPackage(const juce::File& sourcePackageFi
         for (int i = 0; i < numPoints && !mis.isExhausted(); ++i)
         {
             exporting::MeasuredPoint pt;
+            pt.pointId = mis.readString().toStdString();
             pt.testId = mis.readString().toStdString();
+            pt.blockType = mis.readString().toStdString();
+            pt.stimulusType = mis.readString().toStdString();
             pt.param1Normalized = mis.readFloat();
             pt.param2Normalized = mis.readFloat();
             pt.muSigmaValue.mean = mis.readFloat();
@@ -276,6 +298,8 @@ bool SessionSerializer::loadSessionFromPackage(const juce::File& sourcePackageFi
             pt.secondaryValue.stdDev = mis.readFloat();
             pt.thdValue.mean = mis.readFloat();
             pt.thdValue.stdDev = mis.readFloat();
+            pt.thdPercent = mis.readFloat();
+            pt.snrDb = mis.readFloat();
             outPoints.push_back(pt);
         }
     }

@@ -46,6 +46,17 @@ struct HardwareFunction
     std::vector<HardwareControl> controls;
 };
 
+struct MidiIdentityContract
+{
+    std::string manufacturer;
+    std::string manufacturerIdHex;         // e.g. "41", "42", "43", "44", "00 20 32"
+    std::string model;
+    std::string modelIdHex;                // e.g. "15", "58", "5A", "20", "2C", "09", "01"
+    std::string familyIdHex;               // e.g. "00 00", "32 00"
+    std::string sysexHeaderHex;            // e.g. "41 10 00 00 00 15" or "00 20 32 20"
+    std::vector<std::string> portNameMatches; // Port substring keywords
+};
+
 struct HardwareContract
 {
     std::string schemaVersion { "2.0" };
@@ -60,6 +71,7 @@ struct HardwareContract
     std::string model;
     std::string modelIdHex;
     std::string autoDetectSysEx;
+    MidiIdentityContract midiIdentity;
 
     std::vector<HardwareFunction> functions;
 };

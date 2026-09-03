@@ -83,238 +83,152 @@ bool ProfilingSession::loadProfileFromFile(const std::string& filePath)
     return loadProfileFromJson(str);
 }
 
-ProfilingSession ProfilingSession::createFilterSuite(const std::string& hardwareName, const std::string& operatorMode, int cutSteps, int resSteps)
+namespace
+{
+
+ProfilingSession createTwoParamSuite(const std::string& hardwareName,
+                                      const std::string& targetModule,
+                                      const std::string& operatorMode,
+                                      const std::string& testPrefix,
+                                      const std::string& blockType,
+                                      abdaudiolab::audio::StimulusType stimulusType,
+                                      double durationSec,
+                                      int numPasses,
+                                      double waitMs,
+                                      const std::string& p1Name, int p1Steps,
+                                      const std::string& p2Name, int p2Steps,
+                                      float p2DefaultNorm = 0.0f)
 {
     ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "FILTER_SPECTRUM_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
+    ProfilingMetadata meta;
+    meta.hardwareName = hardwareName;
+    meta.targetModule = targetModule;
+    meta.operatorMode = operatorMode;
+    meta.sampleRate = 96000.0;
+    meta.bitDepth = 24;
+    session.setMetadata(meta);
 
-    int totalCuts = std::max(2, cutSteps);
-    int totalRes = std::max(1, resSteps);
+    int total1 = std::max(2, p1Steps);
+    int total2 = std::max(1, p2Steps);
     int id = 1;
 
-    for (int r = 0; r < totalRes; ++r)
+    for (int j = 0; j < total2; ++j)
     {
-        float resVal = (totalRes > 1) ? (static_cast<float>(r) / static_cast<float>(totalRes - 1)) : 0.0f;
-        for (int c = 0; c < totalCuts; ++c)
+        float val2 = (total2 > 1) ? (static_cast<float>(j) / static_cast<float>(total2 - 1)) : p2DefaultNorm;
+        for (int i = 0; i < total1; ++i)
         {
-            float cutVal = static_cast<float>(c) / static_cast<float>(totalCuts - 1);
+            float val1 = static_cast<float>(i) / static_cast<float>(total1 - 1);
 
             TestCase tc;
             char buf[32];
-            std::snprintf(buf, sizeof(buf), "TC_FLT_%03d", id++);
+            std::snprintf(buf, sizeof(buf), "%s_%03d", testPrefix.c_str(), id++);
             tc.testId = buf;
-            tc.functionalBlockType = "SpectrumFilter";
-            tc.stimulusType = audio::StimulusType::LogFarinaSweep;
-            tc.stimulusDurationSec = 1.0;
+            tc.functionalBlockType = blockType;
+            tc.stimulusType = stimulusType;
+            tc.stimulusDurationSec = durationSec;
             tc.startFreqHz = 20.0f;
             tc.endFreqHz = 20000.0f;
-            tc.numPasses = 3;
-            tc.stabilizationWaitMs = 40.0;
+            tc.numPasses = numPasses;
+            tc.stabilizationWaitMs = waitMs;
 
-            ParameterStep pCut { 1, "CUTOFF", cutVal, static_cast<int>(cutVal * 127.0f) };
-            ParameterStep pRes { 2, "RESONANCE", resVal, static_cast<int>(resVal * 127.0f) };
-            tc.parameterSteps.push_back(pCut);
-            tc.parameterSteps.push_back(pRes);
+            ParameterStep pStep1 { 1, p1Name, val1, static_cast<int>(val1 * 127.0f) };
+            ParameterStep pStep2 { 2, p2Name, val2, static_cast<int>(val2 * 127.0f) };
+            tc.parameterSteps.reserve(2);
+            tc.parameterSteps.push_back(pStep1);
+            tc.parameterSteps.push_back(pStep2);
 
-            session.testCases.push_back(tc);
+            session.addTestCase(tc);
         }
     }
     return session;
+}
+
+ProfilingSession createOneParamSuite(const std::string& hardwareName,
+                                      const std::string& targetModule,
+                                      const std::string& operatorMode,
+                                      const std::string& testPrefix,
+                                      const std::string& blockType,
+                                      abdaudiolab::audio::StimulusType stimulusType,
+                                      double durationSec,
+                                      int numPasses,
+                                      double waitMs,
+                                      const std::string& pName, int steps)
+{
+    ProfilingSession session;
+    ProfilingMetadata meta;
+    meta.hardwareName = hardwareName;
+    meta.targetModule = targetModule;
+    meta.operatorMode = operatorMode;
+    meta.sampleRate = 96000.0;
+    meta.bitDepth = 24;
+    session.setMetadata(meta);
+
+    int totalSteps = std::max(2, steps);
+    int id = 1;
+
+    for (int s = 0; s < totalSteps; ++s)
+    {
+        float val = static_cast<float>(s) / static_cast<float>(totalSteps - 1);
+
+        TestCase tc;
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), "%s_%03d", testPrefix.c_str(), id++);
+        tc.testId = buf;
+        tc.functionalBlockType = blockType;
+        tc.stimulusType = stimulusType;
+        tc.stimulusDurationSec = durationSec;
+        tc.numPasses = numPasses;
+        tc.stabilizationWaitMs = waitMs;
+
+        ParameterStep pStep { 1, pName, val, static_cast<int>(val * 127.0f) };
+        tc.parameterSteps.reserve(1);
+        tc.parameterSteps.push_back(pStep);
+
+        session.addTestCase(tc);
+    }
+    return session;
+}
+
+} // anonymous namespace
+
+ProfilingSession ProfilingSession::createFilterSuite(const std::string& hardwareName, const std::string& operatorMode, int cutSteps, int resSteps)
+{
+    return createTwoParamSuite(hardwareName, "FILTER_SPECTRUM_SCAN", operatorMode, "TC_FLT", "SpectrumFilter",
+                               audio::StimulusType::LogFarinaSweep, 1.0, 3, 40.0,
+                               "CUTOFF", cutSteps, "RESONANCE", resSteps, 0.0f);
 }
 
 ProfilingSession ProfilingSession::createAdsrSuite(const std::string& hardwareName, const std::string& operatorMode, int attackSteps, int decaySteps)
 {
-    ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "ADSR_ENVELOPE_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
-
-    int totalAtt = std::max(2, attackSteps);
-    int totalDec = std::max(1, decaySteps);
-    int id = 1;
-
-    for (int d = 0; d < totalDec; ++d)
-    {
-        float decVal = (totalDec > 1) ? (static_cast<float>(d) / static_cast<float>(totalDec - 1)) : 0.3f;
-        for (int a = 0; a < totalAtt; ++a)
-        {
-            float attVal = static_cast<float>(a) / static_cast<float>(totalAtt - 1);
-
-            TestCase tc;
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "TC_ADSR_%03d", id++);
-            tc.testId = buf;
-            tc.functionalBlockType = "TimeDynamic";
-            tc.stimulusType = audio::StimulusType::DiracDelta; // Trigger pulse
-            tc.stimulusDurationSec = 1.5;
-            tc.numPasses = 3;
-            tc.stabilizationWaitMs = 50.0;
-
-            ParameterStep pAtt { 1, "ATTACK", attVal, static_cast<int>(attVal * 127.0f) };
-            ParameterStep pDec { 2, "DECAY", decVal, static_cast<int>(decVal * 127.0f) };
-            tc.parameterSteps.push_back(pAtt);
-            tc.parameterSteps.push_back(pDec);
-
-            session.testCases.push_back(tc);
-        }
-    }
-    return session;
+    return createTwoParamSuite(hardwareName, "ADSR_ENVELOPE_SCAN", operatorMode, "TC_ADSR", "TimeDynamic",
+                               audio::StimulusType::DiracDelta, 1.5, 3, 50.0,
+                               "ATTACK", attackSteps, "DECAY", decaySteps, 0.3f);
 }
 
 ProfilingSession ProfilingSession::createDelaySuite(const std::string& hardwareName, const std::string& operatorMode, int timeSteps, int fbSteps)
 {
-    ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "DELAY_TIME_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
-
-    int totalTime = std::max(2, timeSteps);
-    int totalFb = std::max(1, fbSteps);
-    int id = 1;
-
-    for (int f = 0; f < totalFb; ++f)
-    {
-        float fbVal = (totalFb > 1) ? (static_cast<float>(f) / static_cast<float>(totalFb - 1)) : 0.2f;
-        for (int t = 0; t < totalTime; ++t)
-        {
-            float timeVal = static_cast<float>(t) / static_cast<float>(totalTime - 1);
-
-            TestCase tc;
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "TC_DLY_%03d", id++);
-            tc.testId = buf;
-            tc.functionalBlockType = "TimeDynamic";
-            tc.stimulusType = audio::StimulusType::DiracDelta;
-            tc.stimulusDurationSec = 2.0;
-            tc.numPasses = 3;
-            tc.stabilizationWaitMs = 60.0;
-
-            ParameterStep pTime { 1, "TIME", timeVal, static_cast<int>(timeVal * 127.0f) };
-            ParameterStep pFb   { 2, "FEEDBACK", fbVal, static_cast<int>(fbVal * 127.0f) };
-            tc.parameterSteps.push_back(pTime);
-            tc.parameterSteps.push_back(pFb);
-
-            session.testCases.push_back(tc);
-        }
-    }
-    return session;
+    return createTwoParamSuite(hardwareName, "DELAY_TIME_SCAN", operatorMode, "TC_DLY", "TimeDynamic",
+                               audio::StimulusType::DiracDelta, 2.0, 3, 60.0,
+                               "TIME", timeSteps, "FEEDBACK", fbSteps, 0.2f);
 }
 
 ProfilingSession ProfilingSession::createWaveShaperSuite(const std::string& hardwareName, const std::string& operatorMode, int driveSteps)
 {
-    ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "WAVESHAPER_DISTORTION_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
-
-    int totalSteps = std::max(2, driveSteps);
-    int id = 1;
-
-    for (int s = 0; s < totalSteps; ++s)
-    {
-        float driveVal = static_cast<float>(s) / static_cast<float>(totalSteps - 1);
-
-        TestCase tc;
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "TC_SAT_%03d", id++);
-        tc.testId = buf;
-        tc.functionalBlockType = "WaveShaper";
-        tc.stimulusType = audio::StimulusType::AmplitudeRamp; // Linear amplitude ramp
-        tc.stimulusDurationSec = 1.0;
-        tc.numPasses = 3;
-        tc.stabilizationWaitMs = 30.0;
-
-        ParameterStep pDrive { 1, "DRIVE", driveVal, static_cast<int>(driveVal * 127.0f) };
-        tc.parameterSteps.push_back(pDrive);
-
-        session.testCases.push_back(tc);
-    }
-    return session;
+    return createOneParamSuite(hardwareName, "WAVESHAPER_DISTORTION_SCAN", operatorMode, "TC_SAT", "WaveShaper",
+                               audio::StimulusType::AmplitudeRamp, 1.0, 3, 30.0, "DRIVE", driveSteps);
 }
 
 ProfilingSession ProfilingSession::createGainVcaSuite(const std::string& hardwareName, const std::string& operatorMode, int gainSteps)
 {
-    ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "VCA_ATTENUATION_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
-
-    int totalSteps = std::max(2, gainSteps);
-    int id = 1;
-
-    for (int s = 0; s < totalSteps; ++s)
-    {
-        float gainVal = static_cast<float>(s) / static_cast<float>(totalSteps - 1);
-
-        TestCase tc;
-        char buf[32];
-        std::snprintf(buf, sizeof(buf), "TC_VCA_%03d", id++);
-        tc.testId = buf;
-        tc.functionalBlockType = "AmplitudeGain";
-        tc.stimulusType = audio::StimulusType::SineWave1kHz; // 1kHz continuous tone
-        tc.stimulusDurationSec = 0.5;
-        tc.numPasses = 3;
-        tc.stabilizationWaitMs = 30.0;
-
-        ParameterStep pGain { 1, "GAIN", gainVal, static_cast<int>(gainVal * 127.0f) };
-        tc.parameterSteps.push_back(pGain);
-
-        session.testCases.push_back(tc);
-    }
-    return session;
+    return createOneParamSuite(hardwareName, "VCA_ATTENUATION_SCAN", operatorMode, "TC_VCA", "AmplitudeGain",
+                               audio::StimulusType::SineWave1kHz, 0.5, 3, 30.0, "GAIN", gainSteps);
 }
 
 ProfilingSession ProfilingSession::createChorusModulatorSuite(const std::string& hardwareName, const std::string& operatorMode, int rateSteps, int depthSteps)
 {
-    ProfilingSession session;
-    session.metadata.hardwareName = hardwareName;
-    session.metadata.targetModule = "CYCLIC_MODULATOR_SCAN";
-    session.metadata.operatorMode = operatorMode;
-    session.metadata.sampleRate = 96000.0;
-    session.metadata.bitDepth = 24;
-
-    int totalRates = std::max(2, rateSteps);
-    int totalDepths = std::max(1, depthSteps);
-    int id = 1;
-
-    for (int r = 0; r < totalRates; ++r)
-    {
-        float rateVal = static_cast<float>(r) / static_cast<float>(totalRates - 1);
-        for (int d = 0; d < totalDepths; ++d)
-        {
-            float depthVal = static_cast<float>(d) / static_cast<float>(std::max(1, totalDepths - 1));
-
-            TestCase tc;
-            char buf[32];
-            std::snprintf(buf, sizeof(buf), "TC_MOD_%03d", id++);
-            tc.testId = buf;
-            tc.functionalBlockType = "CyclicModulator";
-            tc.stimulusType = audio::StimulusType::SineWave1kHz;
-            tc.stimulusDurationSec = 2.0; // 2.0s capture for LFO cycles
-            tc.numPasses = 2;
-            tc.stabilizationWaitMs = 50.0;
-
-            ParameterStep pRate { 1, "RATE", rateVal, static_cast<int>(rateVal * 127.0f) };
-            ParameterStep pDepth { 2, "DEPTH", depthVal, static_cast<int>(depthVal * 127.0f) };
-            tc.parameterSteps.push_back(pRate);
-            tc.parameterSteps.push_back(pDepth);
-
-            session.testCases.push_back(tc);
-        }
-    }
-    return session;
+    return createTwoParamSuite(hardwareName, "CYCLIC_MODULATOR_SCAN", operatorMode, "TC_MOD", "CyclicModulator",
+                               audio::StimulusType::SineWave1kHz, 2.0, 2, 50.0,
+                               "RATE", rateSteps, "DEPTH", depthSteps, 0.0f);
 }
 
 ProfilingSession ProfilingSession::createDefaultMockSession()

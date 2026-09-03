@@ -16,30 +16,37 @@ class SoundIdSplashScreen : public juce::Component,
 public:
     SoundIdSplashScreen()
     {
-        setSize(460, 260);
+        setSize(580, 310);
+        loadSplashArtImage();
+
+        lblCategory.setText("ABD SYNTHS  |  HARDWARE PROFILING LAB", juce::dontSendNotification);
+        lblCategory.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+        lblCategory.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+        lblCategory.setJustificationType(juce::Justification::left);
+        addAndMakeVisible(lblCategory);
 
         lblTitle.setText("ABDAudioLab", juce::dontSendNotification);
-        lblTitle.setFont(juce::FontOptions(26.0f, juce::Font::bold));
+        lblTitle.setFont(juce::FontOptions(28.0f, juce::Font::bold));
         lblTitle.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
-        lblTitle.setJustificationType(juce::Justification::centred);
+        lblTitle.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblTitle);
 
-        lblSubtitle.setText("Hardware Audio & ACB Profiling Laboratory", juce::dontSendNotification);
-        lblSubtitle.setFont(juce::FontOptions(12.5f, juce::Font::plain));
+        lblSubtitle.setText("Hardware Audio & ACB Profiling System", juce::dontSendNotification);
+        lblSubtitle.setFont(juce::FontOptions(12.0f, juce::Font::plain));
         lblSubtitle.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
-        lblSubtitle.setJustificationType(juce::Justification::centred);
+        lblSubtitle.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblSubtitle);
 
         lblVersion.setText("v" + juce::String(version::kAppVersion) + " (Build " + juce::String(version::kBuildNumber) + ")", juce::dontSendNotification);
         lblVersion.setFont(juce::FontOptions(10.5f, juce::Font::bold));
         lblVersion.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
-        lblVersion.setJustificationType(juce::Justification::centred);
+        lblVersion.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblVersion);
 
         lblStatus.setText("Initializing Audio & Hardware Engines...", juce::dontSendNotification);
         lblStatus.setFont(juce::FontOptions(11.0f, juce::Font::plain));
         lblStatus.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
-        lblStatus.setJustificationType(juce::Justification::centred);
+        lblStatus.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblStatus);
 
         startTimerHz(60);
@@ -48,6 +55,29 @@ public:
     ~SoundIdSplashScreen() override
     {
         stopTimer();
+    }
+
+    void loadSplashArtImage()
+    {
+        juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+        juce::File f = exeDir.getChildFile("assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = exeDir.getChildFile("../assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = exeDir.getChildFile("../../assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = exeDir.getChildFile("../../../assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = exeDir.getChildFile("../../../../assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = juce::File::getCurrentWorkingDirectory().getChildFile("assets/splash_art.jpg");
+        if (!f.existsAsFile())
+            f = juce::File("d:/desarrollos/ABDSynths/ABDAudioLab/assets/splash_art.jpg");
+
+        if (f.existsAsFile())
+        {
+            splashArt = juce::ImageFileFormat::loadFrom(f);
+        }
     }
 
     void setStatusMessage(const juce::String& msg, float progress0to1 = -1.0f)
@@ -88,24 +118,77 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // 1. Soft drop shadow card
-        g.setColour(juce::Colour(0x22000000));
+        // 1. Outer drop shadow
+        g.setColour(juce::Colour(0x30000000));
         g.fillRoundedRectangle(bounds, 16.0f);
 
         auto card = bounds.reduced(3.0f);
-        g.setColour(SoundIdTheme::bgLight);
+        juce::Colour bgCardCol = SoundIdTheme::bgLight;
+        g.setColour(bgCardCol);
         g.fillRoundedRectangle(card, 14.0f);
 
         g.setColour(SoundIdTheme::borderCard);
         g.drawRoundedRectangle(card, 14.0f, 1.2f);
 
-        // 2. Decorative Top Accent Line
-        auto accentLine = card.removeFromTop(4.0f);
+        // 2. Left Sidebar Artwork (Adobe-Style Split)
+        const float artWidth = 230.0f;
+        auto artBounds = card.removeFromLeft(artWidth);
+
+        if (splashArt.isValid())
+        {
+            juce::Path leftClipPath;
+            leftClipPath.addRoundedRectangle(artBounds.getX(), artBounds.getY(), artBounds.getWidth(), artBounds.getHeight(),
+                                              14.0f, 14.0f, true, false, true, false);
+            g.saveState();
+            g.reduceClipRegion(leftClipPath);
+
+            // Draw scaled image (cover/crop fill)
+            g.drawImage(splashArt, artBounds, juce::RectanglePlacement::fillDestination);
+
+            // Smooth right edge fade gradient into card background
+            juce::ColourGradient grad(juce::Colours::transparentBlack, artBounds.getRight() - 70.0f, artBounds.getY(),
+                                       bgCardCol, artBounds.getRight(), artBounds.getY(), false);
+            g.setGradientFill(grad);
+            g.fillRect(artBounds);
+
+            g.restoreState();
+        }
+
+        // 3. Top Accent Line (Right Content Area)
+        auto rightArea = card;
+        auto accentLine = rightArea.removeFromTop(4.0f).withTrimmedLeft(10.0f);
         g.setColour(SoundIdTheme::accentGreen);
         g.fillRoundedRectangle(accentLine, 2.0f);
 
-        // 3. Progress / Loading Bar
-        auto barArea = juce::Rectangle<float>(40.0f, static_cast<float>(getHeight() - 48), static_cast<float>(getWidth() - 80), 4.0f);
+        // 4. Feature Badges (Center Right - 2 Rows)
+        struct BadgeItem { juce::String text; float width; };
+        std::vector<std::vector<BadgeItem>> badgeRows = {
+            { { "Farina Sweep", 96.0f }, { "Wiener-Hammerstein", 120.0f }, { "Catmull-Rom", 80.0f } },
+            { { "NAM / RTNeural", 96.0f }, { "MIDI SysEx ID", 100.0f }, { "2048-pt FFT", 100.0f } }
+        };
+
+        float curY = 158.0f;
+        for (const auto& row : badgeRows)
+        {
+            float curX = 252.0f;
+            for (const auto& item : row)
+            {
+                juce::Rectangle<float> tagBg(curX, curY, item.width, 18.0f);
+                g.setColour(juce::Colour(0x10000000));
+                g.fillRoundedRectangle(tagBg, 4.0f);
+                g.setColour(SoundIdTheme::borderCard);
+                g.drawRoundedRectangle(tagBg, 4.0f, 1.0f);
+
+                g.setColour(SoundIdTheme::textSecondary);
+                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                g.drawText(item.text, tagBg, juce::Justification::centred);
+                curX += item.width + 4.0f;
+            }
+            curY += 23.0f;
+        }
+
+        // 5. Progress / Loading Bar
+        auto barArea = juce::Rectangle<float>(252.0f, static_cast<float>(getHeight() - 32), 304.0f, 4.0f);
         g.setColour(SoundIdTheme::bgCardHover);
         g.fillRoundedRectangle(barArea, 2.0f);
 
@@ -127,24 +210,30 @@ public:
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced(20);
-        bounds.removeFromTop(16);
+        auto bounds = getLocalBounds();
+        bounds.removeFromLeft(252); // Reserve left side for artwork
+        bounds.reduce(0, 18);
+        bounds.removeFromRight(20);
 
-        lblTitle.setBounds(bounds.removeFromTop(34));
+        lblCategory.setBounds(bounds.removeFromTop(16));
         bounds.removeFromTop(2);
-        lblSubtitle.setBounds(bounds.removeFromTop(20));
+        lblTitle.setBounds(bounds.removeFromTop(36));
+        bounds.removeFromTop(2);
+        lblSubtitle.setBounds(bounds.removeFromTop(18));
         bounds.removeFromTop(4);
-        lblVersion.setBounds(bounds.removeFromTop(18));
+        lblVersion.setBounds(bounds.removeFromTop(16));
 
-        lblStatus.setBounds(bounds.removeFromBottom(38));
+        lblStatus.setBounds(juce::Rectangle<int>(252, getHeight() - 58, 304, 22));
     }
 
 private:
+    juce::Label lblCategory;
     juce::Label lblTitle;
     juce::Label lblSubtitle;
     juce::Label lblVersion;
     juce::Label lblStatus;
 
+    juce::Image splashArt;
     float progress { -1.0f };
     float spinnerPhase { 0.0f };
     bool isDismissing { false };

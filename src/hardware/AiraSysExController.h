@@ -1,7 +1,7 @@
 #pragma once
 
 #include "HardwareController.h"
-#include "AiraRoutingValidator.h"
+#include "RoutingValidator.h"
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <vector>
 
@@ -35,6 +35,15 @@ public:
     }
 
     [[nodiscard]] bool isAutomatic() const noexcept override { return true; }
+
+    [[nodiscard]] static uint8_t mapHardwareIdToAiraModel(const juce::String& hardwareId)
+    {
+        if (hardwareId.contains("BITRAZER")) return static_cast<uint8_t>(AiraModel::Bitrazer);
+        if (hardwareId.contains("DEMORA"))   return static_cast<uint8_t>(AiraModel::Demora);
+        if (hardwareId.contains("TORCIDO"))  return static_cast<uint8_t>(AiraModel::Torcido);
+        if (hardwareId.contains("SCOOPER"))  return static_cast<uint8_t>(AiraModel::Scooper);
+        return static_cast<uint8_t>(AiraModel::GenericModular);
+    }
 
     [[nodiscard]] juce::String getHardwareName() const override
     {
@@ -295,7 +304,7 @@ private:
     AiraModel targetModel;
     std::unique_ptr<juce::MidiOutput> midiOut;
     std::unique_ptr<juce::MidiInput> midiIn;
-    AiraRoutingValidator routingValidator;
+    RoutingValidator routingValidator;
     std::array<uint8_t, 6> slotTypes { 0 };
 };
 

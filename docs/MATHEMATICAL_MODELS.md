@@ -39,14 +39,36 @@ $$\Delta t_N = T \cdot \frac{\ln(N)}{\ln(\omega_2 / \omega_1)}$$
 
 ## 2. Modelado por Bloques Wiener-Hammerstein (LNL)
 
-*(Basado en Takeo Sasai et al., Optics Express 2020 — [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf))*
+*(Basado en Takeo Sasai et al., Optics Express 2020 / arXiv:2012.08046v1 — [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf))*
 
-Los circuitos de hardware analógico y de modelado ACB se descomponen en cascadas de 3 etapas no conmutativas (**Linear – Nonlinear – Linear**):
+Los circuitos de hardware analógico, pedales de saturación y modelado ACB se descomponen en cascadas de 3 etapas no conmutativas (**Linear – Nonlinear – Linear**):
 
-$$\text{Entrada } x[n] \longrightarrow \text{Filtro Lineal FIR } h_1[n] \longrightarrow \text{Saturador Estático } f(y) \longrightarrow \text{Filtro Lineal FIR } h_2[n] \longrightarrow \text{Salida } y[n]$$
+$$\text{Entrada } x[n] \longrightarrow \text{Filtro Lineal FIR } h_1[n] \longrightarrow \text{Saturador Estático } f(u) \longrightarrow \text{Filtro Lineal FIR } h_2[n] \longrightarrow \text{Salida } y[n]$$
 
-Donde la no-linealidad estática se modela mediante:
-$$f(y) = y + a \cdot y^3 \quad \text{o} \quad f(y) = \tanh(G \cdot y)$$
+Donde la no-linealidad estática sin memoria se modela mediante la expansión polinomial cúbica canónica (Eq. 3 del paper):
+$$f(u) = u + a \cdot u^3$$
+
+### 2.1 Algoritmo de Ajuste Supervisado (Backpropagation con Adam)
+
+Implementado en C++20 en [`WienerHammersteinFitter.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/WienerHammersteinFitter.h) y [`WienerHammersteinFitter.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/WienerHammersteinFitter.cpp):
+
+1. **Función de Pérdida de Mínimos Cuadrados**:
+   $$E = \frac{1}{2N} \sum_{n=0}^{N-1} (y_2[n] - \hat{y}[n])^2$$
+2. **Gradientes Analíticos por Regla de la Cadena**:
+   * Error de salida: $e[n] = y_2[n] - \hat{y}[n]$
+   * Gradiente filtro salida: $\frac{\partial E}{\partial h_2[k]} = \frac{1}{N} \sum_n e[n] \cdot x_2[n - k + M_2]$
+   * Retropropagación a no-linealidad: $\frac{\partial E}{\partial x_2[n]} = \sum_k e[n + k - M_2] \cdot h_2[k]$
+   * Gradiente del parámetro $a$: $\frac{\partial E}{\partial a} = \frac{1}{N} \sum_n \frac{\partial E}{\partial x_2[n]} \cdot (y_1[n])^3$
+   * Retropropagación a filtro entrada: $\frac{\partial E}{\partial y_1[n]} = \frac{\partial E}{\partial x_2[n]} \cdot (1 + 3a \cdot (y_1[n])^2)$
+   * Gradiente filtro entrada: $\frac{\partial E}{\partial h_1[k]} = \frac{1}{N} \sum_n \frac{\partial E}{\partial y_1[n]} \cdot x[n - k + M_1]$
+3. **Optimizador Adam**:
+   * Momentos de primer y segundo orden ($m, v$) con decaimientos $\beta_1 = 0.9, \beta_2 = 0.999$.
+   * Corrección de sesgo $\hat{m} = \frac{m}{1 - \beta_1^t}$, $\hat{v} = \frac{v}{1 - \beta_2^t}$.
+   * Tasa de aprendizaje adaptativa $\alpha = 0.015$.
+4. **Métricas de Calidad y Diagnóstico**:
+   * Coeficiente de determinación $R^2 = 1 - \frac{\sum (y_2 - \hat{y})^2}{\sum (\hat{y} - \bar{\hat{y}})^2}$.
+   * Error cuadrático medio residual (RMSE).
+   * Centroide espectral de $h_1$ (pre-filtro) y $h_2$ (post-filtro) en Hz.
 
 ---
 

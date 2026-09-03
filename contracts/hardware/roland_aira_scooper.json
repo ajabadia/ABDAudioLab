@@ -9,9 +9,12 @@
   "modelImage": "models/roland-scooper.webp",
   "midiIdentification": {
     "manufacturer": "Roland",
+    "manufacturerIdHex": "41",
     "model": "Scooper",
-    "modelIdHex": "00 00 00 21",
-    "autoDetectSysEx": "F0 7E 10 06 01 F7"
+    "modelIdHex": "18",
+    "sysexHeaderHex": "41 10 00 00 00 18",
+    "autoDetectSysEx": "F0 7E 10 06 01 F7",
+    "portNameMatches": ["SCOOPER", "Scooper", "AIRA"]
   },
   "functions": [
     {

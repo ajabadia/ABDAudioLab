@@ -9,9 +9,12 @@
   "modelImage": "models/roland-torcido.webp",
   "midiIdentification": {
     "manufacturer": "Roland",
+    "manufacturerIdHex": "41",
     "model": "Torcido",
-    "modelIdHex": "00 00 00 23",
-    "autoDetectSysEx": "F0 7E 10 06 01 F7"
+    "modelIdHex": "17",
+    "sysexHeaderHex": "41 10 00 00 00 17",
+    "autoDetectSysEx": "F0 7E 10 06 01 F7",
+    "portNameMatches": ["TORCIDO", "Torcido", "AIRA"]
   },
   "functions": [
     {
