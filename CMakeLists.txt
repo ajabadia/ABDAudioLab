@@ -232,6 +232,7 @@ target_link_libraries(ABDAudioLab
         nlohmann_json::nlohmann_json
         ABDScope::ABDScopeCore
         ABDShared::AutoUpdater
+        ABDShared::HardwareMidiDetect
 )
 
 # ------------------------------------------------------------------------------
