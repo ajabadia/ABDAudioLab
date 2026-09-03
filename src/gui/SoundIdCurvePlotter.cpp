@@ -30,6 +30,7 @@ void SoundIdCurvePlotter::clear()
     std::lock_guard<std::mutex> lock(pointsMutex);
     points.clear();
     highlightedPointIndex = -1;
+    spectrumAnalyzer.clearFrozenSpectrum();
     repaint();
 }
 

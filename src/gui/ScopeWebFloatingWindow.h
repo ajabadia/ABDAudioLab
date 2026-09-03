@@ -35,6 +35,7 @@ public:
         setResizable(true, true);
         setResizeLimits(640, 400, 2560, 1440);
         centreWithSize(960, 580);
+        setAlwaysOnTop(true);
     }
 
     ~ScopeWebFloatingWindow() override = default;

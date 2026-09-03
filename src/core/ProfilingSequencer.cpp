@@ -114,6 +114,13 @@ void ProfilingSequencer::run()
             }
         }
 
+        if (operatorStepCallback)
+        {
+            juce::MessageManager::callAsync([cb = operatorStepCallback, tcCopy = tc, stepIdx = i + 1, totalCount = totalTests]() {
+                cb(tcCopy, stepIdx, totalCount);
+            });
+        }
+
         // If manual gear, wait for operator confirmation
         if (hardware != nullptr && !hardware->isAutomatic() && tc.stimulusType != audio::StimulusType::Silence)
         {
@@ -134,13 +141,6 @@ void ProfilingSequencer::run()
             promptText += " and click Accept [Space]";
 
             operatorConfirmed.store(false, std::memory_order_release);
-
-            if (operatorStepCallback)
-            {
-                juce::MessageManager::callAsync([cb = operatorStepCallback, tcCopy = tc, stepIdx = i + 1, totalCount = totalTests]() {
-                    cb(tcCopy, stepIdx, totalCount);
-                });
-            }
 
             notifyProgress(progress, promptText, SequencerState::WaitingForOperator);
 
@@ -273,8 +273,30 @@ void ProfilingSequencer::run()
         // Process analytical data
         notifyProgress(progress, "Analyzing Data...", SequencerState::CaptureAndAnalyze);
 
+        auto stimulusToString = [](audio::StimulusType st) -> std::string {
+            switch (st) {
+                case audio::StimulusType::Silence: return "Silence";
+                case audio::StimulusType::DiracDelta: return "DiracDelta";
+                case audio::StimulusType::SyncPulses3: return "SyncPulses3";
+                case audio::StimulusType::WhiteNoise: return "WhiteNoise";
+                case audio::StimulusType::PinkNoise: return "PinkNoise";
+                case audio::StimulusType::SineWave1kHz: return "SineWave1kHz";
+                case audio::StimulusType::SquareWave1kHz: return "SquareWave1kHz";
+                case audio::StimulusType::LogFarinaSweep: return "LogFarinaSweep";
+                case audio::StimulusType::AmplitudeRamp: return "AmplitudeRamp";
+                case audio::StimulusType::NamCalibration: return "NamCalibration";
+                default: return "Unknown";
+            }
+        };
+
         exporting::MeasuredPoint pt;
         pt.testId = tc.testId;
+        pt.blockType = tc.functionalBlockType;
+        pt.stimulusType = stimulusToString(tc.stimulusType);
+        pt.controlSteps = tc.parameterSteps;
+        if (!recordedPasses.empty())
+            pt.irSamples = recordedPasses[0];
+
         if (!tc.parameterSteps.empty())
             pt.param1Normalized = tc.parameterSteps[0].normalizedValue;
         if (tc.parameterSteps.size() > 1)
@@ -310,10 +332,20 @@ void ProfilingSequencer::run()
         }
         else if (tc.functionalBlockType == "WaveShaper")
         {
-            auto wsRes = math::LabAnalyticEngine::analyzeWaveShaperRamps(recordedPasses, sampleRate);
-            pt.muSigmaValue = wsRes.thdPercent;
-            pt.secondaryValue = { 1.0f, 0.0f };
-            pt.thdValue = wsRes.thdPercent;
+            if (tc.stimulusType == audio::StimulusType::LogFarinaSweep)
+            {
+                auto filterRes = math::LabAnalyticEngine::analyzeFilterPasses(recordedPasses, invFilter, sampleRate, tc.stimulusDurationSec, tc.startFreqHz, tc.endFreqHz);
+                pt.muSigmaValue = filterRes.cutoffHz;
+                pt.secondaryValue = filterRes.resonanceDb;
+                pt.thdValue = filterRes.thdPercent;
+            }
+            else
+            {
+                auto wsRes = math::LabAnalyticEngine::analyzeWaveShaperRamps(recordedPasses, sampleRate);
+                pt.muSigmaValue = wsRes.thdPercent;
+                pt.secondaryValue = { 1.0f, 0.0f };
+                pt.thdValue = wsRes.thdPercent;
+            }
         }
         else if (tc.functionalBlockType == "CyclicModulator")
         {
@@ -406,11 +438,13 @@ void ProfilingSequencer::run()
         if (!recordedPasses.empty() && !recordedPasses[0].empty())
         {
             float snr = math::LabAnalyticEngine::calculateSignalToNoiseRatioDb(recordedPasses[0], -90.0f);
+            pt.snrDb = snr;
             if (!math::LabAnalyticEngine::isMeasurementConfidenceAcceptable(snr, 12.0f))
             {
                 notifyProgress(progress, "Warning: Low SNR detected (" + juce::String(snr, 1) + " dB) on test " + tc.testId, SequencerState::CaptureAndAnalyze);
             }
         }
+        pt.thdPercent = pt.thdValue.mean;
 
         measuredPoints.push_back(pt);
 

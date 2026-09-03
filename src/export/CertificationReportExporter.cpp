@@ -157,20 +157,37 @@ std::string CertificationReportExporter::generateThdTableHtml(const std::vector<
     std::ostringstream html;
     html << "<table class=\"thd-table\">\n";
     html << "  <thead>\n";
-    html << "    <tr><th>POINT ID</th><th>BLOCK</th><th>STIMULUS</th><th>PARAM 1</th><th>PARAM 2</th><th>THD %</th><th>SNR (dB)</th></tr>\n";
+    html << "    <tr><th>POINT ID</th><th>BLOCK</th><th>STIMULUS</th><th>CONTROLS & VALUES</th><th>THD %</th><th>SNR (dB)</th></tr>\n";
     html << "  </thead>\n";
     html << "  <tbody>\n";
 
-    size_t limit = std::min(points.size(), static_cast<size_t>(16));
-    for (size_t i = 0; i < limit; ++i)
+    for (size_t i = 0; i < points.size(); ++i)
     {
         const auto& p = points[i];
         html << "    <tr>";
         html << "<td>" << (p.pointId.empty() ? ("P_" + std::to_string(i + 1)) : p.pointId) << "</td>";
         html << "<td>" << (p.blockType.empty() ? "AnalogFilter" : p.blockType) << "</td>";
         html << "<td>" << (p.stimulusType.empty() ? "LogFarinaSweep" : p.stimulusType) << "</td>";
-        html << "<td>" << std::fixed << std::setprecision(2) << (p.param1Normalized * 100.0f) << "%</td>";
-        html << "<td>" << std::fixed << std::setprecision(2) << (p.param2Normalized * 100.0f) << "%</td>";
+
+        std::string ctrlStr;
+        if (!p.controlSteps.empty())
+        {
+            for (size_t c = 0; c < p.controlSteps.size(); ++c)
+            {
+                if (c > 0) ctrlStr += " | ";
+                const auto& cs = p.controlSteps[c];
+                int pct = static_cast<int>(std::round(cs.normalizedValue * 100.0f));
+                ctrlStr += cs.paramName + ": " + std::to_string(pct) + "%";
+            }
+        }
+        else
+        {
+            ctrlStr = "Param 1: " + std::to_string(static_cast<int>(p.param1Normalized * 100.0f)) + "%";
+            if (p.param2Normalized > 0.001f)
+                ctrlStr += " | Param 2: " + std::to_string(static_cast<int>(p.param2Normalized * 100.0f)) + "%";
+        }
+
+        html << "<td style=\"font-size: 11px; color: #cbd5e1;\">" << ctrlStr << "</td>";
         html << "<td class=\"thd-val\">" << std::fixed << std::setprecision(3) << p.thdPercent << "%</td>";
         html << "<td class=\"snr-val\">" << std::fixed << std::setprecision(1) << p.snrDb << " dB</td>";
         html << "</tr>\n";
@@ -189,14 +206,13 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     if (!file.is_open())
         return false;
 
-    // Create synthetic frequency curve sample
-    std::vector<float> freqs(100);
-    std::vector<float> mags(100);
-    for (size_t i = 0; i < 100; ++i)
+    std::vector<float> freqs;
+    std::vector<float> mags;
+    for (size_t i = 0; i < points.size(); ++i)
     {
-        float norm = static_cast<float>(i) / 99.0f;
-        freqs[i] = 20.0f * std::pow(1000.0f, norm); // 20Hz to 20kHz
-        mags[i] = -6.0f * std::sin(norm * 3.14159f * 4.0f) - norm * 12.0f;
+        float f = 20.0f * std::pow(1000.0f, static_cast<float>(i) / static_cast<float>(std::max(size_t(1), points.size() - 1)));
+        freqs.push_back(f);
+        mags.push_back(points[i].muSigmaValue.mean);
     }
 
     std::string freqSvg = generateFrequencyCurveSvg(freqs, mags, 760, 280);
@@ -246,6 +262,23 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">AVG SNR</div><div class=\"metric-val\">" << std::fixed << std::setprecision(1) << manifest.averageSnrDb << " dB</div></div>\n";
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">NOISE FLOOR</div><div class=\"metric-val\">" << std::fixed << std::setprecision(1) << manifest.noiseFloorRmsDb << " dBFS</div></div>\n";
     file << "  </div>\n";
+
+    if (!points.empty() && !points[0].controlSteps.empty())
+    {
+        file << "  <div class=\"section-title\">Hardware Controls Specification</div>\n";
+        file << "  <table class=\"thd-table\" style=\"margin-bottom: 24px;\">\n";
+        file << "    <thead><tr><th>CONTROL NAME</th><th>TYPE</th><th>CONTROL METHOD</th><th>VALUE RANGE</th></tr></thead>\n";
+        file << "    <tbody>\n";
+        for (const auto& cs : points[0].controlSteps)
+        {
+            file << "      <tr><td><strong>" << cs.paramName << "</strong></td>";
+            file << "<td>" << cs.controlType << "</td>";
+            file << "<td>" << (manifest.deviceType == "AUTOMATED_SYSEX" ? "SysEx Parameter Message" : (manifest.deviceType == "AUTOMATED_MIDI_CC" ? "MIDI Continuous Controller (CC)" : "Analog Panel Position")) << "</td>";
+            file << "<td>0% – 100% (Normalized)</td></tr>\n";
+        }
+        file << "    </tbody>\n";
+        file << "  </table>\n";
+    }
 
     file << "  <div class=\"section-title\">Frequency Response Magnitude</div>\n";
     file << "  <div class=\"chart-box\">" << freqSvg << "</div>\n";

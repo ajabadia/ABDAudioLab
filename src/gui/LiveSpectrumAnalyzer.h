@@ -30,6 +30,8 @@ public:
     void pushSpectrumData(const std::array<float, audio::LabAudioEngine::kSpectrumBins>& magnitudesDb,
                           double sampleRate)
     {
+        if (isFrozen) return;
+
         currentSampleRate = sampleRate;
 
         for (int i = 0; i < audio::LabAudioEngine::kSpectrumBins; ++i)
@@ -61,6 +63,49 @@ public:
         repaint();
     }
 
+    /**
+     * @brief Displays the static frequency response spectrum of a captured point (Option A).
+     */
+    void setCapturedSignal(const std::vector<float>& samples, double sampleRate, const juce::String& label)
+    {
+        if (samples.empty()) return;
+
+        isFrozen = true;
+        frozenLabel = label;
+        currentSampleRate = sampleRate > 0.0 ? sampleRate : 48000.0;
+
+        constexpr int fftOrder = 11;
+        constexpr int fftSize = 1 << fftOrder;
+        juce::dsp::FFT fft(fftOrder);
+        juce::dsp::WindowingFunction<float> window(fftSize, juce::dsp::WindowingFunction<float>::hann);
+
+        std::array<float, fftSize * 2> fftBuffer {};
+        size_t copyLen = std::min(static_cast<size_t>(fftSize), samples.size());
+        std::copy(samples.begin(), samples.begin() + copyLen, fftBuffer.begin());
+        window.multiplyWithWindowingTable(fftBuffer.data(), fftSize);
+
+        fft.performRealOnlyForwardTransform(fftBuffer.data());
+
+        for (int bin = 0; bin < audio::LabAudioEngine::kSpectrumBins; ++bin)
+        {
+            float real = fftBuffer[static_cast<size_t>(bin * 2)];
+            float imag = fftBuffer[static_cast<size_t>(bin * 2 + 1)];
+            float mag = std::sqrt(real * real + imag * imag) / static_cast<float>(fftSize);
+            float db = juce::Decibels::gainToDecibels(mag, -120.0f);
+            displayMagnitudes[static_cast<size_t>(bin)] = db;
+            peakHoldValues[static_cast<size_t>(bin)] = db;
+        }
+
+        repaint();
+    }
+
+    void clearFrozenSpectrum()
+    {
+        isFrozen = false;
+        frozenLabel.clear();
+        repaint();
+    }
+
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
@@ -77,6 +122,13 @@ public:
         // Inner plot background
         g.setColour(SoundIdTheme::bgCard);
         g.fillRoundedRectangle(gridArea, 4.0f);
+
+        if (isFrozen && frozenLabel.isNotEmpty())
+        {
+            g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentGreen);
+            g.drawText("CAPTURED SPECTRUM: " + frozenLabel, gridArea.reduced(10.0f, 6.0f), juce::Justification::topRight, true);
+        }
 
         // dB grid lines
         constexpr float topDb = 0.0f;
@@ -186,6 +238,8 @@ private:
     double currentSampleRate { 48000.0 };
     static constexpr int kPeakHoldFrames = 45; // ~1.5 seconds at 30 fps
 
+    bool isFrozen { false };
+    juce::String frozenLabel;
     std::array<float, audio::LabAudioEngine::kSpectrumBins> displayMagnitudes {};
     std::array<float, audio::LabAudioEngine::kSpectrumBins> peakHoldValues {};
     std::array<int, audio::LabAudioEngine::kSpectrumBins> peakHoldCounters {};

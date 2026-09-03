@@ -399,7 +399,7 @@ public:
                     formulaStr += juce::String(c.steps);
                 }
             }
-            item.description = juce::String::fromUTF8(u8"Sweep â€¢ ") + formulaStr + " = " + juce::String(item.totalPoints) + " points";
+            item.description = juce::String::fromUTF8(u8"Sweep \u2022 ") + formulaStr + " = " + juce::String(item.totalPoints) + " points";
             item.status = gui::QueueItemStatus::Queued;
 
             if (editingIndex >= 0 && editingIndex < suiteList.getQueueSize())
@@ -435,18 +435,37 @@ public:
                 float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
                 
                 juce::String statusStr = (item.status == gui::QueueItemStatus::Completed) ? "Measured" : "Queued";
-                juce::String prompt = "Point #" + juce::String(pointIdx + 1) + " of " + juce::String(item.totalPoints) 
-                                    + " (" + juce::String(stepPct, 1) + "% Pos) - " + item.title + " [" + statusStr + "]";
+                juce::String prompt = "Point #" + juce::String(pointIdx + 1) + " / " + juce::String(item.totalPoints) 
+                                    + " (" + juce::String(stepPct, 1) + "% Pos) — " + item.title;
 
+                std::vector<core::ParameterStep> pSteps;
                 if (static_cast<size_t>(pointIdx) < sessionPoints.size())
                 {
                     const auto& pt = sessionPoints[static_cast<size_t>(pointIdx)];
-                    prompt += " | Mean: " + juce::String(pt.secondaryValue.mean, 2) + " dB, THD: " + juce::String(pt.thdPercent, 2) + "%";
+                    prompt += " | Gain: " + juce::String(pt.secondaryValue.mean, 2) + " dB, THD: " + juce::String(pt.thdPercent, 2) + "%, SNR: " + juce::String(pt.snrDb, 1) + " dB";
+                    pSteps = pt.controlSteps;
+
+                    if (!pt.irSamples.empty())
+                    {
+                        double sRate = audioEngine.getCurrentSampleRate();
+                        juce::String label = "Point #" + juce::String(pointIdx + 1) + " (" + juce::String(stepPct, 1) + "%)";
+                        curvePlotter.getSpectrumAnalyzer().setCapturedSignal(pt.irSamples, sRate, label);
+                    }
                 }
 
-                manualPromptLabel.setText(prompt, juce::dontSendNotification);
-                manualPromptLabel.setVisible(true);
-                hidePromptAfterDelay(5000);
+                if (pSteps.empty())
+                {
+                    float norm = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1)) : 0.0f;
+                    core::ParameterStep ps;
+                    ps.paramName = !item.controls.empty() ? item.controls[0].name.toStdString() : "Parameter 1";
+                    ps.normalizedValue = norm;
+                    ps.controlType = "Knob";
+                    pSteps.push_back(ps);
+                }
+
+                suiteList.setVisible(false);
+                operatorStepModal.showInspector(item.title, pointIdx + 1, item.totalPoints, pSteps, prompt);
+                resized();
             }
         };
 
@@ -596,13 +615,23 @@ public:
         operatorStepModal.onRepeat = [this] { sequencer.repeatCurrentStep(); };
         operatorStepModal.onStepBack = [this] { sequencer.stepBack(); };
         operatorStepModal.onCancel = [this] { stopProfilingSession(); };
+        operatorStepModal.onCollapseToggled = [this](bool isCollapsed) {
+            juce::ignoreUnused(isCollapsed);
+            resized();
+        };
+        operatorStepModal.onCloseInspector = [this] {
+            suiteList.setVisible(true);
+            resized();
+        };
 
         sequencer.setOperatorStepCallback([this](const core::TestCase& tc, int stepIndex, int totalSteps) {
             juce::MessageManager::callAsync([this, tc, stepIndex, totalSteps] {
+                const auto* contract = contractRegistry.findContractById(drawer.getSelectedHardwareId().toStdString());
+                bool isAuto = (contract != nullptr && (contract->deviceType == "AUTOMATED_SYSEX" || contract->deviceType == "AUTOMATED_MIDI_CC"));
+                operatorStepModal.setAutomatedMode(isAuto);
                 operatorStepModal.setStepInfo(juce::String(tc.testId), stepIndex, totalSteps, tc.parameterSteps);
+                suiteList.setVisible(false);
                 operatorStepModal.setVisible(true);
-                operatorStepModal.toFront(true);
-                operatorStepModal.grabKeyboardFocus();
             });
         });
 
@@ -612,6 +641,7 @@ public:
                 juce::ignoreUnused(progress);
                 if (state == core::SequencerState::WaitingForOperator)
                 {
+                    operatorStepModal.setMeasuringState(false);
                     manualPromptLabel.setText(task, juce::dontSendNotification);
                     manualPromptLabel.setVisible(true);
                     confirmManualButton.setVisible(true);
@@ -623,7 +653,7 @@ public:
                 }
                 else if (state == core::SequencerState::CaptureAndAnalyze || state == core::SequencerState::InjectStimulus)
                 {
-                    operatorStepModal.setVisible(false);
+                    operatorStepModal.setMeasuringState(true);
                     confirmManualButton.setEnabled(false);
                     btnRepeatStep.setEnabled(false);
                     btnStepBack.setEnabled(false);
@@ -634,7 +664,8 @@ public:
                 }
                 else if (state == core::SequencerState::Finished)
                 {
-                    operatorStepModal.setVisible(false);
+                    operatorStepModal.dismiss();
+                    suiteList.setVisible(true);
                     manualPromptLabel.setVisible(false);
                     confirmManualButton.setVisible(false);
                     btnRepeatStep.setVisible(false);
@@ -802,9 +833,14 @@ public:
             bounds.removeFromBottom(8);
         }
 
-        // 4. Bottom Test Suite List
-        auto bottomArea = bounds.removeFromBottom(180);
+        // 4. Bottom Test Suite List & Controls Dock
+        int bottomH = 210;
+        if (operatorStepModal.isVisible() && operatorStepModal.isCollapsed)
+            bottomH = 34;
+
+        auto bottomArea = bounds.removeFromBottom(bottomH);
         suiteList.setBounds(bottomArea);
+        operatorStepModal.setBounds(bottomArea);
 
         bounds.removeFromBottom(12);
 
@@ -817,7 +853,6 @@ public:
         // 6. Slide-in Drawer & Modals fill full window bounds
         drawer.setBounds(getLocalBounds());
         aboutModal.setBounds(getLocalBounds());
-        operatorStepModal.setBounds(getLocalBounds());
         confirmationModal.setBounds(getLocalBounds());
     }
 
@@ -1090,6 +1125,7 @@ private:
         btnRepeatStep.setVisible(false);
         manualPromptLabel.setVisible(false);
         operatorStepModal.setVisible(false);
+        suiteList.setVisible(true);
 
         // If stopped midway, mark the running item as Incomplete with measured points
         for (int i = 0; i < suiteList.getQueueSize(); ++i)

@@ -301,6 +301,9 @@ SlideInDrawer::SlideInDrawer()
         {
             juce::File expDir(currentExportFolderPath);
             auto files = expDir.findChildFiles(juce::File::findFiles, false, "*.h;*.json;*.abdlabtest");
+            std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+                return a.getLastModificationTime() > b.getLastModificationTime();
+            });
             if (selId - 1 < static_cast<int>(files.size()))
             {
                 auto targetFile = files[static_cast<size_t>(selId - 1)];
@@ -323,6 +326,25 @@ SlideInDrawer::SlideInDrawer()
         juce::SystemClipboard::copyTextToClipboard(txtCodePreview.getText());
     };
     contentComp.addChildComponent(btnCopyPreview);
+
+    btnOpenFileInEditor.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnOpenFileInEditor.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnOpenFileInEditor.onClick = [this] {
+        int selId = comboPreviewFiles.getSelectedId();
+        if (selId >= 1)
+        {
+            juce::File expDir(currentExportFolderPath);
+            auto files = expDir.findChildFiles(juce::File::findFiles, false, "*.h;*.json;*.abdlabtest");
+            std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+                return a.getLastModificationTime() > b.getLastModificationTime();
+            });
+            if (selId - 1 < static_cast<int>(files.size()))
+            {
+                files[static_cast<size_t>(selId - 1)].startAsProcess();
+            }
+        }
+    };
+    contentComp.addChildComponent(btnOpenFileInEditor);
 
     // ==========================================
     // 1. Hardware & Routing Setup
@@ -595,6 +617,7 @@ void SlideInDrawer::switchViewMode(DrawerViewMode mode)
     lblFileExportPathVal.setVisible(isFile);
     btnFileChangeExport.setVisible(isFile);
     btnFileRevealExport.setVisible(isFile);
+    btnFileExportReport.setVisible(isFile);
     btnFileExit.setVisible(isFile);
     btnCheckUpdates.setVisible(isFile);
 
@@ -602,6 +625,7 @@ void SlideInDrawer::switchViewMode(DrawerViewMode mode)
     comboPreviewFiles.setVisible(isFile);
     txtCodePreview.setVisible(isFile);
     btnCopyPreview.setVisible(isFile);
+    btnOpenFileInEditor.setVisible(isFile);
 
     // View 1: Hardware & Routing
     bool isHw = (mode == DrawerViewMode::HardwareAndRouting);
@@ -672,14 +696,28 @@ void SlideInDrawer::refreshFilePreviewList()
     if (expDir.exists() && expDir.isDirectory())
     {
         auto files = expDir.findChildFiles(juce::File::findFiles, false, "*.h;*.json;*.abdlabtest");
+        std::sort(files.begin(), files.end(), [](const juce::File& a, const juce::File& b) {
+            return a.getLastModificationTime() > b.getLastModificationTime();
+        });
+
+        juce::String currentHw = getSelectedHardwareId().toLowerCase();
+        int defaultSelectId = 1;
         int itemId = 1;
         for (const auto& f : files)
         {
-            comboPreviewFiles.addItem(f.getFileName(), itemId++);
+            auto modTime = f.getLastModificationTime();
+            juce::String timeStr = modTime.formatted("%Y-%m-%d %H:%M");
+            juce::String itemLabel = f.getFileName() + "  [" + timeStr + "]";
+            comboPreviewFiles.addItem(itemLabel, itemId);
+            if (currentHw.isNotEmpty() && f.getFileName().toLowerCase().contains(currentHw) && defaultSelectId == 1)
+            {
+                defaultSelectId = itemId;
+            }
+            itemId++;
         }
         if (itemId > 1)
         {
-            comboPreviewFiles.setSelectedId(1, juce::sendNotification);
+            comboPreviewFiles.setSelectedId(defaultSelectId, juce::sendNotification);
         }
         else
         {
@@ -1072,7 +1110,9 @@ void SlideInDrawer::layoutDrawerContent()
         y += 32;
         txtCodePreview.setBounds(padX, y, contentW, 110);
         y += 114;
-        btnCopyPreview.setBounds(padX, y, contentW, 28);
+        int halfW = (contentW - 8) / 2;
+        btnCopyPreview.setBounds(padX, y, halfW, 28);
+        btnOpenFileInEditor.setBounds(padX + halfW + 8, y, contentW - halfW - 8, 28);
         y += 34;
 
         btnCheckUpdates.setBounds(padX, y, contentW, 30);

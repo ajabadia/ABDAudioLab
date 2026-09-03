@@ -44,20 +44,65 @@ public:
         btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
         addAndMakeVisible(btnCancel);
 
+        lblAutoStatus.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+        lblAutoStatus.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+        lblAutoStatus.setJustificationType(juce::Justification::centredLeft);
+        lblAutoStatus.setVisible(false);
+        addAndMakeVisible(lblAutoStatus);
+
+        btnCloseInspector.setButtonText("Close Inspector");
+        btnCloseInspector.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
+        btnCloseInspector.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        btnCloseInspector.onClick = [this] {
+            isInspectorMode = false;
+            dismiss();
+            if (onCloseInspector) onCloseInspector();
+        };
+        addChildComponent(btnCloseInspector);
+
+        btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"▼"));
+        btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+        btnToggleCollapse.onClick = [this] {
+            isCollapsed = !isCollapsed;
+            btnToggleCollapse.setButtonText(isCollapsed ? juce::String::fromUTF8(u8"▲") : juce::String::fromUTF8(u8"▼"));
+            cardsViewport.setVisible(!isCollapsed);
+            if (isInspectorMode)
+            {
+                btnCloseInspector.setVisible(!isCollapsed);
+                lblAutoStatus.setVisible(!isCollapsed);
+            }
+            else if (isAutomatedMode)
+            {
+                btnCancel.setVisible(!isCollapsed);
+            }
+            else
+            {
+                btnAccept.setVisible(!isCollapsed);
+                btnRepeat.setVisible(!isCollapsed);
+                btnStepBack.setVisible(!isCollapsed);
+                btnCancel.setVisible(!isCollapsed);
+            }
+            if (onCollapseToggled) onCollapseToggled(isCollapsed);
+            resized();
+            repaint();
+        };
+        addAndMakeVisible(btnToggleCollapse);
+
         btnAccept.onClick = [this] {
-            setVisible(false);
+            setMeasuringState(true);
             if (onAccept) onAccept();
         };
         btnRepeat.onClick = [this] {
-            setVisible(false);
+            setMeasuringState(true);
             if (onRepeat) onRepeat();
         };
         btnStepBack.onClick = [this] {
-            setVisible(false);
+            setMeasuringState(true);
             if (onStepBack) onStepBack();
         };
         btnCancel.onClick = [this] {
-            setVisible(false);
+            dismiss();
             if (onCancel) onCancel();
         };
 
@@ -77,6 +122,65 @@ public:
     std::function<void()> onRepeat;
     std::function<void()> onStepBack;
     std::function<void()> onCancel;
+    std::function<void(bool isCollapsed)> onCollapseToggled;
+    std::function<void()> onCloseInspector;
+
+    bool isAutomatedMode { false };
+    bool isMeasuring { false };
+    bool isCollapsed { false };
+    bool isInspectorMode { false };
+
+    void setAutomatedMode(bool autoMode)
+    {
+        isAutomatedMode = autoMode;
+        isInspectorMode = false;
+        btnCloseInspector.setVisible(false);
+        btnAccept.setVisible(!autoMode && !isCollapsed);
+        btnRepeat.setVisible(!autoMode && !isCollapsed);
+        btnStepBack.setVisible(!autoMode && !isCollapsed);
+        lblAutoStatus.setVisible(autoMode);
+        btnCancel.setVisible(!isCollapsed);
+        btnCancel.setButtonText(autoMode ? "Stop Session" : "Cancel Session");
+        if (autoMode)
+        {
+            btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
+            btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        }
+        else
+        {
+            btnCancel.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+            btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
+        }
+        resized();
+        repaint();
+    }
+
+    void setMeasuringState(bool measuring)
+    {
+        isMeasuring = measuring;
+        if (isAutomatedMode)
+        {
+            lblAutoStatus.setText(measuring ? juce::String::fromUTF8(u8"● MEASURING AUDIO RESPONSE...")
+                                            : juce::String::fromUTF8(u8"● STEPPING HARDWARE PARAMETERS VIA AUTOMATED SYSEX/MIDI"),
+                                  juce::dontSendNotification);
+            lblAutoStatus.setVisible(true);
+        }
+        else
+        {
+            lblAutoStatus.setVisible(false);
+            btnAccept.setEnabled(!measuring);
+            btnAccept.setButtonText(measuring ? "Measuring Audio..." : juce::String::fromUTF8(u8"Accept Step [Space]"));
+            btnRepeat.setEnabled(!measuring);
+            btnStepBack.setEnabled(!measuring && stepIndex > 1);
+        }
+        cardsContainer.repaint();
+        repaint();
+    }
+
+    void dismiss()
+    {
+        setVisible(false);
+    }
 
     void setStepInfo(const juce::String& sessionTitle,
                      int currentStep,
@@ -84,7 +188,57 @@ public:
                      const std::vector<core::ParameterStep>& steps,
                      const juce::String& message = {})
     {
-        showStepPrompt(getParentComponent(), sessionTitle, currentStep, totalSteps, steps, message);
+        testTitle = sessionTitle.isNotEmpty() ? sessionTitle : (isAutomatedMode ? "Automated Hardware Sweep" : "Manual Alignment Step");
+        stepIndex = currentStep;
+        stepTotal = totalSteps;
+        parameterSteps = steps;
+        promptMessage = message;
+        isMeasuring = false;
+
+        if (!isAutomatedMode)
+        {
+            btnAccept.setEnabled(true);
+            btnAccept.setButtonText(juce::String::fromUTF8(u8"Accept Step [Space]"));
+            btnRepeat.setEnabled(true);
+            btnStepBack.setEnabled(stepIndex > 1);
+        }
+
+        setVisible(true);
+        resized();
+        cardsContainer.repaint();
+        repaint();
+    }
+
+    void showInspector(const juce::String& sessionTitle,
+                       int currentStep,
+                       int totalSteps,
+                       const std::vector<core::ParameterStep>& steps,
+                       const juce::String& metricsInfo = {})
+    {
+        isInspectorMode = true;
+        isAutomatedMode = false;
+        btnAccept.setVisible(false);
+        btnRepeat.setVisible(false);
+        btnStepBack.setVisible(false);
+        btnCancel.setVisible(false);
+
+        lblAutoStatus.setText(metricsInfo, juce::dontSendNotification);
+        lblAutoStatus.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+        lblAutoStatus.setVisible(!isCollapsed);
+
+        btnCloseInspector.setVisible(!isCollapsed);
+
+        testTitle = sessionTitle.isNotEmpty() ? ("INSPECTOR: " + sessionTitle) : "Point Controls Inspector";
+        stepIndex = currentStep;
+        stepTotal = totalSteps;
+        parameterSteps = steps;
+        promptMessage = metricsInfo;
+        isMeasuring = false;
+
+        setVisible(true);
+        resized();
+        cardsContainer.repaint();
+        repaint();
     }
 
     void showStepPrompt(juce::Component* parent,
@@ -94,23 +248,22 @@ public:
                         const std::vector<core::ParameterStep>& steps,
                         const juce::String& message = {})
     {
-        testTitle = sessionTitle.isNotEmpty() ? sessionTitle : "Manual Alignment Step";
+        testTitle = sessionTitle.isNotEmpty() ? sessionTitle : (isAutomatedMode ? "Automated Hardware Sweep" : "Manual Alignment Step");
         stepIndex = currentStep;
         stepTotal = totalSteps;
         parameterSteps = steps;
         promptMessage = message;
+        isMeasuring = false;
 
-        if (parent != nullptr)
+        if (parent != nullptr && getParentComponent() == nullptr)
         {
-            parent->addAndMakeVisible(this);
-            setBounds(parent->getLocalBounds());
-            toFront(true);
+            parent->addChildComponent(this);
         }
 
         setVisible(true);
         resized();
+        cardsContainer.repaint();
         repaint();
-        grabKeyboardFocus();
     }
 
     bool keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/) override
@@ -144,32 +297,36 @@ public:
     {
         if (!isVisible()) return;
 
-        g.fillAll(juce::Colours::black.withAlpha(0.55f));
-
-        auto card = getCardBounds();
+        auto card = getLocalBounds().toFloat();
         g.setColour(SoundIdTheme::bgCard);
-        g.fillRoundedRectangle(card, 12.0f);
+        g.fillRoundedRectangle(card, 8.0f);
         g.setColour(SoundIdTheme::borderCard);
-        g.drawRoundedRectangle(card, 12.0f, 1.5f);
+        g.drawRoundedRectangle(card, 8.0f, 1.0f);
 
-        auto header = card.removeFromTop(44.0f).reduced(20.0f, 10.0f);
+        auto header = card.removeFromTop(30.0f).reduced(14.0f, 4.0f);
+        header.removeFromRight(30.0f); // Reserve space for collapse button
+
         g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentGreen);
 
-        juce::String stepTag = "STEP " + juce::String(stepIndex) + " OF " + juce::String(stepTotal);
-        g.drawText(stepTag, header.removeFromRight(120.0f), juce::Justification::right, true);
+        juce::String stepTag = isInspectorMode ? ("POINT " + juce::String(stepIndex) + " / " + juce::String(stepTotal))
+                                              : ("STEP " + juce::String(stepIndex) + " OF " + juce::String(stepTotal));
+        g.drawText(stepTag, header.removeFromRight(130.0f), juce::Justification::centredRight, true);
 
-        g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(testTitle, header, juce::Justification::left, true);
+        g.drawText(testTitle, header, juce::Justification::centredLeft, true);
+
+        if (isCollapsed)
+            return;
 
         g.setColour(SoundIdTheme::borderSubtle);
-        g.drawHorizontalLine(static_cast<int>(card.getY()), card.getX() + 16.0f, card.getRight() - 16.0f);
+        g.drawHorizontalLine(30, card.getX() + 10.0f, card.getRight() - 10.0f);
 
         if (parameterSteps.empty())
         {
-            auto renderArea = card.removeFromTop(200.0f).reduced(20.0f, 10.0f);
-            g.setFont(juce::FontOptions(14.0f, juce::Font::plain));
+            auto renderArea = card.removeFromTop(130.0f).reduced(20.0f, 10.0f);
+            g.setFont(juce::FontOptions(13.0f, juce::Font::plain));
             g.setColour(SoundIdTheme::textSecondary);
             g.drawText(promptMessage.isEmpty() ? "Adjust controls to target position and press Accept [Space]." : promptMessage,
                        renderArea, juce::Justification::centred, true);
@@ -178,25 +335,59 @@ public:
 
     void resized() override
     {
-        auto card = getCardBounds();
-        auto renderArea = card;
-        renderArea.removeFromTop(48.0f);
-        auto ctrlRect = renderArea.removeFromTop(200.0f).reduced(16.0f, 10.0f);
+        auto bounds = getLocalBounds();
+        btnToggleCollapse.setBounds(bounds.getRight() - 32, 3, 26, 24);
 
+        if (isCollapsed)
+        {
+            cardsViewport.setVisible(false);
+            btnAccept.setVisible(false);
+            btnRepeat.setVisible(false);
+            btnStepBack.setVisible(false);
+            btnCancel.setVisible(false);
+            btnCloseInspector.setVisible(false);
+            lblAutoStatus.setVisible(false);
+            return;
+        }
+
+        cardsViewport.setVisible(true);
+        bounds.removeFromTop(32); // Skip header
+
+        auto bottomBar = bounds.removeFromBottom(38).reduced(12, 4);
+
+        auto ctrlRect = bounds.reduced(6, 2);
         int numCtrl = static_cast<int>(parameterSteps.size());
-        int totalContainerW = std::max(static_cast<int>(ctrlRect.getWidth()), numCtrl * 150);
-        cardsContainer.setBounds(0, 0, totalContainerW, static_cast<int>(ctrlRect.getHeight()));
-        cardsViewport.setBounds(ctrlRect.toNearestInt());
+        int totalContainerW = std::max(ctrlRect.getWidth(), numCtrl * 140);
+        cardsContainer.setBounds(0, 0, totalContainerW, ctrlRect.getHeight());
+        cardsViewport.setBounds(ctrlRect);
 
-        auto bottomBar = card.removeFromBottom(52.0f).reduced(16.0f, 10.0f);
-
-        btnAccept.setBounds(bottomBar.removeFromRight(150.0f).toNearestInt());
-        bottomBar.removeFromRight(8.0f);
-        btnRepeat.setBounds(bottomBar.removeFromRight(100.0f).toNearestInt());
-        bottomBar.removeFromRight(8.0f);
-        btnStepBack.setBounds(bottomBar.removeFromRight(95.0f).toNearestInt());
-
-        btnCancel.setBounds(bottomBar.removeFromLeft(110.0f).toNearestInt());
+        if (isInspectorMode)
+        {
+            btnCloseInspector.setVisible(true);
+            btnCloseInspector.setBounds(bottomBar.removeFromRight(130));
+            lblAutoStatus.setVisible(true);
+            lblAutoStatus.setBounds(bottomBar);
+        }
+        else if (isAutomatedMode)
+        {
+            btnCancel.setVisible(true);
+            btnCancel.setBounds(bottomBar.removeFromRight(120));
+            lblAutoStatus.setVisible(true);
+            lblAutoStatus.setBounds(bottomBar);
+        }
+        else
+        {
+            btnAccept.setVisible(true);
+            btnAccept.setBounds(bottomBar.removeFromRight(150));
+            bottomBar.removeFromRight(8);
+            btnRepeat.setVisible(true);
+            btnRepeat.setBounds(bottomBar.removeFromRight(100));
+            bottomBar.removeFromRight(8);
+            btnStepBack.setVisible(stepIndex > 1);
+            btnStepBack.setBounds(bottomBar.removeFromRight(95));
+            btnCancel.setVisible(true);
+            btnCancel.setBounds(bottomBar.removeFromLeft(110));
+        }
     }
 
 private:
@@ -255,6 +446,9 @@ private:
     juce::TextButton btnRepeat;
     juce::TextButton btnStepBack;
     juce::TextButton btnCancel;
+    juce::TextButton btnCloseInspector;
+    juce::TextButton btnToggleCollapse;
+    juce::Label lblAutoStatus;
 
     juce::String testTitle { "Manual Calibration Step" };
     juce::String promptMessage;

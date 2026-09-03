@@ -31,6 +31,7 @@ struct MeasuredPoint
     float thdPercent { 0.0f };           /**< Total Harmonic Distortion percentage (THD %). */
     float snrDb { 0.0f };                /**< Signal-to-Noise Ratio in dB. */
     std::vector<float> irSamples;        /**< Raw impulse response audio buffer. */
+    std::vector<core::ParameterStep> controlSteps; /**< Snapshot of all hardware control parameters for this point. */
     math::StatisticalPair muSigmaValue;  /**< Primary statistical metric (mean, stddev). */
     math::StatisticalPair secondaryValue;/**< Secondary statistical metric (mean, stddev). */
     math::StatisticalPair thdValue;      /**< THD statistical metric (mean, stddev). */

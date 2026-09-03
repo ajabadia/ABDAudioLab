@@ -69,7 +69,20 @@ bool LutExporter::exportToCppHeader(const std::string& destinationHeaderPath,
 
         if (i + 1 < points.size())
             out << ",";
-        out << " // " << p.testId << "\n";
+
+        std::string commentStr = p.testId;
+        if (!p.controlSteps.empty())
+        {
+            commentStr += " [";
+            for (size_t c = 0; c < p.controlSteps.size(); ++c)
+            {
+                if (c > 0) commentStr += ", ";
+                int pct = static_cast<int>(std::round(p.controlSteps[c].normalizedValue * 100.0f));
+                commentStr += p.controlSteps[c].paramName + ": " + std::to_string(pct) + "%";
+            }
+            commentStr += "]";
+        }
+        out << " // " << commentStr << "\n";
     }
 
     out << "};\n\n";
@@ -101,6 +114,22 @@ bool LutExporter::exportToJsonReport(const std::string& destinationJsonPath,
         pj["secondary_mu"] = p.secondaryValue.mean;
         pj["secondary_sigma"] = p.secondaryValue.stdDev;
         pj["thd_percent"] = p.thdValue.mean;
+        pj["snr_db"] = p.snrDb;
+
+        if (!p.controlSteps.empty())
+        {
+            nlohmann::json csJson = nlohmann::json::array();
+            for (const auto& cs : p.controlSteps)
+            {
+                nlohmann::json c;
+                c["paramName"] = cs.paramName;
+                c["normalizedValue"] = cs.normalizedValue;
+                c["controlType"] = cs.controlType;
+                csJson.push_back(c);
+            }
+            pj["controlSteps"] = csJson;
+        }
+
         ptsJson.push_back(pj);
     }
     root["measuredPoints"] = ptsJson;

@@ -165,6 +165,7 @@ private:
     juce::ComboBox comboPreviewFiles;
     juce::TextEditor txtCodePreview;
     juce::TextButton btnCopyPreview { "Copy Code" };
+    juce::TextButton btnOpenFileInEditor { "Open in Editor" };
     juce::String currentExportFolderPath;
     void refreshFilePreviewList();
 
