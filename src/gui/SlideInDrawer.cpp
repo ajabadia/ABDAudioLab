@@ -275,6 +275,17 @@ SlideInDrawer::SlideInDrawer()
 
     contentComp.addChildComponent(cardWiring);
 
+    lblAutoDetectSection.setText("AUTOMATED HARDWARE DETECTION", juce::dontSendNotification);
+    lblAutoDetectSection.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+    lblAutoDetectSection.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    contentComp.addChildComponent(lblAutoDetectSection);
+
+    lblOrSeparator.setText("— OR SELECT MANUALLY FROM CATALOG —", juce::dontSendNotification);
+    lblOrSeparator.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+    lblOrSeparator.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
+    lblOrSeparator.setJustificationType(juce::Justification::centred);
+    contentComp.addChildComponent(lblOrSeparator);
+
     btnAutoDetect.setTooltip("Automatically query connected MIDI ports via SysEx Identity Inquiry to identify hardware");
     btnAutoDetect.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
     btnAutoDetect.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
@@ -459,7 +470,9 @@ void SlideInDrawer::switchViewMode(DrawerViewMode mode)
     hwFunctionCombo.setVisible(isHw);
     hwFunctionCombo.setEnabled(!isHardwareLocked);
     cardWiring.setVisible(isHw);
-    btnAutoDetect.setVisible(isHw);
+    btnAutoDetect.setVisible(isHw && !isHardwareLocked);
+    lblAutoDetectSection.setVisible(isHw && !isHardwareLocked);
+    lblOrSeparator.setVisible(isHw && !isHardwareLocked);
 
     // View 2: Test & Parameter Editor
     bool isTest = (mode == DrawerViewMode::TestAndParametersEditor);
@@ -540,11 +553,27 @@ void SlideInDrawer::setHardwareLocked(bool locked)
     hwModeCombo.setEnabled(!locked);
     hwFunctionCombo.setEnabled(!locked);
     lblHardwareLockedBanner.setVisible(locked && currentViewMode == DrawerViewMode::HardwareAndRouting);
+    btnAutoDetect.setVisible(!locked && currentViewMode == DrawerViewMode::HardwareAndRouting);
+    lblAutoDetectSection.setVisible(!locked && currentViewMode == DrawerViewMode::HardwareAndRouting);
+    lblOrSeparator.setVisible(!locked && currentViewMode == DrawerViewMode::HardwareAndRouting);
     if (currentViewMode == DrawerViewMode::HardwareAndRouting)
     {
         btnConfirm.setButtonText(locked ? "Close" : "Accept Hardware Selection");
         btnCancel.setVisible(!locked);
     }
+    layoutDrawerContent();
+    repaint();
+}
+
+void SlideInDrawer::clearSelectedHardware()
+{
+    hwModeCombo.setSelectedId(0, juce::dontSendNotification);
+    hwFunctionCombo.clear(juce::dontSendNotification);
+    modelRasterImage = juce::Image();
+    cardWiring.stimulusText = "Select hardware device to view routing";
+    cardWiring.responseText = "";
+    cardWiring.repaint();
+    lblHwTitle.setText("No Hardware Selected", juce::dontSendNotification);
     layoutDrawerContent();
     repaint();
 }
@@ -651,14 +680,10 @@ void SlideInDrawer::setHardwareList(const std::vector<HardwareItem>& list)
     hardwareList = list;
     hwModeCombo.clear(juce::dontSendNotification);
 
+    hwModeCombo.setTextWhenNothingSelected("< Select Target Hardware >");
     for (size_t i = 0; i < hardwareList.size(); ++i)
     {
         hwModeCombo.addItem(hardwareList[i].displayName, static_cast<int>(i + 1));
-    }
-
-    if (!hardwareList.empty())
-    {
-        hwModeCombo.setSelectedId(1, juce::sendNotification);
     }
 }
 
@@ -927,6 +952,20 @@ void SlideInDrawer::layoutDrawerContent()
 
         lblSelectHw.setBounds(padX, y, contentW, 16);
         y += 18;
+        if (!isHardwareLocked)
+        {
+            lblAutoDetectSection.setBounds(padX, y, contentW, 16);
+            y += 18;
+
+            btnAutoDetect.setBounds(padX, y, contentW, 30);
+            y += 34;
+
+            lblOrSeparator.setBounds(padX, y, contentW, 16);
+            y += 22;
+        }
+
+        lblSelectHw.setBounds(padX, y, contentW, 16);
+        y += 18;
         hwModeCombo.setBounds(padX, y, contentW, 28);
         y += 34;
 
@@ -937,9 +976,6 @@ void SlideInDrawer::layoutDrawerContent()
 
         cardWiring.setBounds(padX, y, contentW, 72);
         y += 82;
-
-        btnAutoDetect.setBounds(padX, y, contentW, 28);
-        y += 34;
     }
     else if (currentViewMode == DrawerViewMode::TestAndParametersEditor)
     {

@@ -129,6 +129,7 @@ public:
           sequencer(audioEngine, mockController)
     {
         setLookAndFeel(&soundIdTheme);
+        juce::LookAndFeel::setDefaultLookAndFeel(&soundIdTheme);
 
         // 1. Initialize Audio Engine & Restore State
         juce::File appData = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("ABDAudioLab");
@@ -253,9 +254,7 @@ public:
         btnCalibratePill.onClick = [this] { loopbackModal.showDialog(this); };
         addAndMakeVisible(btnCalibratePill);
 
-        juce::String initialHwName = hwItems.empty() ? "Mock VA DSP (Self-Test)" : hwItems[0].displayName;
-        juce::String initialFuncName = (!hwItems.empty() && !hwItems[0].functions.empty()) ? hwItems[0].functions[0].name : "Standard";
-        btnHardwareSelector.setHardwareInfo(initialHwName, initialFuncName, drawer.getActiveModelRasterImage(), gui::HardwareConnectionStatus::NotApplicable);
+        btnHardwareSelector.clearHardware();
         btnHardwareSelector.onClick = [this] { drawer.openHardwareDrawer(); };
         addAndMakeVisible(btnHardwareSelector);
 
@@ -460,7 +459,19 @@ public:
         };
 
         suiteList.onToggleSessionRunClicked = [this](bool start) {
-            if (start) startProfilingSession(false);
+            if (start)
+            {
+                if (!btnHardwareSelector.hasHardwareSelected())
+                {
+                    suiteList.setSessionRunning(false);
+                    drawer.openHardwareDrawer();
+                    manualPromptLabel.setText("Please select a Target Hardware device before starting the session.", juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    hidePromptAfterDelay(5000);
+                    return;
+                }
+                startProfilingSession(false);
+            }
             else stopProfilingSession();
         };
 
@@ -473,7 +484,20 @@ public:
 
         // 6. Right Master Level & Meter Strip
         meterStrip.onProfilingToggled = [this](bool start) {
-            if (start) startProfilingSession();
+            if (start)
+            {
+                if (!btnHardwareSelector.hasHardwareSelected())
+                {
+                    suiteList.setSessionRunning(false);
+                    meterStrip.setProfilingActive(false);
+                    drawer.openHardwareDrawer();
+                    manualPromptLabel.setText("Please select a Target Hardware device before starting the session.", juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    hidePromptAfterDelay(5000);
+                    return;
+                }
+                startProfilingSession();
+            }
             else stopProfilingSession();
         };
         meterStrip.onAutoTrimClicked = [this] {
@@ -688,6 +712,7 @@ public:
 
 
 
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
         setLookAndFeel(nullptr);
         removeKeyListener(this);
         stopTimer();
@@ -920,6 +945,15 @@ private:
             audioEngine.setMockHardware(nullptr);
             if (midiCcController == nullptr)
                 midiCcController = std::make_unique<hardware::MidiCcController>();
+
+            juce::String keyword = juce::String(contract->displayName);
+            if (keyword.containsIgnoreCase("DeepMind")) keyword = "DeepMind";
+            else if (keyword.containsIgnoreCase("MS2000")) keyword = "MS2000";
+            else if (keyword.containsIgnoreCase("CZ-101") || keyword.containsIgnoreCase("CZ101")) keyword = "CZ";
+            else if (keyword.containsIgnoreCase("PRO-800") || keyword.containsIgnoreCase("PRO800")) keyword = "PRO-800";
+            else if (keyword.containsIgnoreCase("Bass Station") || keyword.containsIgnoreCase("BassStation")) keyword = "Bass Station";
+
+            midiCcController->setTargetDeviceIdentifier(keyword);
             bool connected = midiCcController->connect();
             connStatus = connected ? gui::HardwareConnectionStatus::Connected : gui::HardwareConnectionStatus::Disconnected;
         }
@@ -949,10 +983,14 @@ private:
 
     void handleClearPoint(int queueIdx, int pointIdx)
     {
-        juce::ignoreUnused(queueIdx);
         curvePlotter.removePoint(pointIdx);
         if (pointIdx >= 0 && pointIdx < static_cast<int>(sessionPoints.size()))
             sessionPoints.erase(sessionPoints.begin() + pointIdx);
+
+        suiteList.setPointStatus(queueIdx, pointIdx, gui::PointStatus::Annulled);
+        manualPromptLabel.setText("Point #" + juce::String(pointIdx + 1) + " marked as ANNULLED.", juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(3500);
     }
 
     void startProfilingSession(bool resumeFromExisting = false)
@@ -1083,6 +1121,7 @@ private:
             false,
             false
         );
+        selector->setLookAndFeel(&soundIdTheme);
         selector->setSize(520, 520);
 
         juce::DialogWindow::LaunchOptions opt;
@@ -1461,6 +1500,8 @@ private:
         isSessionDirty = false;
         sessionSerializer.cleanupTempSession();
         drawer.setHardwareLocked(false);
+        drawer.clearSelectedHardware();
+        btnHardwareSelector.clearHardware();
         drawer.openHardwareDrawer();
         manualPromptLabel.setText("New session initialized. Select hardware and active submodule, then click Accept.", juce::dontSendNotification);
         manualPromptLabel.setVisible(true);

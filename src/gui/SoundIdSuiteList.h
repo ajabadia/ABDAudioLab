@@ -18,6 +18,15 @@ enum class QueueItemStatus
     Invalidated    // Marked invalid or modified after completion
 };
 
+enum class PointStatus
+{
+    Queued,      // Pending measurement (Slate/Gray)
+    Running,     // Measuring right now (Blue)
+    Completed,   // Executed & verified (Green)
+    Invalidated, // Marked to replace / re-measure (Amber)
+    Annulled     // Annulled / cancelled (Red)
+};
+
 struct QueueItem
 {
     juce::String id;          // Unique signature: hwId + ":" + funcId + ":" + testName
@@ -37,6 +46,7 @@ struct QueueItem
     bool isPinned { false };      // Pinned Test 0 (Noise Floor) stays at index 0
     bool isSkipped { false };     // Skip / Bypass flag
     bool isExpanded { false };    // Show / hide detailed step rows
+    std::vector<PointStatus> pointStatuses;
 };
 
 /**
@@ -58,6 +68,9 @@ public:
     void invalidateTest(int index);
     void moveTestUp(int index);
     void moveTestDown(int index);
+    void setPointStatus(int queueIndex, int pointIndex, PointStatus status);
+    [[nodiscard]] PointStatus getPointStatus(int queueIndex, int pointIndex) const;
+    void resetPointStatuses(int queueIndex);
     void toggleTestSkipped(int index);
     void toggleTestExpanded(int index);
     void clearQueue();

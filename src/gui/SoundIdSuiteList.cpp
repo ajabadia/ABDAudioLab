@@ -302,8 +302,87 @@ void SoundIdSuiteList::updateItemStatus(int index, QueueItemStatus status, int c
 {
     if (index >= 0 && index < static_cast<int>(queue.size()))
     {
-        queue[static_cast<size_t>(index)].status = status;
-        queue[static_cast<size_t>(index)].currentRunningPoint = currentPoint;
+        auto& item = queue[static_cast<size_t>(index)];
+        item.status = status;
+        item.currentRunningPoint = currentPoint;
+
+        if (item.pointStatuses.size() != static_cast<size_t>(item.totalPoints))
+            item.pointStatuses.assign(static_cast<size_t>(item.totalPoints), PointStatus::Queued);
+
+        if (status == QueueItemStatus::Completed)
+        {
+            for (auto& pSt : item.pointStatuses)
+            {
+                if (pSt != PointStatus::Annulled)
+                    pSt = PointStatus::Completed;
+            }
+        }
+        else if (status == QueueItemStatus::Running)
+        {
+            for (int p = 0; p < item.totalPoints; ++p)
+            {
+                if (item.pointStatuses[static_cast<size_t>(p)] == PointStatus::Annulled)
+                    continue;
+
+                if (p < currentPoint)
+                    item.pointStatuses[static_cast<size_t>(p)] = PointStatus::Completed;
+                else if (p == currentPoint)
+                    item.pointStatuses[static_cast<size_t>(p)] = PointStatus::Running;
+                else
+                    item.pointStatuses[static_cast<size_t>(p)] = PointStatus::Queued;
+            }
+        }
+        else if (status == QueueItemStatus::Queued)
+        {
+            for (auto& pSt : item.pointStatuses)
+                pSt = PointStatus::Queued;
+        }
+        else if (status == QueueItemStatus::Invalidated)
+        {
+            for (auto& pSt : item.pointStatuses)
+            {
+                if (pSt != PointStatus::Annulled)
+                    pSt = PointStatus::Invalidated;
+            }
+        }
+
+        rowsContent.repaint();
+    }
+}
+
+void SoundIdSuiteList::setPointStatus(int queueIndex, int pointIndex, PointStatus status)
+{
+    if (queueIndex >= 0 && queueIndex < static_cast<int>(queue.size()))
+    {
+        auto& item = queue[static_cast<size_t>(queueIndex)];
+        if (item.pointStatuses.size() != static_cast<size_t>(item.totalPoints))
+            item.pointStatuses.assign(static_cast<size_t>(item.totalPoints), PointStatus::Queued);
+
+        if (pointIndex >= 0 && pointIndex < static_cast<int>(item.pointStatuses.size()))
+        {
+            item.pointStatuses[static_cast<size_t>(pointIndex)] = status;
+            rowsContent.repaint();
+        }
+    }
+}
+
+PointStatus SoundIdSuiteList::getPointStatus(int queueIndex, int pointIndex) const
+{
+    if (queueIndex >= 0 && queueIndex < static_cast<int>(queue.size()))
+    {
+        const auto& item = queue[static_cast<size_t>(queueIndex)];
+        if (pointIndex >= 0 && pointIndex < static_cast<int>(item.pointStatuses.size()))
+            return item.pointStatuses[static_cast<size_t>(pointIndex)];
+    }
+    return PointStatus::Queued;
+}
+
+void SoundIdSuiteList::resetPointStatuses(int queueIndex)
+{
+    if (queueIndex >= 0 && queueIndex < static_cast<int>(queue.size()))
+    {
+        auto& item = queue[static_cast<size_t>(queueIndex)];
+        item.pointStatuses.assign(static_cast<size_t>(item.totalPoints), PointStatus::Queued);
         rowsContent.repaint();
     }
 }
@@ -314,6 +393,7 @@ void SoundIdSuiteList::resetAllStatuses()
     {
         item.status = QueueItemStatus::Queued;
         item.currentRunningPoint = 0;
+        item.pointStatuses.assign(static_cast<size_t>(item.totalPoints), PointStatus::Queued);
     }
     rowsContent.repaint();
 }
@@ -553,7 +633,52 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
                 
                 float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
                 juce::String stepLabel = "Point #" + juce::String(pIdx + 1) + " / " + juce::String(item.totalPoints) + " (" + juce::String(stepPct, 1) + "% Pos)";
-                g.drawText(stepLabel, subArea.removeFromLeft(220.0f), juce::Justification::centredLeft, true);
+                g.drawText(stepLabel, subArea.removeFromLeft(200.0f), juce::Justification::centredLeft, true);
+
+                // Subtest / Point Status Pill
+                PointStatus ptStatus = PointStatus::Queued;
+                if (static_cast<size_t>(pIdx) < item.pointStatuses.size())
+                    ptStatus = item.pointStatuses[static_cast<size_t>(pIdx)];
+
+                auto ptStatusRect = subArea.removeFromLeft(86.0f).withSizeKeepingCentre(80.0f, 16.0f);
+                juce::Colour bgPill, textPill;
+                juce::String statusLabel;
+
+                switch (ptStatus)
+                {
+                    case PointStatus::Completed:
+                        bgPill = juce::Colour(0xffdcfce7); // Light green
+                        textPill = SoundIdTheme::accentGreen; // #10b981
+                        statusLabel = "DONE";
+                        break;
+                    case PointStatus::Running:
+                        bgPill = juce::Colour(0xffe0f2fe); // Light blue
+                        textPill = juce::Colour(0xff0284c7); // #0284c7
+                        statusLabel = "MEASURING";
+                        break;
+                    case PointStatus::Invalidated:
+                        bgPill = juce::Colour(0xfffef3c7); // Light amber
+                        textPill = SoundIdTheme::accentAmber; // #f59e0b
+                        statusLabel = "RE-RUN";
+                        break;
+                    case PointStatus::Annulled:
+                        bgPill = juce::Colour(0xfffee2e2); // Light red
+                        textPill = SoundIdTheme::accentRed; // #ef4444
+                        statusLabel = "ANNULLED";
+                        break;
+                    case PointStatus::Queued:
+                    default:
+                        bgPill = juce::Colour(0xfff1f5f9); // Slate gray
+                        textPill = SoundIdTheme::textMuted; // #6b7280
+                        statusLabel = "QUEUED";
+                        break;
+                }
+
+                g.setColour(bgPill);
+                g.fillRoundedRectangle(ptStatusRect, 3.0f);
+                g.setColour(textPill);
+                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                g.drawText(statusLabel, ptStatusRect, juce::Justification::centred, false);
 
                 auto subActions = subArea.removeFromRight(150.0f);
 

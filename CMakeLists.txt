@@ -177,7 +177,8 @@ target_sources(ABDAudioLab
         src/gui/SoundIdSplashScreen.h
         src/gui/HardwareSelectorPill.h
         src/gui/LiveSpectrumAnalyzer.h
-        src/gui/ScopeFloatingWindow.h
+        src/gui/MainContentComponent.h
+        src/gui/LabApplication.h
         src/gui/ScopeWebFloatingWindow.h
         src/gui/MeasurementHealthPanel.h
         src/gui/OperatorStepModalDialog.h

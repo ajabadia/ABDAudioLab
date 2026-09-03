@@ -52,17 +52,18 @@ public:
         {
             for (const auto& d : midiOutputs)
             {
-                if (d.identifier == targetDeviceIdentifier || d.name == targetDeviceIdentifier)
+                if (d.identifier == targetDeviceIdentifier 
+                    || d.name == targetDeviceIdentifier
+                    || d.name.containsIgnoreCase(targetDeviceIdentifier))
                 {
                     midiOut = juce::MidiOutput::openDevice(d.identifier);
                     return midiOut != nullptr;
                 }
             }
+            return false; // Specific target hardware not found on any MIDI port
         }
 
-        // Open first available
-        midiOut = juce::MidiOutput::openDevice(midiOutputs[0].identifier);
-        return midiOut != nullptr;
+        return false; // No target hardware specified
     }
 
     void disconnect() override

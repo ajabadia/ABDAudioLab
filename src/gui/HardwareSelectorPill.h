@@ -42,6 +42,20 @@ public:
         repaint();
     }
 
+    void clearHardware()
+    {
+        hwDisplayName = "Select Target Hardware...";
+        hwFunctionName.clear();
+        hwThumbnail = juce::Image();
+        connStatus = HardwareConnectionStatus::NotApplicable;
+        repaint();
+    }
+
+    [[nodiscard]] bool hasHardwareSelected() const noexcept
+    {
+        return hwDisplayName != "Select Target Hardware..." && hwDisplayName != "Select Hardware";
+    }
+
     [[nodiscard]] HardwareConnectionStatus getConnectionStatus() const noexcept { return connStatus; }
     [[nodiscard]] const juce::String& getDisplayName() const noexcept { return hwDisplayName; }
     [[nodiscard]] const juce::String& getFunctionName() const noexcept { return hwFunctionName; }

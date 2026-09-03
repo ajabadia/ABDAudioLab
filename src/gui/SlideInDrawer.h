@@ -77,6 +77,7 @@ public:
     void setHardwareList(const std::vector<HardwareItem>& list);
     void setContracts(std::vector<core::HardwareContract> contractsList) { availableContracts = std::move(contractsList); }
     void setSelectedHardwareId(const juce::String& id);
+    void clearSelectedHardware();
     void setHardwareLocked(bool locked);
     [[nodiscard]] bool getHardwareLocked() const { return isHardwareLocked; }
     [[nodiscard]] juce::String getSelectedHardwareId() const;
@@ -199,7 +200,9 @@ private:
         juce::String responseText;
     };
     WiringGuideCard cardWiring;
-    juce::TextButton btnAutoDetect { "Auto-Detect Device (MIDI)" };
+    juce::Label lblAutoDetectSection;
+    juce::TextButton btnAutoDetect { "Auto-Detect Device (MIDI / USB)" };
+    juce::Label lblOrSeparator;
 
     // ==========================================
     // VISTA 2: Test & Parameter Editor Widgets

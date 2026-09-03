@@ -52,6 +52,8 @@ public:
 
         setColour(juce::ListBox::backgroundColourId, pillWhiteBg);
         setColour(juce::ListBox::outlineColourId, borderSubtle);
+        setColour(juce::ListBox::textColourId, textPrimary);
+        setColour(juce::PropertyComponent::labelTextColourId, textPrimary);
 
         setColour(juce::ComboBox::backgroundColourId, pillWhiteBg);
         setColour(juce::ComboBox::textColourId, textPrimary);
