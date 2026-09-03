@@ -1,149 +1,154 @@
-# ABDAudioLab — Implementación del módulo HardwareMidiDetect (Shared)
+# ABDAudioLab — HardwareMidiDetect Implementation Guide
 
-Este documento describe **cómo migrar ABDAudioLab** de su registry local `abdaudiolab::core::HardwareContractRegistry` al módulo compartido `abd::hwid::HardwareContractRegistry` y cómo integrar el picker WebView2 (`JuceHardwareMidiPicker`) usando el patrón ABDScope.
+> **Objective:** Integrate the shared `HardwareMidiDetect` module (contract-driven MIDI hardware detection, C++ pure layer + WebView2 picker) into ABDAudioLab in under 10 minutes with zero contract duplication.
+>
+> **Module:** `ABDShared::HardwareMidiDetect`  
+> **Contracts Source:** `ABDSharedAssets/contracts/hardware/*.json` (single source of truth)
 
 ---
 
-## 1. Cambios en CMakeLists.txt
+## 1. CMake Build Configuration
 
-ABDAudioLab ya añade JUCE y nlohmann_json antes de `add_subdirectory(ABDSharedCode)`. **No hay cambios de dependencias** (el módulo usa `juce_audio_devices`, `juce_gui_extra`, `juce_core` y `nlohmann_json::nlohmann_json`, todos ya en scope).
-
-Añade el link del nuevo target:
+ABDAudioLab already adds JUCE + nlohmann_json before `add_subdirectory(ABDSharedCode)`. Only the link is needed:
 
 ```cmake
-# ... tras add_subdirectory("${ABDSHARED_CODE_DIR}" ...)
-target_link_libraries(ABDAudioLab PRIVATE ABDShared::HardwareMidiDetect)
+# In ABDAudioLab/CMakeLists.txt, after add_subdirectory(ABDSharedCode ...)
+target_link_libraries(ABDAudioLab PRIVATE
+    ABDShared::HardwareMidiDetect
+)
 ```
 
-> El WebUI embebido se genera vía `juce_add_binary_data(HardwareMidiPickerAssets ...)` dentro del CMake de ABDSharedCode (activado porque JUCE está en scope). El target alias es `ABDShared::HardwareMidiPickerAssets` — **no hace falta linkearlo explícitamente**, `HardwareMidiDetect` ya lo hace internamente.
+The embedded WebUI assets (`HardwareMidiPickerAssets`) are generated automatically via `juce_add_binary_data` inside `ABDSharedCode/CMakeLists.txt` because JUCE is in scope. No extra CMake required.
 
 ---
 
-## 2. Migración del Registry local → Shared
+## 2. Architecture Overview (ABDScope-Style)
 
-### 2.1 Diferencias clave
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ABDAudioLab (Host)                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ AudioLabMidiBackend  ← implements MidiHardwareBackend        │   │
+│  │   • MidiOutput / MidiInput (JUCE)                            │   │
+│  │   • sendBytes / startListening / handleIncomingMidiMessage   │   │
+│  └──────────────────────────┬──────────────────────────────────┘   │
+│                             │ injects backend                        │
+│                             ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ JuceHardwareMidiPicker  (WebView2 Component)                │   │
+│  │   • Embedded WebUI (index.html + JS) served from binary     │   │
+│  │   • nativeEvent channel: hardware.send / listen / stop      │   │
+│  │   • Callback: HardwarePickResult { cancelled, hardwareId,   │   │
+│  │       displayName, manufacturer, model, firmwareVersion }   │   │
+│  └──────────────────────────┬──────────────────────────────────┘   │
+│                             │ result callback                        │
+│                             ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │ SharedHardwareContractAdapter  ← wraps shared registry       │   │
+│  │   • Loads contracts via shared registry                      │   │
+│  │   • Exposes LOCAL types with functions/controls populated    │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-| Campo | Local (`abdaudiolab::core::HardwareContract`) | Shared (`abd::hwid::HardwareContract`) |
-|-------|-----------------------------------------------|----------------------------------------|
-| `functions` (vector<HardwareFunction>) | **Sí** — completo | **No** — no modelado |
-| `controls` (vector<HardwareControl>) | **Sí** — completo | **No** — no modelado |
-| `routingGuide` | **Sí** | **No** |
-| `midiIdentity` | Parcial (mismo esquema) | Completo |
-| `getRawContractJson(id)` | **No existe** | **Sí** — expone el JSON parseado completo |
+---
 
-**Regla**: el módulo shared **no conoce** `functions`/`controls`/`routingGuide`. ABDAudioLab los lee del JSON crudo via `getRawContractJson()`.
+## 3. Shared Contract Registry — Wire Protocol
 
-### 2.2 Adaptador recomendado (header-only)
+The shared module loads only **identity fields** from each contract JSON. Product-specific sections (`functions`, `controls`, `routingGuide`) remain in raw JSON and are accessed via `getRawContractJson(id)`.
 
-Crea `src/core/SharedHardwareContractAdapter.h`:
+### 3.1 Shared Contract Structure (`abd::hwid::HardwareContract`)
+
+| Field | Type | Source JSON Key | Description |
+|-------|------|-----------------|-------------|
+| `id` | string | `id` | Machine slug (e.g. `korg_ms2000`) |
+| `displayName` | string | `displayName` | Human name |
+| `description` | string | `description` | Free text |
+| `deviceType` | string | `deviceType` | `MANUAL_EURORACK` / `AUTOMATED_SYSEX` / … |
+| `brand` | string | `brand` | Brand name |
+| `brandLogo` | string | `brandLogo` | Logo path |
+| `modelImage` | string | `modelImage` | Image path |
+| `manufacturer` | string | `midiIdentification.manufacturer` | e.g. `Korg` |
+| `model` | string | `midiIdentification.model` | e.g. `MS2000` |
+| `modelIdHex` | string | `midiIdentification.modelIdHex` | e.g. `58` |
+| `autoDetectSysEx` | string | `midiIdentification.autoDetectSysEx` | SysEx query hex |
+| `midiIdentity` | `MidiIdentityContract` | `midiIdentification` | Complete identity claim |
+
+### 3.2 MidiIdentityContract Fields
+
+| Field | Type | Example | Description |
+|-------|------|---------|-------------|
+| `manufacturer` | string | `Korg` | Human manufacturer |
+| `manufacturerIdHex` | string | `42` | MMA manufacturer ID (space-separated hex bytes) |
+| `model` | string | `MS2000` | Human model |
+| `modelIdHex` | string | `58` | Family byte 2 in Universal Identity Reply |
+| `familyIdHex` | string | `00 00` | Family ID (optional) |
+| `sysexHeaderHex` | string | `42 30 58` | Proprietary SysEx header for this model |
+| `portNameMatches` | string[] | `["MS2000", "Korg"]` | Port-name heuristic keywords |
+
+### 3.3 Raw JSON Access (Domain Data)
 
 ```cpp
-#pragma once
-
-#include <HardwareMidiDetect/HardwareContractRegistry.h>
-#include <HardwareMidiDetect/HardwareContract.h>
-#include "HardwareContractRegistry.h" // tu registry local (para tipos de dominio)
-
-namespace abdaudiolab::core
+// In SharedHardwareContractAdapter::rebuildLocalCache()
+if (auto rawJson = sharedRegistry.getRawContractJson(sharedC.id))
 {
+    // rawJson contains the FULL parsed contract including:
+    // - "functions": [ { "id", "name", "blockType", "controls": [...] } ]
+    // - "routingGuide": { "stimulusOutput", "responseInput", "notes" }
+    // - "controls" (legacy v1 schema "parameters")
+    parseFunctionsFromRawJson(*rawJson, localC); // your domain parser
+}
+```
 
-/**
- * @brief Carga contratos del módulo shared y expone una vista compatible
- *        con el registry local de ABDAudioLab (incluyendo functions/controls).
- */
-class SharedHardwareContractAdapter
+---
+
+## 4. Host MIDI Backend Implementation (`MidiHardwareBackend`)
+
+The picker **requires** a concrete backend. Implement the interface over JUCE `MidiOutput`/`MidiInput`:
+
+### 4.1 Interface Contract (`abd::hwid::MidiHardwareBackend`)
+
+```cpp
+class MidiHardwareBackend
 {
 public:
-    explicit SharedHardwareContractAdapter(abd::hwid::HardwareContractRegistry& sharedRegistry)
-        : sharedRegistry_(sharedRegistry) {}
+    virtual ~MidiHardwareBackend() = default;
 
-    bool loadFromShared(const juce::File& contractsDir)
-    {
-        if (!sharedRegistry_.loadContractsFromDirectory(contractsDir))
-        {
-            lastError_ = sharedRegistry_.getLastError();
-            return false;
-        }
-        rebuildLocalCache();
-        return true;
-    }
+    /** Return output port name for a given hardwareId (for WebUI display). */
+    virtual std::string getOutputPortName(const std::string& hardwareId) const = 0;
 
-    [[nodiscard]] bool hasContracts() const noexcept { return !localCache_.empty(); }
-    [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return localCache_; }
-    [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
-    [[nodiscard]] const std::string& getLastError() const noexcept { return lastError_; }
+    /** Send raw SysEx bytes to the device. */
+    virtual void sendBytes(const std::string& hardwareId,
+                           const std::vector<uint8_t>& bytes) = 0;
 
-private:
-    void rebuildLocalCache()
-    {
-        localCache_.clear();
-        for (const auto& sharedC : sharedRegistry_.getContracts())
-        {
-            HardwareContract localC;
-            // Copia campos base 1:1
-            localC.schemaVersion = sharedC.schemaVersion;
-            localC.id = sharedC.id;
-            localC.displayName = sharedC.displayName;
-            localC.description = sharedC.description;
-            localC.deviceType = sharedC.deviceType;
-            localC.brand = sharedC.brand;
-            localC.brandLogo = sharedC.brandLogo;
-            localC.modelImage = sharedC.modelImage;
-            localC.manufacturer = sharedC.manufacturer;
-            localC.model = sharedC.model;
-            localC.modelIdHex = sharedC.modelIdHex;
-            localC.autoDetectSysEx = sharedC.autoDetectSysEx;
+    /** Set callback for incoming MIDI bytes (SysEx Identity Reply, etc.). */
+    virtual void setReceiveCallback(ReceiveCallback cb) = 0;
 
-            localC.midiIdentity.manufacturer = sharedC.midiIdentity.manufacturer;
-            localC.midiIdentity.manufacturerIdHex = sharedC.midiIdentity.manufacturerIdHex;
-            localC.midiIdentity.model = sharedC.midiIdentity.model;
-            localC.midiIdentity.modelIdHex = sharedC.midiIdentity.modelIdHex;
-            localC.midiIdentity.familyIdHex = sharedC.midiIdentity.familyIdHex;
-            localC.midiIdentity.sysexHeaderHex = sharedC.midiIdentity.sysexHeaderHex;
-            localC.midiIdentity.portNameMatches = sharedC.midiIdentity.portNameMatches;
+    /** Start listening on the input port for hardwareId. */
+    virtual void startListening(const std::string& hardwareId) = 0;
 
-            // --- Domain-specific: leer de JSON crudo ---
-            if (auto rawJson = sharedRegistry_.getRawContractJson(sharedC.id))
-            {
-                parseFunctionsFromRawJson(*rawJson, localC);
-            }
+    /** Stop listening. */
+    virtual void stopListening() = 0;
 
-            localCache_.push_back(std::move(localC));
-        }
-    }
+    /** Refresh port list (no-op for JUCE). */
+    virtual void refreshPorts() = 0;
 
-    void parseFunctionsFromRawJson(const nlohmann::json& j, HardwareContract& out)
-    {
-        // Reutiliza tu lógica existente (líneas 71-146 de HardwareContractRegistry.cpp)
-        // Copia aquí el bloque que parsea "functions" y "controls" del JSON.
-        // ... (ver apéndice A)
-    }
-
-    abd::hwid::HardwareContractRegistry& sharedRegistry_;
-    std::vector<HardwareContract> localCache_;
-    std::string lastError_;
+    /** Optional: return cached identity if known. */
+    virtual std::optional<HardwareIdentity> getKnownIdentity(
+        const std::string& hardwareId) const { return std::nullopt; }
 };
-
-} // namespace abdaudiolab::core
 ```
 
-> **Por qué un adapter**: mantiene tu código de dominio (`HardwareFunction`, `HardwareControl`, `HardwareRoutingGuide`) sin cambios y evita acoplar el módulo shared a tu esquema de producto.
-
----
-
-## 3. Backend MIDI concreto para el Picker (`MidiHardwareBackend`)
-
-El picker WebView2 requiere que el host implemente `abd::hwid::MidiHardwareBackend`. Crea `src/hardware/AudioLabMidiBackend.h`:
+### 4.2 Complete Reference Implementation (`AudioLabMidiBackend.h/.cpp`)
 
 ```cpp
+// AudioLabMidiBackend.h
 #pragma once
-
 #include <HardwareMidiDetect/MidiHardwareBackend.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 
 namespace abdaudiolab::hardware
 {
-
 class AudioLabMidiBackend : public abd::hwid::MidiHardwareBackend,
                             private juce::MidiInputCallback
 {
@@ -151,7 +156,7 @@ public:
     AudioLabMidiBackend() = default;
     ~AudioLabMidiBackend() override { stopListening(); }
 
-    // --- MidiHardwareBackend ---
+    // MidiHardwareBackend
     std::string getOutputPortName(const std::string& hardwareId) const override;
     void sendBytes(const std::string& hardwareId, const std::vector<uint8_t>& bytes) override;
     void setReceiveCallback(ReceiveCallback cb) override { receiveCb_ = std::move(cb); }
@@ -161,21 +166,21 @@ public:
     std::optional<abd::hwid::HardwareIdentity> getKnownIdentity(const std::string& hardwareId) const override;
 
 private:
-    // MidiInputCallback
-    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
+    // juce::MidiInputCallback
+    void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage&) override;
 
     juce::MidiOutput* openOutputFor(const std::string& hardwareId);
-    juce::MidiInput* openInputFor(const std::string& hardwareId);
+    juce::MidiInput*  openInputFor(const std::string& hardwareId);
 
     ReceiveCallback receiveCb_;
     std::unique_ptr<juce::MidiInput> activeInput_;
     std::string activeHardwareId_;
 };
+}
 ```
 
-Implementación (`AudioLabMidiBackend.cpp`):
-
 ```cpp
+// AudioLabMidiBackend.cpp
 #include "AudioLabMidiBackend.h"
 #include <juce_core/juce_core.h>
 
@@ -184,7 +189,6 @@ namespace abdaudiolab::hardware
 
 std::string AudioLabMidiBackend::getOutputPortName(const std::string& hardwareId) const
 {
-    // Busca en device list y devuelve el nombre de salida que coincide con hardwareId
     auto outputs = juce::MidiOutput::getAvailableDevices();
     for (const auto& d : outputs)
         if (d.name.containsIgnoreCase(hardwareId) || d.identifier.containsIgnoreCase(hardwareId))
@@ -222,15 +226,11 @@ void AudioLabMidiBackend::stopListening()
     activeHardwareId_.clear();
 }
 
-void AudioLabMidiBackend::refreshPorts()
-{
-    // Nada especial; JUCE refresca automáticamente en getAvailableDevices()
-}
+void AudioLabMidiBackend::refreshPorts() { /* JUCE auto-refreshes */ }
 
-std::optional<abd::hwid::HardwareIdentity> AudioLabMidiBackend::getKnownIdentity(const std::string& hardwareId) const
+std::optional<abd::hwid::HardwareIdentity> AudioLabMidiBackend::getKnownIdentity(const std::string&) const
 {
-    // Opcional: si ya tienes cache de identidad de sesiones previas, devuélvela.
-    return std::nullopt;
+    return std::nullopt; // implement cache if needed
 }
 
 void AudioLabMidiBackend::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message)
@@ -267,111 +267,106 @@ juce::MidiInput* AudioLabMidiBackend::openInputFor(const std::string& hardwareId
 
 ---
 
-## 4. Integración del Picker en la UI (SlideInDrawer / botón)
+## 5. Shared → Local Contract Adapter
 
-En tu componente que abre el drawer (p. ej. `SlideInDrawer.cpp` o donde esté el botón "Detect Hardware"):
+The shared module **does not model** `functions`/`controls`/`routingGuide`. ABDAudioLab must read them from raw JSON.
 
-```cpp
-#include <HardwareMidiDetect/JuceHardwareMidiPicker.h>
-#include "AudioLabMidiBackend.h"
-#include "SharedHardwareContractAdapter.h"
-
-// ...
-
-class MySlideInDrawer : public juce::Component
-{
-    // ...
-    std::unique_ptr<abd::hwid::JuceHardwareMidiPicker> hwPicker_;
-    std::unique_ptr<abdaudiolab::hardware::AudioLabMidiBackend> midiBackend_;
-    SharedHardwareContractAdapter contractAdapter_; // tu adapter
-
-    void showHardwarePicker()
-    {
-        if (!midiBackend_)
-            midiBackend_ = std::make_unique<abdaudiolab::hardware::AudioLabMidiBackend>();
-
-        hwPicker_ = std::make_unique<abd::hwid::JuceHardwareMidiPicker>(
-            *midiBackend_,
-            [this](const abd::hwid::JuceHardwareMidiPicker::HardwarePickResult& result)
-            {
-                juce::MessageManager::callAsync([this, result] {
-                    onHardwarePicked(result);
-                });
-            });
-
-        addAndMakeVisible(*hwPicker_);
-        hwPicker_->setBounds(getLocalBounds());
-        hwPicker_->startPick(); // dispara la UI de detección
-    }
-
-    void onHardwarePicked(const abd::hwid::JuceHardwareMidiPicker::HardwarePickResult& result)
-    {
-        if (result.cancelled)
-        {
-            // Usuario cerró sin seleccionar
-            hwPicker_.reset();
-            return;
-        }
-
-        // result.hardwareId == "korg_ms2000", etc.
-        auto* contract = contractAdapter_.findContractById(result.hardwareId);
-        if (contract)
-        {
-            // Tienes el contrato completo con functions/controls listos para tu dominio
-            applyContractToSession(*contract);
-        }
-        else
-        {
-            // Fallback: dispositivo desconocido
-        }
-
-        hwPicker_.reset(); // limpia el picker
-    }
-
-    void applyContractToSession(const HardwareContract& c)
-    {
-        // Tu lógica existente: poblar functions, controls, routing, etc.
-    }
-
-    void resized() override
-    {
-        if (hwPicker_)
-            hwPicker_->setBounds(getLocalBounds());
-        // ...
-    }
-};
-```
-
----
-
-## 5. Cargar contratos al arranque (main.cpp o AppInitializer)
+### 5.1 Adapter Header (`SharedHardwareContractAdapter.h`)
 
 ```cpp
+#pragma once
 #include <HardwareMidiDetect/HardwareContractRegistry.h>
-#include "SharedHardwareContractAdapter.h"
+#include <HardwareMidiDetect/HardwareContract.h>
+#include "HardwareContractRegistry.h" // your local domain types
 
-// ...
-
-abd::hwid::HardwareContractRegistry sharedRegistry;
-abdaudiolab::core::SharedHardwareContractAdapter contractAdapter(sharedRegistry);
-
-auto contractsDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                        .getParentDirectory()
-                        .getParentDirectory()
-                        .getChildFile("ABDSharedAssets/contracts/hardware");
-
-if (!contractAdapter.loadFromShared(contractsDir))
+namespace abdaudiolab::core
 {
-    juce::Logger::writeToLog("[ABDAudioLab] Failed to load shared contracts: " + contractAdapter.getLastError());
+class SharedHardwareContractAdapter
+{
+public:
+    explicit SharedHardwareContractAdapter(abd::hwid::HardwareContractRegistry& sharedRegistry)
+        : sharedRegistry_(sharedRegistry) {}
+
+    bool loadFromShared(const juce::File& contractsDir)
+    {
+        if (!sharedRegistry_.loadContractsFromDirectory(contractsDir))
+        {
+            lastError_ = sharedRegistry_.getLastError();
+            return false;
+        }
+        rebuildLocalCache();
+        return true;
+    }
+
+    [[nodiscard]] bool hasContracts() const noexcept { return !localCache_.empty(); }
+    [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return localCache_; }
+    [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
+    [[nodiscard]] const std::string& getLastError() const noexcept { return lastError_; }
+
+private:
+    void rebuildLocalCache();
+    void parseFunctionsFromRawJson(const nlohmann::json&, HardwareContract&); // see §5.3
+
+    abd::hwid::HardwareContractRegistry& sharedRegistry_;
+    std::vector<HardwareContract> localCache_;
+    std::string lastError_;
+};
 }
-// Ahora contractAdapter.getContracts() tiene TUS tipos locales con functions/controls poblados.
 ```
 
-> **Ruta de contratos**: en ABDAudioLab ya usas `searchRoots` en `HardwareManager`. Reutiliza esa lógica para encontrar `ABDSharedAssets/contracts/hardware` (igual que en `INTEGRATION_GUIDE.md`).
+### 5.2 Adapter Implementation — Cache Rebuild
 
----
+```cpp
+// SharedHardwareContractAdapter.cpp
+#include "SharedHardwareContractAdapter.h"
 
-## 6. Apéndice A — `parseFunctionsFromRawJson` (copia de tu parser local)
+namespace abdaudiolab::core
+{
+void SharedHardwareContractAdapter::rebuildLocalCache()
+{
+    localCache_.clear();
+    for (const auto& sharedC : sharedRegistry_.getContracts())
+    {
+        HardwareContract localC;
+        // 1:1 base field copy
+        localC.schemaVersion = sharedC.schemaVersion;
+        localC.id = sharedC.id;
+        localC.displayName = sharedC.displayName;
+        localC.description = sharedC.description;
+        localC.deviceType = sharedC.deviceType;
+        localC.brand = sharedC.brand;
+        localC.brandLogo = sharedC.brandLogo;
+        localC.modelImage = sharedC.modelImage;
+        localC.manufacturer = sharedC.manufacturer;
+        localC.model = sharedC.model;
+        localC.modelIdHex = sharedC.modelIdHex;
+        localC.autoDetectSysEx = sharedC.autoDetectSysEx;
+        localC.midiIdentity.manufacturer = sharedC.midiIdentity.manufacturer;
+        localC.midiIdentity.manufacturerIdHex = sharedC.midiIdentity.manufacturerIdHex;
+        localC.midiIdentity.model = sharedC.midiIdentity.model;
+        localC.midiIdentity.modelIdHex = sharedC.midiIdentity.modelIdHex;
+        localC.midiIdentity.familyIdHex = sharedC.midiIdentity.familyIdHex;
+        localC.midiIdentity.sysexHeaderHex = sharedC.midiIdentity.sysexHeaderHex;
+        localC.midiIdentity.portNameMatches = sharedC.midiIdentity.portNameMatches;
+
+        // Domain-specific: read from raw JSON
+        if (auto rawJson = sharedRegistry_.getRawContractJson(sharedC.id))
+            parseFunctionsFromRawJson(*rawJson, localC);
+
+        localCache_.push_back(std::move(localC));
+    }
+}
+
+const HardwareContract* SharedHardwareContractAdapter::findContractById(const std::string& id) const noexcept
+{
+    for (const auto& c : localCache_)
+        if (c.id == id) return &c;
+    return nullptr;
+}
+} // namespace abdaudiolab::core
+```
+
+### 5.3 Domain Parser (Copy from your `HardwareContractRegistry.cpp` lines 71-146)
 
 ```cpp
 void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::json& j, HardwareContract& out)
@@ -414,12 +409,8 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
                     ctrl.maxVal = cJson.value("max", 1.0f);
                     ctrl.defaultVal = cJson.value("default", 0.5f);
                     ctrl.unit = cJson.value("unit", std::string(""));
-
                     if (cJson.contains("options") && cJson["options"].is_array())
-                    {
-                        for (const auto& opt : cJson["options"])
-                            ctrl.options.push_back(opt.get<std::string>());
-                    }
+                        for (const auto& opt : cJson["options"]) ctrl.options.push_back(opt.get<std::string>());
                     f.controls.push_back(std::move(ctrl));
                 }
             }
@@ -428,7 +419,7 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
     }
     else if (j.contains("parameters") && j["parameters"].is_array())
     {
-        // Backward compat v1 -> función única (mismo bloque que en tu .cpp líneas 125-146)
+        // Legacy v1 schema → single default function
         HardwareFunction f;
         f.id = "main_function";
         f.name = out.displayName;
@@ -437,7 +428,6 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
         f.routingGuide.stimulusOutput = "Audio Out 1 (L) -> Hardware Input";
         f.routingGuide.responseInput = "Hardware Output -> Audio In 1 (L)";
         f.routingGuide.notes = "Standard audio loopback routing.";
-
         for (const auto& pJson : j["parameters"])
         {
             HardwareControl ctrl;
@@ -454,31 +444,182 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
 
 ---
 
-## 7. Checklist de verificación
+## 6. Picker Integration in UI
 
-| Paso | Comando / Acción | OK? |
-|------|-------------------|-----|
-| 1. CMake link añadido | `target_link_libraries(ABDAudioLab PRIVATE ABDShared::HardwareMidiDetect)` | ☐ |
-| 2. Adapter compila | `SharedHardwareContractAdapter.h/.cpp` | ☐ |
-| 3. Backend MIDI compila | `AudioLabMidiBackend.h/.cpp` | ☐ |
-| 4. Picker se instancia y muestra UI | Botón "Detect Hardware" → WebView2 carga `index.html` | ☐ |
-| 5. Detección real funciona | Envía `F0 7E 7F 06 01 F7` → recibe Identity Reply → match por contrato | ☐ |
-| 6. Callback `hardware.result` trae `hardwareId` correcto | `onHardwarePicked` recibe `result.hardwareId` | ☐ |
-| 7. Contrato local poblado con `functions/controls` | `applyContractToSession` usa `contract->functions` | ☐ |
+In your drawer/component where the "Detect Hardware" button lives:
+
+```cpp
+#include <HardwareMidiDetect/JuceHardwareMidiPicker.h>
+#include "AudioLabMidiBackend.h"
+#include "SharedHardwareContractAdapter.h"
+
+class MySlideInDrawer : public juce::Component
+{
+public:
+    MySlideInDrawer(SharedHardwareContractAdapter& adapter)
+        : contractAdapter_(adapter) {}
+
+    void showHardwarePicker()
+    {
+        if (!midiBackend_)
+            midiBackend_ = std::make_unique<abdaudiolab::hardware::AudioLabMidiBackend>();
+
+        hwPicker_ = std::make_unique<abd::hwid::JuceHardwareMidiPicker>(
+            *midiBackend_,
+            [this](const abd::hwid::JuceHardwareMidiPicker::HardwarePickResult& result)
+            {
+                juce::MessageManager::callAsync([this, result] { onHardwarePicked(result); });
+            });
+
+        addAndMakeVisible(*hwPicker_);
+        hwPicker_->setBounds(getLocalBounds());
+        hwPicker_->startPick(); // launches detection UI
+    }
+
+private:
+    void onHardwarePicked(const abd::hwid::JuceHardwareMidiPicker::HardwarePickResult& result)
+    {
+        if (result.cancelled)
+        {
+            hwPicker_.reset();
+            return;
+        }
+
+        // result.hardwareId == "korg_ms2000", "roland_juno106", etc.
+        if (auto* contract = contractAdapter_.findContractById(result.hardwareId))
+        {
+            applyContractToSession(*contract); // your existing logic
+        }
+        else
+        {
+            // Unknown device — fallback UI
+        }
+        hwPicker_.reset();
+    }
+
+    void applyContractToSession(const HardwareContract& c)
+    {
+        // Populate your session with c.functions, c.controls, c.midiIdentity, etc.
+    }
+
+    void resized() override
+    {
+        if (hwPicker_) hwPicker_->setBounds(getLocalBounds());
+        // ... other children
+    }
+
+    std::unique_ptr<abdaudiolab::hardware::AudioLabMidiBackend> midiBackend_;
+    std::unique_ptr<abd::hwid::JuceHardwareMidiPicker> hwPicker_;
+    SharedHardwareContractAdapter& contractAdapter_;
+};
+```
 
 ---
 
-## 8. Notas de depuración
+## 7. Contract Loading at Startup
 
-- **WebUI no carga**: verifica que `HardwareMidiPickerAssets.h` se generó (en `build/ABDSharedCode/juce_binarydata_HardwareMidiPickerAssets/`). Si no, asegúrate de que `juce_add_binary_data` esté en scope **antes** de `add_subdirectory(ABDSharedCode)`.
-- **`nativeEvent` no llega al backend**: el picker registra el listener en `JuceHardwareMidiPicker.h` constructor. Asegúrate de que `WebBrowserComponent` tiene `withBackend(juce::WebBrowserComponent::Options::Backend::webview2)`.
-- **SysEx no sale/entra**: revisa `AudioLabMidiBackend::sendBytes` / `handleIncomingMidiMessage` — usa `createSysExMessage` y `receiveCb_` exactamente como en el ejemplo.
-- **Contratos no cargan**: `contractsDir` debe apuntar a la carpeta que contiene `*.json` (p. ej. `korg_ms2000.json`, `roland_juno106.json`). Log del adapter te dirá la ruta exacta.
+In `main.cpp` or your app initializer:
+
+```cpp
+#include <HardwareMidiDetect/HardwareContractRegistry.h>
+#include "SharedHardwareContractAdapter.h"
+
+// Global or App-owned instances
+abd::hwid::HardwareContractRegistry sharedRegistry;
+abdaudiolab::core::SharedHardwareContractAdapter contractAdapter(sharedRegistry);
+
+void loadSharedContracts()
+{
+    // Reuse your existing searchRoots logic (from HardwareManager.cpp)
+    auto contractsDir = findContractsDirectory(); // → ABDSharedAssets/contracts/hardware
+
+    if (!contractAdapter.loadFromShared(contractsDir))
+    {
+        juce::Logger::writeToLog("[ABDAudioLab] Failed to load shared contracts: "
+            + contractAdapter.getLastError());
+    }
+    else
+    {
+        juce::Logger::writeToLog("[ABDAudioLab] Loaded "
+            + juce::String(contractAdapter.getContracts().size()) + " hardware contracts.");
+    }
+}
+```
 
 ---
 
-## 9. Referencias cruzadas
+## 8. WebUI ↔ C++ Event Contract (`nativeEvent`)
 
-- `ABDSharedCode/INTEGRATION_GUIDE.md` — sección completa "Módulo: HardwareMidiDetect" (dos capas, contrato `nativeEvent`, migración ABDAudioLab).
-- `ABDSharedCode/HardwareMidiDetect/USAGE.md` — guía de uso general del módulo.
-- `ABDScope/Source/JUCE/ScopeResourceProvider.cpp` — patrón ResourceProvider embebido (referencia de implementación).
+The picker's embedded WebUI communicates with the C++ backend **exclusively** via `window.__JUCE__.backend.emitEvent('nativeEvent', ...)`. No other channel is used.
+
+### 8.1 WebUI → Backend Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `hardware.send` | `{ payload: "<base64>" }` | Send raw SysEx bytes (base64 encoded) |
+| `hardware.listen` | `{}` | Arm the input listener on current port |
+| `hardware.stop` | `{}` | Disarm listener |
+| `hardware.result` | `{ cancelled, hardwareId, displayName, manufacturer, model, firmwareVersion }` | Final result delivered to C++ callback |
+
+### 8.2 Backend → WebUI Push
+
+C++ pushes incoming MIDI bytes to WebUI via JS evaluation:
+
+```cpp
+// In JuceHardwareMidiPicker (internal)
+webBrowser->evaluateJavascript(
+    "if (window.__pushMidiBytes) __pushMidiBytes('" + base64Bytes + "')");
+```
+
+WebUI handler (in `index.html`):
+
+```javascript
+window.__pushMidiBytes = function(b64) {
+    const bytes = base64ToBytes(b64);
+    // Parse Identity Reply → match against contracts → emit hardware.result
+};
+```
+
+### 8.3 Universal Identity Query (always sent)
+
+```
+F0 7E 7F 06 01 F7
+```
+(Non-Real-Time Universal Device Inquiry — works on all MIDI 1.0+ devices)
+
+---
+
+## 9. Verification Checklist
+
+| Step | Validation | OK? |
+|------|------------|-----|
+| **CMake** | `target_link_libraries(... ABDShared::HardwareMidiDetect)` | ☐ |
+| **Adapter** | `SharedHardwareContractAdapter` compiles, loads contracts, populates `functions`/`controls` | ☐ |
+| **Backend** | `AudioLabMidiBackend` compiles, `sendBytes`/`startListening` work with real MIDI ports | ☐ |
+| **Picker UI** | Button click → WebView2 loads `index.html` (dark theme, "Detecting..." spinner) | ☐ |
+| **Detection** | Sends Universal Inquiry → receives Identity Reply → matches contract → callback fires | ☐ |
+| **Result** | `onHardwarePicked` receives `result.hardwareId` matching a loaded contract | ☐ |
+| **Domain Data** | `contract->functions` and `controls` available for session setup | ☐ |
+
+---
+
+## 10. Debugging Quick-Ref
+
+| Symptom | Check |
+|---------|-------|
+| WebUI blank / 404 | `HardwareMidiPickerAssets.h` generated? (`build/ABDSharedCode/juce_binarydata_HardwareMidiPickerAssets/`) |
+| `nativeEvent` not received | `JuceHardwareMidiPicker` constructor registers `withEventListener("nativeEvent", ...)`; WebView2 enabled in `juce_add_plugin/gui_app` (`NEEDS_WEBVIEW2 TRUE`) |
+| SysEx not transmitted | `AudioLabMidiBackend::sendBytes` uses `createSysExMessage(data, size)` + `sendMessageNow`; output port opened with correct identifier |
+| SysEx not received | `handleIncomingMidiMessage` checks `message.isSysEx()` + calls `receiveCb_(id, bytes)`; input port started with `this` as callback |
+| Contracts empty | `contractsDir` path correct? Log shows `Contracts directory does not exist` or `No JSON contracts found` |
+| Domain fields missing | `getRawContractJson(id)` called in adapter; `parseFunctionsFromRawJson` copies `functions`/`controls` |
+
+---
+
+## 11. Cross-References
+
+- `ABDSharedCode/INTEGRATION_GUIDE.md` — § "Módulo: HardwareMidiDetect" (layer comparison, CMake, nativeEvent table, migration notes)
+- `ABDSharedCode/HardwareMidiDetect/USAGE.md` — module usage guide (both layers)
+- `ABDScope/docs/INTEGRATION_GUIDE.md` — ABDScope WebView2 integration pattern (binary assets, ResourceProvider, IPC)
+- `ABDScope/Source/JUCE/ScopeResourceProvider.cpp` — embedded resource provider reference implementation
+- `ABDSharedAssets/contracts/hardware/*.json` — single-source contract files (authority for `midiIdentification`, `autoDetectSysEx`)

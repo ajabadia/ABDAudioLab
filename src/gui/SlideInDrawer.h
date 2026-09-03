@@ -10,6 +10,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 
+#include "HardwareMidiDetect/MidiHardwareBackend.h"
+
 namespace abdaudiolab::gui
 {
 
@@ -239,6 +241,12 @@ private:
     juce::Component bottomBar;
     juce::TextButton btnCancel { "Cancel" };
     juce::TextButton btnConfirm { "Accept" };
+
+    // ==========================================
+    // Hardware MIDI Detection (ABDSharedCode WebUI)
+    // ==========================================
+    std::unique_ptr<abd::hwid::MidiHardwareBackend> midiBackend;
+    std::unique_ptr<juce::DocumentWindow> pickerWindow;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SlideInDrawer)
 };

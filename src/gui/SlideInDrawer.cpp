@@ -1,5 +1,7 @@
 #include "SlideInDrawer.h"
-#include "../hardware/MidiIdentityDetector.h"
+#include "HardwareMidiDetect/HardwareMidiDetector.h"
+#include "HardwareMidiDetect/JuceHardwareMidiPicker.h"
+#include "HardwareMidiDetect/MidiHardwareBackend.h"
 #include <cmath>
 
 namespace abdaudiolab::gui
@@ -74,6 +76,119 @@ static juce::File locateAssetFile(const juce::String& relPath)
 
     return {};
 }
+
+class LabMidiHardwareBackend : public abd::hwid::MidiHardwareBackend,
+                               private juce::MidiInputCallback
+{
+public:
+    LabMidiHardwareBackend() = default;
+    ~LabMidiHardwareBackend() override { stopListening(); }
+
+    std::string getOutputPortName() const override
+    {
+        return activeOutDevice.name.toStdString();
+    }
+
+    void sendBytes(const std::vector<uint8_t>& bytes) override
+    {
+        if (outPort != nullptr && !bytes.empty())
+        {
+            auto msg = juce::MidiMessage::createSysExMessage(bytes.data(), static_cast<int>(bytes.size()));
+            outPort->sendMessageNow(msg);
+        }
+    }
+
+    void setReceiveCallback(std::function<void(const std::vector<uint8_t>&)> cb) override
+    {
+        receiveCallback = std::move(cb);
+    }
+
+    void startListening() override
+    {
+        if (inPort == nullptr)
+        {
+            auto inDevs = juce::MidiInput::getAvailableDevices();
+            if (!inDevs.isEmpty())
+                inPort = juce::MidiInput::openDevice(inDevs[0].identifier, this);
+            if (inPort != nullptr)
+                inPort->start();
+        }
+    }
+
+    void stopListening() override
+    {
+        if (inPort != nullptr)
+        {
+            inPort->stop();
+            inPort.reset();
+        }
+    }
+
+    void refreshPorts() override {}
+
+private:
+    void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& msg) override
+    {
+        if (receiveCallback && msg.isSysEx())
+        {
+            auto* data = msg.getSysExData();
+            std::vector<uint8_t> bytes(data, data + msg.getSysExDataSize());
+            juce::MessageManager::callAsync([this, bytes]() {
+                if (receiveCallback) receiveCallback(bytes);
+            });
+        }
+    }
+
+    juce::MidiDeviceInfo activeOutDevice;
+    std::unique_ptr<juce::MidiOutput> outPort;
+    std::unique_ptr<juce::MidiInput> inPort;
+    std::function<void(const std::vector<uint8_t>&)> receiveCallback;
+};
+
+class HardwarePickerWindow : public juce::DocumentWindow
+{
+public:
+    HardwarePickerWindow(abd::hwid::MidiHardwareBackend& backend,
+                         const std::vector<abd::hwid::HardwareContract>& contracts,
+                         std::function<void(const abd::hwid::HardwarePickResult&)> onResult)
+        : DocumentWindow("Hardware MIDI Auto-Detection (ABDSharedCode)",
+                         juce::Colour(0xff12141c),
+                         DocumentWindow::closeButton)
+    {
+        setUsingNativeTitleBar(true);
+        setResizable(true, false);
+        setResizeLimits(540, 480, 800, 700);
+
+        auto* picker = new abd::hwid::JuceHardwareMidiPicker(
+            backend,
+            [this, onResult = std::move(onResult)](const abd::hwid::HardwarePickResult& res) {
+                if (onResult)
+                    onResult(res);
+                setVisible(false);
+            },
+            contracts
+        );
+
+        setContentOwned(picker, true);
+        centreWithSize(640, 520);
+        setVisible(true);
+
+        juce::Timer::callAfterDelay(400, [picker]() {
+            if (picker != nullptr)
+                picker->startPick();
+        });
+    }
+
+    ~HardwarePickerWindow() override = default;
+
+    void closeButtonPressed() override
+    {
+        setVisible(false);
+    }
+
+private:
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HardwarePickerWindow)
+};
 
 SlideInDrawer::SlideInDrawer()
 {
@@ -280,43 +395,73 @@ SlideInDrawer::SlideInDrawer()
     lblAutoDetectSection.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     contentComp.addChildComponent(lblAutoDetectSection);
 
-    lblOrSeparator.setText("— OR SELECT MANUALLY FROM CATALOG —", juce::dontSendNotification);
+    lblOrSeparator.setText(juce::String::fromUTF8(u8"— OR SELECT MANUALLY FROM CATALOG —"), juce::dontSendNotification);
     lblOrSeparator.setFont(juce::FontOptions(9.0f, juce::Font::bold));
     lblOrSeparator.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
     lblOrSeparator.setJustificationType(juce::Justification::centred);
     contentComp.addChildComponent(lblOrSeparator);
 
-    btnAutoDetect.setTooltip("Automatically query connected MIDI ports via SysEx Identity Inquiry to identify hardware");
+    btnAutoDetect.setTooltip("Automatically query connected MIDI ports via SysEx Identity Inquiry to identify hardware (WebUI)");
     btnAutoDetect.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
     btnAutoDetect.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnAutoDetect.setEnabled(true);
     btnAutoDetect.onClick = [this] {
-        btnAutoDetect.setEnabled(false);
-        btnAutoDetect.setButtonText("Scanning MIDI Ports...");
+        btnAutoDetect.setButtonText("Opening Hardware Detector (WebUI)...");
 
-        hardware::MidiIdentityDetector detector(availableContracts);
-        auto devices = detector.scanAllPorts(300);
-
-        if (!devices.empty())
+        // Convert availableContracts to shared abd::hwid::HardwareContract
+        std::vector<abd::hwid::HardwareContract> sharedContracts;
+        sharedContracts.reserve(availableContracts.size());
+        for (const auto& c : availableContracts)
         {
-            const auto& dev = devices[0];
-            bool matched = false;
-            for (size_t i = 0; i < hardwareList.size(); ++i)
-            {
-                if (hardwareList[i].id.equalsIgnoreCase(juce::String(dev.hardwareId)))
+            abd::hwid::HardwareContract hc;
+            hc.id = c.id;
+            hc.displayName = c.displayName;
+            hc.description = c.description;
+            hc.deviceType = c.deviceType;
+            hc.brand = c.brand;
+            hc.brandLogo = c.brandLogo;
+            hc.modelImage = c.modelImage;
+            hc.manufacturer = c.manufacturer;
+            hc.model = c.model;
+            hc.modelIdHex = c.modelIdHex;
+            hc.autoDetectSysEx = c.autoDetectSysEx;
+            hc.midiIdentity.manufacturer = c.midiIdentity.manufacturer;
+            hc.midiIdentity.manufacturerIdHex = c.midiIdentity.manufacturerIdHex;
+            hc.midiIdentity.model = c.midiIdentity.model;
+            hc.midiIdentity.modelIdHex = c.midiIdentity.modelIdHex;
+            hc.midiIdentity.familyIdHex = c.midiIdentity.familyIdHex;
+            hc.midiIdentity.sysexHeaderHex = c.midiIdentity.sysexHeaderHex;
+            hc.midiIdentity.portNameMatches = c.midiIdentity.portNameMatches;
+            sharedContracts.push_back(hc);
+        }
+
+        if (midiBackend == nullptr)
+            midiBackend = std::make_unique<LabMidiHardwareBackend>();
+
+        pickerWindow = std::make_unique<HardwarePickerWindow>(
+            *midiBackend,
+            sharedContracts,
+            [this](const abd::hwid::HardwarePickResult& res) {
+                if (!res.cancelled && !res.hardwareId.empty())
                 {
-                    hwModeCombo.setSelectedId(static_cast<int>(i + 1), juce::sendNotification);
-                    matched = true;
-                    break;
+                    bool matched = false;
+                    for (size_t i = 0; i < hardwareList.size(); ++i)
+                    {
+                        if (hardwareList[i].id.equalsIgnoreCase(juce::String(res.hardwareId)))
+                        {
+                            hwModeCombo.setSelectedId(static_cast<int>(i + 1), juce::sendNotification);
+                            matched = true;
+                            break;
+                        }
+                    }
+                    btnAutoDetect.setButtonText(matched ? ("Detected: " + juce::String(res.displayName)) : "Device Selected");
+                }
+                else
+                {
+                    btnAutoDetect.setButtonText("Auto-Detect Device (MIDI / USB)");
                 }
             }
-            btnAutoDetect.setButtonText(matched ? ("Detected: " + juce::String(dev.displayName)) : "Device Found");
-        }
-        else
-        {
-            btnAutoDetect.setButtonText("No MIDI Hardware Found (Retry)");
-        }
-        btnAutoDetect.setEnabled(true);
+        );
     };
     contentComp.addChildComponent(btnAutoDetect);
 
