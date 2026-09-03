@@ -32,7 +32,6 @@
 #include "gui/MeasurementHealthPanel.h"
 #include "gui/OperatorStepModalDialog.h"
 #include "gui/ConfirmationModalDialog.h"
-#include "gui/ScopeFloatingWindow.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include "export/CertificationReportExporter.h"
 #include "export/NamDatasetExporter.h"
@@ -240,19 +239,12 @@ public:
         btnFileMenu.onClick = [this] { drawer.openFileDrawer(exportDirectory.getFullPathName()); };
         addAndMakeVisible(btnFileMenu);
 
-        btnScopeWeb.setButtonText("Scope (Web)");
-        btnScopeWeb.setTooltip("Open ABDScope Studio Web Telemetry visualizer (Multi-Lane, Waterfall, Freeze, Snapshot)");
-        btnScopeWeb.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
-        btnScopeWeb.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
-        btnScopeWeb.onClick = [this] { toggleScopeWebWindow(); };
-        addAndMakeVisible(btnScopeWeb);
-
-        btnScopeNative.setButtonText("Scope (C++)");
-        btnScopeNative.setTooltip("Open ABDScope Native C++ visualizer (Oscilloscope, FFT, Lissajous, Phase)");
-        btnScopeNative.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
-        btnScopeNative.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
-        btnScopeNative.onClick = [this] { toggleScopeWindow(); };
-        addAndMakeVisible(btnScopeNative);
+        btnScope.setButtonText("Scope");
+        btnScope.setTooltip("Open ABDScope Studio Telemetry visualizer (Multi-Lane, Waterfall, Freeze, Snapshot)");
+        btnScope.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnScope.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+        btnScope.onClick = [this] { toggleScopeWebWindow(); };
+        addAndMakeVisible(btnScope);
 
         btnCalibratePill.setButtonText("Line Calibration: -3.0 dBFS");
         btnCalibratePill.setTooltip("Run loopback line calibration wizard to characterize DAC->ADC latency and frequency response");
@@ -436,8 +428,27 @@ public:
         };
 
         suiteList.onSelectPointClicked = [this](int queueIdx, int pointIdx) {
-            juce::ignoreUnused(queueIdx);
             curvePlotter.setHighlightedPointIndex(pointIdx);
+
+            if (queueIdx >= 0 && queueIdx < static_cast<int>(suiteList.getQueue().size()))
+            {
+                const auto& item = suiteList.getQueue()[static_cast<size_t>(queueIdx)];
+                float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
+                
+                juce::String statusStr = (item.status == gui::QueueItemStatus::Completed) ? "Measured" : "Queued";
+                juce::String prompt = "Point #" + juce::String(pointIdx + 1) + " of " + juce::String(item.totalPoints) 
+                                    + " (" + juce::String(stepPct, 1) + "% Pos) - " + item.title + " [" + statusStr + "]";
+
+                if (static_cast<size_t>(pointIdx) < sessionPoints.size())
+                {
+                    const auto& pt = sessionPoints[static_cast<size_t>(pointIdx)];
+                    prompt += " | Mean: " + juce::String(pt.secondaryValue.mean, 2) + " dB, THD: " + juce::String(pt.thdPercent, 2) + "%";
+                }
+
+                manualPromptLabel.setText(prompt, juce::dontSendNotification);
+                manualPromptLabel.setVisible(true);
+                hidePromptAfterDelay(5000);
+            }
         };
 
         suiteList.onClearPointClicked = [this](int queueIdx, int pointIdx) {
@@ -675,11 +686,7 @@ public:
             scopeWebWindow = nullptr;
         }
 
-        if (scopeWindow != nullptr)
-        {
-            scopeWindow->setVisible(false);
-            scopeWindow = nullptr;
-        }
+
 
         setLookAndFeel(nullptr);
         removeKeyListener(this);
@@ -738,9 +745,7 @@ public:
         topArea.removeFromLeft(4);
         btnFileMenu.setBounds(topArea.removeFromLeft(70).withHeight(32));
         topArea.removeFromLeft(6);
-        btnScopeWeb.setBounds(topArea.removeFromLeft(95).withHeight(32));
-        topArea.removeFromLeft(4);
-        btnScopeNative.setBounds(topArea.removeFromLeft(95).withHeight(32));
+        btnScope.setBounds(topArea.removeFromLeft(80).withHeight(32));
         topArea.removeFromLeft(8);
 
         btnInfo.setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
@@ -829,32 +834,7 @@ private:
         }
     }
 
-    void toggleScopeWindow()
-    {
-        if (scopeWindow == nullptr)
-        {
-            scopeWindow = std::make_unique<gui::ScopeFloatingWindow>(
-                &audioEngine.getScopeTap(),
-                static_cast<float>(audioEngine.getCurrentSampleRate()),
-                [this] {
-                    audioEngine.getScopeTap().setActive(false);
-                }
-            );
-        }
 
-        if (scopeWindow->isVisible())
-        {
-            scopeWindow->toFront(true);
-        }
-        else
-        {
-            scopeWindow->updateSampleRate(static_cast<float>(audioEngine.getCurrentSampleRate()));
-            scopeWindow->setTap(&audioEngine.getScopeTap());
-            audioEngine.getScopeTap().setActive(true);
-            scopeWindow->setVisible(true);
-            scopeWindow->toFront(true);
-        }
-    }
 
     void showInfoDrawer()
     {
@@ -1694,14 +1674,12 @@ private:
     // UI Widgets & Visualizers
     juce::Label titleLabel;
     juce::TextButton btnFileMenu;
-    juce::TextButton btnScopeWeb;
-    juce::TextButton btnScopeNative;
+    juce::TextButton btnScope;
     juce::TextButton btnCalibratePill;
     gui::HardwareSelectorPill btnHardwareSelector;
     MonochromeInfoButton btnInfo;
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
-    std::unique_ptr<gui::ScopeFloatingWindow> scopeWindow;
 
     gui::SoundIdCurvePlotter curvePlotter;
     gui::MeasurementHealthPanel healthPanel;

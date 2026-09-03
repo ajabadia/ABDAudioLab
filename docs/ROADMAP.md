@@ -212,11 +212,19 @@ gantt
     * Transición de estados del secuenciador (reinicio a 0 vs preservación en pausa).
   - **100% de la suite de pruebas unitarias pasando (20/20 tests en Catch2 / CTest en 1.97 s)**.
 
-#### 🏗️ Sprint 2: Desacoplamiento Arquitectural y Modularización (Deuda P2) (EN CURSO)
-- [ ] **Modularización de MainContentComponent ("God Class")**
-  - Extracción de `HardwareSelectionController` (gestión de contratos hardware, escaneo y handshake MIDI/SysEx).
-  - Extracción de `SessionWorkflowController` (coordinación de colas de ejecución, inicio/pausa/reanudación y persistencia).
-  - Extracción de `MainViewInitializer` (composición y montaje de paneles UI).
+#### 🏗️ Sprint 2: Desacoplamiento Arquitectural, UI y Telemetría Moderna (COMPLETADO)
+- [x] **Modularización de MainContentComponent y Bootstrap**
+  - Descomposición del monolito: `src/main.cpp` reducido de 1.807 líneas a 6 líneas de bootstrap.
+  - Extracción de [`src/gui/MainContentComponent.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/MainContentComponent.h) y [`src/gui/LabApplication.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/LabApplication.h).
+- [x] **Unificación de Telemetría y Retirada del Scope Nativo C++**
+  - Eliminación de [`ScopeFloatingWindow.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/ScopeFloatingWindow.h) y de su botón dual `Scope (C++)`.
+  - Unificación a un único botón y visor moderno: **`Scope`** ([`ScopeWebFloatingWindow.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/ScopeWebFloatingWindow.h) con WebView2 y multi-lane bundle).
+- [x] **Rediseño Iconográfico de la Cola de Pruebas**
+  - Sustitución de los botones textuales (`Edit`, `Copy`, `Del`, `View`, `Clear`) por iconos vectoriales JUCE Path nítidos y escalables (lápiz, duplicar, papelera, ojo de inspección y flecha de reset).
+- [x] **Funcionalidad del Botón "View" (Inspección de Puntos)**
+  - Reparación de `onSelectPointClicked`: ahora no solo resalta el punto en el gráfico analítico, sino que proyecta inmediatamente los metadatos y valores medidos (o estado pendiente) en el banner de estado (`manualPromptLabel`).
+- [ ] **Optimización de Telemetría Web (ABDScope)**
+  - Investigar e implementar mecanismo para disimular la latencia de arranque inicial de WebView2 (ej. pre-warming del componente en segundo plano al iniciar la app o splash/skeleton screen nativo temporal).
 - [x] **Simplificación del Callback de Audio (`audioDeviceIOCallbackWithContext`)** (COMPLETADO)
   - Descomposición de la rutina de 151 líneas en 5 subrutinas privadas `noexcept` inline:
     * `renderDiagnosticTone(...)`

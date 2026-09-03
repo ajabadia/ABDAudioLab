@@ -1,5 +1,76 @@
 #include "SoundIdSuiteList.h"
 
+namespace {
+
+void drawTrashIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
+{
+    auto c = bounds.getCentre();
+    g.setColour(col);
+    g.drawLine(c.x - 5.0f, c.y - 4.0f, c.x + 5.0f, c.y - 4.0f, 1.2f);
+    g.drawLine(c.x - 2.0f, c.y - 5.5f, c.x + 2.0f, c.y - 5.5f, 1.1f);
+    juce::Path bin;
+    bin.startNewSubPath(c.x - 4.0f, c.y - 3.0f);
+    bin.lineTo(c.x - 3.0f, c.y + 5.0f);
+    bin.lineTo(c.x + 3.0f, c.y + 5.0f);
+    bin.lineTo(c.x + 4.0f, c.y - 3.0f);
+    g.strokePath(bin, juce::PathStrokeType(1.1f));
+    g.drawLine(c.x - 1.2f, c.y - 1.5f, c.x - 1.0f, c.y + 3.5f, 0.9f);
+    g.drawLine(c.x + 1.2f, c.y - 1.5f, c.x + 1.0f, c.y + 3.5f, 0.9f);
+}
+
+void drawCopyIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
+{
+    auto c = bounds.getCentre();
+    g.setColour(col.withAlpha(0.5f));
+    g.drawRoundedRectangle(c.x - 5.0f, c.y - 5.0f, 7.0f, 8.5f, 1.0f, 1.0f);
+    g.setColour(col);
+    g.drawRoundedRectangle(c.x - 2.5f, c.y - 2.5f, 7.0f, 8.5f, 1.0f, 1.1f);
+}
+
+void drawEditIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
+{
+    auto c = bounds.getCentre();
+    g.setColour(col);
+    juce::Path p;
+    p.startNewSubPath(c.x - 4.5f, c.y + 4.5f);
+    p.lineTo(c.x - 4.5f, c.y + 2.0f);
+    p.lineTo(c.x + 2.5f, c.y - 5.0f);
+    p.lineTo(c.x + 5.0f, c.y - 2.5f);
+    p.lineTo(c.x - 2.0f, c.y + 4.5f);
+    p.closeSubPath();
+    g.strokePath(p, juce::PathStrokeType(1.1f));
+    g.drawLine(c.x - 4.5f, c.y + 4.5f, c.x - 3.5f, c.y + 2.0f, 0.9f);
+}
+
+void drawEyeIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
+{
+    auto c = bounds.getCentre();
+    g.setColour(col);
+    juce::Path eye;
+    eye.startNewSubPath(c.x - 5.5f, c.y);
+    eye.quadraticTo(c.x, c.y - 3.5f, c.x + 5.5f, c.y);
+    eye.quadraticTo(c.x, c.y + 3.5f, c.x - 5.5f, c.y);
+    eye.closeSubPath();
+    g.strokePath(eye, juce::PathStrokeType(1.1f));
+    g.fillEllipse(c.x - 1.8f, c.y - 1.8f, 3.6f, 3.6f);
+}
+
+void drawClearIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
+{
+    auto c = bounds.getCentre();
+    g.setColour(col);
+    juce::Path arc;
+    arc.addCentredArc(c.x, c.y + 0.3f, 4.0f, 4.0f, 0.0f, 0.6f, 5.8f, true);
+    g.strokePath(arc, juce::PathStrokeType(1.1f));
+    juce::Path arrow;
+    arrow.startNewSubPath(c.x + 1.2f, c.y - 5.2f);
+    arrow.lineTo(c.x - 1.0f, c.y - 3.7f);
+    arrow.lineTo(c.x + 1.2f, c.y - 2.2f);
+    g.strokePath(arrow, juce::PathStrokeType(1.1f));
+}
+
+} // namespace
+
 namespace abdaudiolab::gui
 {
 
@@ -358,26 +429,20 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
         // Standard CRUD Buttons: [Edit] [Copy] [Del]
         if (!item.isPinned)
         {
-            auto delBtn = rightActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 20.0f);
+            auto delBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
             g.setColour(juce::Colour(0xfffee2e2));
-            g.fillRoundedRectangle(delBtn, 3.0f);
-            g.setColour(SoundIdTheme::accentRed);
-            g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-            g.drawText("Del", delBtn, juce::Justification::centred, false);
+            g.fillRoundedRectangle(delBtn, 4.0f);
+            drawTrashIcon(g, delBtn, SoundIdTheme::accentRed);
 
-            auto copyBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+            auto copyBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
             g.setColour(juce::Colour(0xfff1f5f9));
-            g.fillRoundedRectangle(copyBtn, 3.0f);
-            g.setColour(SoundIdTheme::textSecondary);
-            g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-            g.drawText("Copy", copyBtn, juce::Justification::centred, false);
+            g.fillRoundedRectangle(copyBtn, 4.0f);
+            drawCopyIcon(g, copyBtn, SoundIdTheme::textSecondary);
 
-            auto editBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+            auto editBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
             g.setColour(juce::Colour(0xfff1f5f9));
-            g.fillRoundedRectangle(editBtn, 3.0f);
-            g.setColour(SoundIdTheme::textPrimary);
-            g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-            g.drawText("Edit", editBtn, juce::Justification::centred, false);
+            g.fillRoundedRectangle(editBtn, 4.0f);
+            drawEditIcon(g, editBtn, SoundIdTheme::textPrimary);
         }
         else
         {
@@ -492,26 +557,20 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
 
                 auto subActions = subArea.removeFromRight(150.0f);
 
-                auto subDel = subActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 18.0f);
+                auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                 g.setColour(juce::Colour(0xfffee2e2));
-                g.fillRoundedRectangle(subDel, 2.0f);
-                g.setColour(SoundIdTheme::accentRed);
-                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
-                g.drawText("Del", subDel, juce::Justification::centred, false);
+                g.fillRoundedRectangle(subDel, 3.0f);
+                drawTrashIcon(g, subDel, SoundIdTheme::accentRed);
 
-                auto subClear = subActions.removeFromRight(42.0f).withSizeKeepingCentre(38.0f, 18.0f);
+                auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                 g.setColour(juce::Colour(0xfff1f5f9));
-                g.fillRoundedRectangle(subClear, 2.0f);
-                g.setColour(SoundIdTheme::textSecondary);
-                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
-                g.drawText("Clear", subClear, juce::Justification::centred, false);
+                g.fillRoundedRectangle(subClear, 3.0f);
+                drawClearIcon(g, subClear, SoundIdTheme::textSecondary);
 
-                auto subView = subActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 18.0f);
+                auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                 g.setColour(juce::Colour(0xffdcfce7));
-                g.fillRoundedRectangle(subView, 2.0f);
-                g.setColour(SoundIdTheme::accentGreen);
-                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
-                g.drawText("View", subView, juce::Justification::centred, false);
+                g.fillRoundedRectangle(subView, 3.0f);
+                drawEyeIcon(g, subView, SoundIdTheme::accentGreen);
             }
             currentY += 6.0f;
         }
@@ -559,21 +618,21 @@ void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e
 
             if (!owner.queue[i].isPinned)
             {
-                auto delBtn = rightActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 20.0f);
+                auto delBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
                 if (delBtn.contains(e.position))
                 {
                     owner.removeTestFromQueue(static_cast<int>(i));
                     return;
                 }
 
-                auto copyBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+                auto copyBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
                 if (copyBtn.contains(e.position))
                 {
                     owner.duplicateTestInQueue(static_cast<int>(i));
                     return;
                 }
 
-                auto editBtn = rightActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 20.0f);
+                auto editBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
                 if (editBtn.contains(e.position))
                 {
                     if (owner.onEditTestClicked)
@@ -641,21 +700,21 @@ void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e
                     subArea.removeFromLeft(220.0f);
                     auto subActions = subArea.removeFromRight(150.0f);
 
-                    auto subDel = subActions.removeFromRight(36.0f).withSizeKeepingCentre(32.0f, 18.0f);
+                    auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                     if (subDel.contains(e.position))
                     {
                         if (owner.onDeletePointClicked) owner.onDeletePointClicked(static_cast<int>(i), pIdx);
                         return;
                     }
 
-                    auto subClear = subActions.removeFromRight(42.0f).withSizeKeepingCentre(38.0f, 18.0f);
+                    auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                     if (subClear.contains(e.position))
                     {
                         if (owner.onClearPointClicked) owner.onClearPointClicked(static_cast<int>(i), pIdx);
                         return;
                     }
 
-                    auto subView = subActions.removeFromRight(38.0f).withSizeKeepingCentre(34.0f, 18.0f);
+                    auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
                     if (subView.contains(e.position))
                     {
                         if (owner.onSelectPointClicked) owner.onSelectPointClicked(static_cast<int>(i), pIdx);
