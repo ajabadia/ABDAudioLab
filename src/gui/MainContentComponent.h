@@ -401,6 +401,7 @@ public:
                 scopeWebWindow->updateTheme();
             }
             drawer.updateTheme();
+            operatorStepModal.updateTheme();
 
             repaint();
         };
@@ -629,9 +630,18 @@ public:
                                     + " (" + juce::String(stepPct, 1) + "% Pos) — " + item.title;
 
                 std::vector<core::ParameterStep> pSteps;
-                if (static_cast<size_t>(pointIdx) < sessionPoints.size())
+
+                // Check if this point has already been measured in sessionPoints
+                int sessionOffset = 0;
+                for (int i = 0; i < queueIdx; ++i)
                 {
-                    const auto& pt = sessionPoints[static_cast<size_t>(pointIdx)];
+                    if (!suiteList.getQueue()[static_cast<size_t>(i)].isSkipped)
+                        sessionOffset += suiteList.getQueue()[static_cast<size_t>(i)].totalPoints;
+                }
+                size_t globalPointIdx = static_cast<size_t>(sessionOffset + pointIdx);
+                if (globalPointIdx < sessionPoints.size())
+                {
+                    const auto& pt = sessionPoints[globalPointIdx];
                     prompt += " | Gain: " + juce::String(pt.secondaryValue.mean, 2) + " dB, THD: " + juce::String(pt.thdPercent, 2) + "%, SNR: " + juce::String(pt.snrDb, 1) + " dB";
                     pSteps = pt.controlSteps;
 
@@ -645,12 +655,54 @@ public:
 
                 if (pSteps.empty())
                 {
-                    float norm = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1)) : 0.0f;
-                    core::ParameterStep ps;
-                    ps.paramName = !item.controls.empty() ? item.controls[0].name.toStdString() : "Parameter 1";
-                    ps.normalizedValue = norm;
-                    ps.controlType = "Knob";
-                    pSteps.push_back(ps);
+                    size_t numControls = item.controls.size();
+                    if (numControls > 0)
+                    {
+                        std::vector<int> stepsPerControl(numControls);
+                        for (size_t k = 0; k < numControls; ++k)
+                            stepsPerControl[k] = std::max(1, item.controls[k].steps);
+
+                        int temp = pointIdx;
+                        std::vector<int> stepIndices(numControls);
+                        for (int k = static_cast<int>(numControls) - 1; k >= 0; --k)
+                        {
+                            stepIndices[static_cast<size_t>(k)] = temp % stepsPerControl[static_cast<size_t>(k)];
+                            temp /= stepsPerControl[static_cast<size_t>(k)];
+                        }
+
+                        for (size_t k = 0; k < numControls; ++k)
+                        {
+                            const auto& c = item.controls[k];
+                            int stepIdx = stepIndices[k];
+                            int sCount = stepsPerControl[k];
+                            float minN = std::clamp(c.minPct / 100.0f, 0.0f, 1.0f);
+                            float maxN = std::clamp(c.maxPct / 100.0f, minN, 1.0f);
+                            float normVal = (sCount > 1)
+                                ? (minN + (static_cast<float>(stepIdx) / static_cast<float>(sCount - 1)) * (maxN - minN))
+                                : (minN + maxN) * 0.5f;
+
+                            core::ParameterStep ps;
+                            ps.paramIndex = static_cast<int>(k) + 1;
+                            ps.paramName = c.name.toStdString();
+                            ps.controlType = c.type.isEmpty() ? "Knob" : c.type.toStdString();
+                            ps.minNormalized = minN;
+                            ps.maxNormalized = maxN;
+                            ps.normalizedValue = normVal;
+                            ps.rawValue = static_cast<int>(std::round(normVal * 127.0f));
+                            ps.id = c.id.isNotEmpty() ? c.id.toStdString() : ("ctrl_" + std::to_string(k + 1));
+                            ps.sortOrder = c.sortOrder;
+                            pSteps.push_back(ps);
+                        }
+                    }
+                    else
+                    {
+                        float norm = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1)) : 0.0f;
+                        core::ParameterStep ps;
+                        ps.paramName = "Parameter 1";
+                        ps.normalizedValue = norm;
+                        ps.controlType = "Knob";
+                        pSteps.push_back(ps);
+                    }
                 }
 
                 suiteList.setVisible(false);
@@ -1534,9 +1586,25 @@ private:
         if (aboutSplashWindow == nullptr)
         {
             aboutSplashWindow = std::make_unique<gui::SoundIdSplashWindow>(true);
-            aboutSplashWindow->setStatus("System Ready \u2022 All Research Contracts Operational", 1.0f);
+            aboutSplashWindow->setStatus("All Systems Nominal", 1.0f);
             aboutSplashWindow->onCloseRequest = [this] {
                 aboutSplashWindow.reset();
+            };
+            aboutSplashWindow->onCheckUpdates = [this] {
+                if (aboutSplashWindow != nullptr)
+                    aboutSplashWindow->setStatus("Checking for updates...");
+                checkForAppUpdates(true);
+
+                juce::Timer::callAfterDelay(3500, [this, safeWindow = juce::Component::SafePointer<juce::Component>(aboutSplashWindow.get())]() {
+                    if (safeWindow != nullptr && aboutSplashWindow != nullptr)
+                    {
+                        if (!autoUpdater || !autoUpdater->isUpdateAvailable())
+                        {
+                            juce::String ver = autoUpdater ? autoUpdater->getCurrentVersion() : juce::String(version::kAppVersion);
+                            aboutSplashWindow->setStatus("Up to date (v" + ver + ")");
+                        }
+                    }
+                });
             };
         }
         else
@@ -2044,6 +2112,14 @@ private:
         autoUpdater = std::make_unique<ABDShared::AutoUpdater>(config::getAutoUpdaterConfig());
         autoUpdater->setUpdateCallback([this](const ABDShared::AutoUpdater::UpdateInfo& info, bool isManualCheck) {
             juce::MessageManager::callAsync([this, info, isManualCheck]() {
+                if (aboutSplashWindow != nullptr)
+                {
+                    if (autoUpdater->isUpdateAvailable())
+                        aboutSplashWindow->setStatus("New update available: v" + info.version);
+                    else
+                        aboutSplashWindow->setStatus("Up to date: v" + autoUpdater->getCurrentVersion());
+                }
+
                 if (autoUpdater->isUpdateAvailable())
                 {
                     juce::String msg = "A new version of ABDAudioLab is available!\n\n"

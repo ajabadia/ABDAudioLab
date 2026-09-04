@@ -18,15 +18,18 @@ void HardwareControlRenderer::drawTargetValueBadge(juce::Graphics& g, juce::Rect
 
 void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    bool isCompact = (area.getWidth() < 100.0f);
+    g.setFont(juce::FontOptions(isCompact ? 9.5f : 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(20.0f);
+    auto titleArea = area.removeFromTop(isCompact ? 16.0f : 20.0f);
     g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
 
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(90.0f, 20.0f);
+    float badgeW = juce::jmin(area.getWidth() - 4.0f, 90.0f);
+    float badgeH = isCompact ? 16.0f : 20.0f;
+    auto valArea = area.removeFromBottom(isCompact ? 18.0f : 22.0f).withSizeKeepingCentre(badgeW, badgeH);
 
-    auto knobArea = area.reduced(4.0f, 2.0f);
-    float squareSize = std::clamp(juce::jmin(knobArea.getWidth(), knobArea.getHeight()), 32.0f, 72.0f);
+    auto knobArea = area.reduced(2.0f, 1.0f);
+    float squareSize = std::clamp(juce::jmin(knobArea.getWidth(), knobArea.getHeight()), 26.0f, 72.0f);
     auto knobCircle = knobArea.withSizeKeepingCentre(squareSize, squareSize);
 
     float cx = knobCircle.getCentreX();

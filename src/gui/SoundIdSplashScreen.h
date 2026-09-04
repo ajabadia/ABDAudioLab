@@ -37,6 +37,22 @@ public:
                     onCloseCallback();
             };
             addAndMakeVisible(btnClose);
+
+            btnCheckUpdates.setButtonText("Check for Updates...");
+            btnCheckUpdates.setTooltip("Check GitHub repository for newer releases of ABDAudioLab");
+            btnCheckUpdates.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+            btnCheckUpdates.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+            btnCheckUpdates.onClick = [this] {
+                if (onCheckUpdatesCallback)
+                    onCheckUpdatesCallback();
+            };
+            addAndMakeVisible(btnCheckUpdates);
+
+            lblCredits.setText(juce::String::fromUTF8(u8"\u00A9 2026 ABD Synths \u2022 Audio Lab Research Group"), juce::dontSendNotification);
+            lblCredits.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+            lblCredits.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
+            lblCredits.setJustificationType(juce::Justification::left);
+            addAndMakeVisible(lblCredits);
         }
 
         lblCategory.setText(juce::String::fromUTF8(u8"ABD SYNTHS  \u2022  HARDWARE PROFILING LAB"), juce::dontSendNotification);
@@ -183,28 +199,37 @@ public:
         g.setColour(SoundIdTheme::borderSubtle);
         g.drawRoundedRectangle(badgeArea, 3.5f, 1.0f);
 
-        // 4. Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
-        float barY = card.getBottom() - 40.0f;
-        float barX = card.getX() + 24.0f;
-        float barW = card.getWidth() - 48.0f;
-        auto barArea = juce::Rectangle<float>(barX, barY, barW, 2.5f);
-
-        g.setColour(SoundIdTheme::borderSubtle);
-        g.fillRoundedRectangle(barArea, 1.25f);
-
-        if (progress >= 0.0f)
+        if (!isCloseable)
         {
-            auto fillArea = barArea.withWidth(barArea.getWidth() * std::clamp(progress, 0.0f, 1.0f));
-            g.setColour(SoundIdTheme::accentGreen);
-            g.fillRoundedRectangle(fillArea, 1.25f);
+            // 4. Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
+            float barY = card.getBottom() - 40.0f;
+            float barX = card.getX() + 24.0f;
+            float barW = card.getWidth() - 48.0f;
+            auto barArea = juce::Rectangle<float>(barX, barY, barW, 2.5f);
+
+            g.setColour(SoundIdTheme::borderSubtle);
+            g.fillRoundedRectangle(barArea, 1.25f);
+
+            if (progress >= 0.0f)
+            {
+                auto fillArea = barArea.withWidth(barArea.getWidth() * std::clamp(progress, 0.0f, 1.0f));
+                g.setColour(SoundIdTheme::accentGreen);
+                g.fillRoundedRectangle(fillArea, 1.25f);
+            }
+            else
+            {
+                // Indeterminate subtle shimmer
+                float glowX = barArea.getX() + barArea.getWidth() * spinnerPhase;
+                auto glowArea = juce::Rectangle<float>(glowX - 40.0f, barArea.getY(), 80.0f, barArea.getHeight()).getIntersection(barArea);
+                g.setColour(SoundIdTheme::accentGreen);
+                g.fillRoundedRectangle(glowArea, 1.25f);
+            }
         }
         else
         {
-            // Indeterminate subtle shimmer
-            float glowX = barArea.getX() + barArea.getWidth() * spinnerPhase;
-            auto glowArea = juce::Rectangle<float>(glowX - 40.0f, barArea.getY(), 80.0f, barArea.getHeight()).getIntersection(barArea);
-            g.setColour(SoundIdTheme::accentGreen);
-            g.fillRoundedRectangle(glowArea, 1.25f);
+            float barY = card.getBottom() - 62.0f;
+            g.setColour(SoundIdTheme::borderSubtle);
+            g.drawHorizontalLine(static_cast<int>(barY), card.getX() + leftWidth + 24.0f, card.getRight() - 20.0f);
         }
     }
 
@@ -230,12 +255,19 @@ public:
         // DSP Engine description line
         lblDspEngine.setBounds(bounds.removeFromTop(18));
 
-        // Status message above progress bar (moved up 8px)
-        lblStatus.setBounds(juce::Rectangle<int>(leftW + 24, getHeight() - 64, getWidth() - leftW - 48, 20));
-
         if (isCloseable)
         {
             btnClose.setBounds(10, 10, 24, 24);
+            bounds.removeFromTop(4);
+            lblCredits.setBounds(bounds.removeFromTop(18));
+
+            btnCheckUpdates.setBounds(leftW + 24, getHeight() - 50, 144, 26);
+            lblStatus.setBounds(juce::Rectangle<int>(leftW + 24 + 152, getHeight() - 48, getWidth() - leftW - 24 - 152 - 20, 22));
+        }
+        else
+        {
+            // Status message above progress bar (moved up 8px)
+            lblStatus.setBounds(juce::Rectangle<int>(leftW + 24, getHeight() - 64, getWidth() - leftW - 48, 20));
         }
     }
 
@@ -250,14 +282,18 @@ public:
         return false;
     }
 
+    std::function<void()> onCheckUpdatesCallback;
+
 private:
     juce::Label lblCategory;
     juce::Label lblTitle;
     juce::Label lblSubtitle;
     juce::Label lblVersion;
     juce::Label lblDspEngine;
+    juce::Label lblCredits;
     juce::Label lblStatus;
     juce::TextButton btnClose;
+    juce::TextButton btnCheckUpdates;
 
     bool isCloseable { false };
     std::function<void()> onCloseCallback;
@@ -289,6 +325,10 @@ public:
                     onCloseRequest();
             });
         });
+        splashComp->onCheckUpdatesCallback = [this] {
+            if (onCheckUpdates)
+                onCheckUpdates();
+        };
         addAndMakeVisible(splashComp.get());
         setSize(splashComp->getWidth(), splashComp->getHeight());
 
@@ -324,6 +364,7 @@ public:
     }
 
     std::function<void()> onCloseRequest;
+    std::function<void()> onCheckUpdates;
 
 private:
     std::unique_ptr<SoundIdSplashScreen> splashComp;

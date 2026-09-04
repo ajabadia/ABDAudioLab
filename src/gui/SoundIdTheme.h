@@ -175,14 +175,15 @@ public:
         float cornerSize = isPill ? (bounds.getHeight() * 0.5f) : AppTheme::cornerControl;
 
         // 2. Standard White / Neutral Card Button
-        if (baseColour == AppTheme::SurfaceCard || baseColour == juce::Colours::white)
+        if (baseColour == AppTheme::SurfaceCard || baseColour == AppTheme::SurfaceSubtle ||
+            baseColour == AppTheme::PillWhiteBg || baseColour == juce::Colours::white)
         {
             juce::Colour fillCol = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
-                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : AppTheme::SurfaceCard);
+                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : baseColour);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
-            g.setColour(AppTheme::BorderSubtle);
+            g.setColour(AppTheme::BorderCard);
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else if (baseColour == AppTheme::PillBlackBg)
@@ -191,6 +192,9 @@ public:
                                  : (shouldDrawButtonAsHighlighted ? juce::Colour(0xff2d3748) : AppTheme::PillBlackBg);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
+
+            g.setColour(AppTheme::BorderCard);
+            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else
         {

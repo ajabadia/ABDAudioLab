@@ -235,8 +235,16 @@ void SlideInDrawer::updateTheme()
     btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
 
-    btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
-    btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    if (AppTheme::currentMode == AppTheme::ThemeMode::Dark)
+    {
+        btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btnConfirm.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    }
+    else
+    {
+        btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
+        btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    }
 
     lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, SoundIdTheme::surfaceSubtle);
     lblHardwareLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
@@ -1074,33 +1082,69 @@ void SlideInDrawer::updateBrandAndModelGraphics()
     brandLogoDrawable.reset();
     if (item.brandLogo.isNotEmpty())
     {
-        auto brandFile = locateAssetFile(item.brandLogo);
+        juce::File brandFile;
+        if (AppTheme::currentMode == AppTheme::ThemeMode::Dark)
+        {
+            if (item.brand.containsIgnoreCase("yamaha"))
+            {
+                brandFile = locateAssetFile(item.brandLogo.replace(".svg", "-dark.svg"));
+            }
+            else if (!item.brand.containsIgnoreCase("roland"))
+            {
+                brandFile = locateAssetFile(item.brandLogo.replace(".svg", "-white.svg"));
+            }
+        }
+        if (!brandFile.existsAsFile())
+        {
+            brandFile = locateAssetFile(item.brandLogo);
+        }
+
         if (brandFile.existsAsFile())
         {
             if (brandFile.getFileExtension().equalsIgnoreCase(".svg"))
             {
                 juce::String svgText = brandFile.loadFileAsString();
-                if (AppTheme::currentMode == AppTheme::ThemeMode::Dark && !item.brand.containsIgnoreCase("roland"))
+                if (AppTheme::currentMode == AppTheme::ThemeMode::Dark)
                 {
-                    // Convert black/dark fills and strokes to crisp white for dark mode contrast,
-                    // while Roland preserves its iconic orange (#FF5A00 / #E65100).
-                    svgText = svgText.replace("fill=\"#000000\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill=\"#000\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill=\"black\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill=\"#111111\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill=\"#222222\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill=\"#231f20\"", "fill=\"#FFFFFF\"", true)
-                                     .replace("fill: #000000", "fill: #FFFFFF", true)
-                                     .replace("fill:#000000", "fill:#FFFFFF", true)
-                                     .replace("fill: black", "fill: #FFFFFF", true)
-                                     .replace("fill:black", "fill:#FFFFFF", true)
-                                     .replace("stroke=\"#000000\"", "stroke=\"#FFFFFF\"", true)
-                                     .replace("stroke=\"#000\"", "stroke=\"#FFFFFF\"", true)
-                                     .replace("stroke=\"black\"", "stroke=\"#FFFFFF\"", true);
-
-                    if (!svgText.containsIgnoreCase("fill="))
+                    if (item.brand.containsIgnoreCase("roland"))
                     {
-                        svgText = svgText.replace("<svg ", "<svg fill=\"#FFFFFF\" ", true);
+                        // Roland preserves its iconic orange (#FF5A00 / #E65100)
+                    }
+                    else if (item.brand.containsIgnoreCase("yamaha"))
+                    {
+                        // Vibrant Yamaha violet for dark mode
+                        svgText = svgText.replace("fill:#48217a", "fill:#A855F7", true)
+                                         .replace("fill: #48217a", "fill:#A855F7", true)
+                                         .replace("fill=\"#48217a\"", "fill=\"#A855F7\"", true);
+                    }
+                    else
+                    {
+                        // Convert all dark fills/strokes to crisp white
+                        svgText = svgText.replace("fill=\"#333\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#333333\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#000000\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#000\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"black\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#111111\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#111827\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#222222\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill=\"#231f20\"", "fill=\"#FFFFFF\"", true)
+                                         .replace("fill:#231f20", "fill:#FFFFFF", true)
+                                         .replace("fill: #231f20", "fill:#FFFFFF", true)
+                                         .replace("fill: #000000", "fill: #FFFFFF", true)
+                                         .replace("fill:#000000", "fill:#FFFFFF", true)
+                                         .replace("fill: black", "fill: #FFFFFF", true)
+                                         .replace("fill:black", "fill:#FFFFFF", true)
+                                         .replace("fill:#003296", "fill:#FFFFFF", true)
+                                         .replace("fill: #003296", "fill:#FFFFFF", true)
+                                         .replace("stroke=\"#000000\"", "stroke=\"#FFFFFF\"", true)
+                                         .replace("stroke=\"#000\"", "stroke=\"#FFFFFF\"", true)
+                                         .replace("stroke=\"black\"", "stroke=\"#FFFFFF\"", true);
+
+                        if (!svgText.containsIgnoreCase("fill="))
+                        {
+                            svgText = svgText.replace("<svg ", "<svg fill=\"#FFFFFF\" ", true);
+                        }
                     }
                 }
 

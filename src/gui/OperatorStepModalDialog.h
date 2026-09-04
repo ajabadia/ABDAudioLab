@@ -51,7 +51,7 @@ public:
         addAndMakeVisible(lblAutoStatus);
 
         btnCloseInspector.setButtonText("Close Inspector");
-        btnCloseInspector.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
+        btnCloseInspector.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
         btnCloseInspector.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
         btnCloseInspector.onClick = [this] {
             isInspectorMode = false;
@@ -130,10 +130,40 @@ public:
     bool isCollapsed { false };
     bool isInspectorMode { false };
 
+    void updateTheme()
+    {
+        btnAccept.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+        btnAccept.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+
+        btnRepeat.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btnRepeat.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+        btnStepBack.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btnStepBack.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+        btnCancel.setColour(juce::TextButton::buttonColourId, isAutomatedMode ? SoundIdTheme::surfaceSubtle : juce::Colours::transparentBlack);
+        btnCancel.setColour(juce::TextButton::textColourOffId, isAutomatedMode ? SoundIdTheme::textPrimary : SoundIdTheme::textMuted);
+
+        btnCloseInspector.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btnCloseInspector.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+        btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+
+        if (isInspectorMode)
+            lblAutoStatus.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+        else
+            lblAutoStatus.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+
+        cardsContainer.repaint();
+        repaint();
+    }
+
     void setAutomatedMode(bool autoMode)
     {
         isAutomatedMode = autoMode;
         isInspectorMode = false;
+        updateTheme();
         btnCloseInspector.setVisible(false);
         btnAccept.setVisible(!autoMode && !isCollapsed);
         btnRepeat.setVisible(!autoMode && !isCollapsed);
@@ -141,16 +171,6 @@ public:
         lblAutoStatus.setVisible(autoMode);
         btnCancel.setVisible(!isCollapsed);
         btnCancel.setButtonText(autoMode ? "Stop Session" : "Cancel Session");
-        if (autoMode)
-        {
-            btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
-            btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
-        }
-        else
-        {
-            btnCancel.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-            btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
-        }
         resized();
         repaint();
     }
@@ -188,6 +208,7 @@ public:
                      const std::vector<core::ParameterStep>& steps,
                      const juce::String& message = {})
     {
+        updateTheme();
         testTitle = sessionTitle.isNotEmpty() ? sessionTitle : (isAutomatedMode ? "Automated Hardware Sweep" : "Manual Alignment Step");
         stepIndex = currentStep;
         stepTotal = totalSteps;
@@ -218,6 +239,7 @@ public:
     {
         isInspectorMode = true;
         isAutomatedMode = false;
+        updateTheme();
         btnAccept.setVisible(false);
         btnRepeat.setVisible(false);
         btnStepBack.setVisible(false);
@@ -362,7 +384,7 @@ public:
         if (numCtrl >= 3)
         {
             int totalContainerW = std::max(ctrlRect.getWidth(), numCtrl * 96 + 20);
-            int totalContainerH = std::max(ctrlRect.getHeight(), 206);
+            int totalContainerH = std::max(ctrlRect.getHeight(), 184);
             cardsContainer.setBounds(0, 0, totalContainerW, totalContainerH);
         }
         else
@@ -415,9 +437,9 @@ private:
         void mouseDown(const juce::MouseEvent& e) override
         {
             const auto& steps = owner.parameterSteps;
-            if (steps.size() >= 3 && e.position.y <= 118.0f)
+            if (steps.size() >= 3 && e.position.y <= 102.0f)
             {
-                int clickedIdx = static_cast<int>((e.position.x - 8.0f) / 96.0f);
+                int clickedIdx = static_cast<int>((e.position.x - 6.0f) / 96.0f);
                 if (clickedIdx >= 0 && clickedIdx < static_cast<int>(steps.size()))
                 {
                     selectedParamIndex = clickedIdx;
@@ -523,10 +545,10 @@ private:
         {
             const auto& steps = owner.parameterSteps;
 
-            // 1. Horizontal row of 90x110px micro-cards
+            // 1. Horizontal row of compact micro-cards
             for (size_t i = 0; i < steps.size(); ++i)
             {
-                auto cardArea = juce::Rectangle<float>(8.0f + static_cast<float>(i) * 96.0f, 4.0f, 90.0f, 110.0f);
+                auto cardArea = juce::Rectangle<float>(6.0f + static_cast<float>(i) * 96.0f, 2.0f, 90.0f, 98.0f);
                 bool isSelected = (static_cast<int>(i) == selectedParamIndex);
 
                 g.setColour(SoundIdTheme::bgCardHover.withAlpha(isSelected ? 0.85f : 0.35f));
@@ -542,14 +564,16 @@ private:
             int selIdx = std::clamp(selectedParamIndex, 0, static_cast<int>(steps.size()) - 1);
             const auto& selPs = steps[static_cast<size_t>(selIdx)];
 
-            auto infoArea = juce::Rectangle<float>(8.0f, 120.0f, std::max(w - 16.0f, 460.0f), 78.0f);
+            float infoY = 104.0f;
+            float infoH = 74.0f;
+            auto infoArea = juce::Rectangle<float>(6.0f, infoY, std::max(w - 12.0f, static_cast<float>(steps.size()) * 96.0f), infoH);
             g.setColour(SoundIdTheme::bgCardHover.withAlpha(0.6f));
             g.fillRoundedRectangle(infoArea, 6.0f);
             g.setColour(SoundIdTheme::borderSubtle);
             g.drawRoundedRectangle(infoArea, 6.0f, 1.0f);
 
             auto contentArea = infoArea.reduced(12.0f, 6.0f);
-            auto headerRow = contentArea.removeFromTop(18.0f);
+            auto headerRow = contentArea.removeFromTop(16.0f);
             g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentGreen);
             g.drawText("SELECTED PARAMETER TELEMETRY & SPECIFICATION [" + juce::String(selIdx + 1) + "/" + juce::String(steps.size()) + "]",
@@ -561,7 +585,7 @@ private:
             juce::String descName = juce::String(selPs.paramName).toUpperCase() + " [" + juce::String(selPs.controlType) + "]";
             g.drawText(descName, titleRow, juce::Justification::centredLeft, true);
 
-            auto readoutRow = contentArea.removeFromTop(18.0f);
+            auto readoutRow = contentArea.removeFromTop(16.0f);
             int pct = static_cast<int>(std::round(selPs.normalizedValue * 100.0f));
             juce::String normStr = "Target: " + juce::String(pct) + "% (" + juce::String(selPs.normalizedValue, 3) + " norm)";
             juce::String rangeStr = "Range: " + juce::String(static_cast<int>(selPs.minNormalized * 100.0f)) + "% - " +
