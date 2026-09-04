@@ -117,8 +117,8 @@ void SoundIdMeterStrip::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    // White Card Background with rounded corners & border
-    g.setColour(juce::Colours::white);
+    // Theme Card Background with rounded corners & border
+    g.setColour(SoundIdTheme::bgCard);
     g.fillRoundedRectangle(bounds, 8.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);

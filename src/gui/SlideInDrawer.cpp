@@ -153,7 +153,7 @@ public:
                          std::function<void(const abd::hwid::HardwarePickResult&)> onResult,
                          const abd::hwid::HardwareMidiDetector::DetectionConfig& config = {})
         : DocumentWindow("Hardware MIDI Auto-Detection (ABDSharedCode)",
-                         juce::Colour(0xff12141c),
+                         AppTheme::BackgroundApp,
                          DocumentWindow::closeButton)
     {
         setUsingNativeTitleBar(true);
@@ -172,7 +172,7 @@ public:
         );
 
         // Apply theme so WebUI uses correct colors and scrollbars
-        picker->setTheme("audiolab");
+        picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
 
         setContentOwned(picker, true);
         centreWithSize(640, 520);
@@ -191,9 +191,63 @@ public:
         setVisible(false);
     }
 
+    void updateTheme()
+    {
+        setBackgroundColour(AppTheme::BackgroundApp);
+        if (auto* picker = dynamic_cast<abd::hwid::JuceHardwareMidiPicker*>(getContentComponent()))
+        {
+            picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+        }
+        repaint();
+    }
+
 private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HardwarePickerWindow)
 };
+
+void SlideInDrawer::updateTheme()
+{
+    if (pickerWindow != nullptr)
+    {
+        if (auto* hpw = dynamic_cast<HardwarePickerWindow*>(pickerWindow.get()))
+        {
+            hpw->updateTheme();
+        }
+    }
+
+    auto updateBtn = [](juce::TextButton& btn) {
+        btn.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btn.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    };
+
+    updateBtn(btnFileNew);
+    updateBtn(btnFileOpen);
+    updateBtn(btnFileSave);
+    updateBtn(btnFileSaveAs);
+    updateBtn(btnFileChangeExport);
+    updateBtn(btnFileRevealExport);
+    updateBtn(btnCopyPreview);
+    updateBtn(btnOpenFileInEditor);
+    updateBtn(btnAutoDetect);
+    updateBtn(btnSetupAudioMidi);
+    updateBtn(btnSetupAbout);
+
+    btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+    btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
+    btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, SoundIdTheme::surfaceSubtle);
+    lblHardwareLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+
+    updateBrandAndModelGraphics();
+    testEditorPanel.updateTheme();
+
+    contentComp.repaint();
+    panel.repaint();
+    repaint();
+}
 
 SlideInDrawer::SlideInDrawer()
 {
@@ -219,7 +273,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(lblFileSection);
 
     btnFileNew.setTooltip("New Session - Clear current session and create a new profiling plan");
-    btnFileNew.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileNew.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileNew.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileNew.onClick = [this] {
         closeDrawer();
@@ -228,7 +282,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(btnFileNew);
 
     btnFileOpen.setTooltip("Open Session - Load an existing session (.json) from disk");
-    btnFileOpen.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileOpen.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileOpen.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileOpen.onClick = [this] {
         closeDrawer();
@@ -237,7 +291,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(btnFileOpen);
 
     btnFileSave.setTooltip("Save Session - Save current profiling measurements and test definitions to session file");
-    btnFileSave.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileSave.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileSave.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileSave.onClick = [this] {
         closeDrawer();
@@ -246,7 +300,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(btnFileSave);
 
     btnFileSaveAs.setTooltip("Save Session As - Save profiling session to a new file destination");
-    btnFileSaveAs.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileSaveAs.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileSaveAs.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileSaveAs.onClick = [this] {
         closeDrawer();
@@ -264,7 +318,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(lblFileExportPathVal);
 
     btnFileChangeExport.setTooltip("Change Directory - Select output folder for C++ headers, JSON, and reports");
-    btnFileChangeExport.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileChangeExport.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileChangeExport.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileChangeExport.onClick = [this] {
         if (onChangeExportFolderClicked) onChangeExportFolderClicked();
@@ -272,7 +326,7 @@ SlideInDrawer::SlideInDrawer()
     contentComp.addChildComponent(btnFileChangeExport);
 
     btnFileRevealExport.setTooltip("Open in Explorer - Reveal output directory in Windows File Explorer");
-    btnFileRevealExport.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnFileRevealExport.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnFileRevealExport.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileRevealExport.onClick = [this] {
         if (onRevealExportFolderClicked) onRevealExportFolderClicked();
@@ -334,14 +388,14 @@ SlideInDrawer::SlideInDrawer()
     txtCodePreview.setColour(juce::TextEditor::textColourId, juce::Colour(0xffd4d4d4));
     contentComp.addChildComponent(txtCodePreview);
 
-    btnCopyPreview.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnCopyPreview.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnCopyPreview.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnCopyPreview.onClick = [this] {
         juce::SystemClipboard::copyTextToClipboard(txtCodePreview.getText());
     };
     contentComp.addChildComponent(btnCopyPreview);
 
-    btnOpenFileInEditor.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnOpenFileInEditor.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnOpenFileInEditor.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnOpenFileInEditor.onClick = [this] {
         int selId = comboPreviewFiles.getSelectedId();
@@ -368,7 +422,7 @@ SlideInDrawer::SlideInDrawer()
     lblHardwareLockedBanner.setText("Hardware Profile Locked to active session.\nTo measure a different device or submodule, create a New Session (File > New Session).", juce::dontSendNotification);
     lblHardwareLockedBanner.setFont(juce::FontOptions(10.0f, juce::Font::italic));
     lblHardwareLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
-    lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, juce::Colour(0xfff3f4f6));
+    lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, SoundIdTheme::surfaceSubtle);
     lblHardwareLockedBanner.setJustificationType(juce::Justification::centred);
     contentComp.addChildComponent(lblHardwareLockedBanner);
 
@@ -564,15 +618,17 @@ SlideInDrawer::SlideInDrawer()
     setupLbl(lblSetupMidiOutputVal, "None", false);
 
     btnSetupAudioMidi.setTooltip("Configure Audio & MIDI Settings - Select audio interface, sample rate, buffer size, and MIDI ports");
-    btnSetupAudioMidi.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnSetupAudioMidi.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnSetupAudioMidi.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnSetupAudioMidi.onClick = [this] { if (onOpenAudioSettingsClicked) onOpenAudioSettingsClicked(); };
     contentComp.addChildComponent(btnSetupAudioMidi);
 
     btnSetupAbout.setTooltip("About ABDAudioLab - View software version, research architecture, and credits");
-    btnSetupAbout.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnSetupAbout.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnSetupAbout.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
-    btnSetupAbout.onClick = [this] { if (onAboutClicked) onAboutClicked(); };
+    btnSetupAbout.onClick = [this] {
+        if (onAboutClicked) onAboutClicked();
+    };
     contentComp.addChildComponent(btnSetupAbout);
 
     // ==========================================
@@ -694,6 +750,10 @@ void SlideInDrawer::switchViewMode(DrawerViewMode mode)
     lblSetupMidiOutputVal.setVisible(isSetup);
     btnSetupAudioMidi.setVisible(isSetup);
     btnSetupAbout.setVisible(isSetup);
+    lblAboutVersion.setVisible(isSetup && aboutSectionExpanded);
+    lblAboutTagline.setVisible(isSetup && aboutSectionExpanded);
+    lblAboutArchitecture.setVisible(isSetup && aboutSectionExpanded);
+    lblAboutCredits.setVisible(isSetup && aboutSectionExpanded);
 
     if (mode == DrawerViewMode::HardwareAndRouting)
         btnConfirm.setButtonText(isHardwareLocked ? "Close" : "Accept Hardware Selection");
@@ -1017,7 +1077,41 @@ void SlideInDrawer::updateBrandAndModelGraphics()
         auto brandFile = locateAssetFile(item.brandLogo);
         if (brandFile.existsAsFile())
         {
-            brandLogoDrawable = juce::Drawable::createFromImageDataStream(*brandFile.createInputStream());
+            if (brandFile.getFileExtension().equalsIgnoreCase(".svg"))
+            {
+                juce::String svgText = brandFile.loadFileAsString();
+                if (AppTheme::currentMode == AppTheme::ThemeMode::Dark && !item.brand.containsIgnoreCase("roland"))
+                {
+                    // Convert black/dark fills and strokes to crisp white for dark mode contrast,
+                    // while Roland preserves its iconic orange (#FF5A00 / #E65100).
+                    svgText = svgText.replace("fill=\"#000000\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill=\"#000\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill=\"black\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill=\"#111111\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill=\"#222222\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill=\"#231f20\"", "fill=\"#FFFFFF\"", true)
+                                     .replace("fill: #000000", "fill: #FFFFFF", true)
+                                     .replace("fill:#000000", "fill:#FFFFFF", true)
+                                     .replace("fill: black", "fill: #FFFFFF", true)
+                                     .replace("fill:black", "fill:#FFFFFF", true)
+                                     .replace("stroke=\"#000000\"", "stroke=\"#FFFFFF\"", true)
+                                     .replace("stroke=\"#000\"", "stroke=\"#FFFFFF\"", true)
+                                     .replace("stroke=\"black\"", "stroke=\"#FFFFFF\"", true);
+
+                    if (!svgText.containsIgnoreCase("fill="))
+                    {
+                        svgText = svgText.replace("<svg ", "<svg fill=\"#FFFFFF\" ", true);
+                    }
+                }
+
+                auto xml = juce::parseXML(svgText);
+                if (xml != nullptr)
+                    brandLogoDrawable = juce::Drawable::createFromSVG(*xml);
+            }
+            else
+            {
+                brandLogoDrawable = juce::Drawable::createFromImageDataStream(*brandFile.createInputStream());
+            }
         }
     }
 
@@ -1230,7 +1324,33 @@ void SlideInDrawer::layoutDrawerContent()
         btnSetupAudioMidi.setBounds(padX, y, contentW, 28);
         y += 34;
         btnSetupAbout.setBounds(padX, y, contentW, 28);
-        y += 36;
+        y += 34;
+
+        if (aboutSectionExpanded)
+        {
+            lblAboutVersion.setVisible(true);
+            lblAboutVersion.setBounds(padX + 6, y, contentW - 12, 18);
+            y += 20;
+
+            lblAboutTagline.setVisible(true);
+            lblAboutTagline.setBounds(padX + 6, y, contentW - 12, 16);
+            y += 18;
+
+            lblAboutArchitecture.setVisible(true);
+            lblAboutArchitecture.setBounds(padX + 6, y, contentW - 12, 32);
+            y += 34;
+
+            lblAboutCredits.setVisible(true);
+            lblAboutCredits.setBounds(padX + 6, y, contentW - 12, 16);
+            y += 24;
+        }
+        else
+        {
+            lblAboutVersion.setVisible(false);
+            lblAboutTagline.setVisible(false);
+            lblAboutArchitecture.setVisible(false);
+            lblAboutCredits.setVisible(false);
+        }
     }
 
     contentComp.setBounds(0, 0, static_cast<int>(panelWidth) - 10, y + 10);
@@ -1262,13 +1382,13 @@ void SlideInDrawer::paint(juce::Graphics& g)
     float panelWidth = getResponsivePanelWidth();
     float drawerX = (currentAnimationPos - 1.0f) * panelWidth;
 
-    // 2. Solid OPAQUE Panel Background (Pure White)
-    g.setColour(juce::Colours::white);
+    // 2. Solid OPAQUE Panel Background
+    g.setColour(SoundIdTheme::bgCard);
     g.fillRect(drawerX, 0.0f, panelWidth, static_cast<float>(getHeight()));
 
-    // 3. Bottom Action Bar Solid Opaque Background (Light Gray)
+    // 3. Bottom Action Bar Solid Opaque Background
     float bottomH = 58.0f;
-    g.setColour(juce::Colour(0xfff9fafb));
+    g.setColour(SoundIdTheme::bgCardHover);
     g.fillRect(drawerX, static_cast<float>(getHeight()) - bottomH, panelWidth, bottomH);
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawHorizontalLine(getHeight() - static_cast<int>(bottomH), drawerX, drawerX + panelWidth);

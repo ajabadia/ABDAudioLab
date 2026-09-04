@@ -34,38 +34,58 @@ public:
 
         g.setColour(SoundIdTheme::textSecondary);
 
+        float strokeW = 1.5f;
+
         if (t.contains("slider") || t.contains("fader"))
         {
             if (t.contains("hslider") || t.contains("horizontal"))
             {
-                // Horizontal Slider Icon
-                g.fillRect(bounds.getX() + 2.0f, cy - 1.0f, bounds.getWidth() - 4.0f, 2.0f);
+                // Horizontal Slider: Symmetrical, crisp 1.5f track line & outlined thumb
+                float trackX1 = bounds.getX() + 2.0f;
+                float trackX2 = bounds.getRight() - 2.0f;
+                g.setColour(SoundIdTheme::textSecondary.withAlpha(0.7f));
+                g.drawLine(trackX1, cy, trackX2, cy, strokeW);
+
+                float thumbW = 6.0f;
+                float thumbH = 12.0f;
+                auto thumbRect = juce::Rectangle<float>(cx - thumbW * 0.5f, cy - thumbH * 0.5f, thumbW, thumbH);
+                g.setColour(SoundIdTheme::bgCard);
+                g.fillRoundedRectangle(thumbRect, 1.5f);
                 g.setColour(SoundIdTheme::textPrimary);
-                g.fillRoundedRectangle(cx - 3.0f, cy - 5.0f, 6.0f, 10.0f, 1.5f);
+                g.drawRoundedRectangle(thumbRect, 1.5f, strokeW);
             }
             else
             {
-                // Vertical Slider Icon
-                g.fillRect(cx - 1.0f, bounds.getY() + 2.0f, 2.0f, bounds.getHeight() - 4.0f);
+                // Vertical Slider: Symmetrical, crisp 1.5f track line & outlined thumb
+                float trackY1 = bounds.getY() + 2.0f;
+                float trackY2 = bounds.getBottom() - 2.0f;
+                g.setColour(SoundIdTheme::textSecondary.withAlpha(0.7f));
+                g.drawLine(cx, trackY1, cx, trackY2, strokeW);
+
+                float thumbW = 12.0f;
+                float thumbH = 6.0f;
+                auto thumbRect = juce::Rectangle<float>(cx - thumbW * 0.5f, cy - thumbH * 0.5f, thumbW, thumbH);
+                g.setColour(SoundIdTheme::bgCard);
+                g.fillRoundedRectangle(thumbRect, 1.5f);
                 g.setColour(SoundIdTheme::textPrimary);
-                g.fillRoundedRectangle(cx - 5.0f, cy - 3.0f, 10.0f, 6.0f, 1.5f);
+                g.drawRoundedRectangle(thumbRect, 1.5f, strokeW);
             }
         }
         else if (t.contains("button") || t.contains("push") || t.contains("toggle"))
         {
             // Push Button / Toggle Icon
-            auto btnR = bounds.reduced(2.0f, 2.0f);
-            g.drawRoundedRectangle(btnR, 3.0f, 1.5f);
+            auto btnR = bounds.withSizeKeepingCentre(14.0f, 14.0f);
+            g.drawRoundedRectangle(btnR, 3.0f, strokeW);
             g.setColour(SoundIdTheme::textPrimary);
-            g.fillEllipse(cx - 2.5f, cy - 2.5f, 5.0f, 5.0f);
+            g.fillEllipse(cx - 2.0f, cy - 2.0f, 4.0f, 4.0f);
         }
         else if (t.contains("switch") || t.contains("selector"))
         {
             // Rotary Switch / Selector Icon
             float r = std::min(bounds.getWidth(), bounds.getHeight()) * 0.40f;
-            g.drawEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f, 1.5f);
+            g.drawEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f, strokeW);
             g.setColour(SoundIdTheme::textPrimary);
-            g.drawLine(cx, cy, cx + r * 0.7f, cy - r * 0.7f, 2.0f);
+            g.drawLine(cx, cy, cx + r * 0.707f, cy - r * 0.707f, strokeW);
             g.fillEllipse(cx - 1.5f, cy - 1.5f, 3.0f, 3.0f);
         }
         else if (t.contains("jack") || t.contains("port") || t.contains("in") || t.contains("out"))
@@ -73,7 +93,7 @@ public:
             // 3.5mm Jack Socket Icon
             float r1 = std::min(bounds.getWidth(), bounds.getHeight()) * 0.42f;
             float r2 = r1 * 0.45f;
-            g.drawEllipse(cx - r1, cy - r1, r1 * 2.0f, r1 * 2.0f, 1.5f);
+            g.drawEllipse(cx - r1, cy - r1, r1 * 2.0f, r1 * 2.0f, strokeW);
             g.setColour(SoundIdTheme::textPrimary);
             g.fillEllipse(cx - r2, cy - r2, r2 * 2.0f, r2 * 2.0f);
         }
@@ -81,9 +101,10 @@ public:
         {
             // Knob Icon
             float r = std::min(bounds.getWidth(), bounds.getHeight()) * 0.42f;
-            g.drawEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f, 1.5f);
+            g.drawEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f, strokeW);
             g.setColour(SoundIdTheme::textPrimary);
-            g.drawLine(cx, cy, cx + r * 0.7f, cy - r * 0.7f, 2.0f);
+            g.drawLine(cx, cy, cx + r * 0.707f, cy - r * 0.707f, strokeW);
+            g.fillEllipse(cx - 1.5f, cy - 1.5f, 3.0f, 3.0f);
         }
     }
 

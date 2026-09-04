@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AppTheme.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 #include <JUCE/JuceWebScopeComponent.h>
 #include "../audio/LabAudioEngine.h"
@@ -18,7 +19,7 @@ public:
     ScopeWebFloatingWindow(audio::LabAudioEngine& audioEngineRef,
                            std::function<void()> onClose = nullptr)
         : DocumentWindow("ABDScope - Studio Web Telemetry",
-                         juce::Colour(0xff06120a),
+                         AppTheme::BackgroundApp,
                          DocumentWindow::allButtons),
           audioEngine(audioEngineRef),
           onCloseCallback(std::move(onClose))
@@ -30,6 +31,7 @@ public:
             audioEngineRef.getCurrentSampleRate(),
             30
         );
+        webScope->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
         setContentOwned(webScope.release(), true);
 
         setResizable(true, true);
@@ -56,7 +58,20 @@ public:
                 tap->setActive(true);
         }
         if (auto* ws = dynamic_cast<abd::scope::JuceWebScopeComponent*>(getContentComponent()))
+        {
             ws->setSampleRate(audioEngine.getCurrentSampleRate());
+            ws->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+        }
+    }
+
+    void updateTheme()
+    {
+        setBackgroundColour(AppTheme::BackgroundApp);
+        if (auto* ws = dynamic_cast<abd::scope::JuceWebScopeComponent*>(getContentComponent()))
+        {
+            ws->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+        }
+        repaint();
     }
 
 private:

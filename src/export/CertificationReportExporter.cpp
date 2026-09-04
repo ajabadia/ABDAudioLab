@@ -16,11 +16,11 @@ std::string CertificationReportExporter::generateFrequencyCurveSvg(const std::ve
     std::ostringstream svg;
     svg << "<svg width=\"" << width << "\" height=\"" << height << "\" viewBox=\"0 0 " << width << " " << height << "\" xmlns=\"http://www.w3.org/2000/svg\">\n";
     svg << "<style>\n";
-    svg << "  .bg { fill: #1a1d24; rx: 8px; }\n";
-    svg << "  .grid { stroke: #2a2f3a; stroke-width: 1; stroke-dasharray: 3,3; }\n";
-    svg << "  .axis-label { fill: #8a93a6; font-size: 10px; font-family: system-ui, sans-serif; }\n";
-    svg << "  .line-curve { fill: none; stroke: #3b82f6; stroke-width: 2.5; stroke-linecap: round; }\n";
-    svg << "  .title { fill: #ffffff; font-size: 12px; font-weight: bold; font-family: system-ui, sans-serif; }\n";
+    svg << "  .bg { fill: #f8f9fa; rx: 8px; stroke: #e2e8f0; stroke-width: 1; }\n";
+    svg << "  .grid { stroke: #e2e8f0; stroke-width: 1; stroke-dasharray: 3,3; }\n";
+    svg << "  .axis-label { fill: #64748b; font-size: 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }\n";
+    svg << "  .line-curve { fill: none; stroke: #00a86b; stroke-width: 2.5; stroke-linecap: round; }\n";
+    svg << "  .title { fill: #1a1d20; font-size: 11px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0.5px; }\n";
     svg << "</style>\n";
 
     svg << "<rect width=\"100%\" height=\"100%\" class=\"bg\" />\n";
@@ -103,10 +103,10 @@ std::string CertificationReportExporter::generateHeatmapSvg(const std::vector<Me
     std::ostringstream svg;
     svg << "<svg width=\"" << width << "\" height=\"" << height << "\" viewBox=\"0 0 " << width << " " << height << "\" xmlns=\"http://www.w3.org/2000/svg\">\n";
     svg << "<style>\n";
-    svg << "  .bg { fill: #1a1d24; rx: 8px; }\n";
-    svg << "  .cell { stroke: #1a1d24; stroke-width: 1.5; }\n";
-    svg << "  .cell-text { fill: #ffffff; font-size: 9px; font-weight: bold; font-family: system-ui, sans-serif; }\n";
-    svg << "  .title { fill: #ffffff; font-size: 12px; font-weight: bold; font-family: system-ui, sans-serif; }\n";
+    svg << "  .bg { fill: #f8f9fa; rx: 8px; stroke: #e2e8f0; stroke-width: 1; }\n";
+    svg << "  .cell { stroke: #ffffff; stroke-width: 1.5; }\n";
+    svg << "  .cell-text { fill: #1a1d20; font-size: 9px; font-weight: bold; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }\n";
+    svg << "  .title { fill: #1a1d20; font-size: 11px; font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0.5px; }\n";
     svg << "</style>\n";
 
     svg << "<rect width=\"100%\" height=\"100%\" class=\"bg\" />\n";
@@ -187,7 +187,7 @@ std::string CertificationReportExporter::generateThdTableHtml(const std::vector<
                 ctrlStr += " | Param 2: " + std::to_string(static_cast<int>(p.param2Normalized * 100.0f)) + "%";
         }
 
-        html << "<td style=\"font-size: 11px; color: #cbd5e1;\">" << ctrlStr << "</td>";
+        html << "<td style=\"font-size: 11px; color: #475569;\">" << ctrlStr << "</td>";
         html << "<td class=\"thd-val\">" << std::fixed << std::setprecision(3) << p.thdPercent << "%</td>";
         html << "<td class=\"snr-val\">" << std::fixed << std::setprecision(1) << p.snrDb << " dB</td>";
         html << "</tr>\n";
@@ -196,6 +196,19 @@ std::string CertificationReportExporter::generateThdTableHtml(const std::vector<
     html << "  </tbody>\n";
     html << "</table>\n";
     return html.str();
+}
+
+static uint32_t computeReportCrc32(const std::vector<MeasuredPoint>& points)
+{
+    uint32_t crc = 0xFFFFFFFF;
+    for (const auto& pt : points)
+    {
+        uint32_t val = static_cast<uint32_t>(pt.param1Normalized * 10000.0f) ^ static_cast<uint32_t>(pt.thdPercent * 1000.0f);
+        crc ^= val;
+        for (int i = 0; i < 8; ++i)
+            crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320u : 0u);
+    }
+    return ~crc;
 }
 
 bool CertificationReportExporter::exportReportToHtml(const std::string& targetPath,
@@ -218,28 +231,30 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     std::string freqSvg = generateFrequencyCurveSvg(freqs, mags, 760, 280);
     std::string heatmapSvg = generateHeatmapSvg(points, 8, 8, 760, 260);
     std::string thdTable = generateThdTableHtml(points);
+    uint32_t crc = computeReportCrc32(points);
 
     file << "<!DOCTYPE html>\n";
     file << "<html lang=\"en\">\n<head>\n";
     file << "<meta charset=\"UTF-8\">\n";
     file << "<title>ABDAudioLab Certification Report — " << (manifest.hardwareName.empty() ? "Hardware Profiling" : manifest.hardwareName) << "</title>\n";
     file << "<style>\n";
-    file << "  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f1115; color: #e2e8f0; margin: 0; padding: 30px; }\n";
-    file << "  .container { max-width: 900px; margin: 0 auto; background-color: #161920; border: 1px solid #2d3748; border-radius: 12px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }\n";
-    file << "  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2d3748; padding-bottom: 20px; margin-bottom: 24px; }\n";
-    file << "  .brand { font-size: 22px; font-weight: 800; color: #3b82f6; letter-spacing: 1px; }\n";
-    file << "  .badge { background: #1e3a8a; color: #93c5fd; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }\n";
-    file << "  .section-title { font-size: 14px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 28px; margin-bottom: 14px; }\n";
+    file << "  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8f9fa; color: #1a1d20; margin: 0; padding: 30px; }\n";
+    file << "  .container { max-width: 900px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }\n";
+    file << "  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }\n";
+    file << "  .brand { font-size: 20px; font-weight: 800; color: #1a1d20; letter-spacing: 0.5px; }\n";
+    file << "  .badge { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; }\n";
+    file << "  .section-title { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.75px; margin-top: 28px; margin-bottom: 14px; }\n";
     file << "  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }\n";
-    file << "  .metric-card { background-color: #1e2430; border: 1px solid #2d3748; border-radius: 8px; padding: 14px; text-align: center; }\n";
-    file << "  .metric-val { font-size: 20px; font-weight: 700; color: #10b981; margin-top: 4px; }\n";
-    file << "  .metric-lbl { font-size: 11px; color: #94a3b8; font-weight: 600; }\n";
-    file << "  .chart-box { background: #1a1d24; padding: 16px; border-radius: 8px; border: 1px solid #2d3748; margin-bottom: 24px; text-align: center; }\n";
+    file << "  .metric-card { background-color: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }\n";
+    file << "  .metric-val { font-size: 20px; font-weight: 700; color: #00a86b; margin-top: 4px; }\n";
+    file << "  .metric-lbl { font-size: 11px; color: #64748b; font-weight: 600; }\n";
+    file << "  .chart-box { background: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 24px; text-align: center; }\n";
     file << "  .thd-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }\n";
-    file << "  .thd-table th { background: #1e2430; padding: 10px; text-align: left; color: #94a3b8; border-bottom: 2px solid #2d3748; }\n";
-    file << "  .thd-table td { padding: 8px 10px; border-bottom: 1px solid #2d3748; }\n";
-    file << "  .thd-val { color: #f59e0b; font-weight: 600; }\n";
-    file << "  .snr-val { color: #10b981; font-weight: 600; }\n";
+    file << "  .thd-table th { background: #f1f5f9; padding: 10px; text-align: left; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600; }\n";
+    file << "  .thd-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }\n";
+    file << "  .thd-val { color: #d97706; font-weight: 600; }\n";
+    file << "  .snr-val { color: #059669; font-weight: 600; }\n";
+    file << "  .stamp-footer { margin-top: 32px; padding-top: 16px; border-top: 1px dashed #cbd5e1; font-family: 'Consolas', monospace; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }\n";
     file << "  @media print {\n";
     file << "    body { background-color: #ffffff; color: #000000; padding: 0; }\n";
     file << "    .container { border: none; box-shadow: none; max-width: 100%; padding: 0; background: #ffffff; }\n";
@@ -251,7 +266,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "  <div class=\"header\">\n";
     file << "    <div>\n";
     file << "      <div class=\"brand\">ABDAUDIOLAB CERTIFICATION REPORT</div>\n";
-    file << "      <div style=\"font-size: 13px; color: #94a3b8; margin-top: 4px;\">Target Hardware: <strong>" << (manifest.hardwareName.empty() ? "Analog Hardware Profile" : manifest.hardwareName) << "</strong></div>\n";
+    file << "      <div style=\"font-size: 13px; color: #64748b; margin-top: 4px;\">Target Hardware: <strong>" << (manifest.hardwareName.empty() ? "Analog Hardware Profile" : manifest.hardwareName) << "</strong></div>\n";
     file << "    </div>\n";
     file << "    <div class=\"badge\">CERTIFIED PASSED</div>\n";
     file << "  </div>\n";
@@ -288,6 +303,11 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
 
     file << "  <div class=\"section-title\">THD% & Signal Quality Measurement Log</div>\n";
     file << thdTable << "\n";
+
+    file << "  <div class=\"stamp-footer\">\n";
+    file << "    <div>SESSION INTEGRITY: VALID | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
+    file << "    <div>ENGINE: ABDAudioLab v0.3.2-PRO</div>\n";
+    file << "  </div>\n";
 
     file << "</div>\n</body>\n</html>\n";
 

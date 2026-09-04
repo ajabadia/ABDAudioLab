@@ -194,6 +194,7 @@ public:
         parameterSteps = steps;
         promptMessage = message;
         isMeasuring = false;
+        cardsContainer.selectedParamIndex = 0;
 
         if (!isAutomatedMode)
         {
@@ -234,6 +235,7 @@ public:
         parameterSteps = steps;
         promptMessage = metricsInfo;
         isMeasuring = false;
+        cardsContainer.selectedParamIndex = 0;
 
         setVisible(true);
         resized();
@@ -357,8 +359,17 @@ public:
 
         auto ctrlRect = bounds.reduced(6, 2);
         int numCtrl = static_cast<int>(parameterSteps.size());
-        int totalContainerW = std::max(ctrlRect.getWidth(), numCtrl * 140);
-        cardsContainer.setBounds(0, 0, totalContainerW, ctrlRect.getHeight());
+        if (numCtrl >= 3)
+        {
+            int totalContainerW = std::max(ctrlRect.getWidth(), numCtrl * 96 + 20);
+            int totalContainerH = std::max(ctrlRect.getHeight(), 206);
+            cardsContainer.setBounds(0, 0, totalContainerW, totalContainerH);
+        }
+        else
+        {
+            int totalContainerW = std::max(ctrlRect.getWidth(), numCtrl * 160);
+            cardsContainer.setBounds(0, 0, totalContainerW, ctrlRect.getHeight());
+        }
         cardsViewport.setBounds(ctrlRect);
 
         if (isInspectorMode)
@@ -396,7 +407,23 @@ private:
     public:
         CardsContainerComponent(OperatorStepModalDialog& ownerRef) : owner(ownerRef)
         {
-            setInterceptsMouseClicks(false, false);
+            setInterceptsMouseClicks(true, false);
+        }
+
+        int selectedParamIndex { 0 };
+
+        void mouseDown(const juce::MouseEvent& e) override
+        {
+            const auto& steps = owner.parameterSteps;
+            if (steps.size() >= 3 && e.position.y <= 118.0f)
+            {
+                int clickedIdx = static_cast<int>((e.position.x - 8.0f) / 96.0f);
+                if (clickedIdx >= 0 && clickedIdx < static_cast<int>(steps.size()))
+                {
+                    selectedParamIndex = clickedIdx;
+                    repaint();
+                }
+            }
         }
 
         void paint(juce::Graphics& g) override
@@ -404,34 +431,176 @@ private:
             const auto& steps = owner.parameterSteps;
             if (steps.empty()) return;
 
-            float itemW = 150.0f;
+            float w = static_cast<float>(getWidth());
             float areaH = static_cast<float>(getHeight());
 
-            for (size_t i = 0; i < steps.size(); ++i)
+            if (steps.size() <= 2)
             {
-                auto ctrlArea = juce::Rectangle<float>(static_cast<float>(i) * itemW, 0.0f, itemW, areaH);
-                const auto& ps = steps[i];
+                layoutDualCardView(g, w, areaH);
+            }
+            else
+            {
+                layoutMultiControlGridView(g, w, areaH);
+            }
+        }
 
-                if (ps.controlType == "JackPort" || ps.controlType == "Jack" || ps.controlType == "Port")
+    private:
+        void layoutDualCardView(juce::Graphics& g, float w, float areaH)
+        {
+            const auto& steps = owner.parameterSteps;
+            if (steps.size() == 1)
+            {
+                const auto& ps = steps[0];
+                if (w >= 400.0f)
                 {
-                    HardwareControlRenderer::drawJackPort(g, ctrlArea, ps);
-                }
-                else if (ps.controlType == "Button" || ps.controlType == "Push" || ps.controlType == "Toggle")
-                {
-                    HardwareControlRenderer::drawButton(g, ctrlArea, ps);
-                }
-                else if (ps.controlType == "Switch" || ps.controlType == "RotarySwitch" || ps.controlType == "Selector")
-                {
-                    HardwareControlRenderer::drawSwitch(g, ctrlArea, ps);
-                }
-                else if (ps.controlType == "Slider")
-                {
-                    HardwareControlRenderer::drawSlider(g, ctrlArea, ps);
+                    float ctrlW = 160.0f;
+                    auto ctrlArea = juce::Rectangle<float>(12.0f, 0.0f, ctrlW, areaH);
+                    drawControl(g, ctrlArea, ps);
+
+                    // Right Telemetry Card
+                    auto infoArea = juce::Rectangle<float>(ctrlW + 20.0f, 4.0f, w - (ctrlW + 32.0f), areaH - 8.0f);
+                    g.setColour(SoundIdTheme::bgCardHover.withAlpha(0.6f));
+                    g.fillRoundedRectangle(infoArea, 6.0f);
+                    g.setColour(SoundIdTheme::borderSubtle);
+                    g.drawRoundedRectangle(infoArea, 6.0f, 1.0f);
+
+                    auto contentArea = infoArea.reduced(14.0f, 8.0f);
+                    auto headerRow = contentArea.removeFromTop(18.0f);
+                    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+                    g.setColour(SoundIdTheme::accentGreen);
+                    g.drawText("PARAMETER TELEMETRY & SPECIFICATION", headerRow, juce::Justification::centredLeft, true);
+
+                    auto titleRow = contentArea.removeFromTop(20.0f);
+                    g.setFont(juce::FontOptions(12.5f, juce::Font::bold));
+                    g.setColour(SoundIdTheme::textPrimary);
+                    juce::String descName = juce::String(ps.paramName).toUpperCase() + " [" + juce::String(ps.controlType) + "]";
+                    g.drawText(descName, titleRow, juce::Justification::centredLeft, true);
+
+                    if (contentArea.getHeight() >= 24.0f)
+                    {
+                        auto readoutRow = contentArea.removeFromTop(22.0f);
+                        int pct = static_cast<int>(std::round(ps.normalizedValue * 100.0f));
+                        juce::String normStr = "Target: " + juce::String(pct) + "% (" + juce::String(ps.normalizedValue, 3) + " norm)";
+                        juce::String rangeStr = "Range: " + juce::String(static_cast<int>(ps.minNormalized * 100.0f)) + "% - " +
+                                                juce::String(static_cast<int>(ps.maxNormalized * 100.0f)) + "%";
+
+                        g.setFont(juce::FontOptions(10.5f, juce::Font::plain));
+                        g.setColour(SoundIdTheme::textSecondary);
+                        g.drawText(normStr + "   |   " + rangeStr, readoutRow, juce::Justification::centredLeft, true);
+                    }
+
+                    if (owner.promptMessage.isNotEmpty() && contentArea.getHeight() >= 16.0f)
+                    {
+                        auto promptRow = contentArea.removeFromTop(18.0f);
+                        g.setFont(juce::FontOptions(10.0f, juce::Font::italic));
+                        g.setColour(SoundIdTheme::textMuted);
+                        g.drawText(owner.promptMessage, promptRow, juce::Justification::centredLeft, true);
+                    }
+                    return;
                 }
                 else
                 {
-                    HardwareControlRenderer::drawKnob(g, ctrlArea, ps);
+                    float itemW = 150.0f;
+                    float startX = std::max(0.0f, (w - itemW) * 0.5f);
+                    auto ctrlArea = juce::Rectangle<float>(startX, 0.0f, itemW, areaH);
+                    drawControl(g, ctrlArea, ps);
+                    return;
                 }
+            }
+
+            float itemW = 150.0f;
+            float totalCardsW = static_cast<float>(steps.size()) * itemW;
+            float startX = (totalCardsW < w) ? (w - totalCardsW) * 0.5f : 0.0f;
+
+            for (size_t i = 0; i < steps.size(); ++i)
+            {
+                auto ctrlArea = juce::Rectangle<float>(startX + static_cast<float>(i) * itemW, 0.0f, itemW, areaH);
+                drawControl(g, ctrlArea, steps[i]);
+            }
+        }
+
+        void layoutMultiControlGridView(juce::Graphics& g, float w, float /*areaH*/)
+        {
+            const auto& steps = owner.parameterSteps;
+
+            // 1. Horizontal row of 90x110px micro-cards
+            for (size_t i = 0; i < steps.size(); ++i)
+            {
+                auto cardArea = juce::Rectangle<float>(8.0f + static_cast<float>(i) * 96.0f, 4.0f, 90.0f, 110.0f);
+                bool isSelected = (static_cast<int>(i) == selectedParamIndex);
+
+                g.setColour(SoundIdTheme::bgCardHover.withAlpha(isSelected ? 0.85f : 0.35f));
+                g.fillRoundedRectangle(cardArea, 6.0f);
+
+                g.setColour(isSelected ? SoundIdTheme::accentGreen : SoundIdTheme::borderSubtle);
+                g.drawRoundedRectangle(cardArea, 6.0f, isSelected ? 1.5f : 1.0f);
+
+                drawControl(g, cardArea.reduced(2.0f), steps[i]);
+            }
+
+            // 2. Full-width Telemetry & Specification card for selected parameter
+            int selIdx = std::clamp(selectedParamIndex, 0, static_cast<int>(steps.size()) - 1);
+            const auto& selPs = steps[static_cast<size_t>(selIdx)];
+
+            auto infoArea = juce::Rectangle<float>(8.0f, 120.0f, std::max(w - 16.0f, 460.0f), 78.0f);
+            g.setColour(SoundIdTheme::bgCardHover.withAlpha(0.6f));
+            g.fillRoundedRectangle(infoArea, 6.0f);
+            g.setColour(SoundIdTheme::borderSubtle);
+            g.drawRoundedRectangle(infoArea, 6.0f, 1.0f);
+
+            auto contentArea = infoArea.reduced(12.0f, 6.0f);
+            auto headerRow = contentArea.removeFromTop(18.0f);
+            g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentGreen);
+            g.drawText("SELECTED PARAMETER TELEMETRY & SPECIFICATION [" + juce::String(selIdx + 1) + "/" + juce::String(steps.size()) + "]",
+                       headerRow, juce::Justification::centredLeft, true);
+
+            auto titleRow = contentArea.removeFromTop(18.0f);
+            g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+            g.setColour(SoundIdTheme::textPrimary);
+            juce::String descName = juce::String(selPs.paramName).toUpperCase() + " [" + juce::String(selPs.controlType) + "]";
+            g.drawText(descName, titleRow, juce::Justification::centredLeft, true);
+
+            auto readoutRow = contentArea.removeFromTop(18.0f);
+            int pct = static_cast<int>(std::round(selPs.normalizedValue * 100.0f));
+            juce::String normStr = "Target: " + juce::String(pct) + "% (" + juce::String(selPs.normalizedValue, 3) + " norm)";
+            juce::String rangeStr = "Range: " + juce::String(static_cast<int>(selPs.minNormalized * 100.0f)) + "% - " +
+                                    juce::String(static_cast<int>(selPs.maxNormalized * 100.0f)) + "%";
+
+            g.setFont(juce::FontOptions(10.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText(normStr + "   |   " + rangeStr, readoutRow, juce::Justification::centredLeft, true);
+
+            if (owner.promptMessage.isNotEmpty() && contentArea.getHeight() >= 14.0f)
+            {
+                auto promptRow = contentArea.removeFromTop(16.0f);
+                g.setFont(juce::FontOptions(10.0f, juce::Font::italic));
+                g.setColour(SoundIdTheme::textMuted);
+                g.drawText(owner.promptMessage, promptRow, juce::Justification::centredLeft, true);
+            }
+        }
+
+        static void drawControl(juce::Graphics& g, juce::Rectangle<float> ctrlArea, const core::ParameterStep& ps)
+        {
+            if (ps.controlType == "JackPort" || ps.controlType == "Jack" || ps.controlType == "Port")
+            {
+                HardwareControlRenderer::drawJackPort(g, ctrlArea, ps);
+            }
+            else if (ps.controlType == "Button" || ps.controlType == "Push" || ps.controlType == "Toggle")
+            {
+                HardwareControlRenderer::drawButton(g, ctrlArea, ps);
+            }
+            else if (ps.controlType == "Switch" || ps.controlType == "RotarySwitch" || ps.controlType == "Selector")
+            {
+                HardwareControlRenderer::drawSwitch(g, ctrlArea, ps);
+            }
+            else if (ps.controlType == "Slider")
+            {
+                HardwareControlRenderer::drawSlider(g, ctrlArea, ps);
+            }
+            else
+            {
+                HardwareControlRenderer::drawKnob(g, ctrlArea, ps);
             }
         }
 

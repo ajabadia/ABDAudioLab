@@ -15,26 +15,32 @@ class SoundIdTheme : public juce::LookAndFeel_V4
 {
 public:
     // Aliases to AppTheme for backward compatibility and direct convenience
-    static inline const juce::Colour bgLight          = AppTheme::BackgroundApp;
-    static inline const juce::Colour bgCard           = AppTheme::SurfaceCard;
-    static inline const juce::Colour bgCardHover      = AppTheme::SurfaceHover;
-    static inline const juce::Colour borderSubtle     = AppTheme::BorderSubtle;
-    static inline const juce::Colour borderCard       = AppTheme::BorderCard;
+    static inline juce::Colour bgLight          = AppTheme::BackgroundApp;
+    static inline juce::Colour bgCard           = AppTheme::SurfaceCard;
+    static inline juce::Colour bgCardHover      = AppTheme::SurfaceHover;
+    static inline juce::Colour surfaceSubtle    = AppTheme::SurfaceSubtle;
+    static inline juce::Colour borderSubtle     = AppTheme::BorderSubtle;
+    static inline juce::Colour borderCard       = AppTheme::BorderCard;
     
-    static inline const juce::Colour textPrimary      = AppTheme::TextPrimary;
-    static inline const juce::Colour textSecondary    = AppTheme::TextSecondary;
-    static inline const juce::Colour textMuted        = AppTheme::TextMuted;
+    static inline juce::Colour textPrimary      = AppTheme::TextPrimary;
+    static inline juce::Colour textSecondary    = AppTheme::TextSecondary;
+    static inline juce::Colour textMuted        = AppTheme::TextMuted;
 
-    static inline const juce::Colour accentGreen      = AppTheme::AccentActive; // Emerald #00A86B
-    static inline const juce::Colour accentPurple     { 0xff8b5cf6 };
-    static inline const juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
-    static inline const juce::Colour accentAmber      = AppTheme::AccentWarning; // Technical amber #E65100
-    static inline const juce::Colour accentRed        = AppTheme::AccentError;   // High-contrast warning/critical #D32F2F
+    static inline juce::Colour accentGreen      = AppTheme::AccentActive;
+    static inline juce::Colour accentPurple     { 0xff8b5cf6 };
+    static inline juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
+    static inline juce::Colour accentAmber      = AppTheme::AccentWarning;
+    static inline juce::Colour accentRed        = AppTheme::AccentError;
 
-    static inline const juce::Colour pillBlackBg      = AppTheme::PillBlackBg;
-    static inline const juce::Colour pillWhiteBg      = AppTheme::PillWhiteBg;
+    static inline juce::Colour pillBlackBg      = AppTheme::PillBlackBg;
+    static inline juce::Colour pillWhiteBg      = AppTheme::PillWhiteBg;
 
     SoundIdTheme()
+    {
+        updateColours();
+    }
+
+    void updateColours()
     {
         setColour(juce::ResizableWindow::backgroundColourId, AppTheme::BackgroundApp);
         setColour(juce::DocumentWindow::backgroundColourId, AppTheme::BackgroundApp);
@@ -75,7 +81,7 @@ public:
         setColour(juce::TooltipWindow::textColourId, juce::Colours::white);
         setColour(juce::TooltipWindow::outlineColourId, AppTheme::BorderSubtle);
 
-        // TextEditor colours (Sonarworks Nordic Light style: off-white background, dark text, subtle border)
+        // TextEditor colours
         setColour(juce::TextEditor::backgroundColourId, AppTheme::SurfaceCard);
         setColour(juce::TextEditor::textColourId, AppTheme::TextPrimary);
         setColour(juce::TextEditor::highlightColourId, AppTheme::AccentActive.withAlpha(0.20f));
@@ -88,6 +94,31 @@ public:
         setColour(juce::Slider::trackColourId, AppTheme::SurfaceSubtle);
         setColour(juce::Slider::thumbColourId, AppTheme::SurfaceCard);
         setColour(juce::Slider::backgroundColourId, AppTheme::BackgroundApp);
+    }
+
+    static void applyThemeMode(AppTheme::ThemeMode mode, SoundIdTheme* instance = nullptr)
+    {
+        AppTheme::setMode(mode);
+
+        bgLight          = AppTheme::BackgroundApp;
+        bgCard           = AppTheme::SurfaceCard;
+        bgCardHover      = AppTheme::SurfaceHover;
+        surfaceSubtle    = AppTheme::SurfaceSubtle;
+        borderSubtle     = AppTheme::BorderSubtle;
+        borderCard       = AppTheme::BorderCard;
+        textPrimary      = AppTheme::TextPrimary;
+        textSecondary    = AppTheme::TextSecondary;
+        textMuted        = AppTheme::TextMuted;
+        accentGreen      = AppTheme::AccentActive;
+        accentAmber      = AppTheme::AccentWarning;
+        accentRed        = AppTheme::AccentError;
+        pillBlackBg      = AppTheme::PillBlackBg;
+        pillWhiteBg      = AppTheme::PillWhiteBg;
+
+        if (instance != nullptr)
+        {
+            instance->updateColours();
+        }
     }
 
     int getDefaultScrollbarWidth() override

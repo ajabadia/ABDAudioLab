@@ -37,11 +37,19 @@ public:
     void setCollapsed(bool collapsed);
     void setChevronGlyph(const juce::String& glyph);
     [[nodiscard]] bool getIsCollapsed() const noexcept { return isCollapsed; }
+    void updateTheme();
 
     std::function<void()> onToggleCollapse;
 
     /** @brief Access the spectrum analyzer for external data feeding. */
     LiveSpectrumAnalyzer& getSpectrumAnalyzer() noexcept { return spectrumAnalyzer; }
+
+    void setMeasuringState(bool measuring, float progress = 0.0f)
+    {
+        isMeasuring = measuring;
+        measuringProgress = std::clamp(progress, 0.0f, 1.0f);
+        repaint();
+    }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -55,6 +63,8 @@ private:
     std::mutex pointsMutex;
 
     bool isCollapsed { false };
+    bool isMeasuring { false };
+    float measuringProgress { 0.0f };
     juce::TextButton btnToggleCollapse;
 
     juce::Point<float> hoverMousePos { -1.0f, -1.0f };

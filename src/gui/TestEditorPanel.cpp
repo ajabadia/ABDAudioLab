@@ -263,8 +263,8 @@ TestEditorPanel::TestEditorPanel()
     matrixTable.setModel(this);
     matrixTable.setRowHeight(34);
     matrixTable.setHeaderHeight(26);
-    matrixTable.setColour(juce::ListBox::backgroundColourId, AppTheme::SurfaceCard);
-    matrixTable.setColour(juce::ListBox::outlineColourId, AppTheme::BorderSubtle);
+    matrixTable.setColour(juce::ListBox::backgroundColourId, SoundIdTheme::bgCard);
+    matrixTable.setColour(juce::ListBox::outlineColourId, SoundIdTheme::borderSubtle);
     matrixTable.setOutlineThickness(1);
 
     auto& hdr = matrixTable.getHeader();
@@ -280,6 +280,28 @@ TestEditorPanel::TestEditorPanel()
 
     // Section 4: Estimation Card
     addAndMakeVisible(estimationCard);
+}
+
+void TestEditorPanel::updateTheme()
+{
+    matrixTable.setColour(juce::ListBox::backgroundColourId, SoundIdTheme::bgCard);
+    matrixTable.setColour(juce::ListBox::outlineColourId, SoundIdTheme::borderSubtle);
+    lblPresetSelector.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblTestName.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblStimulusType.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblStimulusDesc.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
+    lblDurationSection.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblManualDuration.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblSecondsUnit.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    lblMatrixSection.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    txtTestName.setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::surfaceSubtle);
+    txtTestName.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
+    txtManualDuration.setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::surfaceSubtle);
+    txtManualDuration.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
+    matrixTable.updateContent();
+    matrixTable.repaint();
+    estimationCard.repaint();
+    repaint();
 }
 
 void TestEditorPanel::setPresetSelectorVisible(bool visible)
@@ -346,7 +368,7 @@ int TestEditorPanel::getPreferredHeight() const
     int y = 0;
     if (lblPresetSelector.isVisible()) y += 54;
     y += 50; // Test Name
-    y += 66; // Stimulus
+    y += 80; // Stimulus type + description + margin
     y += 86; // Duration & Adaptive Tail
     y += 14; // Divider
     y += 24; // Matrix Header
@@ -390,8 +412,8 @@ void TestEditorPanel::resized()
 
     lblStimulusType.setBounds(0, y, contentW, 16);
     comboStimulusType.setBounds(0, y + 18, contentW, 30);
-    lblStimulusDesc.setBounds(0, y + 50, contentW, 14);
-    y += 68;
+    lblStimulusDesc.setBounds(0, y + 52, contentW, 16);
+    y += 82; // 14px clean vertical margin between stimulus description and section 2 header
 
     lblDurationSection.setBounds(0, y, contentW, 16);
     y += 20;

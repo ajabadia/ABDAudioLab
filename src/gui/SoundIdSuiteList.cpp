@@ -6,16 +6,25 @@ void drawTrashIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colou
 {
     auto c = bounds.getCentre();
     g.setColour(col);
-    g.drawLine(c.x - 5.0f, c.y - 4.0f, c.x + 5.0f, c.y - 4.0f, 1.2f);
-    g.drawLine(c.x - 2.0f, c.y - 5.5f, c.x + 2.0f, c.y - 5.5f, 1.1f);
+
+    // Top lid separated from body by 1.5 px (UI-15)
+    float lidY = c.y - 4.5f;
+    g.drawLine(c.x - 5.5f, lidY, c.x + 5.5f, lidY, 1.2f);
+    g.drawLine(c.x - 2.0f, lidY - 1.5f, c.x + 2.0f, lidY - 1.5f, 1.1f);
+
+    // Body with 1.5px gap below lid
+    float bodyTopY = lidY + 1.5f;
     juce::Path bin;
-    bin.startNewSubPath(c.x - 4.0f, c.y - 3.0f);
-    bin.lineTo(c.x - 3.0f, c.y + 5.0f);
-    bin.lineTo(c.x + 3.0f, c.y + 5.0f);
-    bin.lineTo(c.x + 4.0f, c.y - 3.0f);
-    g.strokePath(bin, juce::PathStrokeType(1.1f));
-    g.drawLine(c.x - 1.2f, c.y - 1.5f, c.x - 1.0f, c.y + 3.5f, 0.9f);
-    g.drawLine(c.x + 1.2f, c.y - 1.5f, c.x + 1.0f, c.y + 3.5f, 0.9f);
+    bin.startNewSubPath(c.x - 4.2f, bodyTopY);
+    bin.lineTo(c.x - 3.2f, c.y + 5.0f);
+    bin.lineTo(c.x + 3.2f, c.y + 5.0f);
+    bin.lineTo(c.x + 4.2f, bodyTopY);
+    bin.closeSubPath();
+    g.strokePath(bin, juce::PathStrokeType(1.1f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // Two subtle interior vertical lines
+    g.drawLine(c.x - 1.4f, bodyTopY + 2.0f, c.x - 1.2f, c.y + 3.5f, 0.9f);
+    g.drawLine(c.x + 1.4f, bodyTopY + 2.0f, c.x + 1.2f, c.y + 3.5f, 0.9f);
 }
 
 void drawCopyIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
@@ -46,27 +55,38 @@ void drawEyeIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour 
 {
     auto c = bounds.getCentre();
     g.setColour(col);
-    juce::Path eye;
-    eye.startNewSubPath(c.x - 5.5f, c.y);
-    eye.quadraticTo(c.x, c.y - 3.5f, c.x + 5.5f, c.y);
-    eye.quadraticTo(c.x, c.y + 3.5f, c.x - 5.5f, c.y);
-    eye.closeSubPath();
-    g.strokePath(eye, juce::PathStrokeType(1.1f));
-    g.fillEllipse(c.x - 1.8f, c.y - 1.8f, 3.6f, 3.6f);
+
+    // Minimalist Lucide/Feather outline using addCentredArc top and bottom (UI-15)
+    juce::Path eyeTop, eyeBot;
+    eyeTop.addCentredArc(c.x, c.y + 3.2f, 6.2f, 6.2f, 0.0f, -0.92f, 0.92f, true);
+    eyeBot.addCentredArc(c.x, c.y - 3.2f, 6.2f, 6.2f, 0.0f, 3.14159f - 0.92f, 3.14159f + 0.92f, true);
+
+    g.strokePath(eyeTop, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.strokePath(eyeBot, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // 2px filled circular pupil in center
+    g.fillEllipse(c.x - 1.0f, c.y - 1.0f, 2.0f, 2.0f);
 }
 
 void drawClearIcon(juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour col)
 {
     auto c = bounds.getCentre();
     g.setColour(col);
+
+    // Continuous 270-degree circular arc with sharp triangular arrowhead (UI-15)
     juce::Path arc;
-    arc.addCentredArc(c.x, c.y + 0.3f, 4.0f, 4.0f, 0.0f, 0.6f, 5.8f, true);
-    g.strokePath(arc, juce::PathStrokeType(1.1f));
+    float r = 4.2f;
+    arc.addCentredArc(c.x, c.y, r, r, 0.0f, 0.0f, 4.71239f, true);
+    g.strokePath(arc, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    float endX = c.x - r;
+    float endY = c.y;
     juce::Path arrow;
-    arrow.startNewSubPath(c.x + 1.2f, c.y - 5.2f);
-    arrow.lineTo(c.x - 1.0f, c.y - 3.7f);
-    arrow.lineTo(c.x + 1.2f, c.y - 2.2f);
-    g.strokePath(arrow, juce::PathStrokeType(1.1f));
+    arrow.startNewSubPath(endX - 2.5f, endY - 2.0f);
+    arrow.lineTo(endX + 0.5f, endY + 1.5f);
+    arrow.lineTo(endX + 3.0f, endY - 2.0f);
+    arrow.closeSubPath();
+    g.fillPath(arrow);
 }
 
 } // namespace
@@ -77,16 +97,28 @@ namespace abdaudiolab::gui
 SoundIdSuiteList::SoundIdSuiteList()
 {
     btnAddStandard.setTooltip("Add Standard Test - Automatically configure optimal sweep matrix for selected hardware module");
-    btnAddStandard.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnAddStandard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnAddStandard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnAddStandard.onClick = [this] { if (onAddStandardClicked) onAddStandardClicked(); };
     addAndMakeVisible(btnAddStandard);
 
     btnAddCustom.setTooltip("Add Custom Test - Define custom sweep steps, stimulus duration, capture mode and parameter ranges");
-    btnAddCustom.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
+    btnAddCustom.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnAddCustom.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnAddCustom.onClick = [this] { if (onAddCustomClicked) onAddCustomClicked(); };
     addAndMakeVisible(btnAddCustom);
+
+    btnViewMode.setButtonText(isCompactView ? "Detailed Points" : "Compact View");
+    btnViewMode.setTooltip("Toggle View Mode - Switch between single-bar compact summary and full detailed point inspection");
+    btnViewMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnViewMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnViewMode.onClick = [this] {
+        isCompactView = !isCompactView;
+        btnViewMode.setButtonText(isCompactView ? "Detailed Points" : "Compact View");
+        layoutRows();
+        rowsContent.repaint();
+    };
+    addAndMakeVisible(btnViewMode);
 
     btnRunSession.setButtonText(juce::String::fromUTF8(u8"\u25b6  RUN SESSION TESTS"));
     btnRunSession.setTooltip("Run Session Tests - Execute all queued measurement tests sequentially (or stop running session)");
@@ -308,6 +340,22 @@ void SoundIdSuiteList::clearQueue()
     rowsContent.repaint();
 }
 
+void SoundIdSuiteList::updateTheme()
+{
+    btnAddStandard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnAddStandard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnAddCustom.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnAddCustom.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnViewMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnViewMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnRunSession.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnRunSession.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnClear.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    btnClear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
+    rowsContent.repaint();
+    repaint();
+}
+
 void SoundIdSuiteList::updateItemStatus(int index, QueueItemStatus status, int currentPoint)
 {
     if (index >= 0 && index < static_cast<int>(queue.size()))
@@ -416,8 +464,11 @@ void SoundIdSuiteList::layoutRows()
         totalH += 34; // Main row height
         if (item.isExpanded)
         {
-            int shownSubRows = std::min(item.totalPoints, 16);
-            totalH += shownSubRows * 24 + 6;
+            totalH += 28; // Progress bar row
+            if (!isCompactView)
+            {
+                totalH += item.totalPoints * 24 + 6;
+            }
         }
     }
     rowsContent.setSize(viewport.getWidth() > 0 ? viewport.getWidth() - 14 : 700, std::max(totalH, 100));
@@ -446,6 +497,9 @@ void SoundIdSuiteList::resized()
     header.removeFromRight(6);
 
     btnClear.setBounds(header.removeFromRight(75));
+    header.removeFromRight(8);
+
+    btnViewMode.setBounds(header.removeFromRight(105));
     header.removeFromRight(12);
 
     // Hero Action Button: dominant placement
@@ -492,19 +546,19 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
         // Row background
         if (item.status == QueueItemStatus::Running)
         {
-            g.setColour(juce::Colour(0xffecfdf5));
+            g.setColour(SoundIdTheme::accentGreen.withAlpha(0.15f));
             g.fillRoundedRectangle(rowRect, 4.0f);
             g.setColour(SoundIdTheme::accentGreen.withAlpha(0.6f));
             g.drawRoundedRectangle(rowRect.reduced(0.5f), 4.0f, 1.0f);
         }
         else if (item.isSkipped)
         {
-            g.setColour(juce::Colour(0xfff1f5f9));
+            g.setColour(SoundIdTheme::surfaceSubtle.withAlpha(0.5f));
             g.fillRoundedRectangle(rowRect, 4.0f);
         }
         else
         {
-            g.setColour(i % 2 == 0 ? juce::Colour(0xfff8fafc) : juce::Colours::white);
+            g.setColour(i % 2 == 0 ? SoundIdTheme::bgCardHover : SoundIdTheme::bgCard);
             g.fillRoundedRectangle(rowRect, 4.0f);
         }
 
@@ -548,17 +602,17 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
         if (!item.isPinned)
         {
             auto delBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
-            g.setColour(juce::Colour(0xfffee2e2));
+            g.setColour(SoundIdTheme::accentRed.withAlpha(0.18f));
             g.fillRoundedRectangle(delBtn, 4.0f);
             drawTrashIcon(g, delBtn, SoundIdTheme::accentRed);
 
             auto copyBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
-            g.setColour(juce::Colour(0xfff1f5f9));
+            g.setColour(SoundIdTheme::surfaceSubtle);
             g.fillRoundedRectangle(copyBtn, 4.0f);
             drawCopyIcon(g, copyBtn, SoundIdTheme::textSecondary);
 
             auto editBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
-            g.setColour(juce::Colour(0xfff1f5f9));
+            g.setColour(SoundIdTheme::surfaceSubtle);
             g.fillRoundedRectangle(editBtn, 4.0f);
             drawEditIcon(g, editBtn, SoundIdTheme::textPrimary);
         }
@@ -580,7 +634,7 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
             g.drawText("RESUME", contBtn, juce::Justification::centred, false);
 
             auto resetBtn = rightActions.removeFromRight(50.0f).withSizeKeepingCentre(46.0f, 20.0f);
-            g.setColour(juce::Colour(0xffe2e8f0));
+            g.setColour(SoundIdTheme::surfaceSubtle);
             g.fillRoundedRectangle(resetBtn, 3.0f);
             g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
             g.setColour(SoundIdTheme::textPrimary);
@@ -628,7 +682,7 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
 
         // ACTIVE / BYPASS Toggle Pill
         auto bypassPill = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
-        g.setColour(item.isSkipped ? juce::Colour(0xffe2e8f0) : juce::Colour(0xffdcfce7));
+        g.setColour(item.isSkipped ? SoundIdTheme::surfaceSubtle : SoundIdTheme::accentGreen.withAlpha(0.2f));
         g.fillRoundedRectangle(bypassPill, 3.0f);
         g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
         g.setColour(item.isSkipped ? SoundIdTheme::textMuted : SoundIdTheme::accentGreen);
@@ -654,90 +708,161 @@ void SoundIdSuiteList::RowsContentComponent::paint(juce::Graphics& g)
         // Sub-rows when expanded
         if (item.isExpanded)
         {
-            int shownSubRows = std::min(item.totalPoints, 16);
-            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            auto progRect = juce::Rectangle<float>(32.0f, currentY + 2.0f, static_cast<float>(getWidth()) - 40.0f, 22.0f);
+            currentY += 28.0f;
+
+            int completedPoints = 0;
+            for (auto s : item.pointStatuses)
             {
-                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
-                currentY += 24.0f;
-
-                g.setColour(juce::Colour(0xfff8fafc));
-                g.fillRoundedRectangle(subRect, 3.0f);
-                g.setColour(SoundIdTheme::borderSubtle);
-                g.drawRoundedRectangle(subRect.reduced(0.5f), 3.0f, 1.0f);
-
-                auto subArea = subRect.reduced(6.0f, 2.0f);
-                g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
-                g.setColour(SoundIdTheme::textPrimary);
-                
-                float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
-                juce::String stepLabel = "Point #" + juce::String(pIdx + 1) + " / " + juce::String(item.totalPoints) + " (" + juce::String(stepPct, 1) + "% Pos)";
-                g.drawText(stepLabel, subArea.removeFromLeft(200.0f), juce::Justification::centredLeft, true);
-
-                // Subtest / Point Status Pill
-                PointStatus ptStatus = PointStatus::Queued;
-                if (static_cast<size_t>(pIdx) < item.pointStatuses.size())
-                    ptStatus = item.pointStatuses[static_cast<size_t>(pIdx)];
-
-                auto ptStatusRect = subArea.removeFromLeft(86.0f).withSizeKeepingCentre(80.0f, 16.0f);
-                juce::Colour bgPill, textPill;
-                juce::String statusLabel;
-
-                switch (ptStatus)
-                {
-                    case PointStatus::Completed:
-                        bgPill = juce::Colour(0xffdcfce7); // Light green
-                        textPill = SoundIdTheme::accentGreen; // #10b981
-                        statusLabel = "DONE";
-                        break;
-                    case PointStatus::Running:
-                        bgPill = juce::Colour(0xffe0f2fe); // Light blue
-                        textPill = juce::Colour(0xff0284c7); // #0284c7
-                        statusLabel = "MEASURING";
-                        break;
-                    case PointStatus::Invalidated:
-                        bgPill = juce::Colour(0xfffef3c7); // Light amber
-                        textPill = SoundIdTheme::accentAmber; // #f59e0b
-                        statusLabel = "RE-RUN";
-                        break;
-                    case PointStatus::Annulled:
-                        bgPill = juce::Colour(0xfffee2e2); // Light red
-                        textPill = SoundIdTheme::accentRed; // #ef4444
-                        statusLabel = "ANNULLED";
-                        break;
-                    case PointStatus::Queued:
-                    default:
-                        bgPill = juce::Colour(0xfff1f5f9); // Slate gray
-                        textPill = SoundIdTheme::textMuted; // #6b7280
-                        statusLabel = "QUEUED";
-                        break;
-                }
-
-                g.setColour(bgPill);
-                g.fillRoundedRectangle(ptStatusRect, 3.0f);
-                g.setColour(textPill);
-                g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
-                g.drawText(statusLabel, ptStatusRect, juce::Justification::centred, false);
-
-                auto subActions = subArea.removeFromRight(150.0f);
-
-                auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                g.setColour(juce::Colour(0xfffee2e2));
-                g.fillRoundedRectangle(subDel, 3.0f);
-                drawTrashIcon(g, subDel, SoundIdTheme::accentRed);
-
-                auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                g.setColour(juce::Colour(0xfff1f5f9));
-                g.fillRoundedRectangle(subClear, 3.0f);
-                drawClearIcon(g, subClear, SoundIdTheme::textSecondary);
-
-                auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                g.setColour(juce::Colour(0xffdcfce7));
-                g.fillRoundedRectangle(subView, 3.0f);
-                drawEyeIcon(g, subView, SoundIdTheme::accentGreen);
+                if (s == PointStatus::Completed)
+                    completedPoints++;
             }
-            currentY += 6.0f;
+            if (item.status == QueueItemStatus::Completed)
+                completedPoints = item.totalPoints;
+            else if (item.currentRunningPoint > completedPoints)
+                completedPoints = item.currentRunningPoint;
+
+            float pct = item.totalPoints > 0 ? static_cast<float>(completedPoints) / static_cast<float>(item.totalPoints) : 0.0f;
+
+            g.setColour(SoundIdTheme::bgCardHover);
+            g.fillRoundedRectangle(progRect, 4.0f);
+            g.setColour(SoundIdTheme::borderSubtle);
+            g.drawRoundedRectangle(progRect, 4.0f, 1.0f);
+
+            if (pct > 0.0f)
+            {
+                auto fillRect = progRect.withWidth(progRect.getWidth() * std::clamp(pct, 0.0f, 1.0f));
+                g.setColour(item.status == QueueItemStatus::Invalidated ? SoundIdTheme::accentAmber.withAlpha(0.8f) : SoundIdTheme::accentGreen.withAlpha(0.85f));
+                g.fillRoundedRectangle(fillRect, 4.0f);
+            }
+
+            g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
+            g.setColour(pct > 0.5f ? juce::Colours::white : SoundIdTheme::textPrimary);
+            juce::String progText = "Progress: " + juce::String(completedPoints) + " / " + juce::String(item.totalPoints) + 
+                                    " Points Completed (" + juce::String(static_cast<int>(pct * 100.0f)) + "%)";
+            g.drawText(progText, progRect, juce::Justification::centred, true);
+
+            if (!owner.isCompactView)
+            {
+                for (int pIdx = 0; pIdx < item.totalPoints; ++pIdx)
+                {
+                    auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                    currentY += 24.0f;
+
+                    g.setColour(SoundIdTheme::bgCardHover.withAlpha(0.45f));
+                    g.fillRoundedRectangle(subRect, 3.0f);
+                    g.setColour(SoundIdTheme::borderSubtle);
+                    g.drawRoundedRectangle(subRect.reduced(0.5f), 3.0f, 1.0f);
+
+                    auto subArea = subRect.reduced(6.0f, 2.0f);
+                    g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+                    g.setColour(SoundIdTheme::textPrimary);
+                    
+                    float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
+                    juce::String stepLabel = "Point #" + juce::String(pIdx + 1) + " / " + juce::String(item.totalPoints) + " (" + juce::String(stepPct, 1) + "% Pos)";
+                    g.drawText(stepLabel, subArea.removeFromLeft(200.0f), juce::Justification::centredLeft, true);
+
+                    // Subtest / Point Status Pill
+                    PointStatus ptStatus = PointStatus::Queued;
+                    if (static_cast<size_t>(pIdx) < item.pointStatuses.size())
+                        ptStatus = item.pointStatuses[static_cast<size_t>(pIdx)];
+
+                    auto ptStatusRect = subArea.removeFromLeft(86.0f).withSizeKeepingCentre(80.0f, 16.0f);
+
+                    if (ptStatus == PointStatus::Queued)
+                    {
+                        g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                        g.setColour(SoundIdTheme::textSecondary);
+                        g.drawText("QUEUED", ptStatusRect, juce::Justification::centredLeft, false);
+                    }
+                    else
+                    {
+                        juce::Colour bgPill, textPill;
+                        juce::String statusLabel;
+
+                        switch (ptStatus)
+                        {
+                            case PointStatus::Completed:
+                                bgPill = SoundIdTheme::accentGreen.withAlpha(0.2f);
+                                textPill = SoundIdTheme::accentGreen;
+                                statusLabel = "DONE";
+                                break;
+                            case PointStatus::Running:
+                                bgPill = juce::Colour(0xff0284c7).withAlpha(0.2f);
+                                textPill = juce::Colour(0xff0284c7);
+                                statusLabel = "MEASURING";
+                                break;
+                            case PointStatus::Invalidated:
+                                bgPill = SoundIdTheme::accentAmber.withAlpha(0.2f);
+                                textPill = SoundIdTheme::accentAmber;
+                                statusLabel = "RE-RUN";
+                                break;
+                            case PointStatus::Annulled:
+                                bgPill = SoundIdTheme::accentRed.withAlpha(0.2f);
+                                textPill = SoundIdTheme::accentRed;
+                                statusLabel = "ANNULLED";
+                                break;
+                            default:
+                                break;
+                        }
+
+                        g.setColour(bgPill);
+                        g.fillRoundedRectangle(ptStatusRect, 3.0f);
+                        g.setColour(textPill);
+                        g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+                        g.drawText(statusLabel, ptStatusRect, juce::Justification::centred, false);
+                    }
+
+                    auto subActions = subArea.removeFromRight(150.0f);
+
+                    auto subDel = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+                    subActions.removeFromRight(6.0f);
+
+                    auto subClear = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+                    subActions.removeFromRight(6.0f);
+
+                    auto subView = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+
+                    bool isViewHovered = subView.contains(hoveredPos);
+                    if (isViewHovered)
+                    {
+                        g.setColour(SoundIdTheme::bgCardHover);
+                        g.fillRoundedRectangle(subView, 4.0f);
+                    }
+                    drawEyeIcon(g, subView, SoundIdTheme::accentGreen);
+
+                    bool isClearHovered = subClear.contains(hoveredPos);
+                    if (isClearHovered)
+                    {
+                        g.setColour(SoundIdTheme::bgCardHover);
+                        g.fillRoundedRectangle(subClear, 4.0f);
+                    }
+                    drawClearIcon(g, subClear, isClearHovered ? SoundIdTheme::textPrimary : SoundIdTheme::textSecondary);
+
+                    bool isDelHovered = subDel.contains(hoveredPos);
+                    if (isDelHovered)
+                    {
+                        g.setColour(SoundIdTheme::accentRed.withAlpha(0.15f));
+                        g.fillRoundedRectangle(subDel, 4.0f);
+                    }
+                    drawTrashIcon(g, subDel, isDelHovered ? SoundIdTheme::accentRed : SoundIdTheme::textSecondary);
+                }
+                currentY += 6.0f;
+            }
         }
     }
+}
+
+void SoundIdSuiteList::RowsContentComponent::mouseMove(const juce::MouseEvent& e)
+{
+    hoveredPos = e.position;
+    repaint();
+}
+
+void SoundIdSuiteList::RowsContentComponent::mouseExit(const juce::MouseEvent&)
+{
+    hoveredPos = { -1.0f, -1.0f };
+    repaint();
 }
 
 void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e)
@@ -851,41 +976,47 @@ void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e
         // Sub-rows
         if (owner.queue[i].isExpanded)
         {
-            int shownSubRows = std::min(owner.queue[i].totalPoints, 16);
-            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            currentY += 28.0f; // Skip progress bar
+
+            if (!owner.isCompactView)
             {
-                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
-                currentY += 24.0f;
-
-                if (subRect.contains(e.position))
+                for (int pIdx = 0; pIdx < owner.queue[i].totalPoints; ++pIdx)
                 {
-                    auto subArea = subRect.reduced(6.0f, 2.0f);
-                    subArea.removeFromLeft(220.0f);
-                    auto subActions = subArea.removeFromRight(150.0f);
+                    auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                    currentY += 24.0f;
 
-                    auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subDel.contains(e.position))
+                    if (subRect.contains(e.position))
                     {
-                        if (owner.onDeletePointClicked) owner.onDeletePointClicked(static_cast<int>(i), pIdx);
-                        return;
-                    }
+                        auto subArea = subRect.reduced(6.0f, 2.0f);
+                        subArea.removeFromLeft(220.0f);
+                        auto subActions = subArea.removeFromRight(150.0f);
 
-                    auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subClear.contains(e.position))
-                    {
-                        if (owner.onClearPointClicked) owner.onClearPointClicked(static_cast<int>(i), pIdx);
-                        return;
-                    }
+                        auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                        if (subDel.contains(e.position))
+                        {
+                            if (owner.onDeletePointClicked) owner.onDeletePointClicked(static_cast<int>(i), pIdx);
+                            return;
+                        }
+                        subActions.removeFromRight(4.0f);
 
-                    auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subView.contains(e.position))
-                    {
-                        if (owner.onSelectPointClicked) owner.onSelectPointClicked(static_cast<int>(i), pIdx);
-                        return;
+                        auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                        if (subClear.contains(e.position))
+                        {
+                            if (owner.onClearPointClicked) owner.onClearPointClicked(static_cast<int>(i), pIdx);
+                            return;
+                        }
+                        subActions.removeFromRight(4.0f);
+
+                        auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                        if (subView.contains(e.position))
+                        {
+                            if (owner.onSelectPointClicked) owner.onSelectPointClicked(static_cast<int>(i), pIdx);
+                            return;
+                        }
                     }
                 }
+                currentY += 6.0f;
             }
-            currentY += 6.0f;
         }
     }
 }
@@ -980,34 +1111,46 @@ juce::String SoundIdSuiteList::RowsContentComponent::getTooltip()
 
         if (item.isExpanded)
         {
-            int shownSubRows = std::min(item.totalPoints, 16);
-            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            if (owner.isCompactView)
             {
-                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
-                currentY += 24.0f;
-
-                if (subRect.contains(pos))
-                {
-                    auto subArea = subRect.reduced(6.0f, 2.0f);
-                    subArea.removeFromLeft(220.0f);
-                    auto subActions = subArea.removeFromRight(150.0f);
-
-                    auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subDel.contains(pos))
-                        return "Annul Point - Mark point as invalid without repeating";
-
-                    auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subClear.contains(pos))
-                        return "Reset Point - Re-queue point to be re-measured";
-
-                    auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
-                    if (subView.contains(pos))
-                        return "View Point Curve - Display response in curve plotter";
-
-                    return "Measurement Point #" + juce::String(pIdx + 1);
-                }
+                auto progRect = juce::Rectangle<float>(32.0f, currentY + 2.0f, static_cast<float>(getWidth()) - 40.0f, 22.0f);
+                currentY += 28.0f;
+                if (progRect.contains(pos))
+                    return "Batch Test Suite Progress - Toggle View Mode in toolbar to expand full detailed points";
             }
-            currentY += 6.0f;
+            else
+            {
+                int shownSubRows = std::min(item.totalPoints, 16);
+                for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+                {
+                    auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                    currentY += 24.0f;
+
+                    if (subRect.contains(pos))
+                    {
+                        auto subArea = subRect.reduced(6.0f, 2.0f);
+                        subArea.removeFromLeft(220.0f);
+                        auto subActions = subArea.removeFromRight(150.0f);
+
+                        auto subDel = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+                        if (subDel.contains(pos))
+                            return "Annul Point - Mark point as invalid without repeating";
+                        subActions.removeFromRight(6.0f);
+
+                        auto subClear = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+                        if (subClear.contains(pos))
+                            return "Reset Point - Re-queue point to be re-measured";
+                        subActions.removeFromRight(6.0f);
+
+                        auto subView = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+                        if (subView.contains(pos))
+                            return "View Point Curve - Display response in curve plotter";
+
+                        return "Measurement Point #" + juce::String(pIdx + 1);
+                    }
+                }
+                currentY += 6.0f;
+            }
         }
     }
 

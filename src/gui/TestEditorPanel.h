@@ -44,6 +44,7 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
     int getPreferredHeight() const;
+    void updateTheme();
 
     // juce::TableListBoxModel methods
     int getNumRows() override;

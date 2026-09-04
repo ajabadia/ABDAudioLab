@@ -111,7 +111,7 @@ public:
         auto bounds = getLocalBounds().toFloat();
 
         // Background
-        g.setColour(juce::Colours::white);
+        g.setColour(SoundIdTheme::bgCard);
         g.fillRoundedRectangle(bounds, 6.0f);
         g.setColour(SoundIdTheme::borderSubtle);
         g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
@@ -171,8 +171,6 @@ public:
         if (currentSampleRate < 100.0) return;
 
         float binResolution = static_cast<float>(currentSampleRate) / static_cast<float>(audio::LabAudioEngine::kFFTSize);
-        float barWidth = std::max(1.0f, gridArea.getWidth() / 200.0f);
-
         juce::Path spectrumPath;
         juce::Path peakPath;
         bool pathStarted = false;
@@ -199,16 +197,22 @@ public:
                 spectrumPath.lineTo(x, y);
             }
 
-            // Peak-hold line
+            // Continuous Peak-hold curve (DSP-UI-01: no orphan segments)
             float peakDb = peakHoldValues[static_cast<size_t>(bin)];
             float peakNormY = std::clamp((topDb - peakDb) / (topDb - botDb), 0.0f, 1.0f);
             float peakY = gridArea.getY() + peakNormY * gridArea.getHeight();
 
-            if (peakHoldCounters[static_cast<size_t>(bin)] > 0 || peakDb > -90.0f)
-            {
-                g.setColour(SoundIdTheme::accentAmber.withAlpha(0.5f));
-                g.fillRect(x - barWidth * 0.5f, peakY, barWidth, 2.0f);
-            }
+            if (peakPath.isEmpty())
+                peakPath.startNewSubPath(x, peakY);
+            else
+                peakPath.lineTo(x, peakY);
+        }
+
+        // Stroke continuous peak-hold path
+        if (!peakPath.isEmpty())
+        {
+            g.setColour(SoundIdTheme::accentAmber.withAlpha(0.70f));
+            g.strokePath(peakPath, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
         }
 
         // Fill area under spectrum curve
@@ -221,14 +225,67 @@ public:
 
             // Gradient fill: green -> fading to transparent
             g.setGradientFill(juce::ColourGradient(
-                SoundIdTheme::accentGreen.withAlpha(0.35f), gridArea.getX(), gridArea.getY(),
-                SoundIdTheme::accentGreen.withAlpha(0.05f), gridArea.getX(), gridArea.getBottom(),
+                SoundIdTheme::accentGreen.withAlpha(0.30f), gridArea.getX(), gridArea.getY(),
+                SoundIdTheme::accentGreen.withAlpha(0.04f), gridArea.getX(), gridArea.getBottom(),
                 false));
             g.fillPath(fillPath);
 
             // Stroke the spectrum line
             g.setColour(SoundIdTheme::accentGreen);
             g.strokePath(spectrumPath, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+            // Harmonic Markers (H2, H3) with dashed lines to noise floor (DSP-UI-01)
+            int dominantBin = 0;
+            float maxMag = -100.0f;
+            for (int b = 1; b < audio::LabAudioEngine::kSpectrumBins; ++b)
+            {
+                float freq = static_cast<float>(b) * binResolution;
+                if (freq >= 40.0f && freq <= 6000.0f && displayMagnitudes[static_cast<size_t>(b)] > maxMag)
+                {
+                    maxMag = displayMagnitudes[static_cast<size_t>(b)];
+                    dominantBin = b;
+                }
+            }
+
+            if (dominantBin > 0 && maxMag > -50.0f)
+            {
+                float f0 = static_cast<float>(dominantBin) * binResolution;
+                float harmonics[2] = { 2.0f * f0, 3.0f * f0 };
+                const char* harmLabels[2] = { "H2", "H3" };
+
+                float dashes[] = { 2.0f, 2.0f };
+                g.setFont(juce::FontOptions("Inter", 8.5f, juce::Font::bold));
+
+                for (int hi = 0; hi < 2; ++hi)
+                {
+                    float hf = harmonics[hi];
+                    if (hf > 20000.0f) continue;
+
+                    int hBin = std::clamp(static_cast<int>(std::round(hf / binResolution)), 1, audio::LabAudioEngine::kSpectrumBins - 1);
+                    float hDb = displayMagnitudes[static_cast<size_t>(hBin)];
+
+                    float hNormX = (std::log10(hf) - minLogF) / (maxLogF - minLogF);
+                    float hNormY = std::clamp((topDb - hDb) / (topDb - botDb), 0.0f, 1.0f);
+
+                    float hx = gridArea.getX() + hNormX * gridArea.getWidth();
+                    float hy = gridArea.getY() + hNormY * gridArea.getHeight();
+
+                    // Dashed line from harmonic peak to noise floor
+                    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.55f));
+                    g.drawDashedLine(juce::Line<float>(hx, hy, hx, gridArea.getBottom()), dashes, 2, 1.0f);
+
+                    // Small diamond node at peak
+                    g.setColour(SoundIdTheme::accentAmber);
+                    g.fillEllipse(hx - 2.5f, hy - 2.5f, 5.0f, 5.0f);
+
+                    // Label badge H2 / H3
+                    auto badgeRect = juce::Rectangle<float>(hx - 10.0f, hy - 14.0f, 20.0f, 12.0f);
+                    g.setColour(SoundIdTheme::bgCard.withAlpha(0.85f));
+                    g.fillRoundedRectangle(badgeRect, 2.0f);
+                    g.setColour(SoundIdTheme::accentAmber);
+                    g.drawText(harmLabels[hi], badgeRect, juce::Justification::centred, false);
+                }
+            }
         }
     }
 

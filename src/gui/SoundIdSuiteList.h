@@ -106,6 +106,7 @@ public:
     void setCollapsed(bool collapsed);
     void setChevronGlyph(const juce::String& glyph);
     [[nodiscard]] bool getIsCollapsed() const noexcept { return isCollapsed; }
+    void updateTheme();
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -118,9 +119,12 @@ private:
         RowsContentComponent(SoundIdSuiteList& ownerRef) : owner(ownerRef) {}
         void paint(juce::Graphics& g) override;
         void mouseDown(const juce::MouseEvent& e) override;
+        void mouseMove(const juce::MouseEvent& e) override;
+        void mouseExit(const juce::MouseEvent& e) override;
         juce::String getTooltip() override;
     private:
         SoundIdSuiteList& owner;
+        juce::Point<float> hoveredPos { -1.0f, -1.0f };
     };
 
     void layoutRows();
@@ -128,10 +132,12 @@ private:
     std::vector<QueueItem> queue;
     bool isSessionRunning { false };
     bool isCollapsed { false };
+    bool isCompactView { false };
 
     juce::TextButton btnRunSession { "RUN SESSION TESTS" };
     juce::TextButton btnAddStandard { "+ Add Standard Test" };
     juce::TextButton btnAddCustom { "+ Add Custom Test" };
+    juce::TextButton btnViewMode { "Compact View" };
     juce::TextButton btnClear { "Clear All" };
     juce::TextButton btnToggleCollapse;
 

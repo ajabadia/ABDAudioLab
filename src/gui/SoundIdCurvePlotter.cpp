@@ -114,6 +114,14 @@ void SoundIdCurvePlotter::setViewMode(ViewMode mode)
     resized();
 }
 
+void SoundIdCurvePlotter::updateTheme()
+{
+    setViewMode(currentView);
+    btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    spectrumAnalyzer.repaint();
+    repaint();
+}
+
 void SoundIdCurvePlotter::resized()
 {
     auto area = getLocalBounds();
@@ -141,8 +149,8 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
 
-    // White Card Background with rounded corners & border
-    g.setColour(juce::Colours::white);
+    // Theme Card Background with rounded corners & border
+    g.setColour(SoundIdTheme::bgCard);
     g.fillRoundedRectangle(bounds, 8.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
@@ -334,61 +342,92 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
         botPts.push_back({ px, pyBot });
     }
 
-    // 1. Shaded ±σ Band (Soft Lilac / Lavender)
-    if (!topPts.empty())
+    // Clip curves and points strictly inside grid bounds
     {
-        sigmaBand.startNewSubPath(topPts[0]);
-        for (size_t i = 1; i < topPts.size(); ++i) sigmaBand.lineTo(topPts[i]);
-        for (int i = static_cast<int>(botPts.size()) - 1; i >= 0; --i) sigmaBand.lineTo(botPts[static_cast<size_t>(i)]);
-        sigmaBand.closeSubPath();
+        juce::Graphics::ScopedSaveState clipSave(g);
+        g.reduceClipRegion(gridBounds.toNearestInt());
 
-        g.setColour(SoundIdTheme::accentPurpleFill);
-        g.fillPath(sigmaBand);
+        // 1. Shaded ±σ Band (Soft Lilac / Lavender)
+        if (!topPts.empty())
+        {
+            sigmaBand.startNewSubPath(topPts[0]);
+            for (size_t i = 1; i < topPts.size(); ++i) sigmaBand.lineTo(topPts[i]);
+            for (int i = static_cast<int>(botPts.size()) - 1; i >= 0; --i) sigmaBand.lineTo(botPts[static_cast<size_t>(i)]);
+            sigmaBand.closeSubPath();
 
-        g.setColour(SoundIdTheme::accentPurple.withAlpha(0.6f));
-        juce::Path topOutline, botOutline;
-        topOutline.startNewSubPath(topPts[0]);
-        for (size_t i = 1; i < topPts.size(); ++i) topOutline.lineTo(topPts[i]);
-        botOutline.startNewSubPath(botPts[0]);
-        for (size_t i = 1; i < botPts.size(); ++i) botOutline.lineTo(botPts[i]);
-        g.strokePath(topOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.strokePath(botOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.setColour(SoundIdTheme::accentPurpleFill);
+            g.fillPath(sigmaBand);
+
+            g.setColour(SoundIdTheme::accentPurple.withAlpha(0.6f));
+            juce::Path topOutline, botOutline;
+            topOutline.startNewSubPath(topPts[0]);
+            for (size_t i = 1; i < topPts.size(); ++i) topOutline.lineTo(topPts[i]);
+            botOutline.startNewSubPath(botPts[0]);
+            for (size_t i = 1; i < botPts.size(); ++i) botOutline.lineTo(botPts[i]);
+            g.strokePath(topOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.strokePath(botOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+        // 2. Mean Response Curve (Solid Emerald Green)
+        g.setColour(SoundIdTheme::accentGreen);
+        g.strokePath(meanPath, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+        // 3. Measured Data Point Nodes
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
+            float valDb = points[i].secondaryValue.mean;
+            if (std::abs(valDb) < 1e-4f) valDb = (points[i].param1Normalized - 0.5f) * 12.0f;
+            float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
+
+            float px = gridBounds.getX() + normX * gridBounds.getWidth();
+            float py = gridBounds.getY() + normY * gridBounds.getHeight();
+
+            if (static_cast<int>(i) == highlightedPointIndex)
+            {
+                g.setColour(SoundIdTheme::accentAmber.withAlpha(0.4f));
+                g.fillEllipse(px - 10.0f, py - 10.0f, 20.0f, 20.0f);
+                g.setColour(SoundIdTheme::accentAmber);
+                g.fillEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f);
+                g.setColour(juce::Colours::white);
+                g.drawEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f, 1.5f);
+            }
+            else
+            {
+                g.setColour(SoundIdTheme::bgCard);
+                g.fillEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f);
+                g.setColour(SoundIdTheme::accentGreen);
+                g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
+            }
+        }
+
+        // 4. Moving Ballistic Sweep Trace Beam during measurement
+        if (isMeasuring && measuringProgress >= 0.0f)
+        {
+            float beamX = gridBounds.getX() + measuringProgress * gridBounds.getWidth();
+
+            // Phosphor glow trail behind beam
+            float trailW = std::min(36.0f, beamX - gridBounds.getX());
+            if (trailW > 2.0f)
+            {
+                g.setGradientFill(juce::ColourGradient(
+                    juce::Colours::transparentBlack, beamX - trailW, gridBounds.getY(),
+                    SoundIdTheme::accentGreen.withAlpha(0.22f), beamX, gridBounds.getY(),
+                    false));
+                g.fillRect(beamX - trailW, gridBounds.getY(), trailW, gridBounds.getHeight());
+            }
+
+            // Sharp vertical beam line
+            g.setColour(SoundIdTheme::accentGreen.withAlpha(0.85f));
+            g.drawVerticalLine(static_cast<int>(beamX), gridBounds.getY(), gridBounds.getBottom());
+
+            // Bright core sweep point
+            g.setColour(juce::Colours::white);
+            g.fillEllipse(beamX - 3.0f, gridBounds.getCentreY() - 3.0f, 6.0f, 6.0f);
+        }
     }
 
-    // 2. Mean Response Curve (Solid Emerald Green)
-    g.setColour(SoundIdTheme::accentGreen);
-    g.strokePath(meanPath, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    // 3. Measured Data Point Nodes
-    for (size_t i = 0; i < points.size(); ++i)
-    {
-        float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
-        float valDb = points[i].secondaryValue.mean;
-        if (std::abs(valDb) < 1e-4f) valDb = (points[i].param1Normalized - 0.5f) * 12.0f;
-        float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
-
-        float px = gridBounds.getX() + normX * gridBounds.getWidth();
-        float py = gridBounds.getY() + normY * gridBounds.getHeight();
-
-        if (static_cast<int>(i) == highlightedPointIndex)
-        {
-            g.setColour(SoundIdTheme::accentAmber.withAlpha(0.4f));
-            g.fillEllipse(px - 10.0f, py - 10.0f, 20.0f, 20.0f);
-            g.setColour(SoundIdTheme::accentAmber);
-            g.fillEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f);
-            g.setColour(juce::Colours::white);
-            g.drawEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f, 1.5f);
-        }
-        else
-        {
-            g.setColour(juce::Colours::white);
-            g.fillEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f);
-            g.setColour(SoundIdTheme::accentGreen);
-            g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
-        }
-    }
-
-    // 4. Interactive Crosshair & Tooltip Overlay
+    // 5. Interactive Crosshair & Tooltip Overlay
     drawCrosshairAndTooltip(g, gridBounds);
 }
 
@@ -421,9 +460,9 @@ void SoundIdCurvePlotter::drawCrosshairAndTooltip(juce::Graphics& g, juce::Recta
     g.setColour(SoundIdTheme::accentAmber);
     g.drawEllipse(px - 6.0f, py - 6.0f, 12.0f, 12.0f, 1.5f);
 
-    // Floating Tooltip Card
-    float cardW = 154.0f;
-    float cardH = 58.0f;
+    // Floating Tooltip Card (Freq | Gain | σ | THD)
+    float cardW = 180.0f;
+    float cardH = 68.0f;
     float cardX = px + 12.0f;
     if (cardX + cardW > gridBounds.getRight())
         cardX = px - cardW - 12.0f;
@@ -438,22 +477,30 @@ void SoundIdCurvePlotter::drawCrosshairAndTooltip(juce::Graphics& g, juce::Recta
     g.setColour(SoundIdTheme::borderCard.withAlpha(0.35f));
     g.drawRoundedRectangle(tooltipRect, 6.0f, 1.0f);
 
-    // Tooltip content
+    // Tooltip content: Freq | Gain | σ | THD
     auto textRect = tooltipRect.reduced(8.0f, 4.0f);
+    float freqHz = 20.0f * std::pow(1000.0f, normX);
+    juce::String freqStr = freqHz >= 1000.0f ? juce::String(freqHz / 1000.0f, 1) + " kHz" : juce::String(freqHz, 0) + " Hz";
+
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(juce::Colours::white);
-    float stepPct = pt.param1Normalized * 100.0f;
-    g.drawText("Point #" + juce::String(hoverPointIndex + 1) + " (" + juce::String(stepPct, 0) + "%)",
+    g.drawText("Point #" + juce::String(hoverPointIndex + 1) + " (" + freqStr + ")",
                textRect.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
-    g.setFont(juce::FontOptions("Consolas", 10.0f, juce::Font::plain));
+    g.setFont(juce::FontOptions("Consolas", 9.5f, juce::Font::plain));
     g.setColour(juce::Colour(0xffe5e7eb));
     juce::String gainStr = "Gain: " + juce::String(valDb > 0 ? "+" : "") + juce::String(valDb, 2) + " dB";
-    g.drawText(gainStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+    juce::String sigmaStr = juce::String::fromUTF8(u8" | \u03c3: \u00b1") + juce::String(pt.muSigmaValue.stdDev, 2) + " dB";
+    g.drawText(gainStr + sigmaStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
 
     g.setColour(SoundIdTheme::accentAmber);
     juce::String metricsStr = "THD: " + juce::String(pt.thdPercent, 2) + "% | SNR: " + juce::String(pt.snrDb, 1) + " dB";
     g.drawText(metricsStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+
+    g.setColour(SoundIdTheme::textMuted);
+    float stepPct = pt.param1Normalized * 100.0f;
+    g.drawText("Step: " + juce::String(stepPct, 1) + "% (" + juce::String(pt.param1Normalized, 3) + " norm)",
+               textRect.removeFromTop(12.0f), juce::Justification::centredLeft, true);
 }
 
 void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float> plotArea)
@@ -478,12 +525,19 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
     float cellH = plotArea.getHeight() / static_cast<float>(gridDim);
 
     float minVal = 1e9f, maxVal = -1e9f;
+    bool hasNonZero = false;
     for (const auto& pt : points)
     {
+        if (std::abs(pt.muSigmaValue.mean) > 1e-4f)
+            hasNonZero = true;
         if (pt.muSigmaValue.mean < minVal) minVal = pt.muSigmaValue.mean;
         if (pt.muSigmaValue.mean > maxVal) maxVal = pt.muSigmaValue.mean;
     }
-    if (std::abs(maxVal - minVal) < 1e-4f) maxVal += 1.0f;
+    if (!hasNonZero || std::abs(maxVal - minVal) < 1e-4f)
+    {
+        minVal = 0.0f;
+        maxVal = 1.0f;
+    }
 
     // Draw cells with high-contrast perceptual color map
     for (size_t i = 0; i < points.size(); ++i)
@@ -491,8 +545,13 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
         int row = static_cast<int>(i / static_cast<size_t>(gridDim));
         int col = static_cast<int>(i % static_cast<size_t>(gridDim));
 
-        float normVal = (points[i].muSigmaValue.mean - minVal) / (maxVal - minVal);
-        juce::Colour cellColor = viridisColor(normVal);
+        float val = points[i].muSigmaValue.mean;
+        juce::Colour cellColor = SoundIdTheme::surfaceSubtle;
+        if (hasNonZero)
+        {
+            float normVal = (val - minVal) / (maxVal - minVal);
+            cellColor = viridisColor(normVal);
+        }
 
         auto cellRect = juce::Rectangle<float>(plotArea.getX() + col * cellW,
                                                 plotArea.getY() + row * cellH,

@@ -38,6 +38,8 @@ public:
 
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
 
+    [[nodiscard]] const math::LoopbackCalibrationData& getCalibrationData() const noexcept { return calibrationData; }
+
 private:
     void startCalibrationSweep();
     void processCalibrationResult();

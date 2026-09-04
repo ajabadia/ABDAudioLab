@@ -117,6 +117,7 @@ public:
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;
     void timerCallback() override;
+    void updateTheme();
 
 private:
     void switchViewMode(DrawerViewMode mode);
@@ -235,6 +236,13 @@ private:
 
     juce::TextButton btnSetupAudioMidi { "Configure Audio & MIDI Settings..." };
     juce::TextButton btnSetupAbout { "About ABDAudioLab & Research Architecture" };
+
+    // Inline About & Research Architecture Card (BUG-04)
+    bool aboutSectionExpanded { false };
+    juce::Label lblAboutVersion;
+    juce::Label lblAboutTagline;
+    juce::Label lblAboutArchitecture;
+    juce::Label lblAboutCredits;
 
     // ==========================================
     // Bottom Fixed Action Bar

@@ -120,6 +120,55 @@ public:
     }
 };
 
+class ThemeToggleButton : public juce::Button
+{
+public:
+    ThemeToggleButton() : juce::Button("ThemeToggle")
+    {
+        setTooltip("Switch Interface Theme (Light / Dark)");
+    }
+
+    void paintButton(juce::Graphics& g, bool isHighlighted, bool isDown) override
+    {
+        auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+        g.setColour(isDown ? gui::SoundIdTheme::bgCardHover.darker(0.08f)
+                           : (isHighlighted ? gui::SoundIdTheme::bgCardHover : gui::SoundIdTheme::bgCard));
+        g.fillRoundedRectangle(bounds, 8.0f);
+        g.setColour(gui::SoundIdTheme::borderSubtle);
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
+
+        auto c = bounds.getCentre();
+        g.setColour(gui::SoundIdTheme::textPrimary);
+
+        if (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark)
+        {
+            // Monochrome vector crescent moon
+            juce::Path crescent;
+            float r = 6.2f;
+            crescent.startNewSubPath(c.x + r * 0.25f, c.y - r);
+            crescent.cubicTo(c.x + r * 1.15f, c.y - r * 0.35f, c.x + r * 1.15f, c.y + r * 0.35f, c.x + r * 0.25f, c.y + r);
+            crescent.cubicTo(c.x + r * 0.7f, c.y + r * 0.38f, c.x + r * 0.7f, c.y - r * 0.38f, c.x + r * 0.25f, c.y - r);
+            crescent.closeSubPath();
+            g.fillPath(crescent);
+        }
+        else
+        {
+            // Monochrome vector sun (circle + 8 rays)
+            float r = 3.6f;
+            g.drawEllipse(c.x - r, c.y - r, r * 2.0f, r * 2.0f, 1.2f);
+            for (int i = 0; i < 8; ++i)
+            {
+                float angle = static_cast<float>(i) * juce::MathConstants<float>::pi * 0.25f;
+                float x1 = c.x + 5.2f * std::cos(angle);
+                float y1 = c.y + 5.2f * std::sin(angle);
+                float x2 = c.x + 7.6f * std::cos(angle);
+                float y2 = c.y + 7.6f * std::sin(angle);
+                g.drawLine(x1, y1, x2, y2, 1.2f);
+            }
+        }
+    }
+};
+
 class CenterSplitterBar : public juce::Component,
                          public juce::SettableTooltipClient
 {
@@ -291,7 +340,7 @@ public:
         drawer.setHardwareLocked(true);
 
         // Header Action Buttons
-        btnFileMenu.setButtonText("File \u25be");
+        btnFileMenu.setButtonText(juce::String::fromUTF8(u8"File \u25BE"));
         btnFileMenu.setTooltip("Session Management & File Operations (New, Open, Save, Export, Exit)");
         btnFileMenu.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnFileMenu.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
@@ -310,7 +359,7 @@ public:
         audioMidiStatusPill.updateStatus(audioEngine);
         addAndMakeVisible(audioMidiStatusPill);
 
-        btnCalibratePill.setButtonText("CALIBRATION: -3.0 dBFS");
+        btnCalibratePill.setButtonText(juce::String::fromUTF8(u8"● CALIBRATION: -3.0 dBFS"));
         btnCalibratePill.setTooltip("Sound Card Line Loopback Calibration - Calibrate DAC->ADC loopback latency and flat frequency compensation.");
         btnCalibratePill.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
@@ -321,6 +370,41 @@ public:
         btnHardwareSelector.setTooltip("Target Hardware & Submodule - Select device under test (Roland, Moog, Minilogue, etc.) and active circuit/submodule.");
         btnHardwareSelector.onClick = [this] { drawer.openHardwareDrawer(); };
         addAndMakeVisible(btnHardwareSelector);
+
+        btnThemeToggle.onClick = [this] {
+            auto newMode = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Light)
+                               ? gui::AppTheme::ThemeMode::Dark
+                               : gui::AppTheme::ThemeMode::Light;
+            gui::SoundIdTheme::applyThemeMode(newMode, &soundIdTheme);
+            sendLookAndFeelChange();
+
+            btnCalibratePill.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+            btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+
+            btnFileMenu.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+            btnFileMenu.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+
+            btnScope.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+            btnScope.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+
+            btnThemeToggle.repaint();
+            btnHardwareSelector.repaint();
+            audioMidiStatusPill.repaint();
+            btnInfo.repaint();
+            healthPanel.repaint();
+            meterStrip.repaint();
+            curvePlotter.updateTheme();
+            suiteList.updateTheme();
+
+            if (scopeWebWindow != nullptr)
+            {
+                scopeWebWindow->updateTheme();
+            }
+            drawer.updateTheme();
+
+            repaint();
+        };
+        addAndMakeVisible(btnThemeToggle);
 
         // Info Button (Opens Setup & Telemetry Drawer)
         btnInfo.setTooltip("System Telemetry & Info - View real-time DSP load, sample rate, buffer size, latency and application build stats.");
@@ -355,8 +439,9 @@ public:
             if (centerSplitMode == CenterSplitMode::Balanced)
             {
                 auto bounds = getLocalBounds().reduced(20);
-                int maxBottomH = bounds.getHeight() - 78;
-                balancedBottomH = juce::jlimit(50.0f, static_cast<float>(maxBottomH), balancedBottomH - static_cast<float>(deltaY));
+                int minGraphAreaH = 180 + 32 + 12; // 180px curvePlotter + 32px healthPanel + 12px splitter
+                int maxBottomH = bounds.getHeight() - minGraphAreaH;
+                balancedBottomH = juce::jlimit(50.0f, static_cast<float>(std::max(50, maxBottomH)), balancedBottomH - static_cast<float>(deltaY));
                 targetBottomH = balancedBottomH;
                 currentBottomH = balancedBottomH;
                 resized();
@@ -671,7 +756,7 @@ public:
             openAudioMidiSettings();
         };
         drawer.onAboutClicked = [this] {
-            showInfoDrawer();
+            showAboutDialog();
         };
         drawer.onNewSessionClicked = [this] {
             promptNewSession();
@@ -778,6 +863,7 @@ public:
                     btnStepBack.setVisible(false);
                     meterStrip.setProfilingActive(false);
                     suiteList.setSessionRunning(false);
+                    curvePlotter.setMeasuringState(false);
                     for (int i = 0; i < suiteList.getQueueSize(); ++i)
                     {
                         if (!suiteList.getQueue()[static_cast<size_t>(i)].isSkipped)
@@ -790,6 +876,7 @@ public:
                     manualPromptLabel.setVisible(true);
                     meterStrip.setProfilingActive(false);
                     suiteList.setSessionRunning(false);
+                    curvePlotter.setMeasuringState(false);
                     confirmManualButton.setVisible(false);
                     btnRepeatStep.setVisible(false);
                     btnStepBack.setVisible(false);
@@ -801,7 +888,6 @@ public:
 
         sequencer.setTestIndexCallback([this](int queueIndex, int currentPoint, int totalPoints) {
             juce::MessageManager::callAsync([this, queueIndex, currentPoint, totalPoints] {
-                juce::ignoreUnused(totalPoints);
                 for (int i = 0; i < queueIndex; ++i)
                 {
                     if (!suiteList.getQueue()[static_cast<size_t>(i)].isSkipped &&
@@ -813,6 +899,8 @@ public:
                 if (queueIndex >= 0 && queueIndex < suiteList.getQueueSize())
                 {
                     suiteList.updateItemStatus(queueIndex, gui::QueueItemStatus::Running, currentPoint);
+                    float progress = totalPoints > 1 ? (static_cast<float>(currentPoint) / static_cast<float>(totalPoints)) : 0.5f;
+                    curvePlotter.setMeasuringState(true, progress);
                 }
             });
         });
@@ -937,7 +1025,9 @@ public:
                 suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore back down to balanced)
                 {
                     auto totalArea = getLocalBounds().reduced(20);
-                    int maxH = totalArea.getHeight() - 110;
+                    // Reserve at least 180px graph + 32px health + 12px splitter + 48px top header
+                    int minTopAndGraphH = 48 + 180 + 32 + 12;
+                    int maxH = totalArea.getHeight() - minTopAndGraphH;
                     targetBottomH = static_cast<float>(std::max(140, maxH));
                 }
                 break;
@@ -968,10 +1058,13 @@ public:
         btnInfo.setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
         topArea.removeFromRight(8);
 
-        btnHardwareSelector.setBounds(topArea.removeFromRight(320).withHeight(32));
+        btnThemeToggle.setBounds(topArea.removeFromRight(36).withHeight(32));
         topArea.removeFromRight(8);
 
-        btnCalibratePill.setBounds(topArea.removeFromRight(180).withHeight(32));
+        btnHardwareSelector.setBounds(topArea.removeFromRight(290).withHeight(32));
+        topArea.removeFromRight(8);
+
+        btnCalibratePill.setBounds(topArea.removeFromRight(185).withHeight(32));
 
         bounds.removeFromTop(12);
 
@@ -1002,7 +1095,8 @@ public:
         }
         else
         {
-            int maxBottomH = bounds.getHeight() - 78;
+            int minGraphAreaH = 180 + 32 + 12; // 180px curvePlotter + 32px healthPanel + 12px splitter
+            int maxBottomH = bounds.getHeight() - minGraphAreaH;
             bottomH = juce::jlimit(36, std::max(36, maxBottomH), bottomH);
         }
 
@@ -1048,6 +1142,24 @@ public:
             std::array<float, audio::LabAudioEngine::kSpectrumBins> fftData;
             audioEngine.getSpectrumMagnitudes(fftData);
             curvePlotter.getSpectrumAnalyzer().pushSpectrumData(fftData, audioEngine.getCurrentSampleRate());
+        }
+
+        if ((statusUpdateCounter++ % 15) == 0)
+        {
+            if (loopbackModal.getCalibrationData().isCalibrated)
+            {
+                if (std::abs(loopbackModal.getCalibrationData().sampleRate - audioEngine.getCurrentSampleRate()) < 1.0)
+                {
+                    btnCalibratePill.setButtonText(juce::String::fromUTF8(u8"● CAL: VALID (-3.0 dBFS)"));
+                    btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentGreen);
+                }
+                else
+                {
+                    bool blink = ((statusUpdateCounter / 15) % 2) == 0;
+                    btnCalibratePill.setButtonText(juce::String::fromUTF8(u8"⚠ CAL: RECALIBRATE (SR CHANGED)"));
+                    btnCalibratePill.setColour(juce::TextButton::textColourOffId, blink ? gui::SoundIdTheme::accentAmber : gui::SoundIdTheme::textMuted);
+                }
+            }
         }
 
         // Slower, smooth and relaxed chevron/split animation
@@ -1419,7 +1531,18 @@ private:
 
     void showAboutDialog()
     {
-        aboutModal.showDialog(this);
+        if (aboutSplashWindow == nullptr)
+        {
+            aboutSplashWindow = std::make_unique<gui::SoundIdSplashWindow>(true);
+            aboutSplashWindow->setStatus("System Ready \u2022 All Research Contracts Operational", 1.0f);
+            aboutSplashWindow->onCloseRequest = [this] {
+                aboutSplashWindow.reset();
+            };
+        }
+        else
+        {
+            aboutSplashWindow->toFront(true);
+        }
     }
 
     core::ProfilingSession buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr)
@@ -2002,10 +2125,12 @@ private:
     gui::AudioMidiStatusPill audioMidiStatusPill;
     juce::TextButton btnCalibratePill;
     gui::HardwareSelectorPill btnHardwareSelector;
+    ThemeToggleButton btnThemeToggle;
     MonochromeInfoButton btnInfo;
     int statusUpdateCounter { 0 };
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
+    std::unique_ptr<gui::SoundIdSplashWindow> aboutSplashWindow;
 
     gui::SoundIdCurvePlotter curvePlotter;
     CenterSplitterBar centerSplitterBar;

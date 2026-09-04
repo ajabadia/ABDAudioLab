@@ -16,12 +16,30 @@ class SoundIdSplashScreen : public juce::Component,
                             public juce::Timer
 {
 public:
-    SoundIdSplashScreen()
+    explicit SoundIdSplashScreen(bool allowClose = false, std::function<void()> onClose = nullptr)
+        : isCloseable(allowClose),
+          onCloseCallback(std::move(onClose))
     {
         setSize(560, 320);
         loadSplashArtImage();
 
-        lblCategory.setText("ABD SYNTHS  \u2022  HARDWARE PROFILING LAB", juce::dontSendNotification);
+        if (isCloseable)
+        {
+            setWantsKeyboardFocus(true);
+            btnClose.setButtonText(juce::String::fromUTF8(u8"\u2715"));
+            btnClose.setTooltip("Close");
+            btnClose.setColour(juce::TextButton::buttonColourId, juce::Colour(0x66000000));
+            btnClose.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0x99000000));
+            btnClose.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+            btnClose.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+            btnClose.onClick = [this] {
+                if (onCloseCallback)
+                    onCloseCallback();
+            };
+            addAndMakeVisible(btnClose);
+        }
+
+        lblCategory.setText(juce::String::fromUTF8(u8"ABD SYNTHS  \u2022  HARDWARE PROFILING LAB"), juce::dontSendNotification);
         lblCategory.setFont(juce::FontOptions("Inter", 9.0f, juce::Font::bold));
         lblCategory.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
         lblCategory.setJustificationType(juce::Justification::left);
@@ -39,7 +57,7 @@ public:
         lblSubtitle.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblSubtitle);
 
-        lblVersion.setText("v" + juce::String(version::kAppVersion) + "  \u2022  Build " + juce::String(version::kBuildNumber), juce::dontSendNotification);
+        lblVersion.setText("v" + juce::String(version::kAppVersion) + "  " + juce::String::fromUTF8(u8"\u2022") + "  Build " + juce::String(version::kBuildNumber) + " (" + juce::String(version::kBuildDate) + ")", juce::dontSendNotification);
         lblVersion.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         lblVersion.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
         lblVersion.setJustificationType(juce::Justification::left);
@@ -51,7 +69,7 @@ public:
         lblDspEngine.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblDspEngine);
 
-        lblStatus.setText("Scanning Audio & Hardware Interfaces...", juce::dontSendNotification);
+        lblStatus.setText("Scanning Audio Interfaces & ASIO Drivers...", juce::dontSendNotification);
         lblStatus.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         lblStatus.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
         lblStatus.setJustificationType(juce::Justification::left);
@@ -157,16 +175,16 @@ public:
             g.drawLine(leftImageBounds.getRight(), card.getY(), leftImageBounds.getRight(), card.getBottom(), 1.0f);
         }
 
-        // 3. Version badge background pill
+        // 3. Version badge background pill (reduced vertical padding to 2px, height 17px)
         auto rightArea = card.reduced(24.0f, 20.0f);
-        auto badgeArea = juce::Rectangle<float>(rightArea.getX(), rightArea.getY() + 92.0f, 62.0f, 20.0f);
+        auto badgeArea = juce::Rectangle<float>(rightArea.getX(), rightArea.getY() + 92.0f, 62.0f, 17.0f);
         g.setColour(SoundIdTheme::bgCardHover);
-        g.fillRoundedRectangle(badgeArea, 4.0f);
+        g.fillRoundedRectangle(badgeArea, 3.5f);
         g.setColour(SoundIdTheme::borderSubtle);
-        g.drawRoundedRectangle(badgeArea, 4.0f, 1.0f);
+        g.drawRoundedRectangle(badgeArea, 3.5f, 1.0f);
 
-        // 4. Minimalist Progress Bar (2.5px height)
-        float barY = card.getBottom() - 32.0f;
+        // 4. Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
+        float barY = card.getBottom() - 40.0f;
         float barX = card.getX() + 24.0f;
         float barW = card.getWidth() - 48.0f;
         auto barArea = juce::Rectangle<float>(barX, barY, barW, 2.5f);
@@ -206,14 +224,30 @@ public:
         bounds.removeFromTop(12);
 
         // Version badge line
-        lblVersion.setBounds(bounds.removeFromTop(20));
+        lblVersion.setBounds(bounds.removeFromTop(18));
         bounds.removeFromTop(14);
 
         // DSP Engine description line
         lblDspEngine.setBounds(bounds.removeFromTop(18));
 
-        // Status message above progress bar
-        lblStatus.setBounds(juce::Rectangle<int>(leftW + 24, getHeight() - 56, getWidth() - leftW - 48, 20));
+        // Status message above progress bar (moved up 8px)
+        lblStatus.setBounds(juce::Rectangle<int>(leftW + 24, getHeight() - 64, getWidth() - leftW - 48, 20));
+
+        if (isCloseable)
+        {
+            btnClose.setBounds(10, 10, 24, 24);
+        }
+    }
+
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        if (isCloseable && key.isKeyCode(juce::KeyPress::escapeKey))
+        {
+            if (onCloseCallback)
+                onCloseCallback();
+            return true;
+        }
+        return false;
     }
 
 private:
@@ -223,6 +257,10 @@ private:
     juce::Label lblVersion;
     juce::Label lblDspEngine;
     juce::Label lblStatus;
+    juce::TextButton btnClose;
+
+    bool isCloseable { false };
+    std::function<void()> onCloseCallback;
 
     juce::Image splashArt;
     float progress { -1.0f };
@@ -240,12 +278,17 @@ private:
 class SoundIdSplashWindow : public juce::Component
 {
 public:
-    SoundIdSplashWindow()
+    explicit SoundIdSplashWindow(bool allowClose = false)
     {
         setOpaque(false);
         setAlwaysOnTop(true);
 
-        splashComp = std::make_unique<SoundIdSplashScreen>();
+        splashComp = std::make_unique<SoundIdSplashScreen>(allowClose, [this] {
+            dismiss([this] {
+                if (onCloseRequest)
+                    onCloseRequest();
+            });
+        });
         addAndMakeVisible(splashComp.get());
         setSize(splashComp->getWidth(), splashComp->getHeight());
 
@@ -279,6 +322,8 @@ public:
             onDone();
         }
     }
+
+    std::function<void()> onCloseRequest;
 
 private:
     std::unique_ptr<SoundIdSplashScreen> splashComp;

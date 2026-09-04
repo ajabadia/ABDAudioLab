@@ -18,16 +18,21 @@ void HardwareControlRenderer::drawTargetValueBadge(juce::Graphics& g, juce::Rect
 
 void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    float centerSize = 72.0f;
-    auto knobCircle = area.withSizeKeepingCentre(centerSize, centerSize).withY(area.getY() + 35.0f);
-
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), area.removeFromTop(20.0f), juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(20.0f);
+    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+
+    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(90.0f, 20.0f);
+
+    auto knobArea = area.reduced(4.0f, 2.0f);
+    float squareSize = std::clamp(juce::jmin(knobArea.getWidth(), knobArea.getHeight()), 32.0f, 72.0f);
+    auto knobCircle = knobArea.withSizeKeepingCentre(squareSize, squareSize);
 
     float cx = knobCircle.getCentreX();
     float cy = knobCircle.getCentreY();
-    float radius = centerSize * 0.5f;
+    float radius = squareSize * 0.5f;
+    float scale = squareSize / 72.0f;
 
     g.setColour(SoundIdTheme::bgCardHover);
     g.fillEllipse(knobCircle);
@@ -44,39 +49,44 @@ void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float>
     float minAngle = startAngle + minNorm * (endAngle - startAngle);
     float maxAngle = startAngle + maxNorm * (endAngle - startAngle);
 
+    float trackInset = std::max(2.5f, 4.0f * scale);
+    float trackRadius = radius - trackInset;
+    float strokeW = std::max(3.0f, 6.0f * scale);
+
     juce::Path bgTrackPath;
-    bgTrackPath.addCentredArc(cx, cy, radius - 4.0f, radius - 4.0f, 0.0f, startAngle, endAngle, true);
+    bgTrackPath.addCentredArc(cx, cy, trackRadius, trackRadius, 0.0f, startAngle, endAngle, true);
     g.setColour(SoundIdTheme::bgCardHover);
-    g.strokePath(bgTrackPath, juce::PathStrokeType(6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+    g.strokePath(bgTrackPath, juce::PathStrokeType(strokeW, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
 
     juce::Path rangeTrackPath;
-    rangeTrackPath.addCentredArc(cx, cy, radius - 4.0f, radius - 4.0f, 0.0f, minAngle, maxAngle, true);
+    rangeTrackPath.addCentredArc(cx, cy, trackRadius, trackRadius, 0.0f, minAngle, maxAngle, true);
     g.setColour(juce::Colour(0x30000000));
-    g.strokePath(rangeTrackPath, juce::PathStrokeType(6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
+    g.strokePath(rangeTrackPath, juce::PathStrokeType(strokeW, juce::PathStrokeType::curved, juce::PathStrokeType::butt));
 
     juce::Path arcPath;
-    arcPath.addCentredArc(cx, cy, radius - 4.0f, radius - 4.0f, 0.0f, startAngle, currentAngle, true);
+    arcPath.addCentredArc(cx, cy, trackRadius, trackRadius, 0.0f, startAngle, currentAngle, true);
     g.setColour(SoundIdTheme::accentGreen);
-    g.strokePath(arcPath, juce::PathStrokeType(4.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.strokePath(arcPath, juce::PathStrokeType(std::max(2.0f, 4.0f * scale), juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     auto drawTick = [&](float angle, juce::Colour col) {
-        float tx1 = cx + (radius - 8.0f) * std::sin(angle);
-        float ty1 = cy - (radius - 8.0f) * std::cos(angle);
-        float tx2 = cx + (radius + 2.0f) * std::sin(angle);
-        float ty2 = cy - (radius + 2.0f) * std::cos(angle);
+        float tx1 = cx + (radius - 8.0f * scale) * std::sin(angle);
+        float ty1 = cy - (radius - 8.0f * scale) * std::cos(angle);
+        float tx2 = cx + (radius + 2.0f * scale) * std::sin(angle);
+        float ty2 = cy - (radius + 2.0f * scale) * std::cos(angle);
         g.setColour(col);
-        g.drawLine(tx1, ty1, tx2, ty2, 2.0f);
+        g.drawLine(tx1, ty1, tx2, ty2, std::max(1.0f, 2.0f * scale));
     };
     if (minNorm > 0.01f) drawTick(minAngle, SoundIdTheme::accentAmber);
     if (maxNorm < 0.99f) drawTick(maxAngle, SoundIdTheme::accentAmber);
 
-    float px = cx + (radius - 12.0f) * std::sin(currentAngle);
-    float py = cy - (radius - 12.0f) * std::cos(currentAngle);
+    float px = cx + (radius - 12.0f * scale) * std::sin(currentAngle);
+    float py = cy - (radius - 12.0f * scale) * std::cos(currentAngle);
     g.setColour(juce::Colours::white);
-    g.drawLine(cx, cy, px, py, 3.0f);
+    g.drawLine(cx, cy, px, py, std::max(1.5f, 3.0f * scale));
 
+    float capR = std::max(3.0f, 5.0f * scale);
     g.setColour(SoundIdTheme::textPrimary);
-    g.fillEllipse(cx - 5.0f, cy - 5.0f, 10.0f, 10.0f);
+    g.fillEllipse(cx - capR, cy - capR, capR * 2.0f, capR * 2.0f);
 
     int pct = static_cast<int>(std::round(norm * 100.0f));
     juce::String valStr = juce::String(pct) + "%";
@@ -87,7 +97,6 @@ void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float>
         valStr += " [" + juce::String(minP) + "%-" + juce::String(maxP) + "%]";
     }
 
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(90.0f, 20.0f);
     drawTargetValueBadge(g, valArea, valStr, SoundIdTheme::accentGreen);
 }
 
@@ -95,11 +104,15 @@ void HardwareControlRenderer::drawSlider(juce::Graphics& g, juce::Rectangle<floa
 {
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), area.removeFromTop(20.0f), juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(20.0f);
+    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
 
+    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
+
+    auto sliderArea = area.reduced(4.0f, 2.0f);
     float trackW = 8.0f;
-    float trackH = 75.0f;
-    auto trackArea = area.withSizeKeepingCentre(trackW, trackH).withY(area.getY() + 30.0f);
+    float trackH = std::clamp(sliderArea.getHeight() - 8.0f, 24.0f, 75.0f);
+    auto trackArea = sliderArea.withSizeKeepingCentre(trackW, trackH);
 
     g.setColour(SoundIdTheme::bgCardHover);
     g.fillRoundedRectangle(trackArea, 4.0f);
@@ -120,18 +133,22 @@ void HardwareControlRenderer::drawSlider(juce::Graphics& g, juce::Rectangle<floa
     g.drawHorizontalLine(static_cast<int>(handleY), handleArea.getX() + 4.0f, handleArea.getRight() - 4.0f);
 
     int pct = static_cast<int>(std::round(norm * 100.0f));
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
     drawTargetValueBadge(g, valArea, juce::String(pct) + "%", SoundIdTheme::accentGreen);
 }
 
 void HardwareControlRenderer::drawJackPort(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    float centerSize = 64.0f;
-    auto jackCircle = area.withSizeKeepingCentre(centerSize, centerSize).withY(area.getY() + 35.0f);
-
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), area.removeFromTop(20.0f), juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(20.0f);
+    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+
+    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(80.0f, 20.0f);
+
+    auto portArea = area.reduced(4.0f, 2.0f);
+    float centerSize = std::clamp(juce::jmin(portArea.getWidth(), portArea.getHeight()), 28.0f, 64.0f);
+    auto jackCircle = portArea.withSizeKeepingCentre(centerSize, centerSize);
+    float scale = centerSize / 64.0f;
 
     float cx = jackCircle.getCentreX();
     float cy = jackCircle.getCentreY();
@@ -141,17 +158,19 @@ void HardwareControlRenderer::drawJackPort(juce::Graphics& g, juce::Rectangle<fl
     g.setColour(SoundIdTheme::borderCard);
     g.drawEllipse(jackCircle, 2.0f);
 
+    float rOuter = 20.0f * scale;
     g.setColour(juce::Colour(0xFF808894));
-    g.fillEllipse(cx - 20.0f, cy - 20.0f, 40.0f, 40.0f);
+    g.fillEllipse(cx - rOuter, cy - rOuter, rOuter * 2.0f, rOuter * 2.0f);
 
+    float rInner = 10.0f * scale;
     g.setColour(juce::Colours::black);
-    g.fillEllipse(cx - 10.0f, cy - 10.0f, 20.0f, 20.0f);
+    g.fillEllipse(cx - rInner, cy - rInner, rInner * 2.0f, rInner * 2.0f);
 
+    float rCenter = 7.0f * scale;
     g.setColour(ps.normalizedValue > 0.5f ? SoundIdTheme::accentGreen : juce::Colour(0xFFE55039));
-    g.fillEllipse(cx - 7.0f, cy - 7.0f, 14.0f, 14.0f);
+    g.fillEllipse(cx - rCenter, cy - rCenter, rCenter * 2.0f, rCenter * 2.0f);
 
     juce::String valStr = (ps.normalizedValue > 0.5f) ? "PATCHED" : "UNPATCHED";
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(80.0f, 20.0f);
     drawTargetValueBadge(g, valArea, valStr, ps.normalizedValue > 0.5f ? SoundIdTheme::accentGreen : SoundIdTheme::accentAmber);
 }
 
@@ -159,10 +178,14 @@ void HardwareControlRenderer::drawButton(juce::Graphics& g, juce::Rectangle<floa
 {
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), area.removeFromTop(20.0f), juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(20.0f);
+    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
 
-    float size = 52.0f;
-    auto btnArea = area.withSizeKeepingCentre(size, size).withY(area.getY() + 35.0f);
+    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
+
+    auto bArea = area.reduced(4.0f, 2.0f);
+    float size = std::clamp(juce::jmin(bArea.getWidth(), bArea.getHeight()), 26.0f, 52.0f);
+    auto btnArea = bArea.withSizeKeepingCentre(size, size);
     bool isOn = ps.normalizedValue > 0.5f;
 
     g.setColour(juce::Colour(0xFF23252A));
@@ -170,13 +193,13 @@ void HardwareControlRenderer::drawButton(juce::Graphics& g, juce::Rectangle<floa
     g.setColour(SoundIdTheme::borderCard);
     g.drawRoundedRectangle(btnArea, 8.0f, 1.5f);
 
-    auto ledArea = btnArea.reduced(14.0f);
+    auto ledArea = btnArea.reduced(size * 0.26f);
     if (isOn)
     {
         g.setColour(SoundIdTheme::accentGreen);
         g.fillEllipse(ledArea);
         g.setColour(juce::Colours::white.withAlpha(0.6f));
-        g.fillEllipse(ledArea.reduced(5.0f).withY(ledArea.getY() + 1.0f));
+        g.fillEllipse(ledArea.reduced(ledArea.getWidth() * 0.25f).withY(ledArea.getY() + 1.0f));
     }
     else
     {
@@ -184,7 +207,6 @@ void HardwareControlRenderer::drawButton(juce::Graphics& g, juce::Rectangle<floa
         g.fillEllipse(ledArea);
     }
 
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
     drawTargetValueBadge(g, valArea, isOn ? "ON" : "OFF", isOn ? SoundIdTheme::accentGreen : SoundIdTheme::textMuted);
 }
 
@@ -192,13 +214,18 @@ void HardwareControlRenderer::drawSwitch(juce::Graphics& g, juce::Rectangle<floa
 {
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), area.removeFromTop(20.0f), juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(20.0f);
+    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
 
-    float centerSize = 64.0f;
-    auto switchCircle = area.withSizeKeepingCentre(centerSize, centerSize).withY(area.getY() + 35.0f);
+    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
+
+    auto sArea = area.reduced(4.0f, 2.0f);
+    float centerSize = std::clamp(juce::jmin(sArea.getWidth(), sArea.getHeight()), 28.0f, 64.0f);
+    auto switchCircle = sArea.withSizeKeepingCentre(centerSize, centerSize);
     float cx = switchCircle.getCentreX();
     float cy = switchCircle.getCentreY();
     float radius = centerSize * 0.5f;
+    float scale = centerSize / 64.0f;
 
     g.setColour(SoundIdTheme::bgCardHover);
     g.fillEllipse(switchCircle);
@@ -215,19 +242,19 @@ void HardwareControlRenderer::drawSwitch(juce::Graphics& g, juce::Rectangle<floa
     {
         float posNorm = static_cast<float>(p) / static_cast<float>(numPositions - 1);
         float posAngle = startAngle + posNorm * (endAngle - startAngle);
-        float tx = cx + (radius + 4.0f) * std::sin(posAngle);
-        float ty = cy - (radius + 4.0f) * std::cos(posAngle);
+        float tx = cx + (radius + 4.0f * scale) * std::sin(posAngle);
+        float ty = cy - (radius + 4.0f * scale) * std::cos(posAngle);
         g.setColour(SoundIdTheme::textSecondary);
-        g.fillEllipse(tx - 2.5f, ty - 2.5f, 5.0f, 5.0f);
+        float dotR = 2.5f * scale;
+        g.fillEllipse(tx - dotR, ty - dotR, dotR * 2.0f, dotR * 2.0f);
     }
 
-    float px = cx + (radius - 8.0f) * std::sin(angle);
-    float py = cy - (radius - 8.0f) * std::cos(angle);
+    float px = cx + (radius - 8.0f * scale) * std::sin(angle);
+    float py = cy - (radius - 8.0f * scale) * std::cos(angle);
     g.setColour(SoundIdTheme::accentGreen);
-    g.drawLine(cx, cy, px, py, 4.0f);
+    g.drawLine(cx, cy, px, py, std::max(2.0f, 4.0f * scale));
 
     int posIdx = static_cast<int>(std::round(norm * (numPositions - 1))) + 1;
-    auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
     drawTargetValueBadge(g, valArea, "POS " + juce::String(posIdx), SoundIdTheme::accentGreen);
 }
 
