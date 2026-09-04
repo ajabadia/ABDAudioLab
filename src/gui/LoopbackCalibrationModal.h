@@ -55,6 +55,7 @@ private:
     juce::ProgressBar progressBar;
     double progressValue { 0.0 };
     int measurementStep { 0 };
+    float liveInputPeak { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LoopbackCalibrationModal)
 };

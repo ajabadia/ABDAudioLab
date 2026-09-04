@@ -58,6 +58,20 @@ void InfoDrawer::PanelComponent::paint(juce::Graphics& g)
     drawTelemetryRow(g, "Completed LUT Points", juce::String(telemetry.totalMeasuredPoints) + " measured", content);
     drawTelemetryRow(g, "Export Directory", telemetry.exportDirectoryPath, content);
     drawTelemetryRow(g, "Software Release", telemetry.appVersion + " (Build #" + juce::String(telemetry.buildNumber) + ")", content);
+
+    content.removeFromTop(14.0f);
+
+    // Section 4: System Information & Credits (Sonarworks unified style: zero double-modal)
+    g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+    g.setColour(SoundIdTheme::textSecondary);
+    g.drawText("SYSTEM ARCHITECTURE & CREDITS", content.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+    g.setColour(SoundIdTheme::textMuted);
+    g.drawText(juce::String::fromUTF8(u8"ABDAudioLab v1.1.0 • Built with JUCE 8 & C++20\n"
+                                      u8"© 2026 ABDSynths • Designed for precision hardware profiling,\n"
+                                      u8"Farina sweeps, Wiener-Hammerstein & RTNeural model training."),
+               content.removeFromTop(48.0f), juce::Justification::centredLeft, true);
 }
 
 void InfoDrawer::PanelComponent::drawTelemetryRow(juce::Graphics& g, const juce::String& label, const juce::String& value, juce::Rectangle<float>& area)
@@ -93,12 +107,6 @@ InfoDrawer::InfoDrawer()
         if (onOpenAudioSettingsClicked) onOpenAudioSettingsClicked();
     };
     panel.addAndMakeVisible(btnOpenAudioSetup);
-
-    btnAbout.setTooltip("Display software version, architecture notes and credits");
-    btnAbout.onClick = [this] {
-        if (onAboutClicked) onAboutClicked();
-    };
-    panel.addAndMakeVisible(btnAbout);
 
     setAlwaysOnTop(true);
     setVisible(false);
@@ -165,12 +173,10 @@ void InfoDrawer::repositionPanel()
     auto bounds = panel.getLocalBounds();
     btnClose.setBounds(bounds.getRight() - 40, 14, 28, 28);
 
-    auto botArea = bounds.reduced(24).removeFromBottom(126);
+    auto botArea = bounds.reduced(24).removeFromBottom(84);
     btnChangeFolder.setBounds(botArea.removeFromTop(34));
-    botArea.removeFromTop(6);
+    botArea.removeFromTop(8);
     btnOpenAudioSetup.setBounds(botArea.removeFromTop(34));
-    botArea.removeFromTop(6);
-    btnAbout.setBounds(botArea.removeFromTop(34));
 }
 
 void InfoDrawer::mouseDown(const juce::MouseEvent& e)

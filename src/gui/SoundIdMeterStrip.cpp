@@ -27,7 +27,7 @@ SoundIdMeterStrip::SoundIdMeterStrip()
     };
     addAndMakeVisible(masterButton);
 
-    startTimerHz(30);
+    startTimerHz(60);
 }
 
 SoundIdMeterStrip::~SoundIdMeterStrip()
@@ -61,39 +61,39 @@ float SoundIdMeterStrip::amplitudeToNorm(float linearAmp) noexcept
 
 void SoundIdMeterStrip::timerCallback()
 {
-    // Attack is instantaneous, decay is ballistic
-    displayInRms = std::max(currentInRms, displayInRms * 0.85f);
-    displayInPeak = std::max(currentInPeak, displayInPeak * 0.92f);
+    // 60 Hz ballistic update: instantaneous attack, smooth exponential decay (~20 dB/s)
+    displayInRms = std::max(currentInRms, displayInRms * 0.92f);
+    displayInPeak = std::max(currentInPeak, displayInPeak * 0.96f);
 
-    displayOutRms = std::max(currentOutRms, displayOutRms * 0.85f);
-    displayOutPeak = std::max(currentOutPeak, displayOutPeak * 0.92f);
+    displayOutRms = std::max(currentOutRms, displayOutRms * 0.92f);
+    displayOutPeak = std::max(currentOutPeak, displayOutPeak * 0.96f);
 
-    // Peak-Hold Ballistics (In)
+    // Peak-Hold Ballistics (In): 1.0s hold = 60 frames at 60Hz
     if (currentInPeak >= peakHoldIn)
     {
         peakHoldIn = currentInPeak;
-        peakHoldInTimer = 30; // ~1.0 sec hold at 30Hz
+        peakHoldInTimer = 60;
     }
     else
     {
         if (peakHoldInTimer > 0)
             --peakHoldInTimer;
         else
-            peakHoldIn = peakHoldIn * 0.94f; // Smooth decay after hold
+            peakHoldIn = peakHoldIn * 0.97f; // ~20 dB/s smooth decay
     }
 
-    // Peak-Hold Ballistics (Out)
+    // Peak-Hold Ballistics (Out): 1.0s hold = 60 frames at 60Hz
     if (currentOutPeak >= peakHoldOut)
     {
         peakHoldOut = currentOutPeak;
-        peakHoldOutTimer = 30;
+        peakHoldOutTimer = 60;
     }
     else
     {
         if (peakHoldOutTimer > 0)
             --peakHoldOutTimer;
         else
-            peakHoldOut = peakHoldOut * 0.94f;
+            peakHoldOut = peakHoldOut * 0.97f;
     }
 
     // Reset current transient values for next measurement window
@@ -175,33 +175,33 @@ void SoundIdMeterStrip::drawMeterBar(juce::Graphics& g, juce::Rectangle<float> b
 
     float rmsHeight = std::clamp(rmsNorm, 0.0f, 1.0f) * barRect.getHeight();
 
-    // Multi-colour gradient fill (Green -> Amber @ -6dB -> Red @ 0dB)
+    // Multi-colour gradient fill: Green <= -12dBFS (0.80), Amber <= -3dBFS (0.95), Red <= 0dBFS (1.00)
     if (rmsHeight > 1.0f)
     {
         auto fillRect = barRect.withTop(barRect.getBottom() - rmsHeight);
         juce::ColourGradient grad(SoundIdTheme::accentGreen, barRect.getX(), barRect.getBottom(),
                                   SoundIdTheme::accentRed, barRect.getX(), barRect.getY(), false);
-        // -6 dB threshold is at ~0.90 of the 60dB range
-        grad.addColour(0.85f, SoundIdTheme::accentGreen);
+        grad.addColour(0.78f, SoundIdTheme::accentGreen);
         grad.addColour(0.92f, SoundIdTheme::accentAmber);
+        grad.addColour(0.98f, SoundIdTheme::accentRed);
 
         g.setGradientFill(grad);
         g.fillRoundedRectangle(fillRect, 3.0f);
     }
 
-    // Floating Peak-Hold line
+    // Floating Peak-Hold line (2px thickness)
     if (peakHoldNorm > 0.03f)
     {
         float peakY = barRect.getBottom() - std::clamp(peakHoldNorm, 0.0f, 1.0f) * barRect.getHeight();
-        juce::Colour peakCol = peakHoldNorm >= 0.98f ? SoundIdTheme::accentRed
-                             : (peakHoldNorm >= 0.90f ? SoundIdTheme::accentAmber : juce::Colours::white);
+        juce::Colour peakCol = peakHoldNorm >= 0.95f ? SoundIdTheme::accentRed
+                             : (peakHoldNorm >= 0.80f ? SoundIdTheme::accentAmber : juce::Colours::white);
 
-        // Thin glow backing
-        g.setColour(juce::Colours::black.withAlpha(0.25f));
-        g.drawHorizontalLine(static_cast<int>(peakY + 1.0f), barRect.getX() - 1.0f, barRect.getRight() + 1.0f);
+        // 2px floating peak bar with subtle shadow
+        g.setColour(juce::Colours::black.withAlpha(0.35f));
+        g.fillRect(barRect.getX() - 1.0f, peakY, barRect.getWidth() + 2.0f, 2.0f);
 
         g.setColour(peakCol);
-        g.drawHorizontalLine(static_cast<int>(peakY), barRect.getX() - 1.0f, barRect.getRight() + 1.0f);
+        g.fillRect(barRect.getX(), peakY - 1.0f, barRect.getWidth(), 2.0f);
     }
 }
 

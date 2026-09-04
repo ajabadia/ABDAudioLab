@@ -43,7 +43,6 @@ public:
 
     std::function<void()> onChangeExportFolderClicked;
     std::function<void()> onOpenAudioSettingsClicked;
-    std::function<void()> onAboutClicked;
 
     void timerCallback() override;
     void paint(juce::Graphics& g) override;
@@ -73,7 +72,6 @@ private:
     juce::TextButton btnClose { juce::String::fromUTF8(u8"✕") };
     juce::TextButton btnChangeFolder { "Change Export Destination..." };
     juce::TextButton btnOpenAudioSetup { "Open Audio & MIDI Setup..." };
-    juce::TextButton btnAbout { "About ABDAudioLab..." };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(InfoDrawer)
 };

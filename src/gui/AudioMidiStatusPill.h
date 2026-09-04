@@ -123,10 +123,10 @@ public:
             float ledX = b.getX() + 2.0f;
             float ledY = b.getCentreY() - ledDiameter * 0.5f;
 
-            juce::Colour ledCol = isConfigured ? juce::Colour(0xff10b981) : juce::Colour(0xffef4444);
+            juce::Colour ledCol = isConfigured ? SoundIdTheme::accentGreen : SoundIdTheme::accentRed;
 
             // Subtle outer glow ring
-            g.setColour(ledCol.withAlpha(0.25f));
+            g.setColour(ledCol.withAlpha(0.20f));
             g.fillEllipse(ledX - 1.5f, ledY - 1.5f, ledDiameter + 3.0f, ledDiameter + 3.0f);
 
             // Core LED
@@ -135,12 +135,12 @@ public:
 
             // Specular highlight on LED
             g.setColour(juce::Colours::white.withAlpha(0.6f));
-            g.fillEllipse(ledX + 1.2f, ledY + 1.2f, 2.0f, 2.0f);
+            g.fillEllipse(ledX + 1.2f, ledY + 1.2f, 1.8f, 1.8f);
 
             // Label text
             auto textRect = b.withTrimmedLeft(ledX + ledDiameter + 3.0f);
-            g.setColour(isConfigured ? SoundIdTheme::textPrimary : SoundIdTheme::textMuted);
-            g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+            g.setColour(isConfigured ? SoundIdTheme::textPrimary : SoundIdTheme::textSecondary);
+            g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
             g.drawText(label, textRect, juce::Justification::centredLeft, true);
         }
 
@@ -251,10 +251,10 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
-        float radius = 8.0f;
+        float radius = bounds.getHeight() * 0.5f;
 
-        // Card background
-        g.setColour(SoundIdTheme::bgCard);
+        // Card background (SurfaceSubtle)
+        g.setColour(SoundIdTheme::bgCardHover);
         g.fillRoundedRectangle(bounds, radius);
 
         // Border
@@ -262,7 +262,7 @@ public:
         g.drawRoundedRectangle(bounds.reduced(0.5f), radius, 1.0f);
 
         // Vertical divider after gear button
-        float divX = btnGear.getRight() + 3.0f;
+        float divX = btnGear.getRight() + 4.0f;
         g.setColour(SoundIdTheme::borderSubtle);
         g.drawLine(divX, bounds.getY() + 7.0f, divX, bounds.getBottom() - 7.0f, 1.0f);
     }

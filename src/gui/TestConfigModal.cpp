@@ -8,13 +8,13 @@ TestConfigModal::TestConfigModal()
     setWantsKeyboardFocus(true);
 
     lblTitle.setText("TEST CONFIGURATION & MATRIX RESOLUTION", juce::dontSendNotification);
-    lblTitle.setFont(juce::FontOptions(13.0f, juce::Font::bold));
-    lblTitle.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
+    lblTitle.setFont(AppTheme::fontBold(12.0f));
+    lblTitle.setColour(juce::Label::textColourId, AppTheme::TextPrimary);
     panel.addAndMakeVisible(lblTitle);
 
     btnClose.setTooltip("Close configuration dialog");
     btnClose.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnClose.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    btnClose.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
     btnClose.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnClose);
 
@@ -23,13 +23,13 @@ TestConfigModal::TestConfigModal()
     panel.addAndMakeVisible(editorViewport);
 
     btnCancel.setTooltip("Cancel - Discard parameter changes and close");
-    btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
-    btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnCancel.setColour(juce::TextButton::buttonColourId, AppTheme::SurfaceCard);
+    btnCancel.setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
     btnCancel.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnCancel);
 
     btnApply.setTooltip("Apply & Save - Update test plan with modified parameters and sweep resolution");
-    btnApply.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnApply.setColour(juce::TextButton::buttonColourId, AppTheme::AccentActive);
     btnApply.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnApply.onClick = [this] {
         if (onConfigurationConfirmed)
@@ -66,8 +66,8 @@ void TestConfigModal::dismissDialog()
 juce::Rectangle<float> TestConfigModal::getPanelBounds() const
 {
     auto bounds = getLocalBounds().toFloat();
-    float w = std::min(800.0f, bounds.getWidth() * 0.94f);
-    float h = std::min(700.0f, bounds.getHeight() * 0.94f);
+    float w = std::min(680.0f, bounds.getWidth() * 0.94f);
+    float h = std::min(640.0f, bounds.getHeight() * 0.94f);
     return bounds.withSizeKeepingCentre(w, h);
 }
 
@@ -75,13 +75,13 @@ void TestConfigModal::paint(juce::Graphics& g)
 {
     if (!isVisible()) return;
 
-    g.fillAll(juce::Colours::black.withAlpha(0.6f));
+    g.fillAll(juce::Colours::black.withAlpha(0.60f));
 
     auto card = getPanelBounds();
-    g.setColour(SoundIdTheme::bgCard);
-    g.fillRoundedRectangle(card, 12.0f);
-    g.setColour(SoundIdTheme::borderCard);
-    g.drawRoundedRectangle(card, 12.0f, 1.5f);
+    g.setColour(AppTheme::SurfaceCard);
+    g.fillRoundedRectangle(card, AppTheme::CardCornerRadius);
+    g.setColour(AppTheme::BorderSubtle);
+    g.drawRoundedRectangle(card, AppTheme::CardCornerRadius, 1.5f);
 }
 
 void TestConfigModal::resized()
@@ -91,18 +91,18 @@ void TestConfigModal::resized()
 
     auto pBounds = panel.getLocalBounds();
 
-    auto header = pBounds.removeFromTop(44).reduced(16, 10);
-    btnClose.setBounds(header.removeFromRight(24));
+    auto header = pBounds.removeFromTop(44).reduced(16, 8);
+    btnClose.setBounds(header.removeFromRight(24).withSizeKeepingCentre(24, 24));
     lblTitle.setBounds(header);
 
-    auto bottomBar = pBounds.removeFromBottom(52).reduced(16, 10);
-    btnApply.setBounds(bottomBar.removeFromRight(160));
+    auto bottomBar = pBounds.removeFromBottom(56).reduced(16, 8);
+    btnApply.setBounds(bottomBar.removeFromRight(180).withHeight(38));
     bottomBar.removeFromRight(10);
-    btnCancel.setBounds(bottomBar.removeFromRight(100));
+    btnCancel.setBounds(bottomBar.removeFromRight(100).withHeight(34));
 
-    editorViewport.setBounds(pBounds.reduced(16, 8));
+    editorViewport.setBounds(pBounds.reduced(16, 4));
 
-    int contentW = editorViewport.getWidth() - (editorViewport.isVerticalScrollBarShown() ? 16 : 0);
+    int contentW = editorViewport.getWidth() - (editorViewport.isVerticalScrollBarShown() ? 10 : 0);
     editorPanel.setSize(contentW, std::max(editorViewport.getHeight(), editorPanel.getPreferredHeight()));
 }
 

@@ -1,91 +1,98 @@
 #pragma once
 
+#include "AppTheme.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace abdaudiolab::gui
 {
 
 /**
- * @brief Sonarworks SoundID Reference inspired Light LookAndFeel theme.
+ * @brief Sonarworks SoundID Reference inspired Light LookAndFeel theme ("Técnica Refinada").
  * 
- * Clean, high-contrast, modern Scandinavian design language.
+ * Clean, high-contrast, modern Scandinavian design language using AppTheme tokens.
  */
 class SoundIdTheme : public juce::LookAndFeel_V4
 {
 public:
-    // Color Palette
-    static inline const juce::Colour bgLight          { 0xfff5f5f7 }; // Clean Nordic light background (Apple style)
-    static inline const juce::Colour bgCard           { 0xfff3f4f6 };
-    static inline const juce::Colour bgCardHover      { 0xffe5e7eb };
-    static inline const juce::Colour borderSubtle     { 0xffe5e7eb };
-    static inline const juce::Colour borderCard       { 0xffd1d5db };
+    // Aliases to AppTheme for backward compatibility and direct convenience
+    static inline const juce::Colour bgLight          = AppTheme::BackgroundApp;
+    static inline const juce::Colour bgCard           = AppTheme::SurfaceCard;
+    static inline const juce::Colour bgCardHover      = AppTheme::SurfaceHover;
+    static inline const juce::Colour borderSubtle     = AppTheme::BorderSubtle;
+    static inline const juce::Colour borderCard       = AppTheme::BorderCard;
     
-    static inline const juce::Colour textPrimary      { 0xff111827 };
-    static inline const juce::Colour textSecondary    { 0xff4b5563 };
-    static inline const juce::Colour textMuted        { 0xff6b7280 };
+    static inline const juce::Colour textPrimary      = AppTheme::TextPrimary;
+    static inline const juce::Colour textSecondary    = AppTheme::TextSecondary;
+    static inline const juce::Colour textMuted        = AppTheme::TextMuted;
 
-    static inline const juce::Colour accentGreen      { 0xff1db954 }; // Spotify / Pro-Audio emerald green
+    static inline const juce::Colour accentGreen      = AppTheme::AccentActive; // Emerald #00A86B
     static inline const juce::Colour accentPurple     { 0xff8b5cf6 };
     static inline const juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
-    static inline const juce::Colour accentAmber      { 0xfff5a623 }; // Technical amber for warnings & THD%
-    static inline const juce::Colour accentRed        { 0xffd0021b }; // High-contrast warning/critical red
+    static inline const juce::Colour accentAmber      = AppTheme::AccentWarning; // Technical amber #E65100
+    static inline const juce::Colour accentRed        = AppTheme::AccentError;   // High-contrast warning/critical #D32F2F
 
-    static inline const juce::Colour pillBlackBg      { 0xff111827 };
-    static inline const juce::Colour pillWhiteBg      { 0xffffffff };
+    static inline const juce::Colour pillBlackBg      = AppTheme::PillBlackBg;
+    static inline const juce::Colour pillWhiteBg      = AppTheme::PillWhiteBg;
 
     SoundIdTheme()
     {
-        setColour(juce::ResizableWindow::backgroundColourId, bgLight);
-        setColour(juce::DocumentWindow::backgroundColourId, bgLight);
-        setColour(juce::DialogWindow::backgroundColourId, bgLight);
-        setColour(juce::AlertWindow::backgroundColourId, pillWhiteBg);
-        setColour(juce::AlertWindow::textColourId, textPrimary);
-        setColour(juce::AlertWindow::outlineColourId, borderCard);
+        setColour(juce::ResizableWindow::backgroundColourId, AppTheme::BackgroundApp);
+        setColour(juce::DocumentWindow::backgroundColourId, AppTheme::BackgroundApp);
+        setColour(juce::DialogWindow::backgroundColourId, AppTheme::BackgroundApp);
+        setColour(juce::AlertWindow::backgroundColourId, AppTheme::SurfaceCard);
+        setColour(juce::AlertWindow::textColourId, AppTheme::TextPrimary);
+        setColour(juce::AlertWindow::outlineColourId, AppTheme::BorderCard);
 
-        setColour(juce::Label::textColourId, textPrimary);
-        setColour(juce::TextButton::textColourOffId, textPrimary);
-        setColour(juce::TextButton::textColourOnId, textPrimary);
-        setColour(juce::TextButton::buttonColourId, pillWhiteBg);
+        setColour(juce::Label::textColourId, AppTheme::TextPrimary);
+        setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
+        setColour(juce::TextButton::textColourOnId, AppTheme::TextPrimary);
+        setColour(juce::TextButton::buttonColourId, AppTheme::SurfaceCard);
+        setColour(juce::TextButton::buttonOnColourId, AppTheme::AccentActive);
         
-        setColour(juce::ToggleButton::textColourId, textPrimary);
-        setColour(juce::ToggleButton::tickColourId, accentGreen);
+        setColour(juce::ToggleButton::textColourId, AppTheme::TextPrimary);
+        setColour(juce::ToggleButton::tickColourId, AppTheme::AccentActive);
 
-        setColour(juce::ListBox::backgroundColourId, pillWhiteBg);
-        setColour(juce::ListBox::outlineColourId, borderSubtle);
-        setColour(juce::ListBox::textColourId, textPrimary);
-        setColour(juce::PropertyComponent::labelTextColourId, textPrimary);
+        setColour(juce::ListBox::backgroundColourId, AppTheme::SurfaceCard);
+        setColour(juce::ListBox::outlineColourId, AppTheme::BorderSubtle);
+        setColour(juce::ListBox::textColourId, AppTheme::TextPrimary);
+        setColour(juce::PropertyComponent::labelTextColourId, AppTheme::TextPrimary);
 
-        setColour(juce::ComboBox::backgroundColourId, pillWhiteBg);
-        setColour(juce::ComboBox::textColourId, textPrimary);
-        setColour(juce::ComboBox::outlineColourId, borderCard);
-        setColour(juce::ComboBox::arrowColourId, textSecondary);
+        setColour(juce::ComboBox::backgroundColourId, AppTheme::SurfaceCard);
+        setColour(juce::ComboBox::textColourId, AppTheme::TextPrimary);
+        setColour(juce::ComboBox::outlineColourId, AppTheme::BorderSubtle);
+        setColour(juce::ComboBox::arrowColourId, AppTheme::TextSecondary);
 
-        setColour(juce::PopupMenu::backgroundColourId, pillWhiteBg);
-        setColour(juce::PopupMenu::textColourId, textPrimary);
-        setColour(juce::PopupMenu::headerTextColourId, textSecondary);
-        setColour(juce::PopupMenu::highlightedBackgroundColourId, bgCardHover);
-        setColour(juce::PopupMenu::highlightedTextColourId, textPrimary);
+        setColour(juce::PopupMenu::backgroundColourId, AppTheme::SurfaceCard);
+        setColour(juce::PopupMenu::textColourId, AppTheme::TextPrimary);
+        setColour(juce::PopupMenu::headerTextColourId, AppTheme::TextSecondary);
+        setColour(juce::PopupMenu::highlightedBackgroundColourId, AppTheme::SurfaceSubtle);
+        setColour(juce::PopupMenu::highlightedTextColourId, AppTheme::TextPrimary);
 
-        setColour(juce::ProgressBar::backgroundColourId, bgCard);
-        setColour(juce::ProgressBar::foregroundColourId, accentGreen);
+        setColour(juce::ProgressBar::backgroundColourId, AppTheme::BorderSubtle);
+        setColour(juce::ProgressBar::foregroundColourId, AppTheme::AccentActive);
 
-        setColour(juce::TooltipWindow::backgroundColourId, pillBlackBg);
+        setColour(juce::TooltipWindow::backgroundColourId, AppTheme::PillBlackBg);
         setColour(juce::TooltipWindow::textColourId, juce::Colours::white);
-        setColour(juce::TooltipWindow::outlineColourId, borderCard);
+        setColour(juce::TooltipWindow::outlineColourId, AppTheme::BorderSubtle);
 
         // TextEditor colours (Sonarworks Nordic Light style: off-white background, dark text, subtle border)
-        setColour(juce::TextEditor::backgroundColourId, pillWhiteBg);
-        setColour(juce::TextEditor::textColourId, textPrimary);
-        setColour(juce::TextEditor::highlightColourId, accentPurpleFill);
-        setColour(juce::TextEditor::highlightedTextColourId, textPrimary);
-        setColour(juce::TextEditor::outlineColourId, borderCard);
-        setColour(juce::TextEditor::focusedOutlineColourId, accentGreen);
+        setColour(juce::TextEditor::backgroundColourId, AppTheme::SurfaceCard);
+        setColour(juce::TextEditor::textColourId, AppTheme::TextPrimary);
+        setColour(juce::TextEditor::highlightColourId, AppTheme::AccentActive.withAlpha(0.20f));
+        setColour(juce::TextEditor::highlightedTextColourId, AppTheme::TextPrimary);
+        setColour(juce::TextEditor::outlineColourId, AppTheme::BorderSubtle);
+        setColour(juce::TextEditor::focusedOutlineColourId, AppTheme::AccentActive);
         setColour(juce::TextEditor::shadowColourId, juce::Colours::transparentBlack);
 
         // Slider colours
-        setColour(juce::Slider::trackColourId, bgCardHover);
-        setColour(juce::Slider::thumbColourId, pillWhiteBg);
-        setColour(juce::Slider::backgroundColourId, bgCard);
+        setColour(juce::Slider::trackColourId, AppTheme::SurfaceSubtle);
+        setColour(juce::Slider::thumbColourId, AppTheme::SurfaceCard);
+        setColour(juce::Slider::backgroundColourId, AppTheme::BackgroundApp);
+    }
+
+    int getDefaultScrollbarWidth() override
+    {
+        return 6;
     }
 
     juce::Font getTextButtonFont(juce::TextButton& /*button*/, int buttonHeight) override
@@ -96,11 +103,11 @@ public:
     juce::Font getLabelFont(juce::Label& label) override
     {
         if (label.getName() == "MainTitle")
-            return juce::FontOptions("Inter", 20.0f, juce::Font::bold);
+            return juce::FontOptions("Inter", 22.0f, juce::Font::bold);
         if (label.getName() == "SectionHeader")
             return juce::FontOptions("Inter", 14.5f, juce::Font::bold);
         if (label.getName() == "TechnicalData")
-            return juce::FontOptions("Consolas", 12.0f, juce::Font::plain);
+            return juce::FontOptions("Roboto Mono", 12.0f, juce::Font::plain);
         return juce::FontOptions("Inter", 12.5f, juce::Font::plain);
     }
 
@@ -111,68 +118,56 @@ public:
     {
         juce::ignoreUnused(backgroundColour);
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
-        float cornerSize = std::clamp(bounds.getHeight() * 0.35f, 6.0f, 10.0f); // Sleek rounded radius (not squarish, not overly capsule)
 
         auto baseColour = button.findColour(juce::TextButton::buttonColourId);
 
         // 1. Completely Borderless / Icon Button Mode
         if (baseColour.isTransparent() || baseColour == juce::Colours::transparentBlack || baseColour == juce::Colours::transparentWhite)
         {
+            float r = std::clamp(bounds.getHeight() * 0.35f, 4.0f, 8.0f);
             if (shouldDrawButtonAsDown)
             {
-                g.setColour(bgCardHover.darker(0.15f));
-                g.fillRoundedRectangle(bounds, cornerSize);
+                g.setColour(AppTheme::SurfaceHover.darker(0.10f));
+                g.fillRoundedRectangle(bounds, r);
             }
             else if (shouldDrawButtonAsHighlighted)
             {
-                g.setColour(bgCardHover.withAlpha(0.65f));
-                g.fillRoundedRectangle(bounds, cornerSize);
+                g.setColour(AppTheme::SurfaceHover);
+                g.fillRoundedRectangle(bounds, r);
             }
             return;
         }
 
-        // 2. Standard White / Neutral Button
-        if (baseColour == pillWhiteBg || baseColour == juce::Colours::white || baseColour == bgCard)
+        // Hero Pill vs Standard Action Button
+        bool isPill = (button.getHeight() <= 40 && button.getWidth() > button.getHeight() * 1.8f) ||
+                      (button.getComponentID().containsIgnoreCase("pill") || button.getComponentID().containsIgnoreCase("run"));
+        float cornerSize = isPill ? (bounds.getHeight() * 0.5f) : AppTheme::cornerControl;
+
+        // 2. Standard White / Neutral Card Button
+        if (baseColour == AppTheme::SurfaceCard || baseColour == juce::Colours::white)
         {
-            juce::Colour fillCol = shouldDrawButtonAsDown ? bgCardHover.darker(0.12f)
-                                 : (shouldDrawButtonAsHighlighted ? bgCardHover : baseColour);
+            juce::Colour fillCol = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
+                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : AppTheme::SurfaceCard);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
-            // Subtle top highlight sheen
-            g.setColour(juce::Colours::white.withAlpha(0.6f));
-            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
-
-            g.setColour(borderCard.withAlpha(0.6f));
+            g.setColour(AppTheme::BorderSubtle);
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
-        else if (baseColour == pillBlackBg)
+        else if (baseColour == AppTheme::PillBlackBg)
         {
             juce::Colour fillCol = shouldDrawButtonAsDown ? juce::Colour(0xff030712)
-                                 : (shouldDrawButtonAsHighlighted ? juce::Colour(0xff1f2937) : pillBlackBg);
+                                 : (shouldDrawButtonAsHighlighted ? juce::Colour(0xff2d3748) : AppTheme::PillBlackBg);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
-
-            g.setColour(juce::Colours::white.withAlpha(0.12f));
-            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
-
-            g.setColour(juce::Colours::black.withAlpha(0.4f));
-            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else
         {
-            // 3. Custom Accent Color Button (e.g. accentGreen, accentRed, accentAmber)
-            juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.20f)
-                                 : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.10f) : baseColour);
+            // 3. Custom Accent Color Button (e.g. AccentActive, AccentWarning, AccentError)
+            juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.12f)
+                                 : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.06f) : baseColour);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
-
-            // Subtle top highlight sheen
-            g.setColour(juce::Colours::white.withAlpha(0.28f));
-            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
-
-            g.setColour(baseColour.darker(0.25f).withAlpha(0.4f));
-            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
     }
 
@@ -181,22 +176,23 @@ public:
                       juce::ComboBox& box) override
     {
         auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height)).reduced(0.5f);
-        g.setColour(pillWhiteBg);
-        g.fillRoundedRectangle(bounds, 6.0f);
+        g.setColour(AppTheme::SurfaceCard);
+        g.fillRoundedRectangle(bounds, AppTheme::cornerControl);
 
-        g.setColour(box.hasKeyboardFocus(true) ? accentGreen : borderCard);
-        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        g.setColour(box.hasKeyboardFocus(true) ? AppTheme::AccentActive : AppTheme::BorderSubtle);
+        g.drawRoundedRectangle(bounds, AppTheme::cornerControl, 1.0f);
 
         auto arrowArea = bounds.removeFromRight(24.0f);
         juce::Path arrow;
         float cx = arrowArea.getCentreX();
         float cy = arrowArea.getCentreY();
-        arrow.startNewSubPath(cx - 4.0f, cy - 2.0f);
+        arrow.startNewSubPath(cx - 3.5f, cy - 2.0f);
         arrow.lineTo(cx, cy + 2.5f);
-        arrow.lineTo(cx + 4.0f, cy - 2.0f);
+        arrow.lineTo(cx + 3.5f, cy - 2.0f);
+        arrow.closeSubPath();
 
-        g.setColour(textSecondary);
-        g.strokePath(arrow, juce::PathStrokeType(1.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour(AppTheme::TextSecondary);
+        g.fillPath(arrow);
     }
 
     void drawTextEditorOutline(juce::Graphics& g, int width, int height, juce::TextEditor& textEditor) override
@@ -204,8 +200,41 @@ public:
         if (textEditor.isEnabled())
         {
             auto bounds = juce::Rectangle<float>(0, 0, static_cast<float>(width), static_cast<float>(height)).reduced(0.5f);
-            g.setColour(textEditor.hasKeyboardFocus(true) ? accentGreen : borderCard);
-            g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+            g.setColour(textEditor.hasKeyboardFocus(true) ? AppTheme::AccentActive : AppTheme::BorderSubtle);
+            g.drawRoundedRectangle(bounds, AppTheme::cornerControl, 1.0f);
+        }
+    }
+
+    void drawScrollbar(juce::Graphics& g, juce::ScrollBar& scrollbar,
+                       int x, int y, int width, int height,
+                       bool isScrollbarVertical,
+                       int thumbStartPosition, int thumbSize,
+                       bool isMouseOver, bool isMouseDown) override
+    {
+        juce::ignoreUnused(scrollbar);
+        if (thumbSize <= 0) return;
+
+        auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat();
+        float thumbAlpha = isMouseDown ? 0.65f : (isMouseOver ? 0.45f : 0.28f);
+        juce::Colour thumbCol = AppTheme::TextSecondary.withAlpha(thumbAlpha);
+
+        if (isScrollbarVertical)
+        {
+            float tw = bounds.getWidth() - 2.0f;
+            float tx = bounds.getX() + 1.0f;
+            float ty = static_cast<float>(thumbStartPosition);
+            float th = static_cast<float>(thumbSize);
+            g.setColour(thumbCol);
+            g.fillRoundedRectangle(tx, ty, tw, th, tw * 0.5f);
+        }
+        else
+        {
+            float th = bounds.getHeight() - 2.0f;
+            float ty = bounds.getY() + 1.0f;
+            float tx = static_cast<float>(thumbStartPosition);
+            float tw = static_cast<float>(thumbSize);
+            g.setColour(thumbCol);
+            g.fillRoundedRectangle(tx, ty, tw, th, th * 0.5f);
         }
     }
 
@@ -216,26 +245,26 @@ public:
         auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
                                              static_cast<float>(width), static_cast<float>(height));
 
-        float trackWidth = 4.0f;
+        float trackWidth = 3.0f;
         float trackX = bounds.getCentreX() - trackWidth * 0.5f;
 
-        // Groove Track
-        g.setColour(bgCardHover);
-        g.fillRoundedRectangle(trackX, bounds.getY(), trackWidth, bounds.getHeight(), 2.0f);
+        // Track
+        g.setColour(AppTheme::SurfaceSubtle);
+        g.fillRoundedRectangle(trackX, bounds.getY(), trackWidth, bounds.getHeight(), 1.5f);
 
         // Thumb
-        float thumbDiameter = 16.0f;
+        float thumbDiameter = 14.0f;
         float thumbX = bounds.getCentreX() - thumbDiameter * 0.5f;
         float thumbY = sliderPos - thumbDiameter * 0.5f;
 
-        g.setColour(borderCard);
+        g.setColour(AppTheme::BorderCard);
         g.fillEllipse(thumbX - 1.0f, thumbY - 1.0f, thumbDiameter + 2.0f, thumbDiameter + 2.0f);
 
-        g.setColour(pillWhiteBg);
+        g.setColour(AppTheme::SurfaceCard);
         g.fillEllipse(thumbX, thumbY, thumbDiameter, thumbDiameter);
 
-        g.setColour(textSecondary);
-        g.fillEllipse(thumbX + 5.0f, thumbY + 5.0f, 6.0f, 6.0f);
+        g.setColour(AppTheme::AccentActive);
+        g.fillEllipse(thumbX + 4.5f, thumbY + 4.5f, 5.0f, 5.0f);
     }
 
     void drawAlertBox(juce::Graphics& g,
@@ -245,13 +274,42 @@ public:
     {
         auto b = bounds.toFloat();
 
-        g.setColour(pillWhiteBg);
-        g.fillRoundedRectangle(b, 12.0f);
+        g.setColour(AppTheme::SurfaceCard);
+        g.fillRoundedRectangle(b, AppTheme::cornerModal);
 
-        g.setColour(borderCard);
-        g.drawRoundedRectangle(b.reduced(0.5f), 12.0f, 1.2f);
+        g.setColour(AppTheme::BorderSubtle);
+        g.drawRoundedRectangle(b.reduced(0.5f), AppTheme::cornerModal, 1.0f);
 
         textLayout.draw(g, alert.getLocalBounds().toFloat());
+    }
+
+    void drawTableHeaderBackground(juce::Graphics& g, juce::TableHeaderComponent& header) override
+    {
+        auto b = header.getLocalBounds().toFloat();
+        g.setColour(AppTheme::SurfaceSubtle);
+        g.fillRect(b);
+        g.setColour(AppTheme::BorderSubtle);
+        g.drawHorizontalLine(header.getHeight() - 1, 0.0f, static_cast<float>(header.getWidth()));
+    }
+
+    void drawTableHeaderColumn(juce::Graphics& g, juce::TableHeaderComponent& /*header*/,
+                               const juce::String& columnName, int /*columnId*/,
+                               int width, int height, bool isMouseOver, bool /*isMouseDown*/,
+                               int /*columnFlags*/) override
+    {
+        auto b = juce::Rectangle<float>(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+        if (isMouseOver)
+        {
+            g.setColour(AppTheme::SurfaceHover.withAlpha(0.5f));
+            g.fillRect(b);
+        }
+
+        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
+        g.setColour(AppTheme::TextSecondary);
+        g.drawText(columnName, b.reduced(6.0f, 0.0f), juce::Justification::centredLeft, true);
+
+        g.setColour(AppTheme::BorderSubtle);
+        g.drawVerticalLine(width - 1, 4.0f, static_cast<float>(height - 4));
     }
 };
 

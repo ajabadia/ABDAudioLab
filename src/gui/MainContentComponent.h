@@ -291,11 +291,11 @@ public:
         drawer.setHardwareLocked(true);
 
         // Header Action Buttons
-        btnFileMenu.setButtonText("File");
-        btnFileMenu.setTooltip("File Menu - Manage profiling sessions, export LUTs, C++ headers, JSON benchmarks, and calibration data.");
+        btnFileMenu.setButtonText("File \u25be");
+        btnFileMenu.setTooltip("Session Management & File Operations (New, Open, Save, Export, Exit)");
         btnFileMenu.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnFileMenu.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
-        btnFileMenu.onClick = [this] { drawer.openFileDrawer(exportDirectory.getFullPathName()); };
+        btnFileMenu.onClick = [this] { showFilePopupMenu(); };
         addAndMakeVisible(btnFileMenu);
 
         btnScope.setButtonText("Scope");
@@ -310,8 +310,8 @@ public:
         audioMidiStatusPill.updateStatus(audioEngine);
         addAndMakeVisible(audioMidiStatusPill);
 
-        btnCalibratePill.setButtonText("Line Calibration: -3.0 dBFS");
-        btnCalibratePill.setTooltip("Line Calibration - Calibrate audio interface loopback (DAC->ADC) latency and flat frequency compensation.");
+        btnCalibratePill.setButtonText("CALIBRATION: -3.0 dBFS");
+        btnCalibratePill.setTooltip("Sound Card Line Loopback Calibration - Calibrate DAC->ADC loopback latency and flat frequency compensation.");
         btnCalibratePill.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
         btnCalibratePill.onClick = [this] { loopbackModal.showDialog(this); };
@@ -671,7 +671,7 @@ public:
             openAudioMidiSettings();
         };
         drawer.onAboutClicked = [this] {
-            showAboutDialog();
+            showInfoDrawer();
         };
         drawer.onNewSessionClicked = [this] {
             promptNewSession();
@@ -1082,6 +1082,41 @@ public:
     }
 
 private:
+    void showFilePopupMenu()
+    {
+        juce::PopupMenu menu;
+        menu.addItem(1, "New Session\tCtrl+N");
+        menu.addItem(2, "Open Session...\tCtrl+O");
+        menu.addItem(3, "Save Session\tCtrl+S");
+        menu.addItem(4, "Save Session As...\tCtrl+Shift+S");
+        menu.addSeparator();
+        menu.addItem(5, "Export Certification Report (PDF/HTML)...");
+        menu.addItem(6, "Open Export Folder");
+        menu.addSeparator();
+        menu.addItem(7, "Exit ABDAudioLab");
+
+        juce::Component::SafePointer<MainContentComponent> safeThis(this);
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&btnFileMenu),
+                           [safeThis](int result) {
+            if (safeThis == nullptr || result == 0) return;
+            switch (result)
+            {
+                case 1: safeThis->promptNewSession(); break;
+                case 2: safeThis->handleOpenSession(); break;
+                case 3: safeThis->handleSaveSession(); break;
+                case 4: safeThis->handleSaveSessionAs(); break;
+                case 5: safeThis->exportCertificationReport(); break;
+                case 6:
+                    if (!safeThis->exportDirectory.exists())
+                        safeThis->exportDirectory.createDirectory();
+                    safeThis->exportDirectory.revealToUser();
+                    break;
+                case 7: safeThis->confirmAndExit(); break;
+                default: break;
+            }
+        });
+    }
+
     void toggleScopeWebWindow()
     {
         if (scopeWebWindow == nullptr)

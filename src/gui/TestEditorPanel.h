@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "AppTheme.h"
 #include "SoundIdTheme.h"
 #include "ControlIcon.h"
 #include "TestConfiguration.h"
@@ -22,8 +23,10 @@ namespace abdaudiolab::gui
 /**
  * @class TestEditorPanel
  * @brief Reusable component for test parameter editing shared between SlideInDrawer and TestConfigModal.
+ * Adheres to Sonarworks SoundID Reference Nordic Light precision aesthetic.
  */
-class TestEditorPanel : public juce::Component
+class TestEditorPanel : public juce::Component,
+                        public juce::TableListBoxModel
 {
 public:
     TestEditorPanel();
@@ -38,15 +41,22 @@ public:
     std::function<void(int presetIndex)> onPresetSelected;
     std::function<void()> onConfigChanged;
 
+    void paint(juce::Graphics& g) override;
     void resized() override;
     int getPreferredHeight() const;
 
+    // juce::TableListBoxModel methods
+    int getNumRows() override;
+    void paintRowBackground(juce::Graphics& g, int rowNumber, int width, int height, bool rowIsSelected) override;
+    void paintCell(juce::Graphics& g, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
+    juce::Component* refreshComponentForCell(int rowNumber, int columnId, bool isRowSelected, juce::Component* existingComponentToUpdate) override;
+
 private:
-    void rebuildControlRows();
     void updateEstimatedTime();
 
     TestConfiguration currentConfig;
 
+    // Section 1: Presets & Test Name
     juce::Label lblPresetSelector;
     juce::ComboBox comboPresets;
 
@@ -57,6 +67,7 @@ private:
     juce::ComboBox comboStimulusType;
     juce::Label lblStimulusDesc;
 
+    // Section 2: Duration & Capture Mode
     juce::Label lblDurationSection;
     juce::ComboBox comboDurationPreset;
     juce::Label lblManualDuration;
@@ -64,28 +75,34 @@ private:
     juce::Label lblSecondsUnit;
     juce::ToggleButton btnAdaptiveTail;
 
+    // Section 3: Matrix Resolution
     juce::Label lblMatrixSection;
-    juce::Label lblHeaderParam;
-    juce::Label lblHeaderResolution;
-    juce::Label lblHeaderCustom;
-    juce::Label lblHeaderMin;
-    juce::Label lblHeaderMax;
-    juce::Label lblHeaderOrder;
+    juce::TableListBox matrixTable;
 
-    struct RowWidgets
+    // Section 4: Estimation Summary Card
+    class EstimationCardComponent : public juce::Component
     {
-        std::unique_ptr<ControlIconComponent> icon;
-        std::unique_ptr<juce::Label> label;
-        std::unique_ptr<juce::TextButton> btnUp;
-        std::unique_ptr<juce::TextButton> btnDown;
-        std::unique_ptr<juce::ComboBox> combo;
-        std::unique_ptr<juce::TextEditor> txtCustomSteps;
-        std::unique_ptr<juce::TextEditor> txtMinPct;
-        std::unique_ptr<juce::TextEditor> txtMaxPct;
+    public:
+        EstimationCardComponent();
+        void paint(juce::Graphics& g) override;
+        void setEstimation(int totalPoints, float totalSeconds);
+    private:
+        int points { 0 };
+        float seconds { 0.0f };
     };
-    std::vector<RowWidgets> rowWidgets;
+    EstimationCardComponent estimationCard;
 
-    juce::Label lblTestSummary;
+    // Helper inner component for row order buttons
+    class OrderButtonsComponent : public juce::Component
+    {
+    public:
+        OrderButtonsComponent();
+        void resized() override;
+        juce::TextButton btnUp { juce::String::fromUTF8(u8"▲") };
+        juce::TextButton btnDown { juce::String::fromUTF8(u8"▼") };
+    };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TestEditorPanel)
 };
 
 } // namespace abdaudiolab::gui

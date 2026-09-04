@@ -150,7 +150,8 @@ class HardwarePickerWindow : public juce::DocumentWindow
 public:
     HardwarePickerWindow(abd::hwid::MidiHardwareBackend& backend,
                          const std::vector<abd::hwid::HardwareContract>& contracts,
-                         std::function<void(const abd::hwid::HardwarePickResult&)> onResult)
+                         std::function<void(const abd::hwid::HardwarePickResult&)> onResult,
+                         const abd::hwid::HardwareMidiDetector::DetectionConfig& config = {})
         : DocumentWindow("Hardware MIDI Auto-Detection (ABDSharedCode)",
                          juce::Colour(0xff12141c),
                          DocumentWindow::closeButton)
@@ -166,8 +167,12 @@ public:
                     onResult(res);
                 setVisible(false);
             },
-            contracts
+            contracts,
+            config
         );
+
+        // Apply theme so WebUI uses correct colors and scrollbars
+        picker->setTheme("audiolab");
 
         setContentOwned(picker, true);
         centreWithSize(640, 520);
@@ -469,6 +474,14 @@ SlideInDrawer::SlideInDrawer()
         if (midiBackend == nullptr)
             midiBackend = std::make_unique<LabMidiHardwareBackend>();
 
+        // Configure detection for ABDAudioLab: allow all contracts, single selection, auto-select
+        abd::hwid::HardwareMidiDetector::DetectionConfig detectionConfig;
+        detectionConfig.allowedHardwareIds = {};  // empty = all contracts from shared registry
+        detectionConfig.maxResults = 1;           // single selection
+        detectionConfig.autoSelectIfSingle = true;
+        detectionConfig.includeHeuristic = true;
+        detectionConfig.requireSysExVerified = false;
+
         pickerWindow = std::make_unique<HardwarePickerWindow>(
             *midiBackend,
             sharedContracts,
@@ -491,7 +504,8 @@ SlideInDrawer::SlideInDrawer()
                 {
                     btnAutoDetect.setButtonText("Auto-Detect Device (MIDI / USB)");
                 }
-            }
+            },
+            detectionConfig
         );
     };
     contentComp.addChildComponent(btnAutoDetect);
