@@ -42,6 +42,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
             c.brand = j.value("brand", std::string(""));
             c.brandLogo = j.value("brandLogo", std::string(""));
             c.modelImage = j.value("modelImage", std::string(""));
+            c.theme = j.value("theme", std::string("audiolab-light"));
 
             if (j.contains("midiIdentification") && j["midiIdentification"].is_object())
             {

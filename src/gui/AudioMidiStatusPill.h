@@ -9,7 +9,7 @@ namespace abdaudiolab::gui
 {
 
 /**
- * @brief Header bar status pill with Gear icon (audio/midi config button) and 4 LED indicators:
+ * @brief Header bar status pill with vector Gear icon (audio/midi config button) and 4 LED indicators:
  * Audio In, Audio Out, MIDI In, MIDI Out.
  * Displays green when configured/active, red when disconnected/unassigned.
  * Hovering displays the literal port names.
@@ -19,6 +19,84 @@ class AudioMidiStatusPill : public juce::Component,
 {
 public:
     std::function<void()> onConfigureClicked;
+
+    class GearButton : public juce::Component,
+                       public juce::SettableTooltipClient
+    {
+    public:
+        std::function<void()> onClick;
+
+        GearButton()
+        {
+            setMouseCursor(juce::MouseCursor::PointingHandCursor);
+            setTooltip("Audio & MIDI Configuration - Select audio interfaces, buffer sizes, sample rate, and MIDI routing");
+        }
+
+        void mouseEnter(const juce::MouseEvent&) override { isHovered = true; repaint(); }
+        void mouseExit(const juce::MouseEvent&) override  { isHovered = false; isDown = false; repaint(); }
+        void mouseDown(const juce::MouseEvent&) override  { isDown = true; repaint(); }
+        void mouseUp(const juce::MouseEvent&) override
+        {
+            if (isDown && isHovered && onClick)
+                onClick();
+            isDown = false;
+            repaint();
+        }
+
+        void paint(juce::Graphics& g) override
+        {
+            auto b = getLocalBounds().toFloat();
+
+            if (isHovered)
+            {
+                g.setColour(SoundIdTheme::bgCardHover);
+                g.fillRoundedRectangle(b.reduced(1.0f), 4.0f);
+            }
+
+            auto c = b.getCentre();
+            float rOuter = 8.0f;
+            float rInner = 5.6f;
+            float rHole  = 2.8f;
+
+            juce::Path gear;
+            const int numTeeth = 6;
+            const float angleStep = juce::MathConstants<float>::twoPi / static_cast<float>(numTeeth);
+            const float toothHalf = angleStep * 0.22f;
+
+            for (int i = 0; i < numTeeth; ++i)
+            {
+                float a = static_cast<float>(i) * angleStep - juce::MathConstants<float>::halfPi;
+                float a0 = a - toothHalf;
+                float a1 = a + toothHalf;
+                float aValley0 = a + angleStep * 0.35f;
+                float aValley1 = a + angleStep * 0.65f;
+
+                if (i == 0)
+                    gear.startNewSubPath(c.x + rOuter * std::cos(a0), c.y + rOuter * std::sin(a0));
+                else
+                    gear.lineTo(c.x + rOuter * std::cos(a0), c.y + rOuter * std::sin(a0));
+
+                gear.lineTo(c.x + rOuter * std::cos(a1), c.y + rOuter * std::sin(a1));
+                gear.lineTo(c.x + rInner * std::cos(aValley0), c.y + rInner * std::sin(aValley0));
+                gear.lineTo(c.x + rInner * std::cos(aValley1), c.y + rInner * std::sin(aValley1));
+            }
+            gear.closeSubPath();
+
+            juce::Path hole;
+            hole.addEllipse(c.x - rHole, c.y - rHole, rHole * 2.0f, rHole * 2.0f);
+
+            juce::Colour gearCol = isHovered ? SoundIdTheme::textPrimary : SoundIdTheme::textSecondary;
+            g.setColour(gearCol);
+            g.fillPath(gear);
+
+            g.setColour(isHovered ? SoundIdTheme::bgCardHover : SoundIdTheme::bgCard);
+            g.fillPath(hole);
+        }
+
+    private:
+        bool isHovered { false };
+        bool isDown { false };
+    };
 
     class StatusIndicator : public juce::Component,
                             public juce::SettableTooltipClient
@@ -86,10 +164,6 @@ public:
     {
         setMouseCursor(juce::MouseCursor::PointingHandCursor);
 
-        btnGear.setButtonText(juce::String::fromUTF8(u8"\u2699"));
-        btnGear.setTooltip("Audio & MIDI Configuration - Select audio interfaces, buffer sizes, sample rate, and MIDI routing");
-        btnGear.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-        btnGear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
         btnGear.onClick = [this] { if (onConfigureClicked) onConfigureClicked(); };
         addAndMakeVisible(btnGear);
 
@@ -119,7 +193,7 @@ public:
             if (audioInOk)
                 audioInName = dev->getName() + " (" + juce::String(numIn) + (numIn > 1 ? " in)" : " in)");
             else
-                audioInName = dev->getName() + " (No inputs active)";
+                audioInName = dev->getName() + " (No active inputs)";
 
             auto outChans = dev->getActiveOutputChannels();
             int numOut = outChans.countNumberOfSetBits();
@@ -127,9 +201,10 @@ public:
             if (audioOutOk)
                 audioOutName = dev->getName() + " (" + juce::String(numOut) + (numOut > 1 ? " out)" : " out)");
             else
-                audioOutName = dev->getName() + " (No outputs active)";
+                audioOutName = dev->getName() + " (No active outputs)";
         }
 
+        // MIDI In - strictly check if enabled in device manager
         bool midiInOk = false;
         juce::String midiInName = "None / Disconnected";
         auto inDevices = juce::MidiInput::getAvailableDevices();
@@ -142,12 +217,8 @@ public:
                 break;
             }
         }
-        if (!midiInOk && !inDevices.isEmpty())
-        {
-            midiInOk = true;
-            midiInName = inDevices[0].name;
-        }
 
+        // MIDI Out - strictly check if default midi output is assigned
         bool midiOutOk = false;
         juce::String midiOutName = "None / Disconnected";
         auto* defMidiOut = dm.getDefaultMidiOutput();
@@ -155,15 +226,6 @@ public:
         {
             midiOutOk = true;
             midiOutName = defMidiOut->getName();
-        }
-        else
-        {
-            auto outDevices = juce::MidiOutput::getAvailableDevices();
-            if (!outDevices.isEmpty())
-            {
-                midiOutOk = true;
-                midiOutName = outDevices[0].name;
-            }
         }
 
         indAudioIn.setStatus(audioInOk, audioInName);
@@ -175,12 +237,12 @@ public:
         juce::String summary;
         summary << "AUDIO & MIDI HARDWARE STATUS\n"
                 << "----------------------------------------\n"
-                << "• Audio In:   " << audioInName << (audioInOk ? "  [OK]" : "  [NO]") << "\n"
-                << "• Audio Out:  " << audioOutName << (audioOutOk ? "  [OK]" : "  [NO]") << "\n"
-                << "• MIDI In:    " << midiInName << (midiInOk ? "  [OK]" : "  [NO]") << "\n"
-                << "• MIDI Out:   " << midiOutName << (midiOutOk ? "  [OK]" : "  [NO]") << "\n"
+                << "• Audio In:   " << audioInName << (audioInOk ? "  [OK]" : "  [DISCONNECTED]") << "\n"
+                << "• Audio Out:  " << audioOutName << (audioOutOk ? "  [OK]" : "  [DISCONNECTED]") << "\n"
+                << "• MIDI In:    " << midiInName << (midiInOk ? "  [OK]" : "  [DISCONNECTED]") << "\n"
+                << "• MIDI Out:   " << midiOutName << (midiOutOk ? "  [OK]" : "  [DISCONNECTED]") << "\n"
                 << "----------------------------------------\n"
-                << "Click to configure Audio & MIDI settings.";
+                << "Click gear to open Audio & MIDI configuration.";
         setTooltip(summary);
 
         repaint();
@@ -224,7 +286,7 @@ public:
     }
 
 private:
-    juce::TextButton btnGear;
+    GearButton btnGear;
     StatusIndicator indAudioIn;
     StatusIndicator indAudioOut;
     StatusIndicator indMidiIn;

@@ -120,9 +120,66 @@ public:
     }
 };
 
+class CenterSplitterBar : public juce::Component,
+                         public juce::SettableTooltipClient
+{
+public:
+    std::function<void(int deltaY)> onDragged;
+    std::function<void()> onResetToDefault;
+
+    CenterSplitterBar()
+    {
+        setMouseCursor(juce::MouseCursor::UpDownResizeCursor);
+        setTooltip("Drag up/down to resize Graph and Queue \u2022 Double-click to reset split");
+    }
+
+    void mouseEnter(const juce::MouseEvent&) override { isHovered = true; repaint(); }
+    void mouseExit(const juce::MouseEvent&) override  { isHovered = false; repaint(); }
+
+    void mouseDown(const juce::MouseEvent& e) override
+    {
+        dragStartPos = e.getEventRelativeTo(getParentComponent()).getPosition();
+    }
+
+    void mouseDrag(const juce::MouseEvent& e) override
+    {
+        auto currentPos = e.getEventRelativeTo(getParentComponent()).getPosition();
+        int deltaY = currentPos.y - dragStartPos.y;
+        dragStartPos = currentPos;
+        if (onDragged) onDragged(deltaY);
+    }
+
+    void mouseDoubleClick(const juce::MouseEvent&) override
+    {
+        if (onResetToDefault) onResetToDefault();
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto b = getLocalBounds().toFloat();
+        float cy = b.getCentreY();
+
+        // Divider line
+        g.setColour(isHovered ? gui::SoundIdTheme::accentGreen.withAlpha(0.7f) : gui::SoundIdTheme::borderSubtle);
+        g.drawLine(b.getX(), cy, b.getRight(), cy, 1.0f);
+
+        // Centered grip handle pill
+        float gripW = 44.0f;
+        float gripH = 4.0f;
+        auto gripRect = juce::Rectangle<float>(b.getCentreX() - gripW * 0.5f, cy - gripH * 0.5f, gripW, gripH);
+        g.setColour(isHovered ? gui::SoundIdTheme::accentGreen : gui::SoundIdTheme::textSecondary.withAlpha(0.5f));
+        g.fillRoundedRectangle(gripRect, 2.0f);
+    }
+
+private:
+    bool isHovered { false };
+    juce::Point<int> dragStartPos;
+};
+
 class MainContentComponent : public juce::Component,
                              public juce::Timer,
-                             public juce::KeyListener
+                             public juce::KeyListener,
+                             public juce::ChangeListener
 {
 public:
     MainContentComponent()
@@ -275,20 +332,44 @@ public:
         addAndMakeVisible(curvePlotter);
 
         curvePlotter.onToggleCollapse = [this] {
-            if (centerSplitMode == CenterSplitMode::Balanced)
-                centerSplitMode = CenterSplitMode::GraphMaximized;
-            else
+            if (centerSplitMode == CenterSplitMode::GraphMaximized)
                 centerSplitMode = CenterSplitMode::Balanced;
+            else if (centerSplitMode == CenterSplitMode::QueueMaximized)
+                centerSplitMode = CenterSplitMode::Balanced;
+            else
+                centerSplitMode = CenterSplitMode::GraphMaximized;
             updateSplitLayout();
         };
 
         suiteList.onToggleCollapse = [this] {
-            if (centerSplitMode == CenterSplitMode::Balanced)
-                centerSplitMode = CenterSplitMode::QueueMaximized;
-            else
+            if (centerSplitMode == CenterSplitMode::QueueMaximized)
                 centerSplitMode = CenterSplitMode::Balanced;
+            else if (centerSplitMode == CenterSplitMode::GraphMaximized)
+                centerSplitMode = CenterSplitMode::Balanced;
+            else
+                centerSplitMode = CenterSplitMode::QueueMaximized;
             updateSplitLayout();
         };
+
+        centerSplitterBar.onDragged = [this](int deltaY) {
+            if (centerSplitMode == CenterSplitMode::Balanced)
+            {
+                auto bounds = getLocalBounds().reduced(20);
+                int maxBottomH = bounds.getHeight() - 78;
+                balancedBottomH = juce::jlimit(50.0f, static_cast<float>(maxBottomH), balancedBottomH - static_cast<float>(deltaY));
+                targetBottomH = balancedBottomH;
+                currentBottomH = balancedBottomH;
+                resized();
+            }
+        };
+        centerSplitterBar.onResetToDefault = [this] {
+            if (centerSplitMode == CenterSplitMode::Balanced)
+            {
+                balancedBottomH = 220.0f;
+                targetBottomH = balancedBottomH;
+            }
+        };
+        addChildComponent(centerSplitterBar);
 
         // 5. Bottom Test Queue (Session Test Plan & CRUD)
         suiteList.onAddStandardClicked = [this] {
@@ -754,19 +835,20 @@ public:
 
         addKeyListener(this);
         setWantsKeyboardFocus(true);
-        startTimerHz(30);
+        audioEngine.getDeviceManager().addChangeListener(this);
+        startTimerHz(60);
         setSize(1040, 720);
     }
 
     ~MainContentComponent() override
     {
+        audioEngine.getDeviceManager().removeChangeListener(this);
+
         if (scopeWebWindow != nullptr)
         {
             scopeWebWindow->setVisible(false);
             scopeWebWindow = nullptr;
         }
-
-
 
         juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
         setLookAndFeel(nullptr);
@@ -774,6 +856,14 @@ public:
         stopTimer();
         sequencer.stopSession();
         audioEngine.saveAudioSettings(settingsFile);
+    }
+
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override
+    {
+        if (source == &audioEngine.getDeviceManager())
+        {
+            audioMidiStatusPill.updateStatus(audioEngine);
+        }
     }
 
     bool keyPressed(const juce::KeyPress& key, juce::Component*) override
@@ -815,37 +905,43 @@ public:
     enum class CenterSplitMode
     {
         QueueMaximized,  // Graph minimized to header (~32px), Queue takes the rest
-        Balanced,        // Standard split (Queue ~210px, Graph takes the rest)
-        GraphMaximized   // Queue minimized to header (~34px), Graph takes the rest
+        Balanced,        // Standard split (Queue ~220px resizable, Graph takes the rest)
+        GraphMaximized   // Queue minimized to header (~36px), Graph takes the rest
     };
     CenterSplitMode centerSplitMode { CenterSplitMode::Balanced };
+
+    float currentBottomH { 220.0f };
+    float targetBottomH { 220.0f };
+    float balancedBottomH { 220.0f };
 
     void updateSplitLayout()
     {
         switch (centerSplitMode)
         {
             case CenterSplitMode::Balanced:
-                curvePlotter.setCollapsed(false);
                 curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (pointing down to expand downwards)
-                suiteList.setCollapsed(false);
                 suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (pointing up to expand upwards)
+                curvePlotter.setCollapsed(false);
+                suiteList.setCollapsed(false);
+                targetBottomH = balancedBottomH;
                 break;
 
             case CenterSplitMode::GraphMaximized:
-                curvePlotter.setCollapsed(false);
                 curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore back up to balanced)
-                suiteList.setCollapsed(true);
                 suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore back up to balanced)
+                targetBottomH = 36.0f;
                 break;
 
             case CenterSplitMode::QueueMaximized:
-                curvePlotter.setCollapsed(true);
                 curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore back down to balanced)
-                suiteList.setCollapsed(false);
                 suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore back down to balanced)
+                {
+                    auto totalArea = getLocalBounds().reduced(20);
+                    int maxH = totalArea.getHeight() - 110;
+                    targetBottomH = static_cast<float>(std::max(140, maxH));
+                }
                 break;
         }
-        resized();
     }
 
     void paint(juce::Graphics& g) override
@@ -899,34 +995,36 @@ public:
         }
 
         // 4. Bottom Test Suite List & Controls Dock
-        int bottomH = 210;
+        int bottomH = static_cast<int>(std::round(currentBottomH));
         if (operatorStepModal.isVisible() && operatorStepModal.isCollapsed)
         {
             bottomH = 34;
         }
         else
         {
-            switch (centerSplitMode)
-            {
-                case CenterSplitMode::GraphMaximized:
-                    bottomH = 36; // Queue collapsed to header only
-                    break;
-                case CenterSplitMode::QueueMaximized:
-                    // Graph collapsed to header (~32px) + healthPanel (26px) + margin = ~82px
-                    bottomH = std::max(140, bounds.getHeight() - 84);
-                    break;
-                case CenterSplitMode::Balanced:
-                default:
-                    bottomH = 220;
-                    break;
-            }
+            int maxBottomH = bounds.getHeight() - 78;
+            bottomH = juce::jlimit(36, std::max(36, maxBottomH), bottomH);
         }
 
         auto bottomArea = bounds.removeFromBottom(bottomH);
         suiteList.setBounds(bottomArea);
         operatorStepModal.setBounds(bottomArea);
 
-        bounds.removeFromBottom(12);
+        // Resizable Splitter Bar
+        int splitterH = 8;
+        if (centerSplitMode == CenterSplitMode::Balanced &&
+            (!operatorStepModal.isVisible() || !operatorStepModal.isCollapsed) &&
+            std::abs(targetBottomH - currentBottomH) < 2.0f)
+        {
+            centerSplitterBar.setVisible(true);
+            centerSplitterBar.setBounds(bounds.removeFromBottom(splitterH));
+            bounds.removeFromBottom(4);
+        }
+        else
+        {
+            centerSplitterBar.setVisible(false);
+            bounds.removeFromBottom(8);
+        }
 
         // 5. Center Curve Plotter & Health Panel
         auto centerArea = bounds;
@@ -952,7 +1050,32 @@ public:
             curvePlotter.getSpectrumAnalyzer().pushSpectrumData(fftData, audioEngine.getCurrentSampleRate());
         }
 
-        if (++statusUpdateCounter % 30 == 0)
+        // Slower, smooth and relaxed chevron/split animation
+        if (std::abs(targetBottomH - currentBottomH) > 0.5f)
+        {
+            float diff = targetBottomH - currentBottomH;
+            float step = diff * 0.07f;
+            if (std::abs(step) < 0.35f)
+                step = (diff > 0.0f ? 0.35f : -0.35f);
+
+            if (std::abs(diff) <= std::abs(step))
+                currentBottomH = targetBottomH;
+            else
+                currentBottomH += step;
+
+            resized();
+        }
+        else if (currentBottomH != targetBottomH)
+        {
+            currentBottomH = targetBottomH;
+            if (centerSplitMode == CenterSplitMode::GraphMaximized)
+                suiteList.setCollapsed(true);
+            else if (centerSplitMode == CenterSplitMode::QueueMaximized)
+                curvePlotter.setCollapsed(true);
+            resized();
+        }
+
+        if (++statusUpdateCounter % 60 == 0)
         {
             audioMidiStatusPill.updateStatus(audioEngine);
         }
@@ -1850,6 +1973,7 @@ private:
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
 
     gui::SoundIdCurvePlotter curvePlotter;
+    CenterSplitterBar centerSplitterBar;
     gui::MeasurementHealthPanel healthPanel;
     gui::SoundIdMeterStrip meterStrip;
     gui::SoundIdSuiteList suiteList;
