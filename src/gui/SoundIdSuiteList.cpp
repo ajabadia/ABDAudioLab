@@ -86,7 +86,7 @@ SoundIdSuiteList::SoundIdSuiteList()
     btnAddCustom.onClick = [this] { if (onAddCustomClicked) onAddCustomClicked(); };
     addAndMakeVisible(btnAddCustom);
 
-    btnRunSession.setButtonText("RUN SESSION TESTS");
+    btnRunSession.setButtonText(juce::String::fromUTF8(u8"\u25b6  RUN SESSION TESTS"));
     btnRunSession.setTooltip("Start executing all active tests in the plan");
     btnRunSession.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnRunSession.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -153,12 +153,12 @@ void SoundIdSuiteList::setSessionRunning(bool isRunning)
     isSessionRunning = isRunning;
     if (isSessionRunning)
     {
-        btnRunSession.setButtonText("STOP SESSION");
+        btnRunSession.setButtonText(juce::String::fromUTF8(u8"\u25a0  STOP SESSION"));
         btnRunSession.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentRed);
     }
     else
     {
-        btnRunSession.setButtonText("RUN SESSION TESTS");
+        btnRunSession.setButtonText(juce::String::fromUTF8(u8"\u25b6  RUN SESSION TESTS"));
         btnRunSession.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     }
     repaint();
@@ -418,12 +418,14 @@ void SoundIdSuiteList::resized()
     auto bounds = getLocalBounds();
     auto header = bounds.removeFromTop(34).reduced(8, 4);
 
-    btnAddStandard.setBounds(header.removeFromLeft(150));
-    header.removeFromLeft(8);
-    btnAddCustom.setBounds(header.removeFromLeft(145));
+    // Hero Action Button: dominant placement
+    btnRunSession.setBounds(header.removeFromLeft(195));
     header.removeFromLeft(16);
 
-    btnRunSession.setBounds(header.removeFromLeft(175));
+    // Secondary actions
+    btnAddStandard.setBounds(header.removeFromLeft(145));
+    header.removeFromLeft(8);
+    btnAddCustom.setBounds(header.removeFromLeft(140));
 
     btnClear.setBounds(header.removeFromRight(75));
 

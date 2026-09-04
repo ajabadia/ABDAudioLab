@@ -124,7 +124,7 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     if (currentView == ViewMode::SpectrumFFT)
         return;
 
-    auto plotArea = bounds.reduced(16.0f, 12.0f);
+    auto plotArea = bounds.reduced(8.0f, 6.0f);
 
     if (currentView == ViewMode::FrequencyCurve)
     {
@@ -134,6 +134,42 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     {
         drawHeatmap2D(g, plotArea);
     }
+}
+
+void SoundIdCurvePlotter::mouseMove(const juce::MouseEvent& e)
+{
+    hoverMousePos = e.position;
+    isHoveringPlot = lastGridBounds.contains(hoverMousePos);
+
+    if (isHoveringPlot && !points.empty())
+    {
+        float closestDist = 1e9f;
+        int closestIdx = -1;
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
+            float px = lastGridBounds.getX() + normX * lastGridBounds.getWidth();
+            float dist = std::abs(hoverMousePos.x - px);
+            if (dist < closestDist)
+            {
+                closestDist = dist;
+                closestIdx = static_cast<int>(i);
+            }
+        }
+        hoverPointIndex = closestIdx;
+    }
+    else
+    {
+        hoverPointIndex = -1;
+    }
+    repaint();
+}
+
+void SoundIdCurvePlotter::mouseExit(const juce::MouseEvent&)
+{
+    isHoveringPlot = false;
+    hoverPointIndex = -1;
+    repaint();
 }
 
 void SoundIdCurvePlotter::drawLegend(juce::Graphics& g, juce::Rectangle<float> legendArea)
@@ -180,7 +216,8 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
     float topDb = 12.0f;
     float botDb = -12.0f;
 
-    auto gridBounds = plotArea.withTrimmedRight(45.0f).withTrimmedBottom(20.0f);
+    auto gridBounds = plotArea.withTrimmedRight(38.0f).withTrimmedBottom(18.0f);
+    lastGridBounds = gridBounds;
 
     g.setFont(juce::FontOptions(10.5f));
     for (float db : dbValues)
@@ -315,6 +352,73 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
             g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
         }
     }
+
+    // 4. Interactive Crosshair & Tooltip Overlay
+    drawCrosshairAndTooltip(g, gridBounds);
+}
+
+void SoundIdCurvePlotter::drawCrosshairAndTooltip(juce::Graphics& g, juce::Rectangle<float> gridBounds)
+{
+    if (!isHoveringPlot || hoverPointIndex < 0 || hoverPointIndex >= static_cast<int>(points.size()))
+        return;
+
+    const auto& pt = points[static_cast<size_t>(hoverPointIndex)];
+    float normX = (points.size() > 1) ? (static_cast<float>(hoverPointIndex) / static_cast<float>(points.size() - 1)) : 0.5f;
+    float valDb = pt.secondaryValue.mean;
+    if (std::abs(valDb) < 1e-4f) valDb = (pt.param1Normalized - 0.5f) * 12.0f;
+
+    float topDb = 12.0f;
+    float botDb = -12.0f;
+    float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
+
+    float px = gridBounds.getX() + normX * gridBounds.getWidth();
+    float py = gridBounds.getY() + normY * gridBounds.getHeight();
+
+    // Subtle crosshair lines
+    g.setColour(SoundIdTheme::textSecondary.withAlpha(0.28f));
+    float dashes[] = { 3.0f, 3.0f };
+    g.drawDashedLine(juce::Line<float>(px, gridBounds.getY(), px, gridBounds.getBottom()), dashes, 2, 1.0f);
+    g.drawDashedLine(juce::Line<float>(gridBounds.getX(), py, gridBounds.getRight(), py), dashes, 2, 1.0f);
+
+    // Target highlight ring
+    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.35f));
+    g.fillEllipse(px - 9.0f, py - 9.0f, 18.0f, 18.0f);
+    g.setColour(SoundIdTheme::accentAmber);
+    g.drawEllipse(px - 6.0f, py - 6.0f, 12.0f, 12.0f, 1.5f);
+
+    // Floating Tooltip Card
+    float cardW = 154.0f;
+    float cardH = 58.0f;
+    float cardX = px + 12.0f;
+    if (cardX + cardW > gridBounds.getRight())
+        cardX = px - cardW - 12.0f;
+
+    float cardY = py - cardH - 8.0f;
+    if (cardY < gridBounds.getY())
+        cardY = py + 12.0f;
+
+    auto tooltipRect = juce::Rectangle<float>(cardX, cardY, cardW, cardH);
+    g.setColour(SoundIdTheme::pillBlackBg.withAlpha(0.94f));
+    g.fillRoundedRectangle(tooltipRect, 6.0f);
+    g.setColour(SoundIdTheme::borderCard.withAlpha(0.35f));
+    g.drawRoundedRectangle(tooltipRect, 6.0f, 1.0f);
+
+    // Tooltip content
+    auto textRect = tooltipRect.reduced(8.0f, 4.0f);
+    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+    g.setColour(juce::Colours::white);
+    float stepPct = pt.param1Normalized * 100.0f;
+    g.drawText("Point #" + juce::String(hoverPointIndex + 1) + " (" + juce::String(stepPct, 0) + "%)",
+               textRect.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+
+    g.setFont(juce::FontOptions("Consolas", 10.0f, juce::Font::plain));
+    g.setColour(juce::Colour(0xffe5e7eb));
+    juce::String gainStr = "Gain: " + juce::String(valDb > 0 ? "+" : "") + juce::String(valDb, 2) + " dB";
+    g.drawText(gainStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+
+    g.setColour(SoundIdTheme::accentAmber);
+    juce::String metricsStr = "THD: " + juce::String(pt.thdPercent, 2) + "% | SNR: " + juce::String(pt.snrDb, 1) + " dB";
+    g.drawText(metricsStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
 }
 
 void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float> plotArea)
@@ -346,7 +450,7 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
     }
     if (std::abs(maxVal - minVal) < 1e-4f) maxVal += 1.0f;
 
-    // Draw cells with Viridis color map
+    // Draw cells with high-contrast perceptual color map
     for (size_t i = 0; i < points.size(); ++i)
     {
         int row = static_cast<int>(i / static_cast<size_t>(gridDim));
@@ -362,11 +466,12 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
         g.setColour(cellColor);
         g.fillRoundedRectangle(cellRect, 2.0f);
 
-        // Value text overlay on large cells
+        // Value text overlay with dynamic perceptual contrast
         if (cellW > 32.0f && cellH > 18.0f)
         {
-            g.setColour(normVal > 0.5f ? juce::Colours::white : SoundIdTheme::textPrimary);
-            g.setFont(juce::FontOptions(std::min(9.0f, cellH * 0.5f)));
+            juce::Colour textCol = (cellColor.getPerceivedBrightness() > 0.62f) ? SoundIdTheme::textPrimary : juce::Colours::white;
+            g.setColour(textCol);
+            g.setFont(juce::FontOptions(std::min(9.5f, cellH * 0.5f)));
             g.drawText(juce::String(points[i].muSigmaValue.mean, 1), cellRect, juce::Justification::centred, false);
         }
     }
@@ -376,7 +481,7 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
     g.setFont(juce::FontOptions(10.0f));
     g.drawText("Param 1 ->", plotArea.withHeight(14.0f).translated(0.0f, plotArea.getHeight() + 2.0f), juce::Justification::centred, true);
 
-    // Vertical color bar with Viridis gradient
+    // Vertical color bar with gradient
     for (int y = 0; y < static_cast<int>(colorBarArea.getHeight()); ++y)
     {
         float normY = 1.0f - (static_cast<float>(y) / colorBarArea.getHeight());
@@ -393,27 +498,25 @@ void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float
     g.drawText(juce::String(minVal, 1), colorBarArea.translated(0.0f, colorBarArea.getHeight() + 1.0f).withHeight(12.0f), juce::Justification::centred, false);
 }
 
-// Viridis perceptually uniform color map (simplified 8-stop gradient)
+// Viridis/Plasma warm perceptual color map (with high-contrast amber top)
 juce::Colour SoundIdCurvePlotter::viridisColor(float t) noexcept
 {
     t = std::clamp(t, 0.0f, 1.0f);
 
-    // Viridis key colors (from matplotlib)
+    // Perceptually balanced stops: deep violet -> cobalt -> teal -> emerald -> warm gold/amber
     struct ColorStop { float pos; uint8_t r, g, b; };
     static constexpr ColorStop stops[] = {
-        { 0.00f,  68,   1, 84 },
-        { 0.14f,  72,  35, 116 },
-        { 0.29f,  64,  67, 135 },
-        { 0.43f,  52,  94, 141 },
-        { 0.57f,  33, 144, 140 },
-        { 0.71f,  53, 183, 121 },
-        { 0.86f, 143, 215,  68 },
-        { 1.00f, 253, 231,  37 }
+        { 0.00f,  35,  18,  72 }, // Deep violet
+        { 0.16f,  45,  55, 120 }, // Cobalt
+        { 0.32f,  30, 100, 140 }, // Cyan/Blue
+        { 0.50f,  20, 135, 120 }, // Teal
+        { 0.68f,  29, 185,  84 }, // Vibrant green (#1DB954)
+        { 0.84f, 210, 175,  35 }, // Gold
+        { 1.00f, 245, 166,  35 }  // Technical Amber (#F5A623)
     };
 
-    // Find segment
     int idx = 0;
-    for (int i = 0; i < 7; ++i)
+    for (int i = 0; i < 6; ++i)
     {
         if (t >= stops[i].pos && t <= stops[i + 1].pos)
         {

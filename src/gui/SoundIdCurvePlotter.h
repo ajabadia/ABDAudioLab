@@ -40,12 +40,19 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
 
 private:
     ViewMode currentView { ViewMode::FrequencyCurve };
     std::vector<exporting::MeasuredPoint> points;
     int highlightedPointIndex { -1 };
     std::mutex pointsMutex;
+
+    juce::Point<float> hoverMousePos { -1.0f, -1.0f };
+    bool isHoveringPlot { false };
+    int hoverPointIndex { -1 };
+    juce::Rectangle<float> lastGridBounds;
 
     juce::TextButton btnCurve { "Curve" };
     juce::TextButton btnHeatmap { "2D Heatmap" };
@@ -56,8 +63,9 @@ private:
     void drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<float> plotArea);
     void drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float> plotArea);
     void drawLegend(juce::Graphics& g, juce::Rectangle<float> legendArea);
+    void drawCrosshairAndTooltip(juce::Graphics& g, juce::Rectangle<float> gridBounds);
 
-    // Viridis color map (256 entries, interpolated)
+    // Plasma / Viridis high-contrast perceptual color map
     static juce::Colour viridisColor(float normalized0to1) noexcept;
 };
 

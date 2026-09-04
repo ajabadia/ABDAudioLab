@@ -14,7 +14,7 @@ class SoundIdTheme : public juce::LookAndFeel_V4
 {
 public:
     // Color Palette
-    static inline const juce::Colour bgLight          { 0xfffbfbfc };
+    static inline const juce::Colour bgLight          { 0xfff5f5f7 }; // Clean Nordic light background (Apple style)
     static inline const juce::Colour bgCard           { 0xfff3f4f6 };
     static inline const juce::Colour bgCardHover      { 0xffe5e7eb };
     static inline const juce::Colour borderSubtle     { 0xffe5e7eb };
@@ -24,11 +24,11 @@ public:
     static inline const juce::Colour textSecondary    { 0xff4b5563 };
     static inline const juce::Colour textMuted        { 0xff6b7280 };
 
-    static inline const juce::Colour accentGreen      { 0xff10b981 };
+    static inline const juce::Colour accentGreen      { 0xff1db954 }; // Spotify / Pro-Audio emerald green
     static inline const juce::Colour accentPurple     { 0xff8b5cf6 };
     static inline const juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
-    static inline const juce::Colour accentAmber      { 0xfff59e0b };
-    static inline const juce::Colour accentRed        { 0xffef4444 };
+    static inline const juce::Colour accentAmber      { 0xfff5a623 }; // Technical amber for warnings & THD%
+    static inline const juce::Colour accentRed        { 0xffd0021b }; // High-contrast warning/critical red
 
     static inline const juce::Colour pillBlackBg      { 0xff111827 };
     static inline const juce::Colour pillWhiteBg      { 0xffffffff };
@@ -88,6 +88,22 @@ public:
         setColour(juce::Slider::backgroundColourId, bgCard);
     }
 
+    juce::Font getTextButtonFont(juce::TextButton& /*button*/, int buttonHeight) override
+    {
+        return juce::FontOptions("Inter", std::clamp(static_cast<float>(buttonHeight) * 0.42f, 11.0f, 14.0f), juce::Font::bold);
+    }
+
+    juce::Font getLabelFont(juce::Label& label) override
+    {
+        if (label.getName() == "MainTitle")
+            return juce::FontOptions("Inter", 20.0f, juce::Font::bold);
+        if (label.getName() == "SectionHeader")
+            return juce::FontOptions("Inter", 14.5f, juce::Font::bold);
+        if (label.getName() == "TechnicalData")
+            return juce::FontOptions("Consolas", 12.0f, juce::Font::plain);
+        return juce::FontOptions("Inter", 12.5f, juce::Font::plain);
+    }
+
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
                               const juce::Colour& backgroundColour,
                               bool shouldDrawButtonAsHighlighted,
@@ -95,18 +111,18 @@ public:
     {
         juce::ignoreUnused(backgroundColour);
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
-        float cornerSize = std::min(bounds.getHeight() * 0.5f, 18.0f);
+        constexpr float cornerSize = 6.0f; // Standardized pro-audio corner radius
 
         auto baseColour = button.findColour(juce::TextButton::buttonColourId);
 
         if (baseColour == pillWhiteBg || baseColour == juce::Colours::white)
         {
-            juce::Colour fillCol = shouldDrawButtonAsDown ? bgCardHover
-                                 : (shouldDrawButtonAsHighlighted ? bgLight : pillWhiteBg);
+            juce::Colour fillCol = shouldDrawButtonAsDown ? bgCardHover.darker(0.12f)
+                                 : (shouldDrawButtonAsHighlighted ? bgCardHover : pillWhiteBg);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
-            g.setColour(borderCard);
+            g.setColour(borderCard.withAlpha(0.6f));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else if (baseColour == pillBlackBg)
@@ -115,16 +131,19 @@ public:
                                  : (shouldDrawButtonAsHighlighted ? juce::Colour(0xff1f2937) : pillBlackBg);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
+
+            g.setColour(juce::Colours::black.withAlpha(0.4f));
+            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else
         {
             // Custom accent color button (e.g., accentGreen, accentRed, accentAmber)
-            juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.12f)
-                                 : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.08f) : baseColour);
+            juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.20f)
+                                 : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.10f) : baseColour);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
-            g.setColour(baseColour.darker(0.15f));
+            g.setColour(baseColour.darker(0.25f).withAlpha(0.4f));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
     }

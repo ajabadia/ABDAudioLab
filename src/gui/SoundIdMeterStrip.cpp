@@ -50,12 +50,56 @@ void SoundIdMeterStrip::setProfilingActive(bool active)
     repaint();
 }
 
+float SoundIdMeterStrip::amplitudeToNorm(float linearAmp) noexcept
+{
+    if (linearAmp <= 1e-4f)
+        return 0.0f;
+    float db = 20.0f * std::log10(linearAmp);
+    // Map -60.0 dBfs -> 0.0, 0.0 dBfs -> 1.0 (clamped)
+    return juce::jlimit(0.0f, 1.0f, (db + 60.0f) / 60.0f);
+}
+
 void SoundIdMeterStrip::timerCallback()
 {
+    // Attack is instantaneous, decay is ballistic
+    displayInRms = std::max(currentInRms, displayInRms * 0.85f);
     displayInPeak = std::max(currentInPeak, displayInPeak * 0.92f);
-    displayInRms = std::max(currentInRms, displayInRms * 0.88f);
+
+    displayOutRms = std::max(currentOutRms, displayOutRms * 0.85f);
     displayOutPeak = std::max(currentOutPeak, displayOutPeak * 0.92f);
-    displayOutRms = std::max(currentOutRms, displayOutRms * 0.88f);
+
+    // Peak-Hold Ballistics (In)
+    if (currentInPeak >= peakHoldIn)
+    {
+        peakHoldIn = currentInPeak;
+        peakHoldInTimer = 30; // ~1.0 sec hold at 30Hz
+    }
+    else
+    {
+        if (peakHoldInTimer > 0)
+            --peakHoldInTimer;
+        else
+            peakHoldIn = peakHoldIn * 0.94f; // Smooth decay after hold
+    }
+
+    // Peak-Hold Ballistics (Out)
+    if (currentOutPeak >= peakHoldOut)
+    {
+        peakHoldOut = currentOutPeak;
+        peakHoldOutTimer = 30;
+    }
+    else
+    {
+        if (peakHoldOutTimer > 0)
+            --peakHoldOutTimer;
+        else
+            peakHoldOut = peakHoldOut * 0.94f;
+    }
+
+    // Reset current transient values for next measurement window
+    currentInPeak = 0.0f;
+    currentOutPeak = 0.0f;
+
     repaint();
 }
 
@@ -80,16 +124,17 @@ void SoundIdMeterStrip::paint(juce::Graphics& g)
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
     // Top Header: "In"  "Out"  "-3.0"
-    auto topArea = bounds.removeFromTop(28.0f);
+    auto topArea = bounds.removeFromTop(28.0f).reduced(6.0f, 0.0f);
     g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("In", topArea.removeFromLeft(30.0f), juce::Justification::centred, true);
-    g.drawText("Out", topArea.removeFromLeft(30.0f), juce::Justification::centred, true);
+    g.drawText("In", topArea.removeFromLeft(24.0f), juce::Justification::centred, true);
+    topArea.removeFromLeft(4.0f);
+    g.drawText("Out", topArea.removeFromLeft(24.0f), juce::Justification::centred, true);
 
     float peakDb = displayInPeak > 1e-4f ? 20.0f * std::log10(displayInPeak) : -96.0f;
     juce::String peakStr = juce::String(peakDb, 1);
-    g.setFont(juce::FontOptions(11.0f));
-    g.setColour(peakDb > -3.0f ? SoundIdTheme::accentAmber : SoundIdTheme::textPrimary);
+    g.setFont(juce::FontOptions("Consolas", 10.5f, juce::Font::plain));
+    g.setColour(peakDb >= -0.5f ? SoundIdTheme::accentRed : (peakDb > -3.0f ? SoundIdTheme::accentAmber : SoundIdTheme::textPrimary));
     g.drawText(peakStr, topArea, juce::Justification::centredRight, true);
 
     auto botArea = bounds.removeFromBottom(60.0f);
@@ -99,40 +144,64 @@ void SoundIdMeterStrip::paint(juce::Graphics& g)
 
     // Draw Meter Bars
     auto meterArea = bounds.reduced(6.0f, 6.0f);
-    float barWidth = 6.0f;
+    float barWidth = 7.0f;
     float barHeight = meterArea.getHeight();
 
-    auto barInRect = juce::Rectangle<float>(meterArea.getX() + 10.0f, meterArea.getY(), barWidth, barHeight);
-    auto barOutRect = juce::Rectangle<float>(meterArea.getX() + 32.0f, meterArea.getY(), barWidth, barHeight);
+    auto barInRect = juce::Rectangle<float>(meterArea.getX() + 8.0f, meterArea.getY(), barWidth, barHeight);
+    auto barOutRect = juce::Rectangle<float>(meterArea.getX() + 28.0f, meterArea.getY(), barWidth, barHeight);
 
-    drawMeterBar(g, barInRect, displayInPeak, displayInRms);
-    drawMeterBar(g, barOutRect, displayOutPeak, displayOutRms);
+    float normInPeak = amplitudeToNorm(displayInPeak);
+    float normInRms = amplitudeToNorm(displayInRms);
+    float normInHold = amplitudeToNorm(peakHoldIn);
 
-    // Safe Headroom -3 dBfs tick mark line (0.707 linear)
-    float markY = meterArea.getBottom() - (0.707f * barHeight);
-    g.setColour(SoundIdTheme::accentRed.withAlpha(0.6f));
-    g.drawHorizontalLine(static_cast<int>(markY), meterArea.getX() + 6.0f, meterArea.getX() + 42.0f);
+    float normOutPeak = amplitudeToNorm(displayOutPeak);
+    float normOutRms = amplitudeToNorm(displayOutRms);
+    float normOutHold = amplitudeToNorm(peakHoldOut);
+
+    drawMeterBar(g, barInRect, normInPeak, normInRms, normInHold);
+    drawMeterBar(g, barOutRect, normOutPeak, normOutRms, normOutHold);
+
+    // Safe Headroom -3 dBfs tick mark line ((-3 + 60) / 60 = 0.95 norm)
+    float markY = meterArea.getBottom() - (0.95f * barHeight);
+    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.7f));
+    g.drawHorizontalLine(static_cast<int>(markY), meterArea.getX() + 4.0f, meterArea.getX() + 38.0f);
 }
 
-void SoundIdMeterStrip::drawMeterBar(juce::Graphics& g, juce::Rectangle<float> barRect, float peak, float rms)
+void SoundIdMeterStrip::drawMeterBar(juce::Graphics& g, juce::Rectangle<float> barRect, float /*peakNorm*/, float rmsNorm, float peakHoldNorm)
 {
-    // Background track
+    // Background groove
     g.setColour(SoundIdTheme::bgCardHover);
     g.fillRoundedRectangle(barRect, 3.0f);
 
-    float rmsHeight = std::clamp(rms, 0.0f, 1.0f) * barRect.getHeight();
-    float peakY = barRect.getBottom() - std::clamp(peak, 0.0f, 1.0f) * barRect.getHeight();
+    float rmsHeight = std::clamp(rmsNorm, 0.0f, 1.0f) * barRect.getHeight();
 
-    // RMS Solid Green Fill
-    auto fillRect = barRect.withTop(barRect.getBottom() - rmsHeight);
-    g.setColour(SoundIdTheme::accentGreen);
-    g.fillRoundedRectangle(fillRect, 3.0f);
-
-    // Peak Indicator Line
-    if (peak > 0.01f)
+    // Multi-colour gradient fill (Green -> Amber @ -6dB -> Red @ 0dB)
+    if (rmsHeight > 1.0f)
     {
-        g.setColour(peak >= 0.99f ? SoundIdTheme::accentRed : juce::Colour(0xff059669));
-        g.drawHorizontalLine(static_cast<int>(peakY), barRect.getX(), barRect.getRight());
+        auto fillRect = barRect.withTop(barRect.getBottom() - rmsHeight);
+        juce::ColourGradient grad(SoundIdTheme::accentGreen, barRect.getX(), barRect.getBottom(),
+                                  SoundIdTheme::accentRed, barRect.getX(), barRect.getY(), false);
+        // -6 dB threshold is at ~0.90 of the 60dB range
+        grad.addColour(0.85f, SoundIdTheme::accentGreen);
+        grad.addColour(0.92f, SoundIdTheme::accentAmber);
+
+        g.setGradientFill(grad);
+        g.fillRoundedRectangle(fillRect, 3.0f);
+    }
+
+    // Floating Peak-Hold line
+    if (peakHoldNorm > 0.03f)
+    {
+        float peakY = barRect.getBottom() - std::clamp(peakHoldNorm, 0.0f, 1.0f) * barRect.getHeight();
+        juce::Colour peakCol = peakHoldNorm >= 0.98f ? SoundIdTheme::accentRed
+                             : (peakHoldNorm >= 0.90f ? SoundIdTheme::accentAmber : juce::Colours::white);
+
+        // Thin glow backing
+        g.setColour(juce::Colours::black.withAlpha(0.25f));
+        g.drawHorizontalLine(static_cast<int>(peakY + 1.0f), barRect.getX() - 1.0f, barRect.getRight() + 1.0f);
+
+        g.setColour(peakCol);
+        g.drawHorizontalLine(static_cast<int>(peakY), barRect.getX() - 1.0f, barRect.getRight() + 1.0f);
     }
 }
 

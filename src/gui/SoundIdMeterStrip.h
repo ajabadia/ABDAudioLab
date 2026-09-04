@@ -42,13 +42,17 @@ private:
     float displayInPeak { 0.0f }, displayInRms { 0.0f };
     float displayOutPeak { 0.0f }, displayOutRms { 0.0f };
 
+    float peakHoldIn { 0.0f }, peakHoldOut { 0.0f };
+    int peakHoldInTimer { 0 }, peakHoldOutTimer { 0 };
+
     bool isProfilingActive { false };
     float trimGainLinear { 1.0f };
 
     juce::Slider trimSlider;
     juce::ShapeButton masterButton { "Start/Stop", SoundIdTheme::accentGreen, SoundIdTheme::accentGreen, SoundIdTheme::accentGreen };
 
-    void drawMeterBar(juce::Graphics& g, juce::Rectangle<float> barRect, float peak, float rms);
+    static float amplitudeToNorm(float linearAmp) noexcept;
+    void drawMeterBar(juce::Graphics& g, juce::Rectangle<float> barRect, float peakNorm, float rmsNorm, float peakHoldNorm);
 };
 
 } // namespace abdaudiolab::gui

@@ -82,11 +82,12 @@ public:
         area.removeFromLeft(4.0f);
         auto confArea = area.removeFromLeft(85.0f);
         auto badgeRect = confArea.withSizeKeepingCentre(confArea.getWidth(), 18.0f);
-        g.setColour(snrColor.withAlpha(0.15f));
-        g.fillRoundedRectangle(badgeRect, 9.0f);
+        g.setColour(snrColor.withAlpha(0.20f));
+        g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setColour(snrColor);
-        g.drawRoundedRectangle(badgeRect, 9.0f, 1.0f);
+        g.drawRoundedRectangle(badgeRect, 6.0f, 1.2f);
         g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        g.setColour(snrColor.darker(0.1f));
         g.drawText(snrLabel, badgeRect, juce::Justification::centred, true);
 
         // --- 3. Noise Floor ---
