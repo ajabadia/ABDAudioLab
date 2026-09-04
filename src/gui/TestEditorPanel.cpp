@@ -274,8 +274,8 @@ void TestEditorPanel::rebuildControlRows()
         addAndMakeVisible(row.label.get());
 
         row.btnUp = std::make_unique<juce::TextButton>(juce::String::fromUTF8(u8"▲"));
-        row.btnUp->setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
-        row.btnUp->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        row.btnUp->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        row.btnUp->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
         row.btnUp->setEnabled(rowIdx > 0);
         row.btnUp->onClick = [this, rowIdx] {
             if (rowIdx > 0)
@@ -288,8 +288,8 @@ void TestEditorPanel::rebuildControlRows()
         addAndMakeVisible(row.btnUp.get());
 
         row.btnDown = std::make_unique<juce::TextButton>(juce::String::fromUTF8(u8"▼"));
-        row.btnDown->setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
-        row.btnDown->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        row.btnDown->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        row.btnDown->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
         row.btnDown->setEnabled(rowIdx + 1 < currentConfig.controls.size());
         row.btnDown->onClick = [this, rowIdx] {
             if (rowIdx + 1 < currentConfig.controls.size())
@@ -333,12 +333,18 @@ void TestEditorPanel::rebuildControlRows()
             row.combo->setSelectedId(initialStep, juce::dontSendNotification);
             row.txtCustomSteps->setText(juce::String(initialStep), juce::dontSendNotification);
             row.txtCustomSteps->setEnabled(false);
+            row.txtCustomSteps->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::bgCardHover);
+            row.txtCustomSteps->setColour(juce::TextEditor::textColourId, SoundIdTheme::textSecondary);
+            row.txtCustomSteps->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderSubtle);
         }
         else
         {
             row.combo->setSelectedId(99, juce::dontSendNotification);
             row.txtCustomSteps->setText(juce::String(initialStep), juce::dontSendNotification);
             row.txtCustomSteps->setEnabled(true);
+            row.txtCustomSteps->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
+            row.txtCustomSteps->setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
+            row.txtCustomSteps->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderCard);
         }
 
         row.txtMinPct = std::make_unique<juce::TextEditor>();
@@ -370,6 +376,9 @@ void TestEditorPanel::rebuildControlRows()
                 if (sId == 99)
                 {
                     w.txtCustomSteps->setEnabled(true);
+                    w.txtCustomSteps->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
+                    w.txtCustomSteps->setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
+                    w.txtCustomSteps->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderCard);
                     int cVal = w.txtCustomSteps->getText().getIntValue();
                     c.steps = std::max(1, cVal);
                 }
@@ -377,6 +386,9 @@ void TestEditorPanel::rebuildControlRows()
                 {
                     w.txtCustomSteps->setText(juce::String(sId), juce::dontSendNotification);
                     w.txtCustomSteps->setEnabled(false);
+                    w.txtCustomSteps->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::bgCardHover);
+                    w.txtCustomSteps->setColour(juce::TextEditor::textColourId, SoundIdTheme::textSecondary);
+                    w.txtCustomSteps->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderSubtle);
                     c.steps = sId;
                 }
 
@@ -388,10 +400,16 @@ void TestEditorPanel::rebuildControlRows()
                     c.maxPct = minV;
                     w.txtMaxPct->setText(juce::String(minV, 1), juce::dontSendNotification);
                     w.txtMaxPct->setEnabled(false);
+                    w.txtMaxPct->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::bgCardHover);
+                    w.txtMaxPct->setColour(juce::TextEditor::textColourId, SoundIdTheme::textSecondary);
+                    w.txtMaxPct->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderSubtle);
                 }
                 else
                 {
                     w.txtMaxPct->setEnabled(true);
+                    w.txtMaxPct->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
+                    w.txtMaxPct->setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
+                    w.txtMaxPct->setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderCard);
                     float maxV = std::clamp(w.txtMaxPct->getText().getFloatValue(), minV, 100.0f);
                     c.maxPct = maxV;
                 }
@@ -431,10 +449,10 @@ int TestEditorPanel::getPreferredHeight() const
     if (lblPresetSelector.isVisible()) y += 52;
     y += 48; // Test Name
     y += 64; // Stimulus
-    y += 74; // Duration
-    y += 38; // Matrix Header
+    y += 96; // Duration & Adaptive Tail
+    y += 40; // Matrix Header
     y += static_cast<int>(rowWidgets.size()) * 32;
-    y += 36; // Summary
+    y += 50; // Summary text + bottom margin
     return y;
 }
 
@@ -476,13 +494,13 @@ void TestEditorPanel::resized()
     lblMatrixSection.setBounds(padX, y, contentW, 16);
     y += 20;
 
-    int comboColW = juce::jmax(160, contentW - 440);
+    int comboColW = juce::jmax(150, contentW - 450);
     lblHeaderParam.setBounds(padX, y, 220, 16);
     lblHeaderResolution.setBounds(padX + 225, y, comboColW, 16);
-    lblHeaderCustom.setBounds(padX + contentW - 205, y, 46, 16);
-    lblHeaderMin.setBounds(padX + contentW - 150, y, 54, 16);
-    lblHeaderMax.setBounds(padX + contentW - 90, y, 54, 16);
-    lblHeaderOrder.setBounds(padX + contentW - 30, y, 30, 16);
+    lblHeaderCustom.setBounds(padX + contentW - 215, y, 48, 16);
+    lblHeaderMin.setBounds(padX + contentW - 160, y, 54, 16);
+    lblHeaderMax.setBounds(padX + contentW - 100, y, 54, 16);
+    lblHeaderOrder.setBounds(padX + contentW - 42, y, 42, 16);
     y += 18;
 
     for (size_t i = 0; i < rowWidgets.size(); ++i)
@@ -493,13 +511,13 @@ void TestEditorPanel::resized()
         w.label->setBounds(padX + 20, y + 4, 200, 20);
 
         w.combo->setBounds(padX + 225, y + 2, comboColW, 26);
-        w.txtCustomSteps->setBounds(padX + contentW - 205, y + 2, 46, 26);
+        w.txtCustomSteps->setBounds(padX + contentW - 215, y + 2, 48, 26);
 
-        w.txtMinPct->setBounds(padX + contentW - 150, y + 2, 54, 26);
-        w.txtMaxPct->setBounds(padX + contentW - 90, y + 2, 54, 26);
+        w.txtMinPct->setBounds(padX + contentW - 160, y + 2, 54, 26);
+        w.txtMaxPct->setBounds(padX + contentW - 100, y + 2, 54, 26);
 
-        if (w.btnUp) w.btnUp->setBounds(padX + contentW - 30, y + 2, 30, 12);
-        if (w.btnDown) w.btnDown->setBounds(padX + contentW - 30, y + 16, 30, 12);
+        if (w.btnUp) w.btnUp->setBounds(padX + contentW - 38, y + 1, 32, 13);
+        if (w.btnDown) w.btnDown->setBounds(padX + contentW - 38, y + 15, 32, 13);
 
         y += 32;
     }

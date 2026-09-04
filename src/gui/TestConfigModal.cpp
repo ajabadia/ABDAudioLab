@@ -27,7 +27,7 @@ TestConfigModal::TestConfigModal()
     panel.addAndMakeVisible(btnCancel);
 
     btnApply.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
-    btnApply.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+    btnApply.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnApply.onClick = [this] {
         if (onConfigurationConfirmed)
             onConfigurationConfirmed(editorPanel.getConfiguration());
@@ -45,9 +45,8 @@ void TestConfigModal::showDialog(juce::Component* parent, const TestConfiguratio
 
     if (parent != nullptr)
     {
-        parent->addAndMakeVisible(this);
         setBounds(parent->getLocalBounds());
-        toFront(true);
+        parent->addAndMakeVisible(this);
     }
 
     setVisible(true);
@@ -64,8 +63,8 @@ void TestConfigModal::dismissDialog()
 juce::Rectangle<float> TestConfigModal::getPanelBounds() const
 {
     auto bounds = getLocalBounds().toFloat();
-    float w = std::min(780.0f, bounds.getWidth() * 0.92f);
-    float h = std::min(620.0f, bounds.getHeight() * 0.92f);
+    float w = std::min(800.0f, bounds.getWidth() * 0.94f);
+    float h = std::min(700.0f, bounds.getHeight() * 0.94f);
     return bounds.withSizeKeepingCentre(w, h);
 }
 
@@ -101,7 +100,7 @@ void TestConfigModal::resized()
     editorViewport.setBounds(pBounds.reduced(16, 8));
 
     int contentW = editorViewport.getWidth() - (editorViewport.isVerticalScrollBarShown() ? 16 : 0);
-    editorPanel.setSize(contentW, editorPanel.getPreferredHeight());
+    editorPanel.setSize(contentW, std::max(editorViewport.getHeight(), editorPanel.getPreferredHeight()));
 }
 
 bool TestConfigModal::keyPressed(const juce::KeyPress& key)

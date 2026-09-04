@@ -34,6 +34,11 @@ public:
     void removePoint(int index);
     void setHighlightedPointIndex(int index);
     void setViewMode(ViewMode mode);
+    void setCollapsed(bool collapsed);
+    void setChevronGlyph(const juce::String& glyph);
+    [[nodiscard]] bool getIsCollapsed() const noexcept { return isCollapsed; }
+
+    std::function<void()> onToggleCollapse;
 
     /** @brief Access the spectrum analyzer for external data feeding. */
     LiveSpectrumAnalyzer& getSpectrumAnalyzer() noexcept { return spectrumAnalyzer; }
@@ -48,6 +53,9 @@ private:
     std::vector<exporting::MeasuredPoint> points;
     int highlightedPointIndex { -1 };
     std::mutex pointsMutex;
+
+    bool isCollapsed { false };
+    juce::TextButton btnToggleCollapse;
 
     juce::Point<float> hoverMousePos { -1.0f, -1.0f };
     bool isHoveringPlot { false };

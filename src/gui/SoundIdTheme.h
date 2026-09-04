@@ -111,16 +111,37 @@ public:
     {
         juce::ignoreUnused(backgroundColour);
         auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
-        constexpr float cornerSize = 6.0f; // Standardized pro-audio corner radius
+        float cornerSize = std::clamp(bounds.getHeight() * 0.35f, 6.0f, 10.0f); // Sleek rounded radius (not squarish, not overly capsule)
 
         auto baseColour = button.findColour(juce::TextButton::buttonColourId);
 
-        if (baseColour == pillWhiteBg || baseColour == juce::Colours::white)
+        // 1. Completely Borderless / Icon Button Mode
+        if (baseColour.isTransparent() || baseColour == juce::Colours::transparentBlack || baseColour == juce::Colours::transparentWhite)
+        {
+            if (shouldDrawButtonAsDown)
+            {
+                g.setColour(bgCardHover.darker(0.15f));
+                g.fillRoundedRectangle(bounds, cornerSize);
+            }
+            else if (shouldDrawButtonAsHighlighted)
+            {
+                g.setColour(bgCardHover.withAlpha(0.65f));
+                g.fillRoundedRectangle(bounds, cornerSize);
+            }
+            return;
+        }
+
+        // 2. Standard White / Neutral Button
+        if (baseColour == pillWhiteBg || baseColour == juce::Colours::white || baseColour == bgCard)
         {
             juce::Colour fillCol = shouldDrawButtonAsDown ? bgCardHover.darker(0.12f)
-                                 : (shouldDrawButtonAsHighlighted ? bgCardHover : pillWhiteBg);
+                                 : (shouldDrawButtonAsHighlighted ? bgCardHover : baseColour);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
+
+            // Subtle top highlight sheen
+            g.setColour(juce::Colours::white.withAlpha(0.6f));
+            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
 
             g.setColour(borderCard.withAlpha(0.6f));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
@@ -132,16 +153,23 @@ public:
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
+            g.setColour(juce::Colours::white.withAlpha(0.12f));
+            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
+
             g.setColour(juce::Colours::black.withAlpha(0.4f));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else
         {
-            // Custom accent color button (e.g., accentGreen, accentRed, accentAmber)
+            // 3. Custom Accent Color Button (e.g. accentGreen, accentRed, accentAmber)
             juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.20f)
                                  : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.10f) : baseColour);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
+
+            // Subtle top highlight sheen
+            g.setColour(juce::Colours::white.withAlpha(0.28f));
+            g.drawHorizontalLine(static_cast<int>(bounds.getY() + 1.0f), bounds.getX() + cornerSize * 0.5f, bounds.getRight() - cornerSize * 0.5f);
 
             g.setColour(baseColour.darker(0.25f).withAlpha(0.4f));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);

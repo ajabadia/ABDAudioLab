@@ -101,6 +101,13 @@ SoundIdSuiteList::SoundIdSuiteList()
     btnClear.onClick = [this] { clearQueue(); };
     addAndMakeVisible(btnClear);
 
+    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25bc")); // ▼
+    btnToggleCollapse.setTooltip("Collapse / Expand Test Queue Box");
+    btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    btnToggleCollapse.onClick = [this] { if (onToggleCollapse) onToggleCollapse(); };
+    addAndMakeVisible(btnToggleCollapse);
+
     viewport.setViewedComponent(&rowsContent, false);
     viewport.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport);
@@ -413,10 +420,30 @@ void SoundIdSuiteList::layoutRows()
     rowsContent.setSize(viewport.getWidth() > 0 ? viewport.getWidth() - 14 : 700, std::max(totalH, 100));
 }
 
+void SoundIdSuiteList::setCollapsed(bool collapsed)
+{
+    isCollapsed = collapsed;
+    btnToggleCollapse.setButtonText(isCollapsed ? juce::String::fromUTF8(u8"\u25b2") : juce::String::fromUTF8(u8"\u25bc"));
+    viewport.setVisible(!isCollapsed);
+    repaint();
+    resized();
+}
+
+void SoundIdSuiteList::setChevronGlyph(const juce::String& glyph)
+{
+    btnToggleCollapse.setButtonText(glyph);
+}
+
 void SoundIdSuiteList::resized()
 {
     auto bounds = getLocalBounds();
     auto header = bounds.removeFromTop(34).reduced(8, 4);
+
+    btnToggleCollapse.setBounds(header.removeFromRight(26).withSizeKeepingCentre(22, 22));
+    header.removeFromRight(6);
+
+    btnClear.setBounds(header.removeFromRight(75));
+    header.removeFromRight(12);
 
     // Hero Action Button: dominant placement
     btnRunSession.setBounds(header.removeFromLeft(195));
@@ -427,11 +454,17 @@ void SoundIdSuiteList::resized()
     header.removeFromLeft(8);
     btnAddCustom.setBounds(header.removeFromLeft(140));
 
-    btnClear.setBounds(header.removeFromRight(75));
-
     bounds.removeFromTop(2);
-    viewport.setBounds(bounds.reduced(6, 4));
-    layoutRows();
+    if (!isCollapsed)
+    {
+        viewport.setVisible(true);
+        viewport.setBounds(bounds.reduced(6, 4));
+        layoutRows();
+    }
+    else
+    {
+        viewport.setVisible(false);
+    }
 }
 
 void SoundIdSuiteList::paint(juce::Graphics& g)

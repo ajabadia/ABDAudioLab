@@ -266,6 +266,22 @@ public:
         addAndMakeVisible(healthPanel);
         addAndMakeVisible(curvePlotter);
 
+        curvePlotter.onToggleCollapse = [this] {
+            if (centerSplitMode == CenterSplitMode::Balanced)
+                centerSplitMode = CenterSplitMode::QueueMaximized;
+            else
+                centerSplitMode = CenterSplitMode::Balanced;
+            updateSplitLayout();
+        };
+
+        suiteList.onToggleCollapse = [this] {
+            if (centerSplitMode == CenterSplitMode::Balanced)
+                centerSplitMode = CenterSplitMode::GraphMaximized;
+            else
+                centerSplitMode = CenterSplitMode::Balanced;
+            updateSplitLayout();
+        };
+
         // 5. Bottom Test Queue (Session Test Plan & CRUD)
         suiteList.onAddStandardClicked = [this] {
             juce::String selectedHwId = drawer.getSelectedHardwareId();
@@ -787,6 +803,42 @@ public:
         return false;
     }
 
+    enum class CenterSplitMode
+    {
+        QueueMaximized,  // Graph minimized to header (~32px), Queue takes the rest
+        Balanced,        // Standard split (Queue ~210px, Graph takes the rest)
+        GraphMaximized   // Queue minimized to header (~34px), Graph takes the rest
+    };
+    CenterSplitMode centerSplitMode { CenterSplitMode::Balanced };
+
+    void updateSplitLayout()
+    {
+        switch (centerSplitMode)
+        {
+            case CenterSplitMode::Balanced:
+                curvePlotter.setCollapsed(false);
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (collapse graph)
+                suiteList.setCollapsed(false);
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (collapse queue)
+                break;
+
+            case CenterSplitMode::GraphMaximized:
+                curvePlotter.setCollapsed(false);
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore down)
+                suiteList.setCollapsed(true);
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore up)
+                break;
+
+            case CenterSplitMode::QueueMaximized:
+                curvePlotter.setCollapsed(true);
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore down)
+                suiteList.setCollapsed(false);
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore up)
+                break;
+        }
+        resized();
+    }
+
     void paint(juce::Graphics& g) override
     {
         g.fillAll(gui::SoundIdTheme::bgLight);
@@ -795,14 +847,15 @@ public:
     void resized() override
     {
         auto bounds = getLocalBounds().reduced(20);
-        // 1. Top Header Area (Title left, Controls right)
+
+        // 1. Top Header Area (File and Scope on the left, hardware controls on the right)
         auto topArea = bounds.removeFromTop(36);
-        titleLabel.setBounds(topArea.removeFromLeft(140).withHeight(30));
-        topArea.removeFromLeft(4);
-        btnFileMenu.setBounds(topArea.removeFromLeft(70).withHeight(32));
-        topArea.removeFromLeft(6);
-        btnScope.setBounds(topArea.removeFromLeft(80).withHeight(32));
+        titleLabel.setVisible(false); // Removed ABDAudioLab from top bar per user request
+
+        btnFileMenu.setBounds(topArea.removeFromLeft(74).withHeight(32));
         topArea.removeFromLeft(8);
+        btnScope.setBounds(topArea.removeFromLeft(84).withHeight(32));
+        topArea.removeFromLeft(12);
 
         btnInfo.setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
         topArea.removeFromRight(8);
@@ -836,7 +889,26 @@ public:
         // 4. Bottom Test Suite List & Controls Dock
         int bottomH = 210;
         if (operatorStepModal.isVisible() && operatorStepModal.isCollapsed)
+        {
             bottomH = 34;
+        }
+        else
+        {
+            switch (centerSplitMode)
+            {
+                case CenterSplitMode::GraphMaximized:
+                    bottomH = 36; // Queue collapsed to header only
+                    break;
+                case CenterSplitMode::QueueMaximized:
+                    // Graph collapsed to header (~32px) + healthPanel (26px) + margin = ~82px
+                    bottomH = std::max(140, bounds.getHeight() - 84);
+                    break;
+                case CenterSplitMode::Balanced:
+                default:
+                    bottomH = 220;
+                    break;
+            }
+        }
 
         auto bottomArea = bounds.removeFromBottom(bottomH);
         suiteList.setBounds(bottomArea);

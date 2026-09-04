@@ -19,10 +19,37 @@ SoundIdCurvePlotter::SoundIdCurvePlotter()
     addAndMakeVisible(btnSpectrum);
     addChildComponent(spectrumAnalyzer);
 
+    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25b2")); // ▲
+    btnToggleCollapse.setTooltip("Collapse / Expand Graph Box");
+    btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    btnToggleCollapse.onClick = [this] { if (onToggleCollapse) onToggleCollapse(); };
+    addAndMakeVisible(btnToggleCollapse);
+
     btnCurve.onClick = [this] { setViewMode(ViewMode::FrequencyCurve); };
     btnHeatmap.onClick = [this] { setViewMode(ViewMode::Heatmap2D); };
     btnSpectrum.onClick = [this] { setViewMode(ViewMode::SpectrumFFT); };
     setViewMode(ViewMode::FrequencyCurve);
+}
+
+void SoundIdCurvePlotter::setCollapsed(bool collapsed)
+{
+    isCollapsed = collapsed;
+    btnToggleCollapse.setButtonText(isCollapsed ? juce::String::fromUTF8(u8"\u25bc") : juce::String::fromUTF8(u8"\u25b2"));
+    btnCurve.setVisible(!isCollapsed);
+    btnHeatmap.setVisible(!isCollapsed);
+    btnSpectrum.setVisible(!isCollapsed);
+    if (isCollapsed && spectrumAnalyzer.isVisible())
+        spectrumAnalyzer.setVisible(false);
+    else if (!isCollapsed && currentView == ViewMode::SpectrumFFT)
+        spectrumAnalyzer.setVisible(true);
+    repaint();
+    resized();
+}
+
+void SoundIdCurvePlotter::setChevronGlyph(const juce::String& glyph)
+{
+    btnToggleCollapse.setButtonText(glyph);
 }
 
 void SoundIdCurvePlotter::clear()
@@ -92,17 +119,21 @@ void SoundIdCurvePlotter::resized()
     auto area = getLocalBounds();
     auto topBar = area.removeFromTop(32).reduced(4, 2);
 
-    // Tab buttons aligned to the right with compact spacing
-    btnSpectrum.setBounds(topBar.removeFromRight(102));
+    btnToggleCollapse.setBounds(topBar.removeFromRight(26).withSizeKeepingCentre(22, 22));
     topBar.removeFromRight(4);
-    btnHeatmap.setBounds(topBar.removeFromRight(92));
-    topBar.removeFromRight(4);
-    btnCurve.setBounds(topBar.removeFromRight(102));
 
-    // Spectrum analyzer fills the plot area when visible
-    if (currentView == ViewMode::SpectrumFFT)
+    if (!isCollapsed)
     {
-        spectrumAnalyzer.setBounds(area.reduced(4, 0));
+        btnSpectrum.setBounds(topBar.removeFromRight(102));
+        topBar.removeFromRight(4);
+        btnHeatmap.setBounds(topBar.removeFromRight(92));
+        topBar.removeFromRight(4);
+        btnCurve.setBounds(topBar.removeFromRight(102));
+
+        if (currentView == ViewMode::SpectrumFFT)
+        {
+            spectrumAnalyzer.setBounds(area.reduced(4, 0));
+        }
     }
 }
 
@@ -116,9 +147,13 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
-    // Reserve right side for buttons (310px) so legend never overlaps tab buttons
-    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(310.0f);
+    // Reserve right side for buttons so legend never overlaps tab buttons
+    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(isCollapsed ? 36.0f : 340.0f);
     drawLegend(g, headerArea);
+
+    // If collapsed, only header is rendered
+    if (isCollapsed)
+        return;
 
     // Skip painting plot content when spectrum is active (it's a child component)
     if (currentView == ViewMode::SpectrumFFT)
