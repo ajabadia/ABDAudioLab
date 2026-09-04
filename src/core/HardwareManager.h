@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "HardwareContractRegistry.h"
+#include "SharedHardwareContractAdapter.h"
 #include "../gui/SlideInDrawer.h"
 #include "../hardware/HardwareController.h"
 #include "../hardware/AiraSysExController.h"

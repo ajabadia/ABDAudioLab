@@ -8,7 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Enable MSVC optimizations & UTF-8
 if(MSVC)
-    add_compile_options(/W4 /utf-8 /permissive- /Zc:__cplusplus)
+    add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>" "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+    add_compile_options(/W4 /permissive- /Zc:__cplusplus)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
@@ -118,6 +119,8 @@ target_sources(ABDAudioLab
         src/core/SessionManager.cpp
         src/core/HardwareManager.h
         src/core/HardwareManager.cpp
+        src/core/SharedHardwareContractAdapter.h
+        src/core/SharedHardwareContractAdapter.cpp
 
         # Audio Engine & DSP
         src/audio/LabStimulusGenerator.h

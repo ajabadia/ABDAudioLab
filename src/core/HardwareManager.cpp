@@ -1,4 +1,5 @@
 #include "HardwareManager.h"
+#include "SharedHardwareContractAdapter.h"
 
 namespace abdaudiolab::core
 {
@@ -10,9 +11,18 @@ HardwareManager::HardwareManager()
 
 void HardwareManager::initializeHardwareRegistry(const juce::File& contractsDir)
 {
-    contractRegistry.loadContractsFromDirectory(contractsDir);
+    // Use shared registry via adapter to get identity + domain data
+    abd::hwid::HardwareContractRegistry sharedRegistry;
+    SharedHardwareContractAdapter adapter(sharedRegistry);
+
+    if (!adapter.loadFromShared(contractsDir))
+    {
+        juce::Logger::writeToLog("[HardwareManager] Failed to load shared contracts: " + juce::String(adapter.getLastError()));
+        return;
+    }
+
     hardwareList.clear();
-    for (const auto& contract : contractRegistry.getContracts())
+    for (const auto& contract : adapter.getContracts())
     {
         gui::HardwareItem item;
         item.id = juce::String(contract.id);
@@ -44,6 +54,8 @@ void HardwareManager::initializeHardwareRegistry(const juce::File& contractsDir)
 
         hardwareList.push_back(std::move(item));
     }
+
+    juce::Logger::writeToLog("[HardwareManager] Loaded " + juce::String(hardwareList.size()) + " hardware profiles from shared contracts.");
 }
 
 const gui::HardwareItem* HardwareManager::findHardwareItem(const juce::String& hardwareId) const
