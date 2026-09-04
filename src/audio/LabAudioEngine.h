@@ -108,13 +108,6 @@ public:
     [[nodiscard]] abd::scope::ScopeDataCollector& getScopeCollector() noexcept { return scopeCollector; }
     [[nodiscard]] abd::scope::ScopeFrameSerializer& getFrameSerializer() noexcept { return frameSerializer; }
 
-    void setActiveScopeTap(const juce::String& tapId)
-    {
-        if (tapId == "stimulus") scopeCollector.selectTap("Stimulus Generator");
-        else if (tapId == "hardware_in") scopeCollector.selectTap("Hardware In (DUT)");
-        else if (tapId == "diag_tone") scopeCollector.selectTap("Diagnostic 1kHz");
-    }
-
     // Level Meters (RMS & Peak for GUI VU Meters)
     [[nodiscard]] float getInputPeakL() const noexcept { return inputPeakL.load(std::memory_order_relaxed); }
     [[nodiscard]] float getInputPeakR() const noexcept { return inputPeakR.load(std::memory_order_relaxed); }
