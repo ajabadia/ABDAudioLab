@@ -76,18 +76,20 @@ namespace abdaudiolab::gui
 
 SoundIdSuiteList::SoundIdSuiteList()
 {
+    btnAddStandard.setTooltip("Add Standard Test - Automatically configure optimal sweep matrix for selected hardware module");
     btnAddStandard.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnAddStandard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnAddStandard.onClick = [this] { if (onAddStandardClicked) onAddStandardClicked(); };
     addAndMakeVisible(btnAddStandard);
 
+    btnAddCustom.setTooltip("Add Custom Test - Define custom sweep steps, stimulus duration, capture mode and parameter ranges");
     btnAddCustom.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnAddCustom.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnAddCustom.onClick = [this] { if (onAddCustomClicked) onAddCustomClicked(); };
     addAndMakeVisible(btnAddCustom);
 
     btnRunSession.setButtonText(juce::String::fromUTF8(u8"\u25b6  RUN SESSION TESTS"));
-    btnRunSession.setTooltip("Start executing all active tests in the plan");
+    btnRunSession.setTooltip("Run Session Tests - Execute all queued measurement tests sequentially (or stop running session)");
     btnRunSession.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnRunSession.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnRunSession.onClick = [this] {
@@ -96,13 +98,14 @@ SoundIdSuiteList::SoundIdSuiteList()
     };
     addAndMakeVisible(btnRunSession);
 
+    btnClear.setTooltip("Clear Queue - Remove all completed or queued tests (preserves pinned baseline)");
     btnClear.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     btnClear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
     btnClear.onClick = [this] { clearQueue(); };
     addAndMakeVisible(btnClear);
 
-    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25bc")); // ▼
-    btnToggleCollapse.setTooltip("Collapse / Expand Test Queue Box");
+    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25b2")); // ▲ (pointing up to expand upwards)
+    btnToggleCollapse.setTooltip("Maximize / Restore Test Queue - Expand test list up to fill area or restore balanced split");
     btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnToggleCollapse.onClick = [this] { if (onToggleCollapse) onToggleCollapse(); };
@@ -887,4 +890,129 @@ void SoundIdSuiteList::RowsContentComponent::mouseDown(const juce::MouseEvent& e
     }
 }
 
+juce::String SoundIdSuiteList::RowsContentComponent::getTooltip()
+{
+    auto pos = getMouseXYRelative().toFloat();
+    float currentY = 0.0f;
+
+    for (size_t i = 0; i < owner.queue.size(); ++i)
+    {
+        const auto& item = owner.queue[i];
+        auto rowRect = juce::Rectangle<float>(0.0f, currentY, static_cast<float>(getWidth()), 34.0f).reduced(0.0f, 1.0f);
+        currentY += 34.0f;
+
+        if (rowRect.contains(pos))
+        {
+            auto area = rowRect.reduced(6.0f, 2.0f);
+
+            if (!item.isPinned)
+            {
+                auto reorderArea = area.removeFromLeft(36.0f);
+                auto upRect = reorderArea.removeFromLeft(16.0f);
+                if (upRect.contains(pos))
+                    return "Move test up in session execution order";
+
+                auto downRect = reorderArea.removeFromLeft(16.0f);
+                if (downRect.contains(pos))
+                    return "Move test down in session execution order";
+            }
+            else
+            {
+                auto pinRect = area.removeFromLeft(36.0f);
+                if (pinRect.contains(pos))
+                    return "Pinned baseline test (always runs first to calibrate noise floor)";
+            }
+
+            auto badgeRect = area.removeFromLeft(38.0f);
+            if (badgeRect.contains(pos))
+                return "Module: " + item.badgeText + " (" + item.title + ")";
+
+            auto rightActions = area.removeFromRight(290.0f);
+            if (!item.isPinned)
+            {
+                auto delBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
+                if (delBtn.contains(pos))
+                    return "Delete Test - Remove this test from the session plan";
+
+                auto copyBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
+                if (copyBtn.contains(pos))
+                    return "Duplicate Test - Create a copy of this test in queue";
+
+                auto editBtn = rightActions.removeFromRight(30.0f).withSizeKeepingCentre(26.0f, 22.0f);
+                if (editBtn.contains(pos))
+                    return "Edit Test - Configure sweep resolution, stimulus duration, capture mode and ranges";
+            }
+            else
+            {
+                rightActions.removeFromRight(112.0f);
+            }
+
+            rightActions.removeFromRight(6.0f);
+
+            if (item.status == QueueItemStatus::Incomplete)
+            {
+                auto contBtn = rightActions.removeFromRight(58.0f).withSizeKeepingCentre(54.0f, 20.0f);
+                if (contBtn.contains(pos))
+                    return "Resume Session - Continue running this test from last unfinished point";
+
+                auto resetBtn = rightActions.removeFromRight(50.0f).withSizeKeepingCentre(46.0f, 20.0f);
+                if (resetBtn.contains(pos))
+                    return "Reset Test - Reset measurement state to Queued";
+            }
+            else if (item.status == QueueItemStatus::Invalidated)
+            {
+                auto rerunBtn = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
+                if (rerunBtn.contains(pos))
+                    return "Re-run Test - Execute this invalidated test again";
+            }
+
+            rightActions.removeFromRight(6.0f);
+            auto bypassPill = rightActions.removeFromRight(60.0f).withSizeKeepingCentre(56.0f, 20.0f);
+            if (bypassPill.contains(pos))
+                return item.isSkipped ? "Click to set ACTIVE (include in session run)" : "Click to set BYPASS (skip during session run)";
+
+            auto expandBtn = area.removeFromLeft(16.0f);
+            if (expandBtn.contains(pos))
+                return item.isExpanded ? "Collapse point measurements list" : "Expand to view individual point measurements";
+
+            return item.title + (item.description.isNotEmpty() ? (" (" + item.description + ")") : "");
+        }
+
+        if (item.isExpanded)
+        {
+            int shownSubRows = std::min(item.totalPoints, 16);
+            for (int pIdx = 0; pIdx < shownSubRows; ++pIdx)
+            {
+                auto subRect = juce::Rectangle<float>(32.0f, currentY + 1.0f, static_cast<float>(getWidth()) - 36.0f, 22.0f);
+                currentY += 24.0f;
+
+                if (subRect.contains(pos))
+                {
+                    auto subArea = subRect.reduced(6.0f, 2.0f);
+                    subArea.removeFromLeft(220.0f);
+                    auto subActions = subArea.removeFromRight(150.0f);
+
+                    auto subDel = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                    if (subDel.contains(pos))
+                        return "Annul Point - Mark point as invalid without repeating";
+
+                    auto subClear = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                    if (subClear.contains(pos))
+                        return "Reset Point - Re-queue point to be re-measured";
+
+                    auto subView = subActions.removeFromRight(28.0f).withSizeKeepingCentre(24.0f, 18.0f);
+                    if (subView.contains(pos))
+                        return "View Point Curve - Display response in curve plotter";
+
+                    return "Measurement Point #" + juce::String(pIdx + 1);
+                }
+            }
+            currentY += 6.0f;
+        }
+    }
+
+    return {};
+}
+
 } // namespace abdaudiolab::gui
+

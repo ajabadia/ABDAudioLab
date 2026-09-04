@@ -19,8 +19,8 @@ SoundIdCurvePlotter::SoundIdCurvePlotter()
     addAndMakeVisible(btnSpectrum);
     addChildComponent(spectrumAnalyzer);
 
-    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25b2")); // ▲
-    btnToggleCollapse.setTooltip("Collapse / Expand Graph Box");
+    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25bc")); // ▼ (pointing down to expand downwards)
+    btnToggleCollapse.setTooltip("Maximize / Restore Graph Area - Expand graph area down to maximize or restore balanced split");
     btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnToggleCollapse.onClick = [this] { if (onToggleCollapse) onToggleCollapse(); };

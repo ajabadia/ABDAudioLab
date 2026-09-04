@@ -213,6 +213,7 @@ SlideInDrawer::SlideInDrawer()
     lblFileSection.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
     contentComp.addChildComponent(lblFileSection);
 
+    btnFileNew.setTooltip("New Session - Clear current session and create a new profiling plan");
     btnFileNew.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileNew.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileNew.onClick = [this] {
@@ -221,6 +222,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileNew);
 
+    btnFileOpen.setTooltip("Open Session - Load an existing session (.json) from disk");
     btnFileOpen.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileOpen.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileOpen.onClick = [this] {
@@ -229,6 +231,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileOpen);
 
+    btnFileSave.setTooltip("Save Session - Save current profiling measurements and test definitions to session file");
     btnFileSave.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileSave.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileSave.onClick = [this] {
@@ -237,6 +240,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileSave);
 
+    btnFileSaveAs.setTooltip("Save Session As - Save profiling session to a new file destination");
     btnFileSaveAs.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileSaveAs.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileSaveAs.onClick = [this] {
@@ -254,6 +258,7 @@ SlideInDrawer::SlideInDrawer()
     lblFileExportPathVal.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     contentComp.addChildComponent(lblFileExportPathVal);
 
+    btnFileChangeExport.setTooltip("Change Directory - Select output folder for C++ headers, JSON, and reports");
     btnFileChangeExport.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileChangeExport.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileChangeExport.onClick = [this] {
@@ -261,6 +266,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileChangeExport);
 
+    btnFileRevealExport.setTooltip("Open in Explorer - Reveal output directory in Windows File Explorer");
     btnFileRevealExport.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnFileRevealExport.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnFileRevealExport.onClick = [this] {
@@ -268,6 +274,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileRevealExport);
 
+    btnFileExportReport.setTooltip("Export Certification Report - Generate complete HTML/SVG audit report and NAM dataset");
     btnFileExportReport.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnFileExportReport.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     btnFileExportReport.onClick = [this] {
@@ -275,6 +282,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileExportReport);
 
+    btnFileExit.setTooltip("Exit - Close ABDAudioLab application");
     btnFileExit.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfffee2e2));
     btnFileExit.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentRed);
     btnFileExit.onClick = [this] {
@@ -282,6 +290,7 @@ SlideInDrawer::SlideInDrawer()
     };
     contentComp.addChildComponent(btnFileExit);
 
+    btnCheckUpdates.setTooltip("Check for Updates - Check GitHub releases for newer software versions");
     btnCheckUpdates.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe0e7ff));
     btnCheckUpdates.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff3730a3));
     btnCheckUpdates.onClick = [this] {
@@ -540,11 +549,13 @@ SlideInDrawer::SlideInDrawer()
     setupLbl(lblSetupMidiOutput, "MIDI Output Device:", true);
     setupLbl(lblSetupMidiOutputVal, "None", false);
 
+    btnSetupAudioMidi.setTooltip("Configure Audio & MIDI Settings - Select audio interface, sample rate, buffer size, and MIDI ports");
     btnSetupAudioMidi.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnSetupAudioMidi.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnSetupAudioMidi.onClick = [this] { if (onOpenAudioSettingsClicked) onOpenAudioSettingsClicked(); };
     contentComp.addChildComponent(btnSetupAudioMidi);
 
+    btnSetupAbout.setTooltip("About ABDAudioLab - View software version, research architecture, and credits");
     btnSetupAbout.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnSetupAbout.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnSetupAbout.onClick = [this] { if (onAboutClicked) onAboutClicked(); };
@@ -555,9 +566,11 @@ SlideInDrawer::SlideInDrawer()
     // ==========================================
     panel.addAndMakeVisible(bottomBar);
 
+    btnCancel.setTooltip("Cancel - Discard changes and close drawer");
     btnCancel.onClick = [this] { closeDrawer(); };
     bottomBar.addAndMakeVisible(btnCancel);
 
+    btnConfirm.setTooltip("Accept - Apply selected hardware and routing");
     btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
     btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnConfirm.onClick = [this] {

@@ -111,12 +111,14 @@ public:
     void resized() override;
 
 private:
-    class RowsContentComponent : public juce::Component
+    class RowsContentComponent : public juce::Component,
+                                 public juce::TooltipClient
     {
     public:
         RowsContentComponent(SoundIdSuiteList& ownerRef) : owner(ownerRef) {}
         void paint(juce::Graphics& g) override;
         void mouseDown(const juce::MouseEvent& e) override;
+        juce::String getTooltip() override;
     private:
         SoundIdSuiteList& owner;
     };

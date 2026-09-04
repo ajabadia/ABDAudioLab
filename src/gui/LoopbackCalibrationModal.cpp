@@ -15,16 +15,19 @@ LoopbackCalibrationModal::LoopbackCalibrationModal(audio::LabAudioEngine& engine
     addAndMakeVisible(panel);
 
     btnClose.setButtonText(juce::String::fromUTF8(u8"✕"));
+    btnClose.setTooltip("Close calibration window");
     btnClose.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     btnClose.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnClose.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnClose);
 
+    btnStartMeasure.setTooltip("Start Loopback Calibration - Fire Farina log sweep across DAC->ADC to compute latency and compensation curve");
     btnStartMeasure.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
     btnStartMeasure.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnStartMeasure.onClick = [this] { startCalibrationSweep(); };
     panel.addAndMakeVisible(btnStartMeasure);
 
+    btnApplyAndClose.setTooltip("Apply & Close - Save calibration curve and recommended input trim gain");
     btnApplyAndClose.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnApplyAndClose.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnApplyAndClose.onClick = [this] {
@@ -38,6 +41,7 @@ LoopbackCalibrationModal::LoopbackCalibrationModal(audio::LabAudioEngine& engine
     };
     panel.addChildComponent(btnApplyAndClose);
 
+    btnCancel.setTooltip("Cancel - Discard calibration results and close");
     btnCancel.setColour(juce::TextButton::buttonColourId, juce::Colour(0xfff3f4f6));
     btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnCancel.onClick = [this] { dismissDialog(); };

@@ -11,6 +11,7 @@ TestEditorPanel::TestEditorPanel()
     lblPresetSelector.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(lblPresetSelector);
 
+    comboPresets.setTooltip("Preset Configurations - Select a standard measurement template for quick setup");
     comboPresets.setColour(juce::ComboBox::backgroundColourId, SoundIdTheme::pillWhiteBg);
     comboPresets.setColour(juce::ComboBox::textColourId, SoundIdTheme::textPrimary);
     comboPresets.setColour(juce::ComboBox::outlineColourId, SoundIdTheme::borderCard);
@@ -25,6 +26,7 @@ TestEditorPanel::TestEditorPanel()
     lblTestName.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addAndMakeVisible(lblTestName);
 
+    txtTestName.setTooltip("Test Name - Descriptive title for this measurement routine");
     txtTestName.setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
     txtTestName.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
     txtTestName.setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderCard);
@@ -39,6 +41,7 @@ TestEditorPanel::TestEditorPanel()
     lblStimulusType.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addAndMakeVisible(lblStimulusType);
 
+    comboStimulusType.setTooltip("Stimulus Type - Excitation signal fed into hardware (Log Sweep, Ramp, Sine, Pulses, Noise)");
     comboStimulusType.addItem("Exponential Log-Farina Sweep (Standard for Filters/EQ)", 1);
     comboStimulusType.addItem("Amplitude Ramp (Saturation & Non-Linear Knees)", 2);
     comboStimulusType.addItem("Sync Pulses (ADSR Gate & Timing)", 3);
@@ -105,6 +108,7 @@ TestEditorPanel::TestEditorPanel()
     comboDurationPreset.addItem("Long Tail (4.00 sec per point)", 5);
     comboDurationPreset.addItem("Custom Duration (Manual)...", 99);
 
+    comboDurationPreset.setTooltip("Burst Duration & Capture Speed - Select stimulus duration per evaluation point");
     comboDurationPreset.setColour(juce::ComboBox::backgroundColourId, SoundIdTheme::pillWhiteBg);
     comboDurationPreset.setColour(juce::ComboBox::textColourId, SoundIdTheme::textPrimary);
     comboDurationPreset.setColour(juce::ComboBox::outlineColourId, SoundIdTheme::borderCard);
@@ -133,6 +137,7 @@ TestEditorPanel::TestEditorPanel()
     addAndMakeVisible(lblManualDuration);
 
     txtManualDuration.setInputRestrictions(5, "0123456789.");
+    txtManualDuration.setTooltip("Custom Duration (seconds) - Set arbitrary stimulus evaluation time per point");
     txtManualDuration.setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
     txtManualDuration.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
     txtManualDuration.setColour(juce::TextEditor::outlineColourId, SoundIdTheme::borderCard);
@@ -274,6 +279,7 @@ void TestEditorPanel::rebuildControlRows()
         addAndMakeVisible(row.label.get());
 
         row.btnUp = std::make_unique<juce::TextButton>(juce::String::fromUTF8(u8"▲"));
+        row.btnUp->setTooltip("Move parameter up in sweep execution order");
         row.btnUp->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
         row.btnUp->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
         row.btnUp->setEnabled(rowIdx > 0);
@@ -288,6 +294,7 @@ void TestEditorPanel::rebuildControlRows()
         addAndMakeVisible(row.btnUp.get());
 
         row.btnDown = std::make_unique<juce::TextButton>(juce::String::fromUTF8(u8"▼"));
+        row.btnDown->setTooltip("Move parameter down in sweep execution order");
         row.btnDown->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
         row.btnDown->setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
         row.btnDown->setEnabled(rowIdx + 1 < currentConfig.controls.size());
@@ -302,6 +309,7 @@ void TestEditorPanel::rebuildControlRows()
         addAndMakeVisible(row.btnDown.get());
 
         row.combo = std::make_unique<juce::ComboBox>();
+        row.combo->setTooltip("Step Resolution - Preset number of points across sweep range");
         row.combo->setColour(juce::ComboBox::backgroundColourId, SoundIdTheme::pillWhiteBg);
         row.combo->setColour(juce::ComboBox::textColourId, SoundIdTheme::textPrimary);
         row.combo->setColour(juce::ComboBox::outlineColourId, SoundIdTheme::borderCard);
@@ -318,6 +326,7 @@ void TestEditorPanel::rebuildControlRows()
 
         row.txtCustomSteps = std::make_unique<juce::TextEditor>();
         row.txtCustomSteps->setInputRestrictions(3, "0123456789");
+        row.txtCustomSteps->setTooltip("Step Count - Number of evaluation points for this control");
         row.txtCustomSteps->setJustification(juce::Justification::centred);
         row.txtCustomSteps->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
         row.txtCustomSteps->setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
@@ -349,6 +358,7 @@ void TestEditorPanel::rebuildControlRows()
 
         row.txtMinPct = std::make_unique<juce::TextEditor>();
         row.txtMinPct->setInputRestrictions(5, "0123456789.");
+        row.txtMinPct->setTooltip("Minimum Value (%) - Sweep start point");
         row.txtMinPct->setText(juce::String(ctrl.minPct, 1), juce::dontSendNotification);
         row.txtMinPct->setJustification(juce::Justification::centred);
         row.txtMinPct->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);
@@ -358,6 +368,7 @@ void TestEditorPanel::rebuildControlRows()
 
         row.txtMaxPct = std::make_unique<juce::TextEditor>();
         row.txtMaxPct->setInputRestrictions(5, "0123456789.");
+        row.txtMaxPct->setTooltip("Maximum Value (%) - Sweep end point");
         row.txtMaxPct->setText(juce::String(ctrl.maxPct, 1), juce::dontSendNotification);
         row.txtMaxPct->setJustification(juce::Justification::centred);
         row.txtMaxPct->setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::pillWhiteBg);

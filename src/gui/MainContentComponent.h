@@ -28,6 +28,7 @@
 #include "gui/AboutModalDialog.h"
 #include "gui/LoopbackCalibrationModal.h"
 #include "gui/HardwareSelectorPill.h"
+#include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
 #include "gui/MeasurementHealthPanel.h"
 #include "gui/OperatorStepModalDialog.h"
@@ -233,32 +234,39 @@ public:
         drawer.setHardwareLocked(true);
 
         // Header Action Buttons
-        btnFileMenu.setButtonText("File v");
-        btnFileMenu.setTooltip("Session management: New, Open, Save, Save As, Target Folder, and Exit");
+        btnFileMenu.setButtonText("File");
+        btnFileMenu.setTooltip("File Menu - Manage profiling sessions, export LUTs, C++ headers, JSON benchmarks, and calibration data.");
         btnFileMenu.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnFileMenu.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
         btnFileMenu.onClick = [this] { drawer.openFileDrawer(exportDirectory.getFullPathName()); };
         addAndMakeVisible(btnFileMenu);
 
         btnScope.setButtonText("Scope");
-        btnScope.setTooltip("Open ABDScope Studio Telemetry visualizer (Multi-Lane, Waterfall, Freeze, Snapshot)");
+        btnScope.setTooltip("ABDScope Visualizer - Open floating multi-lane oscilloscope, real-time FFT spectrum, waterfall, freeze and snapshot inspector.");
         btnScope.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnScope.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
         btnScope.onClick = [this] { toggleScopeWebWindow(); };
         addAndMakeVisible(btnScope);
 
+        // Audio & MIDI Status Pill (Gear button + 4 status LEDs)
+        audioMidiStatusPill.onConfigureClicked = [this] { openAudioMidiSettings(); };
+        audioMidiStatusPill.updateStatus(audioEngine);
+        addAndMakeVisible(audioMidiStatusPill);
+
         btnCalibratePill.setButtonText("Line Calibration: -3.0 dBFS");
-        btnCalibratePill.setTooltip("Run loopback line calibration wizard to characterize DAC->ADC latency and frequency response");
+        btnCalibratePill.setTooltip("Line Calibration - Calibrate audio interface loopback (DAC->ADC) latency and flat frequency compensation.");
         btnCalibratePill.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
         btnCalibratePill.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
         btnCalibratePill.onClick = [this] { loopbackModal.showDialog(this); };
         addAndMakeVisible(btnCalibratePill);
 
         btnHardwareSelector.clearHardware();
+        btnHardwareSelector.setTooltip("Target Hardware & Submodule - Select device under test (Roland, Moog, Minilogue, etc.) and active circuit/submodule.");
         btnHardwareSelector.onClick = [this] { drawer.openHardwareDrawer(); };
         addAndMakeVisible(btnHardwareSelector);
 
         // Info Button (Opens Setup & Telemetry Drawer)
+        btnInfo.setTooltip("System Telemetry & Info - View real-time DSP load, sample rate, buffer size, latency and application build stats.");
         btnInfo.onClick = [this] { showInfoDrawer(); };
         addAndMakeVisible(btnInfo);
 
@@ -268,7 +276,7 @@ public:
 
         curvePlotter.onToggleCollapse = [this] {
             if (centerSplitMode == CenterSplitMode::Balanced)
-                centerSplitMode = CenterSplitMode::QueueMaximized;
+                centerSplitMode = CenterSplitMode::GraphMaximized;
             else
                 centerSplitMode = CenterSplitMode::Balanced;
             updateSplitLayout();
@@ -276,7 +284,7 @@ public:
 
         suiteList.onToggleCollapse = [this] {
             if (centerSplitMode == CenterSplitMode::Balanced)
-                centerSplitMode = CenterSplitMode::GraphMaximized;
+                centerSplitMode = CenterSplitMode::QueueMaximized;
             else
                 centerSplitMode = CenterSplitMode::Balanced;
             updateSplitLayout();
@@ -563,6 +571,7 @@ public:
         addChildComponent(btnRepeatStep);
 
         confirmManualButton.setButtonText("Confirm Step (Space)");
+        confirmManualButton.setTooltip("Confirm Step - Signal the sequencer that hardware control is positioned and proceed with stimulus");
         confirmManualButton.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::pillBlackBg);
         confirmManualButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
         confirmManualButton.setEnabled(false);
@@ -817,23 +826,23 @@ public:
         {
             case CenterSplitMode::Balanced:
                 curvePlotter.setCollapsed(false);
-                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (collapse graph)
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (pointing down to expand downwards)
                 suiteList.setCollapsed(false);
-                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (collapse queue)
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (pointing up to expand upwards)
                 break;
 
             case CenterSplitMode::GraphMaximized:
                 curvePlotter.setCollapsed(false);
-                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore down)
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore back up to balanced)
                 suiteList.setCollapsed(true);
-                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore up)
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore back up to balanced)
                 break;
 
             case CenterSplitMode::QueueMaximized:
                 curvePlotter.setCollapsed(true);
-                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore down)
+                curvePlotter.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore back down to balanced)
                 suiteList.setCollapsed(false);
-                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25b2")); // ▲ (restore up)
+                suiteList.setChevronGlyph(juce::String::fromUTF8(u8"\u25bc")); // ▼ (restore back down to balanced)
                 break;
         }
         resized();
@@ -852,18 +861,21 @@ public:
         auto topArea = bounds.removeFromTop(36);
         titleLabel.setVisible(false); // Removed ABDAudioLab from top bar per user request
 
-        btnFileMenu.setBounds(topArea.removeFromLeft(74).withHeight(32));
+        btnFileMenu.setBounds(topArea.removeFromLeft(68).withHeight(32));
         topArea.removeFromLeft(8);
-        btnScope.setBounds(topArea.removeFromLeft(84).withHeight(32));
-        topArea.removeFromLeft(12);
+        btnScope.setBounds(topArea.removeFromLeft(74).withHeight(32));
+        topArea.removeFromLeft(8);
+
+        // Audio & MIDI Status Pill with gear and 4 LEDs
+        audioMidiStatusPill.setBounds(topArea.removeFromLeft(240).withHeight(32));
 
         btnInfo.setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
         topArea.removeFromRight(8);
 
-        btnHardwareSelector.setBounds(topArea.removeFromRight(340).withHeight(32));
+        btnHardwareSelector.setBounds(topArea.removeFromRight(320).withHeight(32));
         topArea.removeFromRight(8);
 
-        btnCalibratePill.setBounds(topArea.removeFromRight(185).withHeight(32));
+        btnCalibratePill.setBounds(topArea.removeFromRight(180).withHeight(32));
 
         bounds.removeFromTop(12);
 
@@ -938,6 +950,11 @@ public:
             std::array<float, audio::LabAudioEngine::kSpectrumBins> fftData;
             audioEngine.getSpectrumMagnitudes(fftData);
             curvePlotter.getSpectrumAnalyzer().pushSpectrumData(fftData, audioEngine.getCurrentSampleRate());
+        }
+
+        if (++statusUpdateCounter % 30 == 0)
+        {
+            audioMidiStatusPill.updateStatus(audioEngine);
         }
     }
 
@@ -1824,9 +1841,11 @@ private:
     juce::Label titleLabel;
     juce::TextButton btnFileMenu;
     juce::TextButton btnScope;
+    gui::AudioMidiStatusPill audioMidiStatusPill;
     juce::TextButton btnCalibratePill;
     gui::HardwareSelectorPill btnHardwareSelector;
     MonochromeInfoButton btnInfo;
+    int statusUpdateCounter { 0 };
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
 

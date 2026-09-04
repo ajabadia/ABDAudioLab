@@ -12,6 +12,7 @@ TestConfigModal::TestConfigModal()
     lblTitle.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
     panel.addAndMakeVisible(lblTitle);
 
+    btnClose.setTooltip("Close configuration dialog");
     btnClose.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     btnClose.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnClose.onClick = [this] { dismissDialog(); };
@@ -21,11 +22,13 @@ TestConfigModal::TestConfigModal()
     editorViewport.setViewedComponent(&editorPanel, false);
     panel.addAndMakeVisible(editorViewport);
 
+    btnCancel.setTooltip("Cancel - Discard parameter changes and close");
     btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillWhiteBg);
     btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnCancel.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnCancel);
 
+    btnApply.setTooltip("Apply & Save - Update test plan with modified parameters and sweep resolution");
     btnApply.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnApply.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnApply.onClick = [this] {
