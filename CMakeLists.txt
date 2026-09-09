@@ -279,6 +279,10 @@ target_sources(ABDAudioLab
         src/gui/MainHeaderController.cpp
         src/gui/SessionExecutionCoordinator.h
         src/gui/SessionExecutionCoordinator.cpp
+        src/gui/controllers/SessionIoController.h
+        src/gui/controllers/SessionIoController.cpp
+        src/gui/controllers/WorkflowNavigationController.h
+        src/gui/controllers/WorkflowNavigationController.cpp
         src/gui/AudioABVerificationModal.h
         src/gui/AudioABVerificationModal.cpp
         src/gui/Waterfall3DComponent.h

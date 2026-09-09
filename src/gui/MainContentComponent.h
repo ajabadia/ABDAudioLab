@@ -46,6 +46,8 @@
 #include "gui/SessionReportManager.h"
 #include "gui/MainHeaderController.h"
 #include "gui/SessionExecutionCoordinator.h"
+#include "gui/controllers/SessionIoController.h"
+#include "gui/controllers/WorkflowNavigationController.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include "export/CertificationReportExporter.h"
@@ -169,6 +171,10 @@ private:
     gui::OperatorStepModalDialog operatorStepModal;
     gui::ConfirmationModalDialog confirmationModal;
     gui::AudioABVerificationModal abVerificationModal;
+
+    // Sub-controllers
+    gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
+    gui::WorkflowNavigationController workflowNavController { sidebarStepper, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

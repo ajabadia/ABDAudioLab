@@ -1104,123 +1104,24 @@ void MainContentComponent::resized()
     meterStrip.setBounds(rightArea);
     bounds.removeFromRight(12);
 
-    // Conmutación Estricta de Topología del Lienzo Central
-    if (stepperBar.getCurrentStep() == gui::WorkflowStepperBar::Step::HardwareRouting)
+    // Manual Prompt Banner & Error Correction Controls
+    if (confirmManualButton.isVisible() && !operatorStepModal.isVisible())
     {
-        nativeCalibrationPanel.setVisible(false);
-        exportReportPanel.setVisible(false);
-        suiteList.setVisible(false);
-        operatorStepModal.setVisible(false);
-        centerSplitterBar.setVisible(false);
-        healthPanel.setVisible(false);
-        curvePlotter.setVisible(false);
-        confirmManualButton.setVisible(false);
-        btnRepeatStep.setVisible(false);
-        btnStepBack.setVisible(false);
-        hardwareRoutingPanel.setVisible(false);
-
-        catalogSelector.setVisible(true);
-        catalogSelector.setBounds(bounds);
+        auto manualRow = bounds.removeFromBottom(36);
+        confirmManualButton.setBounds(manualRow.removeFromRight(150));
+        manualRow.removeFromRight(8);
+        btnRepeatStep.setBounds(manualRow.removeFromRight(100));
+        manualRow.removeFromRight(8);
+        btnStepBack.setBounds(manualRow.removeFromRight(100));
+        manualRow.removeFromRight(8);
+        manualPromptLabel.setBounds(manualRow);
+        bounds.removeFromBottom(8);
     }
-    else if (stepperBar.getCurrentStep() == gui::WorkflowStepperBar::Step::CalibrateLoopback)
-    {
-        catalogSelector.setVisible(false);
-        hardwareRoutingPanel.setVisible(false);
-        exportReportPanel.setVisible(false);
-        suiteList.setVisible(false);
-        operatorStepModal.setVisible(false);
-        centerSplitterBar.setVisible(false);
-        healthPanel.setVisible(false);
-        curvePlotter.setVisible(false);
-        confirmManualButton.setVisible(false);
-        btnRepeatStep.setVisible(false);
-        btnStepBack.setVisible(false);
 
-        nativeCalibrationPanel.setVisible(true);
-        nativeCalibrationPanel.setBounds(bounds);
-    }
-    else if (stepperBar.getCurrentStep() == gui::WorkflowStepperBar::Step::ExportReport)
-    {
-        catalogSelector.setVisible(false);
-        hardwareRoutingPanel.setVisible(false);
-        nativeCalibrationPanel.setVisible(false);
-        suiteList.setVisible(false);
-        operatorStepModal.setVisible(false);
-        centerSplitterBar.setVisible(false);
-        healthPanel.setVisible(false);
-        curvePlotter.setVisible(false);
-        confirmManualButton.setVisible(false);
-        btnRepeatStep.setVisible(false);
-        btnStepBack.setVisible(false);
-
-        exportReportPanel.setVisible(true);
-        exportReportPanel.setBounds(bounds);
-    }
-    else // Step::RunSession (Consola de medición pesada con osciloscopio y cola de suites)
-    {
-        catalogSelector.setVisible(false);
-        hardwareRoutingPanel.setVisible(false);
-        nativeCalibrationPanel.setVisible(false);
-        exportReportPanel.setVisible(false);
-
-        if (!operatorStepModal.isVisible())
-            suiteList.setVisible(true);
-        curvePlotter.setVisible(true);
-        healthPanel.setVisible(true);
-
-        // Manual Prompt Banner & Error Correction Controls
-        if (confirmManualButton.isVisible() && !operatorStepModal.isVisible())
-        {
-            auto manualRow = bounds.removeFromBottom(36);
-            confirmManualButton.setBounds(manualRow.removeFromRight(150));
-            manualRow.removeFromRight(8);
-            btnRepeatStep.setBounds(manualRow.removeFromRight(100));
-            manualRow.removeFromRight(8);
-            btnStepBack.setBounds(manualRow.removeFromRight(100));
-            manualRow.removeFromRight(8);
-            manualPromptLabel.setBounds(manualRow);
-            bounds.removeFromBottom(8);
-        }
-
-        // Bottom Test Suite List & Controls Dock
-        int bottomH = static_cast<int>(std::round(currentBottomH));
-        if (operatorStepModal.isVisible() && operatorStepModal.isCollapsed)
-        {
-            bottomH = 34;
-        }
-        else
-        {
-            int minGraphAreaH = 180 + 32 + 12; // 180px curvePlotter + 32px healthPanel + 12px splitter
-            int maxBottomH = bounds.getHeight() - minGraphAreaH;
-            bottomH = juce::jlimit(36, std::max(36, maxBottomH), bottomH);
-        }
-
-        auto bottomArea = bounds.removeFromBottom(bottomH);
-        suiteList.setBounds(bottomArea);
-        operatorStepModal.setBounds(bottomArea);
-
-        // Resizable Splitter Bar
-        int splitterH = 8;
-        if (centerSplitMode == CenterSplitMode::Balanced &&
-            (!operatorStepModal.isVisible() || !operatorStepModal.isCollapsed) &&
-            std::abs(targetBottomH - currentBottomH) < 2.0f)
-        {
-            centerSplitterBar.setVisible(true);
-            centerSplitterBar.setBounds(bounds.removeFromBottom(splitterH));
-            bounds.removeFromBottom(4);
-        }
-        else
-        {
-            centerSplitterBar.setVisible(false);
-            bounds.removeFromBottom(8);
-        }
-
-        // Center Curve Plotter & Health Panel
-        auto centerArea = bounds;
-        healthPanel.setBounds(centerArea.removeFromTop(26));
-        centerArea.removeFromTop(6);
-        curvePlotter.setBounds(centerArea);
-    }
+    // Delegate SoundID canvas switching and geometry to WorkflowNavigationController
+    bool isSplittingBalanced = (centerSplitMode == CenterSplitMode::Balanced) &&
+                               (std::abs(targetBottomH - currentBottomH) < 2.0f);
+    workflowNavController.layoutStepViews(bounds, currentBottomH, isSplittingBalanced);
 
     // 6. Slide-in Drawer & Modals fill full window bounds
     drawer.setBounds(getLocalBounds());
@@ -2101,12 +2002,30 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
     drawer.setHardwareLocked(true);
     hardwareRoutingPanel.setSelectedHardware(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
     hardwareRoutingPanel.setHardwareLocked(true);
+    catalogSelector.setSelectedHardware(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
+    catalogSelector.setHardwareLocked(true);
 
     const auto* contract = hardwareManager.findContractById(manifest.hardwareId);
     if (contract != nullptr)
     {
         onHardwareSelected(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
     }
+    else
+    {
+        mainHeader.setHardwareInfo(juce::String(manifest.hardwareDisplayName),
+                                   juce::String(manifest.activeFunctionId),
+                                   juce::Image(),
+                                   gui::HardwareConnectionStatus::NotApplicable);
+    }
+
+    // Synchronize Session Summary card
+    auto summary = sidebarStepper.getSessionSummary();
+    summary.hardwareName = juce::String(manifest.hardwareDisplayName);
+    summary.hardwareCategory = juce::String(manifest.targetModule);
+    summary.totalPointsPlanned = static_cast<int>(points.size());
+    summary.pointsMeasured = static_cast<int>(points.size());
+    summary.loopbackCalibrated = true;
+    sidebarStepper.setSessionSummary(summary);
 
     // Apply Test Queue
     suiteList.clearQueue();
@@ -2133,12 +2052,24 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
 
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Completed);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
+
     bool sessionComplete = (!points.empty() && points.size() >= manifest.totalMeasuredPoints && manifest.totalMeasuredPoints > 0);
     auto targetStep = sessionComplete ? gui::WorkflowStepperBar::Step::ExportReport : gui::WorkflowStepperBar::Step::RunSession;
+    auto targetSidebarStep = sessionComplete ? gui::SoundIdSidebarStepper::Step::ExportReport : gui::SoundIdSidebarStepper::Step::RunSession;
+
     stepperBar.setCurrentStep(targetStep);
+    sidebarStepper.setCurrentStep(targetSidebarStep);
+
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, (!points.empty()) ? gui::WorkflowStepperBar::StepStatus::Completed : gui::WorkflowStepperBar::StepStatus::Current);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::RunSession, (!points.empty()) ? gui::SoundIdSidebarStepper::StepStatus::Completed : gui::SoundIdSidebarStepper::StepStatus::Current);
+
     if (sessionComplete)
+    {
         stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Current);
+        sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Current);
+    }
 
     if (stepperBar.onStepSelected != nullptr)
         stepperBar.onStepSelected(targetStep);
