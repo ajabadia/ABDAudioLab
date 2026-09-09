@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file AudioABVerificationModal.cpp
  * @brief Implementation of AudioABVerificationModal.
  * @author ABDSynths

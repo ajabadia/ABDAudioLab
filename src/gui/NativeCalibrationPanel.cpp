@@ -1,4 +1,4 @@
-#include "NativeCalibrationPanel.h"
+﻿#include "NativeCalibrationPanel.h"
 #include "SoundIdTheme.h"
 #include <cmath>
 

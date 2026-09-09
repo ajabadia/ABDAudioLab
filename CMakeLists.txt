@@ -260,6 +260,10 @@ target_sources(ABDAudioLab
         src/gui/SoundIdSplashScreen.h
         src/gui/HardwareSelectorPill.h
         src/gui/WorkflowStepperBar.h
+        src/gui/soundid/SoundIdSidebarStepper.h
+        src/gui/soundid/SoundIdSidebarStepper.cpp
+        src/gui/soundid/SoundIdHardwareCatalogSelector.h
+        src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
         src/gui/ExportReportPanel.h
         src/gui/LiveSpectrumAnalyzer.h
         src/gui/ScopeWebFloatingWindow.h
@@ -398,6 +402,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_CasioCzProfilingRecipes.cpp
     src/tests/test_CasioCzLiveScanSuite.cpp
     src/tests/test_SoundIdSuiteListRefactor.cpp
+    src/tests/test_SoundIdSidebarStepper.cpp
+    src/tests/test_SoundIdHardwareCatalogSelector.cpp
     
     src/audio/LabAudioEngine.cpp
     src/audio/LabAudioReceiver.cpp
@@ -468,6 +474,8 @@ add_executable(ABDAudioLab_Tests
     src/gui/PlotterModulationTableRenderer.cpp
     src/gui/PlotterHeatmapRenderer.cpp
     src/gui/PlotterFrequencyCurveRenderer.cpp
+    src/gui/soundid/SoundIdSidebarStepper.cpp
+    src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
     src/export/CertificationReportExporter.cpp
 )
 

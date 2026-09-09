@@ -353,9 +353,45 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 updateExportReportMetrics();
                 break;
         }
+        sidebarStepper.setCurrentStep(static_cast<gui::SoundIdSidebarStepper::Step>(targetStep));
         resized();
     };
-    addAndMakeVisible(stepperBar);
+    // Hide horizontal stepperBar in favor of collapsible sidebarStepper, maintaining full logic
+    stepperBar.setVisible(false);
+    addChildComponent(stepperBar);
+
+    // Wire collapsible vertical sidebarStepper
+    sidebarStepper.onStepSelected = [this](gui::SoundIdSidebarStepper::Step targetStep) {
+        stepperBar.setCurrentStep(static_cast<gui::WorkflowStepperBar::Step>(targetStep));
+        if (stepperBar.onStepSelected != nullptr)
+            stepperBar.onStepSelected(static_cast<gui::WorkflowStepperBar::Step>(targetStep));
+    };
+    sidebarStepper.onCollapseToggled = [this](bool /*collapsed*/) {
+        resized();
+    };
+    addAndMakeVisible(sidebarStepper);
+
+    // Wire cascading catalog selector
+    catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
+    catalogSelector.onSelectionChanged = [this](const juce::String& hwId, const juce::String& funcId) {
+        onHardwareSelected(hwId, funcId);
+        drawer.setSelectedHardwareId(hwId);
+        gui::SoundIdSidebarStepper::SessionSummaryInfo summary = sidebarStepper.getSessionSummary();
+        summary.hardwareName = hwId;
+        sidebarStepper.setSessionSummary(summary);
+    };
+    catalogSelector.onContinueRequested = [this] {
+        if (hardwareRoutingPanel.onContinueToCalibration != nullptr)
+            hardwareRoutingPanel.onContinueToCalibration();
+    };
+    catalogSelector.onAutoDetectRequested = [this] {
+        drawer.triggerAutoDetect();
+    };
+    catalogSelector.onResetOrUnlockRequested = [this] {
+        if (drawer.onNewFlowRequested != nullptr)
+            drawer.onNewFlowRequested();
+    };
+    addChildComponent(catalogSelector);
 
     // 5. Center Curve Plotter & Real-Time Visualization
     addAndMakeVisible(healthPanel);
@@ -1047,12 +1083,12 @@ void MainContentComponent::resized()
     // 1. Top Header Area (Single Coordinated Component)
     mainHeader.setBounds(bounds.removeFromTop(36));
 
-    bounds.removeFromTop(8);
-
-    // 2. Workflow Stepper Bar (Dedicated 38px guide strip)
-    stepperBar.setBounds(bounds.removeFromTop(38));
-
     bounds.removeFromTop(10);
+
+    // 2. Left Collapsible Sidebar Stepper (SoundID Vertical Workflow Rail)
+    int sidebarW = sidebarStepper.getDesiredWidth();
+    sidebarStepper.setBounds(bounds.removeFromLeft(sidebarW));
+    bounds.removeFromLeft(12);
 
     // 3. Right Meter Strip
     auto rightArea = bounds.removeFromRight(120);
@@ -1072,12 +1108,14 @@ void MainContentComponent::resized()
         confirmManualButton.setVisible(false);
         btnRepeatStep.setVisible(false);
         btnStepBack.setVisible(false);
+        hardwareRoutingPanel.setVisible(false);
 
-        hardwareRoutingPanel.setVisible(true);
-        hardwareRoutingPanel.setBounds(bounds);
+        catalogSelector.setVisible(true);
+        catalogSelector.setBounds(bounds);
     }
     else if (stepperBar.getCurrentStep() == gui::WorkflowStepperBar::Step::CalibrateLoopback)
     {
+        catalogSelector.setVisible(false);
         hardwareRoutingPanel.setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -1094,6 +1132,7 @@ void MainContentComponent::resized()
     }
     else if (stepperBar.getCurrentStep() == gui::WorkflowStepperBar::Step::ExportReport)
     {
+        catalogSelector.setVisible(false);
         hardwareRoutingPanel.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -1110,6 +1149,7 @@ void MainContentComponent::resized()
     }
     else // Step::RunSession (Consola de medición pesada con osciloscopio y cola de suites)
     {
+        catalogSelector.setVisible(false);
         hardwareRoutingPanel.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);

@@ -495,10 +495,25 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
-    // Reserve right side for buttons so legend never overlaps tab buttons or toggle pills
-    float reservedRight = isCollapsed ? 36.0f : (currentView == ViewMode::FrequencyCurve ? 650.0f : (currentView == ViewMode::PhaseGroupDelay ? 600.0f : 530.0f));
-    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(reservedRight);
-    drawLegend(g, headerArea);
+    // Reserve right side for buttons based on visible controls
+    float reservedRight = 36.0f;
+    if (!isCollapsed)
+    {
+        // 6 tabs (~476px) + palette (if 3D/Heatmap, ~96px) + layer toggles (~180px)
+        if (currentView == ViewMode::FrequencyCurve)
+            reservedRight = 720.0f;
+        else if (currentView == ViewMode::PhaseGroupDelay)
+            reservedRight = 680.0f;
+        else if (currentView == ViewMode::Waterfall3D || currentView == ViewMode::Heatmap2D)
+            reservedRight = 620.0f;
+        else
+            reservedRight = 520.0f;
+    }
+
+    auto headerArea = bounds.removeFromTop(32.0f).reduced(10.0f, 0.0f);
+    float availTitleWidth = std::max(60.0f, headerArea.getWidth() - reservedRight);
+    auto titleArea = headerArea.removeFromLeft(availTitleWidth);
+    drawLegend(g, titleArea);
 
     // If collapsed, only header is rendered
     if (isCollapsed)

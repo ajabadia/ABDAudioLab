@@ -25,6 +25,8 @@
 #include "gui/TopHeaderWidgets.h"
 #include "gui/CenterSplitterBar.h"
 #include "gui/WorkflowStepperBar.h"
+#include "gui/soundid/SoundIdSidebarStepper.h"
+#include "gui/soundid/SoundIdHardwareCatalogSelector.h"
 #include "gui/ExportReportPanel.h"
 #include "gui/SoundIdCurvePlotter.h"
 #include "gui/SoundIdMeterStrip.h"
@@ -146,6 +148,8 @@ private:
     int statusUpdateCounter { 0 };
 
     gui::WorkflowStepperBar stepperBar;
+    gui::SoundIdSidebarStepper sidebarStepper;
+    gui::SoundIdHardwareCatalogSelector catalogSelector;
     gui::ExportReportPanel exportReportPanel;
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
