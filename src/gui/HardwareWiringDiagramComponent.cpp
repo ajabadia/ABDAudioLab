@@ -1,4 +1,4 @@
-﻿#include "HardwareWiringDiagramComponent.h"
+#include "HardwareWiringDiagramComponent.h"
 #include "SoundIdTheme.h"
 
 namespace abdaudiolab::gui
@@ -40,9 +40,10 @@ void HardwareWiringDiagramComponent::paint(juce::Graphics& g)
 
     auto drawWire = [&](const juce::String& from, const juce::String& to, const juce::Colour& clr) {
         auto wireRow = rInner.removeFromTop(28.0f);
-        float boxW = 150.0f;
+        float availW = wireRow.getWidth() - 32.0f; // reserve 32px for arrow
+        float box1W = std::clamp(availW * 0.44f, 130.0f, 180.0f);
 
-        auto b1 = wireRow.removeFromLeft(boxW).reduced(0.0f, 2.0f);
+        auto b1 = wireRow.removeFromLeft(box1W).reduced(0.0f, 2.0f);
         g.setColour(SoundIdTheme::bgCard);
         g.fillRoundedRectangle(b1, 4.0f);
         g.setColour(SoundIdTheme::borderCard);
@@ -51,17 +52,17 @@ void HardwareWiringDiagramComponent::paint(juce::Graphics& g)
         g.setColour(SoundIdTheme::textPrimary);
         g.drawText(from, b1, juce::Justification::centred, true);
 
-        auto arrowArea = wireRow.removeFromLeft(36.0f);
+        auto arrowArea = wireRow.removeFromLeft(32.0f);
         g.setColour(clr);
         g.setFont(juce::FontOptions("Inter", 13.0f, juce::Font::bold));
         g.drawText(juce::String::fromUTF8(u8"➔"), arrowArea, juce::Justification::centred, false);
 
-        auto b2 = wireRow.removeFromLeft(wireRow.getWidth()).reduced(0.0f, 2.0f);
+        auto b2 = wireRow.reduced(0.0f, 2.0f);
         g.setColour(SoundIdTheme::bgCard);
         g.fillRoundedRectangle(b2, 4.0f);
         g.setColour(SoundIdTheme::borderCard);
         g.drawRoundedRectangle(b2.reduced(0.5f), 4.0f, 1.0f);
-        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+        g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
         g.drawText(to, b2.reduced(6.0f, 0.0f), juce::Justification::centredLeft, true);
 

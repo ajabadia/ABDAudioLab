@@ -224,7 +224,7 @@ void MainHeaderController::resized()
     topArea.removeFromRight(8);
 
     if (btnHardwareSelector != nullptr)
-        btnHardwareSelector->setBounds(topArea.removeFromRight(290).withHeight(32));
+        btnHardwareSelector->setBounds(topArea.removeFromRight(320).withHeight(32));
     topArea.removeFromRight(8);
 
     btnCalibratePill.setBounds(topArea.removeFromRight(185).withHeight(32));

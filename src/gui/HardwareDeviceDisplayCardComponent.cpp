@@ -225,10 +225,13 @@ void HardwareDeviceDisplayCardComponent::paint(juce::Graphics& g)
 
     // Cabecera de la tarjeta con nombre de dispositivo y marca
     auto cardTitleRow = dInner.removeFromTop(24.0f);
-    g.setFont(juce::FontOptions("Inter", 13.0f, juce::Font::bold));
+    float logoW = (brandLogoDrawable != nullptr || currentHwBrand.isNotEmpty()) ? 80.0f : 0.0f;
+    auto titleArea = cardTitleRow.removeFromLeft(cardTitleRow.getWidth() - logoW);
+
+    g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
     g.drawText(currentHwDisplayName.isNotEmpty() ? currentHwDisplayName : juce::String::fromUTF8(u8"Dispositivo Analógico"),
-               cardTitleRow.removeFromLeft(cardTitleRow.getWidth() - 90.0f), juce::Justification::centredLeft, true);
+               titleArea, juce::Justification::centredLeft, true);
 
     if (brandLogoDrawable != nullptr)
     {

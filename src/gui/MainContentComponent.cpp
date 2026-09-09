@@ -2519,7 +2519,12 @@ void MainContentComponent::performNewSessionReset()
     drawer.setHardwareLocked(false);
     drawer.clearSelectedHardware();
     hardwareRoutingPanel.setHardwareLocked(false);
+    catalogSelector.setHardwareLocked(false);
     mainHeader.clearHardware();
+
+    // Reset session summary in sidebar stepper
+    gui::SoundIdSidebarStepper::SessionSummaryInfo emptySummary;
+    sidebarStepper.setSessionSummary(emptySummary);
 
     // Desbloquear Pasos 1 y 2 para la nueva sesión y volver a Paso 1
     stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting, false);
@@ -2529,13 +2534,20 @@ void MainContentComponent::performNewSessionReset()
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, gui::WorkflowStepperBar::StepStatus::Pending);
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Pending);
     stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
+
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Current);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Pending);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::RunSession, gui::SoundIdSidebarStepper::StepStatus::Pending);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Pending);
+    sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::HardwareRouting);
+
     if (stepperBar.onStepSelected != nullptr)
         stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::HardwareRouting);
 
-    drawer.openHardwareDrawer();
-    manualPromptLabel.setText("New session initialized. Select hardware and active submodule, then click Accept.", juce::dontSendNotification);
+    manualPromptLabel.setText(juce::String::fromUTF8(u8"Nueva sesión inicializada. Seleccione el dispositivo y objetivo a medir."), juce::dontSendNotification);
     manualPromptLabel.setVisible(true);
     hidePromptAfterDelay(4000);
+    resized();
 }
 
 void MainContentComponent::handleOpenSession()
