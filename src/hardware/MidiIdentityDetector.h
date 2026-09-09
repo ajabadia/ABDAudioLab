@@ -87,11 +87,22 @@ public:
      */
     static std::vector<uint8_t> parseHexBytes(const std::string& hexStr);
 
+    /**
+     * @brief Asynchronously pre-warms MIDI port enumeration and detection on startup.
+     * @param onComplete Optional callback fired when the background pre-warm scan finishes.
+     */
+    void preWarmAsync(std::function<void(const std::vector<DiscoveredDevice>&)> onComplete = nullptr);
+
+    [[nodiscard]] bool isPreWarmed() const noexcept;
+    [[nodiscard]] std::vector<DiscoveredDevice> getCachedDiscoveredDevices() const;
+
 private:
     void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
 
     std::vector<core::HardwareContract> registeredContracts;
     std::vector<DiscoveredDevice> currentScanResults;
+    std::vector<DiscoveredDevice> cachedDiscoveredDevices;
+    std::atomic<bool> preWarmed { false };
     juce::CriticalSection scanLock;
 };
 

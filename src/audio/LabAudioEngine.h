@@ -19,6 +19,7 @@
 #include <Core/ScopeTap.h>
 #include <Core/ScopeDataCollector.h>
 #include <Core/ScopeFrameSerializer.h>
+#include "../dsp/AnalogLutFilterModule.h"
 
 namespace abdaudiolab::audio
 {
@@ -98,6 +99,41 @@ public:
     [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_relaxed); }
 
     /**
+     * @brief Enables or disables real-time audition mode ("Comprobar cómo sonaría").
+     */
+    void enableAuditionMode(bool enable) noexcept
+    {
+        auditionActive.store(enable, std::memory_order_release);
+    }
+
+    [[nodiscard]] bool isAuditionActive() const noexcept
+    {
+        return auditionActive.load(std::memory_order_relaxed);
+    }
+
+    void setAuditionParameters(float cutoff, float resonance) noexcept
+    {
+        auditionCutoff.store(juce::jlimit(0.0f, 1.0f, cutoff), std::memory_order_relaxed);
+        auditionResonance.store(juce::jlimit(0.0f, 1.0f, resonance), std::memory_order_relaxed);
+    }
+
+    void setAuditionWaveform(int waveform) noexcept
+    {
+        auditionWaveform.store(juce::jlimit(0, 2, waveform), std::memory_order_relaxed);
+    }
+
+    void loadAuditionLut(const std::vector<dsp::AbdBatchedPoint>& lut, int gridSize)
+    {
+        auditionLutStorage = lut;
+        auditionLutGridSize.store(gridSize, std::memory_order_release);
+    }
+
+    [[nodiscard]] bool hasAuditionLut() const noexcept
+    {
+        return auditionLutGridSize.load(std::memory_order_relaxed) > 0 && !auditionLutStorage.empty();
+    }
+
+    /**
      * @brief Gets current active sampling rate in Hz.
      */
     [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate; }
@@ -151,9 +187,25 @@ public:
         }
     }
 
+    /**
+     * @brief Triggers a gentle 800 Hz metronome tick (-24 dBFS, 15ms Hann window)
+     *        to guide the operator during manual continuous sweeps.
+     *        Thread-safe and real-time audio safe (zero allocations).
+     */
+    void triggerMetronomeTick() noexcept
+    {
+        metronomeCurrentSample.store(0, std::memory_order_relaxed);
+        int totalSamples = static_cast<int>(std::lround(0.015 * currentSampleRate));
+        metronomeTotalSamples.store(totalSamples > 0 ? totalSamples : 1440, std::memory_order_release);
+    }
+
 private:
     juce::AudioDeviceManager deviceManager;
     double currentSampleRate { 96000.0 };
+
+    // Metronome pulse state for manual rhythm guide (real-time lock-free)
+    std::atomic<int> metronomeCurrentSample { 0 };
+    std::atomic<int> metronomeTotalSamples { 0 };
 
     LabStimulusGenerator generator;
     LabAudioReceiver receiver;
@@ -197,8 +249,20 @@ private:
     std::array<float, kSpectrumBins> spectrumMagnitudesDb {};  // Published dBfs values
     std::atomic<bool> spectrumDataReady { false };
 
+    // Audition preview state (real-time DSP preview of trained LUT)
+    std::atomic<bool> auditionActive { false };
+    std::atomic<float> auditionCutoff { 0.5f };
+    std::atomic<float> auditionResonance { 0.5f };
+    std::atomic<int> auditionWaveform { 0 }; // 0: Saw, 1: Square, 2: Noise
+    std::atomic<int> auditionLutGridSize { 0 };
+    std::vector<dsp::AbdBatchedPoint> auditionLutStorage;
+    dsp::AnalogLutFilterModule auditionFilter;
+    double auditionOscPhase { 0.0 };
+    uint32_t auditionNoiseSeed { 0x12345678 };
+
     // Internal real-time safe audio subroutines (P2 Callback Modularization)
     void renderDiagnosticTone(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept;
+    void renderAuditionPreview(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept;
     void renderStimulusAndRoute(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept;
     std::pair<const float*, const float*> processInputAndMetrics(const float* const* inputChannelData, int numInputChannels, int samplesToProcess, float trim) noexcept;
     void accumulateFft(const float* sourceData, int sourceLen) noexcept;

@@ -119,6 +119,66 @@ public:
         }
     }
 
+    bool sendMidiMessage(const juce::MidiMessage& msg) override
+    {
+        sentMessages.push_back(msg);
+        return true;
+    }
+
+    [[nodiscard]] const std::vector<juce::MidiMessage>& getSentMessages() const noexcept { return sentMessages; }
+    void clearSentMessages() noexcept { sentMessages.clear(); }
+
+    [[nodiscard]] bool hasReceivedNoteOn(int noteNumber = -1) const
+    {
+        for (const auto& m : sentMessages)
+        {
+            if (m.isNoteOn())
+            {
+                if (noteNumber < 0 || m.getNoteNumber() == noteNumber)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool hasReceivedNoteOff(int noteNumber = -1) const
+    {
+        for (const auto& m : sentMessages)
+        {
+            if (m.isNoteOff())
+            {
+                if (noteNumber < 0 || m.getNoteNumber() == noteNumber)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool hasReceivedAllNotesOff() const
+    {
+        for (const auto& m : sentMessages)
+        {
+            if (m.isAllNotesOff())
+                return true;
+        }
+        return false;
+    }
+
+    [[nodiscard]] int getActiveNoteCount() const
+    {
+        int count = 0;
+        for (const auto& m : sentMessages)
+        {
+            if (m.isNoteOn() && m.getVelocity() > 0)
+                count++;
+            else if (m.isNoteOff() || (m.isNoteOn() && m.getVelocity() == 0))
+                count = std::max(0, count - 1);
+            else if (m.isAllNotesOff())
+                count = 0;
+        }
+        return count;
+    }
+
 private:
     void updateCoefficients()
     {
@@ -142,6 +202,7 @@ private:
     float resonanceAmount { 1.0f };
     std::array<float, 4> filterState { 0.0f, 0.0f, 0.0f, 0.0f };
     uint32_t noiseSeed { 0x12345678 };
+    std::vector<juce::MidiMessage> sentMessages;
 };
 
 } // namespace abdaudiolab::hardware

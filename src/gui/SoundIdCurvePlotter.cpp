@@ -1,4 +1,8 @@
 #include "SoundIdCurvePlotter.h"
+#include "Waterfall3DComponent.h"
+#include "PlotterModulationTableRenderer.h"
+#include "PlotterHeatmapRenderer.h"
+#include "PlotterFrequencyCurveRenderer.h"
 #include <cmath>
 
 namespace abdaudiolab::gui
@@ -9,14 +13,24 @@ SoundIdCurvePlotter::SoundIdCurvePlotter()
     btnCurve.setButtonText(juce::String::fromUTF8(u8"Curve (\u03bc \u00b1 \u03c3)"));
     btnHeatmap.setButtonText("2D Heatmap");
     btnSpectrum.setButtonText("Spectrum FFT");
+    btnPhaseDelay.setButtonText("Phase / GD");
+    btnWaterfall3D.setButtonText("3D Mountains");
 
     btnCurve.setTooltip(juce::String::fromUTF8(u8"Display statistical mean response curve (\u03bc) with shaded confidence band (\u00b1\u03c3)"));
     btnHeatmap.setTooltip("Display 2D parameter excitation grid heatmap with Viridis color scale");
     btnSpectrum.setTooltip("Live FFT spectrum analyzer (20 Hz - 20 kHz, logarithmic)");
+    btnPhaseDelay.setTooltip("Display unwrapped phase response and group delay (Farina deconvolution)");
+    btnWaterfall3D.setTooltip("Display 3D isometric spectral waterfall landscape (Retro/Mountains)");
+    btnModMatrix.setTooltip("Display sparse modulation matrix parameters (Gain K, Offset c, Linearity R^2)");
+    btnPaletteToggle.setTooltip("Toggle 3D visual palette: Retro Emerald vs Thermal Fire");
 
     addAndMakeVisible(btnCurve);
     addAndMakeVisible(btnHeatmap);
     addAndMakeVisible(btnSpectrum);
+    addAndMakeVisible(btnPhaseDelay);
+    addAndMakeVisible(btnWaterfall3D);
+    addAndMakeVisible(btnModMatrix);
+    addAndMakeVisible(btnPaletteToggle);
     addChildComponent(spectrumAnalyzer);
 
     btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25bc")); // ▼ (pointing down to expand downwards)
@@ -29,7 +43,178 @@ SoundIdCurvePlotter::SoundIdCurvePlotter()
     btnCurve.onClick = [this] { setViewMode(ViewMode::FrequencyCurve); };
     btnHeatmap.onClick = [this] { setViewMode(ViewMode::Heatmap2D); };
     btnSpectrum.onClick = [this] { setViewMode(ViewMode::SpectrumFFT); };
+    btnPhaseDelay.onClick = [this] { setViewMode(ViewMode::PhaseGroupDelay); };
+    btnWaterfall3D.onClick = [this] { setViewMode(ViewMode::Waterfall3D); };
+    btnModMatrix.onClick = [this] { setViewMode(ViewMode::ModulationMatrix); };
+
+    btnPaletteToggle.onClick = [this] {
+        useThermalPalette = !useThermalPalette;
+        btnPaletteToggle.setButtonText(useThermalPalette ? "Thermal Fire" : "Retro Emerald");
+        if (waterfall3DView != nullptr)
+            waterfall3DView->setPaletteMode(useThermalPalette);
+        repaint();
+    };
+
+    waterfall3DView = std::make_unique<Waterfall3DComponent>();
+    addChildComponent(*waterfall3DView);
+
+    modulationTableView = std::make_unique<PlotterModulationTableRenderer>();
+    addChildComponent(*modulationTableView);
+
+    heatmapView = std::make_unique<PlotterHeatmapRenderer>();
+    addChildComponent(*heatmapView);
+
+    frequencyCurveView = std::make_unique<PlotterFrequencyCurveRenderer>();
+    addChildComponent(*frequencyCurveView);
+
+    // 1.7.10 Conmutable Legend Toggles
+    toggleMean.setButtonText(juce::String::fromUTF8(u8"Mean (\u03bc)"));
+    toggleMean.setTooltip("Conmutar visualización de la curva de respuesta media estimada");
+    toggleMean.onClick = [this] { setShowMeanCurve(!showMeanCurve); };
+    addAndMakeVisible(toggleMean);
+
+    toggleSigma.setButtonText(juce::String::fromUTF8(u8"\u00b1\u03c3 Band"));
+    toggleSigma.setTooltip(juce::String::fromUTF8(u8"Conmutar visualización de la banda de tolerancia/dispersión \u00b11\u03c3"));
+    toggleSigma.onClick = [this] { setShowSigmaBand(!showSigmaBand); };
+    addAndMakeVisible(toggleSigma);
+
+    toggleThd.setButtonText("THD %");
+    toggleThd.setTooltip("Conmutar visualización de los nodos de distorsión armónica total (THD)");
+    toggleThd.onClick = [this] { setShowThdPoints(!showThdPoints); };
+    addAndMakeVisible(toggleThd);
+
+    togglePhase.setButtonText("Phase (rad)");
+    togglePhase.setTooltip("Conmutar curva de respuesta de fase");
+    togglePhase.onClick = [this] { setShowPhaseCurve(!showPhaseCurve); };
+    addChildComponent(togglePhase);
+
+    toggleGroupDelay.setButtonText("Group Delay");
+    toggleGroupDelay.setTooltip("Conmutar curva de retardo de grupo (ms)");
+    toggleGroupDelay.onClick = [this] { setShowGroupDelayCurve(!showGroupDelayCurve); };
+    addChildComponent(toggleGroupDelay);
+
+    updateLegendToggleStyles();
+
     setViewMode(ViewMode::FrequencyCurve);
+}
+
+SoundIdCurvePlotter::~SoundIdCurvePlotter() = default;
+
+void SoundIdCurvePlotter::setMeasuringState(bool measuring, float progress)
+{
+    isMeasuring = measuring;
+    measuringProgress = std::clamp(progress, 0.0f, 1.0f);
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setMeasuringProgress(measuring, measuringProgress);
+    repaint();
+}
+
+void SoundIdCurvePlotter::setShowMeanCurve(bool show) noexcept
+{
+    showMeanCurve = show;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setShowMeanCurve(show);
+    updateLegendToggleStyles();
+    repaint();
+}
+
+void SoundIdCurvePlotter::setShowSigmaBand(bool show) noexcept
+{
+    showSigmaBand = show;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setShowSigmaBand(show);
+    updateLegendToggleStyles();
+    repaint();
+}
+
+void SoundIdCurvePlotter::setShowThdPoints(bool show) noexcept
+{
+    showThdPoints = show;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setShowThdPoints(show);
+    updateLegendToggleStyles();
+    repaint();
+}
+
+void SoundIdCurvePlotter::setShowPhaseCurve(bool show) noexcept
+{
+    showPhaseCurve = show;
+    updateLegendToggleStyles();
+    repaint();
+}
+
+void SoundIdCurvePlotter::setShowGroupDelayCurve(bool show) noexcept
+{
+    showGroupDelayCurve = show;
+    updateLegendToggleStyles();
+    repaint();
+}
+
+void SoundIdCurvePlotter::setPhaseData(const std::vector<float>& freqsHz,
+                                      const std::vector<float>& phaseRad,
+                                      const std::vector<float>& groupDelaySamples)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    phaseFreqs = freqsHz;
+    phaseDataRad = phaseRad;
+    groupDelayDataSamples = groupDelaySamples;
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::set3DIsometricOffsets(float xOffset, float yOffset) noexcept
+{
+    if (waterfall3DView != nullptr)
+        waterfall3DView->setIsometricOffsets(xOffset, yOffset);
+}
+
+float SoundIdCurvePlotter::get3DXOffset() const noexcept
+{
+    return waterfall3DView != nullptr ? waterfall3DView->getXOffset() : 1.5f;
+}
+
+float SoundIdCurvePlotter::get3DYOffset() const noexcept
+{
+    return waterfall3DView != nullptr ? waterfall3DView->getYOffset() : 2.0f;
+}
+
+void SoundIdCurvePlotter::set3DZoomFactor(float zoom) noexcept
+{
+    if (waterfall3DView != nullptr)
+        waterfall3DView->setZoomFactor(zoom);
+}
+
+float SoundIdCurvePlotter::get3DZoomFactor() const noexcept
+{
+    return waterfall3DView != nullptr ? waterfall3DView->getZoomFactor() : 1.0f;
+}
+
+void SoundIdCurvePlotter::reset3DCamera() noexcept
+{
+    if (waterfall3DView != nullptr)
+        waterfall3DView->resetCamera();
+}
+
+void SoundIdCurvePlotter::updateLegendToggleStyles()
+{
+    auto applyPillStyle = [](juce::TextButton& btn, bool active, juce::Colour activeColour)
+    {
+        if (active)
+        {
+            btn.setColour(juce::TextButton::buttonColourId, activeColour.withAlpha(0.18f));
+            btn.setColour(juce::TextButton::textColourOffId, activeColour);
+        }
+        else
+        {
+            btn.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+            btn.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
+        }
+    };
+
+    applyPillStyle(toggleMean, showMeanCurve, SoundIdTheme::accentGreen);
+    applyPillStyle(toggleSigma, showSigmaBand, SoundIdTheme::accentPurple);
+    applyPillStyle(toggleThd, showThdPoints, SoundIdTheme::accentAmber);
+    applyPillStyle(togglePhase, showPhaseCurve, juce::Colour(0xff06b6d4)); // Cyan
+    applyPillStyle(toggleGroupDelay, showGroupDelayCurve, juce::Colour(0xfff97316)); // Orange
 }
 
 void SoundIdCurvePlotter::setCollapsed(bool collapsed)
@@ -39,6 +224,10 @@ void SoundIdCurvePlotter::setCollapsed(bool collapsed)
     btnCurve.setVisible(!isCollapsed);
     btnHeatmap.setVisible(!isCollapsed);
     btnSpectrum.setVisible(!isCollapsed);
+    toggleMean.setVisible(!isCollapsed && currentView == ViewMode::FrequencyCurve);
+    toggleSigma.setVisible(!isCollapsed && currentView == ViewMode::FrequencyCurve);
+    toggleThd.setVisible(!isCollapsed && currentView == ViewMode::FrequencyCurve);
+
     if (isCollapsed && spectrumAnalyzer.isVisible())
         spectrumAnalyzer.setVisible(false);
     else if (!isCollapsed && currentView == ViewMode::SpectrumFFT)
@@ -57,6 +246,10 @@ void SoundIdCurvePlotter::clear()
     std::lock_guard<std::mutex> lock(pointsMutex);
     points.clear();
     highlightedPointIndex = -1;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->clear();
+    if (heatmapView != nullptr)
+        heatmapView->clear();
     spectrumAnalyzer.clearFrozenSpectrum();
     repaint();
 }
@@ -66,6 +259,10 @@ void SoundIdCurvePlotter::addMeasuredPoint(const exporting::MeasuredPoint& point
     {
         std::lock_guard<std::mutex> lock(pointsMutex);
         points.push_back(point);
+        if (frequencyCurveView != nullptr)
+            frequencyCurveView->setPoints(points);
+        if (heatmapView != nullptr)
+            heatmapView->setPoints(points);
     }
     juce::MessageManager::callAsync([this] { repaint(); });
 }
@@ -75,6 +272,28 @@ void SoundIdCurvePlotter::setPoints(const std::vector<exporting::MeasuredPoint>&
     std::lock_guard<std::mutex> lock(pointsMutex);
     points = newPoints;
     highlightedPointIndex = -1;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setPoints(points);
+    if (heatmapView != nullptr)
+        heatmapView->setPoints(points);
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::patchPoint(int index, const exporting::MeasuredPoint& point)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    if (index >= 0 && index < static_cast<int>(points.size()))
+    {
+        points[static_cast<size_t>(index)] = point;
+    }
+    else
+    {
+        points.push_back(point);
+    }
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setPoints(points);
+    if (heatmapView != nullptr)
+        heatmapView->setPoints(points);
     juce::MessageManager::callAsync([this] { repaint(); });
 }
 
@@ -86,6 +305,10 @@ void SoundIdCurvePlotter::removePoint(int index)
         points.erase(points.begin() + index);
         highlightedPointIndex = -1;
     }
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setPoints(points);
+    if (heatmapView != nullptr)
+        heatmapView->setPoints(points);
     juce::MessageManager::callAsync([this] { repaint(); });
 }
 
@@ -93,6 +316,8 @@ void SoundIdCurvePlotter::setHighlightedPointIndex(int index)
 {
     std::lock_guard<std::mutex> lock(pointsMutex);
     highlightedPointIndex = index;
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setHighlightedPointIndex(index);
     juce::MessageManager::callAsync([this] { repaint(); });
 }
 
@@ -108,16 +333,82 @@ void SoundIdCurvePlotter::setViewMode(ViewMode mode)
     setTab(btnCurve, mode == ViewMode::FrequencyCurve);
     setTab(btnHeatmap, mode == ViewMode::Heatmap2D);
     setTab(btnSpectrum, mode == ViewMode::SpectrumFFT);
+    setTab(btnPhaseDelay, mode == ViewMode::PhaseGroupDelay);
+    setTab(btnWaterfall3D, mode == ViewMode::Waterfall3D);
+    setTab(btnModMatrix, mode == ViewMode::ModulationMatrix);
+
+    btnPaletteToggle.setVisible(!isCollapsed && (mode == ViewMode::Waterfall3D || mode == ViewMode::Heatmap2D));
+
+    bool showFreqLegendToggles = (!isCollapsed && mode == ViewMode::FrequencyCurve);
+    toggleMean.setVisible(showFreqLegendToggles);
+    toggleSigma.setVisible(showFreqLegendToggles);
+    toggleThd.setVisible(showFreqLegendToggles);
+
+    bool showPhaseToggles = (!isCollapsed && mode == ViewMode::PhaseGroupDelay);
+    togglePhase.setVisible(showPhaseToggles);
+    toggleGroupDelay.setVisible(showPhaseToggles);
 
     spectrumAnalyzer.setVisible(mode == ViewMode::SpectrumFFT);
+    if (waterfall3DView != nullptr)
+        waterfall3DView->setVisible(mode == ViewMode::Waterfall3D);
+    if (modulationTableView != nullptr)
+        modulationTableView->setVisible(mode == ViewMode::ModulationMatrix);
+    if (heatmapView != nullptr)
+        heatmapView->setVisible(mode == ViewMode::Heatmap2D);
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setVisible(mode == ViewMode::FrequencyCurve);
+
     repaint();
     resized();
+}
+
+void SoundIdCurvePlotter::setModulationProfile(const math::ModulationMatrixProfile& profile)
+{
+    currentModProfile = profile;
+    if (modulationTableView != nullptr)
+        modulationTableView->setProfile(profile);
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::updateModulationNode(const math::ModulationNode& node)
+{
+    currentModProfile.setNode(node.sourceID, node.destID, node);
+    if (modulationTableView != nullptr)
+        modulationTableView->updateNode(node);
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::setPreScanTrajectory(const math::PreScanResult& preScan)
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    preScanTrajectory = preScan.trajectory;
+    preScanRoadmapSteps = preScan.recommendedSteps;
+    hasPreScanData = !preScanTrajectory.empty();
+    if (waterfall3DView != nullptr)
+        waterfall3DView->updateTrajectoryData(preScanTrajectory);
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->setPreScanData(preScanTrajectory, preScanRoadmapSteps, showPreScanGhost);
+    juce::MessageManager::callAsync([this] { repaint(); });
+}
+
+void SoundIdCurvePlotter::clearPreScanData()
+{
+    std::lock_guard<std::mutex> lock(pointsMutex);
+    preScanTrajectory.clear();
+    preScanRoadmapSteps.clear();
+    hasPreScanData = false;
+    if (waterfall3DView != nullptr)
+        waterfall3DView->clearData();
+    if (frequencyCurveView != nullptr)
+        frequencyCurveView->clearPreScanData();
+    juce::MessageManager::callAsync([this] { repaint(); });
 }
 
 void SoundIdCurvePlotter::updateTheme()
 {
     setViewMode(currentView);
     btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    updateLegendToggleStyles();
     spectrumAnalyzer.repaint();
     repaint();
 }
@@ -132,15 +423,64 @@ void SoundIdCurvePlotter::resized()
 
     if (!isCollapsed)
     {
+        if (currentView == ViewMode::Waterfall3D || currentView == ViewMode::Heatmap2D)
+        {
+            btnPaletteToggle.setBounds(topBar.removeFromRight(106));
+            topBar.removeFromRight(4);
+        }
+
+        btnModMatrix.setBounds(topBar.removeFromRight(96));
+        topBar.removeFromRight(4);
+        btnWaterfall3D.setBounds(topBar.removeFromRight(106));
+        topBar.removeFromRight(4);
+        btnPhaseDelay.setBounds(topBar.removeFromRight(88));
+        topBar.removeFromRight(4);
         btnSpectrum.setBounds(topBar.removeFromRight(102));
         topBar.removeFromRight(4);
         btnHeatmap.setBounds(topBar.removeFromRight(92));
         topBar.removeFromRight(4);
         btnCurve.setBounds(topBar.removeFromRight(102));
+        topBar.removeFromRight(8);
+
+        // Conmutable Legend Toggles layout
+        if (currentView == ViewMode::FrequencyCurve)
+        {
+            toggleThd.setBounds(topBar.removeFromRight(56));
+            topBar.removeFromRight(4);
+            toggleSigma.setBounds(topBar.removeFromRight(76));
+            topBar.removeFromRight(4);
+            toggleMean.setBounds(topBar.removeFromRight(76));
+        }
+        else if (currentView == ViewMode::PhaseGroupDelay)
+        {
+            toggleGroupDelay.setBounds(topBar.removeFromRight(86));
+            topBar.removeFromRight(4);
+            togglePhase.setBounds(topBar.removeFromRight(82));
+        }
 
         if (currentView == ViewMode::SpectrumFFT)
         {
             spectrumAnalyzer.setBounds(area.reduced(4, 0));
+        }
+        else if (currentView == ViewMode::Waterfall3D)
+        {
+            if (waterfall3DView != nullptr)
+                waterfall3DView->setBounds(area.reduced(4, 2));
+        }
+        else if (currentView == ViewMode::ModulationMatrix)
+        {
+            if (modulationTableView != nullptr)
+                modulationTableView->setBounds(area.reduced(4, 2));
+        }
+        else if (currentView == ViewMode::Heatmap2D)
+        {
+            if (heatmapView != nullptr)
+                heatmapView->setBounds(area.reduced(4, 2));
+        }
+        else if (currentView == ViewMode::FrequencyCurve)
+        {
+            if (frequencyCurveView != nullptr)
+                frequencyCurveView->setBounds(area.reduced(4, 2));
         }
     }
 }
@@ -155,8 +495,9 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
 
-    // Reserve right side for buttons so legend never overlaps tab buttons
-    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(isCollapsed ? 36.0f : 340.0f);
+    // Reserve right side for buttons so legend never overlaps tab buttons or toggle pills
+    float reservedRight = isCollapsed ? 36.0f : (currentView == ViewMode::FrequencyCurve ? 650.0f : (currentView == ViewMode::PhaseGroupDelay ? 600.0f : 530.0f));
+    auto headerArea = bounds.removeFromTop(32.0f).reduced(12.0f, 0.0f).withTrimmedRight(reservedRight);
     drawLegend(g, headerArea);
 
     // If collapsed, only header is rendered
@@ -169,50 +510,50 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
 
     auto plotArea = bounds.reduced(8.0f, 6.0f);
 
-    if (currentView == ViewMode::FrequencyCurve)
+    if (currentView == ViewMode::PhaseGroupDelay)
     {
-        drawFrequencyPlot(g, plotArea);
+        drawPhaseGroupDelayPlot(g, plotArea);
     }
-    else
+    else if (currentView == ViewMode::Waterfall3D)
     {
-        drawHeatmap2D(g, plotArea);
+        // Rendered autonomously by child component waterfall3DView
+    }
+    else if (currentView == ViewMode::ModulationMatrix)
+    {
+        // Rendered autonomously by child component modulationTableView
+    }
+    else if (currentView == ViewMode::Heatmap2D)
+    {
+        // Rendered autonomously by child component heatmapView
+    }
+    else if (currentView == ViewMode::FrequencyCurve)
+    {
+        // Rendered autonomously by child component frequencyCurveView
     }
 }
 
-void SoundIdCurvePlotter::mouseMove(const juce::MouseEvent& e)
+void SoundIdCurvePlotter::mouseDown(const juce::MouseEvent&)
 {
-    hoverMousePos = e.position;
-    isHoveringPlot = lastGridBounds.contains(hoverMousePos);
+}
 
-    if (isHoveringPlot && !points.empty())
-    {
-        float closestDist = 1e9f;
-        int closestIdx = -1;
-        for (size_t i = 0; i < points.size(); ++i)
-        {
-            float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
-            float px = lastGridBounds.getX() + normX * lastGridBounds.getWidth();
-            float dist = std::abs(hoverMousePos.x - px);
-            if (dist < closestDist)
-            {
-                closestDist = dist;
-                closestIdx = static_cast<int>(i);
-            }
-        }
-        hoverPointIndex = closestIdx;
-    }
-    else
-    {
-        hoverPointIndex = -1;
-    }
-    repaint();
+void SoundIdCurvePlotter::mouseDrag(const juce::MouseEvent&)
+{
+}
+
+void SoundIdCurvePlotter::mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&)
+{
+}
+
+void SoundIdCurvePlotter::mouseDoubleClick(const juce::MouseEvent&)
+{
+}
+
+void SoundIdCurvePlotter::mouseMove(const juce::MouseEvent&)
+{
 }
 
 void SoundIdCurvePlotter::mouseExit(const juce::MouseEvent&)
 {
-    isHoveringPlot = false;
-    hoverPointIndex = -1;
-    repaint();
 }
 
 void SoundIdCurvePlotter::drawLegend(juce::Graphics& g, juce::Rectangle<float> legendArea)
@@ -225,51 +566,35 @@ void SoundIdCurvePlotter::drawLegend(juce::Graphics& g, juce::Rectangle<float> l
         title = "Parameter & Response Curves";
     else if (currentView == ViewMode::Heatmap2D)
         title = "2D Parameter Excitation Heatmap";
+    else if (currentView == ViewMode::PhaseGroupDelay)
+        title = "Phase Response & Group Delay";
+    else if (currentView == ViewMode::Waterfall3D)
+        title = "3D Mountains (Drag: Rotate, Wheel: Zoom, Double-Click: Reset)";
+    else if (currentView == ViewMode::ModulationMatrix)
+        title = "Sparse Modulation Matrix Inspector (K, c, R^2)";
     else
         title = "Live FFT Spectrum Analyzer";
 
     // Compact title width
-    g.drawText(title, legendArea.removeFromLeft(215.0f), juce::Justification::centredLeft, true);
-
-    if (currentView == ViewMode::FrequencyCurve)
-    {
-        auto drawDot = [&](const juce::String& text, juce::Colour col, float width)
-        {
-            if (legendArea.getWidth() < width) return;
-            auto itemArea = legendArea.removeFromLeft(width);
-            float cy = itemArea.getCentreY();
-            g.setColour(col);
-            g.fillEllipse(itemArea.getX(), cy - 4.0f, 8.0f, 8.0f);
-
-            g.setColour(SoundIdTheme::textSecondary);
-            g.setFont(juce::FontOptions(11.0f));
-            g.drawText(text, itemArea.withTrimmedLeft(11.0f), juce::Justification::centredLeft, true);
-        };
-
-        drawDot(juce::String::fromUTF8(u8"Mean (\u03bc)"), SoundIdTheme::accentGreen, 72.0f);
-        drawDot(juce::String::fromUTF8(u8"\u00b1\u03c3 Band"), SoundIdTheme::accentPurple, 72.0f);
-        drawDot("THD %", SoundIdTheme::accentAmber, 55.0f);
-    }
+    g.drawText(title, legendArea, juce::Justification::centredLeft, true);
 }
 
-void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<float> plotArea)
+void SoundIdCurvePlotter::drawPhaseGroupDelayPlot(juce::Graphics& g, juce::Rectangle<float> plotArea)
 {
-    // Draw horizontal dB grid lines
-    float dbValues[] = { 12.0f, 8.0f, 4.0f, 0.0f, -4.0f, -8.0f, -12.0f };
-    float topDb = 12.0f;
-    float botDb = -12.0f;
-
-    auto gridBounds = plotArea.withTrimmedRight(38.0f).withTrimmedBottom(18.0f);
+    auto gridBounds = plotArea.withTrimmedRight(48.0f).withTrimmedBottom(18.0f).withTrimmedLeft(40.0f);
     lastGridBounds = gridBounds;
 
-    g.setFont(juce::FontOptions(10.5f));
-    for (float db : dbValues)
+    // Background grid lines (Phase axis on left: -pi to +pi)
+    float phaseVals[] = { 3.14159f, 1.57079f, 0.0f, -1.57079f, -3.14159f };
+    const char* phaseLabels[] = { "+pi", "+pi/2", "0", "-pi/2", "-pi" };
+
+    g.setFont(juce::FontOptions(10.0f));
+    for (int i = 0; i < 5; ++i)
     {
-        float normY = (topDb - db) / (topDb - botDb);
+        float normY = static_cast<float>(i) / 4.0f;
         float y = gridBounds.getY() + normY * gridBounds.getHeight();
 
-        // Line
-        if (std::abs(db) < 0.1f)
+        if (i == 2)
         {
             g.setColour(SoundIdTheme::textPrimary.withAlpha(0.6f));
             g.drawHorizontalLine(static_cast<int>(y), gridBounds.getX(), gridBounds.getRight());
@@ -280,13 +605,22 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
             g.drawHorizontalLine(static_cast<int>(y), gridBounds.getX(), gridBounds.getRight());
         }
 
-        // dB Text on the right
-        g.setColour(SoundIdTheme::textMuted);
-        juce::String txt = (db > 0 ? "+" : "") + juce::String(static_cast<int>(db)) + "dB";
-        g.drawText(txt, static_cast<int>(gridBounds.getRight() + 6.0f), static_cast<int>(y - 6.0f), 35, 12, juce::Justification::centredLeft, false);
+        // Left label (Phase rad)
+        g.setColour(juce::Colour(0xff06b6d4)); // Cyan
+        g.drawText(phaseLabels[i], static_cast<int>(gridBounds.getX() - 36.0f), static_cast<int>(y - 6.0f), 32, 12, juce::Justification::centredRight, false);
     }
 
-    // Draw vertical frequency grid lines (100 Hz, 1 kHz, 10 kHz)
+    // Right labels (Group Delay ms: 0ms to 20ms)
+    float gdVals[] = { 20.0f, 15.0f, 10.0f, 5.0f, 0.0f };
+    for (int i = 0; i < 5; ++i)
+    {
+        float normY = static_cast<float>(i) / 4.0f;
+        float y = gridBounds.getY() + normY * gridBounds.getHeight();
+        g.setColour(juce::Colour(0xfff97316)); // Orange
+        g.drawText(juce::String(gdVals[i], 0) + "ms", static_cast<int>(gridBounds.getRight() + 6.0f), static_cast<int>(y - 6.0f), 38, 12, juce::Justification::centredLeft, false);
+    }
+
+    // Vertical frequency grid lines
     auto drawFreqLine = [&](float freqHz, const juce::String& label)
     {
         float minF = 20.0f, maxF = 20000.0f;
@@ -304,331 +638,94 @@ void SoundIdCurvePlotter::drawFrequencyPlot(juce::Graphics& g, juce::Rectangle<f
     drawFreqLine(1000.0f, "1 kHz");
     drawFreqLine(10000.0f, "10 kHz");
 
-    // Plot curves
     std::lock_guard<std::mutex> lock(pointsMutex);
-    if (points.empty())
+    if (phaseFreqs.empty() || (phaseDataRad.empty() && groupDelayDataSamples.empty()))
     {
         g.setColour(SoundIdTheme::textMuted);
         g.setFont(juce::FontOptions(13.0f));
-        g.drawText("Ready for measurement. Start profiling session to visualize hardware curves.", gridBounds, juce::Justification::centred, true);
+        g.drawText("No Farina impulse response deconvolution available for Phase/GD analysis.", gridBounds, juce::Justification::centred, true);
         return;
     }
 
-    // Build curve paths
-    juce::Path meanPath;
-    juce::Path sigmaBand;
-    std::vector<juce::Point<float>> topPts, botPts;
+    float minF = 20.0f, maxF = 20000.0f;
+    float logMinF = std::log10(minF);
+    float logMaxF = std::log10(maxF);
 
-    for (size_t i = 0; i < points.size(); ++i)
+    juce::Graphics::ScopedSaveState clipSave(g);
+    g.reduceClipRegion(gridBounds.toNearestInt());
+
+    // Render Phase Curve
+    if (showPhaseCurve && !phaseDataRad.empty())
     {
-        const auto& pt = points[i];
-        float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
+        juce::Path phasePath;
+        bool started = false;
 
-        float valDb = pt.secondaryValue.mean;
-        if (std::abs(valDb) < 1e-4f) valDb = (pt.param1Normalized - 0.5f) * 12.0f;
-
-        float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
-        float sigmaNorm = std::clamp(pt.muSigmaValue.stdDev / 5.0f, 0.02f, 0.2f);
-
-        float px = gridBounds.getX() + normX * gridBounds.getWidth();
-        float py = gridBounds.getY() + normY * gridBounds.getHeight();
-        float pyTop = gridBounds.getY() + std::clamp(normY - sigmaNorm, 0.0f, 1.0f) * gridBounds.getHeight();
-        float pyBot = gridBounds.getY() + std::clamp(normY + sigmaNorm, 0.0f, 1.0f) * gridBounds.getHeight();
-
-        if (i == 0) meanPath.startNewSubPath(px, py);
-        else meanPath.lineTo(px, py);
-
-        topPts.push_back({ px, pyTop });
-        botPts.push_back({ px, pyBot });
-    }
-
-    // Clip curves and points strictly inside grid bounds
-    {
-        juce::Graphics::ScopedSaveState clipSave(g);
-        g.reduceClipRegion(gridBounds.toNearestInt());
-
-        // 1. Shaded ±σ Band (Soft Lilac / Lavender)
-        if (!topPts.empty())
+        for (size_t i = 0; i < phaseFreqs.size() && i < phaseDataRad.size(); ++i)
         {
-            sigmaBand.startNewSubPath(topPts[0]);
-            for (size_t i = 1; i < topPts.size(); ++i) sigmaBand.lineTo(topPts[i]);
-            for (int i = static_cast<int>(botPts.size()) - 1; i >= 0; --i) sigmaBand.lineTo(botPts[static_cast<size_t>(i)]);
-            sigmaBand.closeSubPath();
+            float f = phaseFreqs[i];
+            if (f < minF || f > maxF)
+                continue;
 
-            g.setColour(SoundIdTheme::accentPurpleFill);
-            g.fillPath(sigmaBand);
-
-            g.setColour(SoundIdTheme::accentPurple.withAlpha(0.6f));
-            juce::Path topOutline, botOutline;
-            topOutline.startNewSubPath(topPts[0]);
-            for (size_t i = 1; i < topPts.size(); ++i) topOutline.lineTo(topPts[i]);
-            botOutline.startNewSubPath(botPts[0]);
-            for (size_t i = 1; i < botPts.size(); ++i) botOutline.lineTo(botPts[i]);
-            g.strokePath(topOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            g.strokePath(botOutline, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        }
-
-        // 2. Mean Response Curve (Solid Emerald Green)
-        g.setColour(SoundIdTheme::accentGreen);
-        g.strokePath(meanPath, juce::PathStrokeType(2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-        // 3. Measured Data Point Nodes
-        for (size_t i = 0; i < points.size(); ++i)
-        {
-            float normX = (points.size() > 1) ? (static_cast<float>(i) / static_cast<float>(points.size() - 1)) : 0.5f;
-            float valDb = points[i].secondaryValue.mean;
-            if (std::abs(valDb) < 1e-4f) valDb = (points[i].param1Normalized - 0.5f) * 12.0f;
-            float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
-
+            float normX = (std::log10(f) - logMinF) / (logMaxF - logMinF);
             float px = gridBounds.getX() + normX * gridBounds.getWidth();
+
+            // Wrap phase to [-pi, pi] for display
+            constexpr float kPi = 3.14159265f;
+            constexpr float kTwoPi = 6.2831853f;
+            float wrappedPhase = std::remainder(phaseDataRad[i], kTwoPi);
+            float normY = (kPi - wrappedPhase) / kTwoPi;
+            normY = std::clamp(normY, 0.0f, 1.0f);
             float py = gridBounds.getY() + normY * gridBounds.getHeight();
 
-            if (static_cast<int>(i) == highlightedPointIndex)
+            if (!started)
             {
-                g.setColour(SoundIdTheme::accentAmber.withAlpha(0.4f));
-                g.fillEllipse(px - 10.0f, py - 10.0f, 20.0f, 20.0f);
-                g.setColour(SoundIdTheme::accentAmber);
-                g.fillEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f);
-                g.setColour(juce::Colours::white);
-                g.drawEllipse(px - 5.0f, py - 5.0f, 10.0f, 10.0f, 1.5f);
+                phasePath.startNewSubPath(px, py);
+                started = true;
             }
             else
             {
-                g.setColour(SoundIdTheme::bgCard);
-                g.fillEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f);
-                g.setColour(SoundIdTheme::accentGreen);
-                g.drawEllipse(px - 4.0f, py - 4.0f, 8.0f, 8.0f, 2.0f);
+                phasePath.lineTo(px, py);
             }
         }
 
-        // 4. Moving Ballistic Sweep Trace Beam during measurement
-        if (isMeasuring && measuringProgress >= 0.0f)
-        {
-            float beamX = gridBounds.getX() + measuringProgress * gridBounds.getWidth();
+        g.setColour(juce::Colour(0xff06b6d4)); // Cyan
+        g.strokePath(phasePath, juce::PathStrokeType(2.0f));
+    }
 
-            // Phosphor glow trail behind beam
-            float trailW = std::min(36.0f, beamX - gridBounds.getX());
-            if (trailW > 2.0f)
+    // Render Group Delay Curve
+    if (showGroupDelayCurve && !groupDelayDataSamples.empty())
+    {
+        juce::Path gdPath;
+        bool started = false;
+        double sampleRate = 96000.0; // Standard reference
+
+        for (size_t i = 0; i < phaseFreqs.size() && i < groupDelayDataSamples.size(); ++i)
+        {
+            float f = phaseFreqs[i];
+            if (f < minF || f > maxF)
+                continue;
+
+            float normX = (std::log10(f) - logMinF) / (logMaxF - logMinF);
+            float px = gridBounds.getX() + normX * gridBounds.getWidth();
+
+            float gdMs = (groupDelayDataSamples[i] / static_cast<float>(sampleRate)) * 1000.0f;
+            float normY = std::clamp((20.0f - gdMs) / 20.0f, 0.0f, 1.0f);
+            float py = gridBounds.getY() + normY * gridBounds.getHeight();
+
+            if (!started)
             {
-                g.setGradientFill(juce::ColourGradient(
-                    juce::Colours::transparentBlack, beamX - trailW, gridBounds.getY(),
-                    SoundIdTheme::accentGreen.withAlpha(0.22f), beamX, gridBounds.getY(),
-                    false));
-                g.fillRect(beamX - trailW, gridBounds.getY(), trailW, gridBounds.getHeight());
+                gdPath.startNewSubPath(px, py);
+                started = true;
             }
-
-            // Sharp vertical beam line
-            g.setColour(SoundIdTheme::accentGreen.withAlpha(0.85f));
-            g.drawVerticalLine(static_cast<int>(beamX), gridBounds.getY(), gridBounds.getBottom());
-
-            // Bright core sweep point
-            g.setColour(juce::Colours::white);
-            g.fillEllipse(beamX - 3.0f, gridBounds.getCentreY() - 3.0f, 6.0f, 6.0f);
-        }
-    }
-
-    // 5. Interactive Crosshair & Tooltip Overlay
-    drawCrosshairAndTooltip(g, gridBounds);
-}
-
-void SoundIdCurvePlotter::drawCrosshairAndTooltip(juce::Graphics& g, juce::Rectangle<float> gridBounds)
-{
-    if (!isHoveringPlot || hoverPointIndex < 0 || hoverPointIndex >= static_cast<int>(points.size()))
-        return;
-
-    const auto& pt = points[static_cast<size_t>(hoverPointIndex)];
-    float normX = (points.size() > 1) ? (static_cast<float>(hoverPointIndex) / static_cast<float>(points.size() - 1)) : 0.5f;
-    float valDb = pt.secondaryValue.mean;
-    if (std::abs(valDb) < 1e-4f) valDb = (pt.param1Normalized - 0.5f) * 12.0f;
-
-    float topDb = 12.0f;
-    float botDb = -12.0f;
-    float normY = std::clamp((topDb - valDb) / (topDb - botDb), 0.0f, 1.0f);
-
-    float px = gridBounds.getX() + normX * gridBounds.getWidth();
-    float py = gridBounds.getY() + normY * gridBounds.getHeight();
-
-    // Subtle crosshair lines
-    g.setColour(SoundIdTheme::textSecondary.withAlpha(0.28f));
-    float dashes[] = { 3.0f, 3.0f };
-    g.drawDashedLine(juce::Line<float>(px, gridBounds.getY(), px, gridBounds.getBottom()), dashes, 2, 1.0f);
-    g.drawDashedLine(juce::Line<float>(gridBounds.getX(), py, gridBounds.getRight(), py), dashes, 2, 1.0f);
-
-    // Target highlight ring
-    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.35f));
-    g.fillEllipse(px - 9.0f, py - 9.0f, 18.0f, 18.0f);
-    g.setColour(SoundIdTheme::accentAmber);
-    g.drawEllipse(px - 6.0f, py - 6.0f, 12.0f, 12.0f, 1.5f);
-
-    // Floating Tooltip Card (Freq | Gain | σ | THD)
-    float cardW = 180.0f;
-    float cardH = 68.0f;
-    float cardX = px + 12.0f;
-    if (cardX + cardW > gridBounds.getRight())
-        cardX = px - cardW - 12.0f;
-
-    float cardY = py - cardH - 8.0f;
-    if (cardY < gridBounds.getY())
-        cardY = py + 12.0f;
-
-    auto tooltipRect = juce::Rectangle<float>(cardX, cardY, cardW, cardH);
-    g.setColour(SoundIdTheme::pillBlackBg.withAlpha(0.94f));
-    g.fillRoundedRectangle(tooltipRect, 6.0f);
-    g.setColour(SoundIdTheme::borderCard.withAlpha(0.35f));
-    g.drawRoundedRectangle(tooltipRect, 6.0f, 1.0f);
-
-    // Tooltip content: Freq | Gain | σ | THD
-    auto textRect = tooltipRect.reduced(8.0f, 4.0f);
-    float freqHz = 20.0f * std::pow(1000.0f, normX);
-    juce::String freqStr = freqHz >= 1000.0f ? juce::String(freqHz / 1000.0f, 1) + " kHz" : juce::String(freqHz, 0) + " Hz";
-
-    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
-    g.setColour(juce::Colours::white);
-    g.drawText("Point #" + juce::String(hoverPointIndex + 1) + " (" + freqStr + ")",
-               textRect.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-
-    g.setFont(juce::FontOptions("Consolas", 9.5f, juce::Font::plain));
-    g.setColour(juce::Colour(0xffe5e7eb));
-    juce::String gainStr = "Gain: " + juce::String(valDb > 0 ? "+" : "") + juce::String(valDb, 2) + " dB";
-    juce::String sigmaStr = juce::String::fromUTF8(u8" | \u03c3: \u00b1") + juce::String(pt.muSigmaValue.stdDev, 2) + " dB";
-    g.drawText(gainStr + sigmaStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
-
-    g.setColour(SoundIdTheme::accentAmber);
-    juce::String metricsStr = "THD: " + juce::String(pt.thdPercent, 2) + "% | SNR: " + juce::String(pt.snrDb, 1) + " dB";
-    g.drawText(metricsStr, textRect.removeFromTop(14.0f), juce::Justification::centredLeft, true);
-
-    g.setColour(SoundIdTheme::textMuted);
-    float stepPct = pt.param1Normalized * 100.0f;
-    g.drawText("Step: " + juce::String(stepPct, 1) + "% (" + juce::String(pt.param1Normalized, 3) + " norm)",
-               textRect.removeFromTop(12.0f), juce::Justification::centredLeft, true);
-}
-
-void SoundIdCurvePlotter::drawHeatmap2D(juce::Graphics& g, juce::Rectangle<float> plotArea)
-{
-    std::lock_guard<std::mutex> lock(pointsMutex);
-    if (points.empty())
-    {
-        g.setColour(SoundIdTheme::textMuted);
-        g.setFont(juce::FontOptions(13.0f));
-        g.drawText("No 2D parameter grid data collected yet.", plotArea, juce::Justification::centred, true);
-        return;
-    }
-
-    // Reserve space for color bar on the right
-    auto colorBarArea = plotArea.removeFromRight(24.0f);
-    plotArea.removeFromRight(8.0f);
-
-    int gridDim = static_cast<int>(std::ceil(std::sqrt(static_cast<double>(points.size()))));
-    if (gridDim < 2) gridDim = 2;
-
-    float cellW = plotArea.getWidth() / static_cast<float>(gridDim);
-    float cellH = plotArea.getHeight() / static_cast<float>(gridDim);
-
-    float minVal = 1e9f, maxVal = -1e9f;
-    bool hasNonZero = false;
-    for (const auto& pt : points)
-    {
-        if (std::abs(pt.muSigmaValue.mean) > 1e-4f)
-            hasNonZero = true;
-        if (pt.muSigmaValue.mean < minVal) minVal = pt.muSigmaValue.mean;
-        if (pt.muSigmaValue.mean > maxVal) maxVal = pt.muSigmaValue.mean;
-    }
-    if (!hasNonZero || std::abs(maxVal - minVal) < 1e-4f)
-    {
-        minVal = 0.0f;
-        maxVal = 1.0f;
-    }
-
-    // Draw cells with high-contrast perceptual color map
-    for (size_t i = 0; i < points.size(); ++i)
-    {
-        int row = static_cast<int>(i / static_cast<size_t>(gridDim));
-        int col = static_cast<int>(i % static_cast<size_t>(gridDim));
-
-        float val = points[i].muSigmaValue.mean;
-        juce::Colour cellColor = SoundIdTheme::surfaceSubtle;
-        if (hasNonZero)
-        {
-            float normVal = (val - minVal) / (maxVal - minVal);
-            cellColor = viridisColor(normVal);
+            else
+            {
+                gdPath.lineTo(px, py);
+            }
         }
 
-        auto cellRect = juce::Rectangle<float>(plotArea.getX() + col * cellW,
-                                                plotArea.getY() + row * cellH,
-                                                cellW - 1.0f,
-                                                cellH - 1.0f);
-        g.setColour(cellColor);
-        g.fillRoundedRectangle(cellRect, 2.0f);
-
-        // Value text overlay with dynamic perceptual contrast
-        if (cellW > 32.0f && cellH > 18.0f)
-        {
-            juce::Colour textCol = (cellColor.getPerceivedBrightness() > 0.62f) ? SoundIdTheme::textPrimary : juce::Colours::white;
-            g.setColour(textCol);
-            g.setFont(juce::FontOptions(std::min(9.5f, cellH * 0.5f)));
-            g.drawText(juce::String(points[i].muSigmaValue.mean, 1), cellRect, juce::Justification::centred, false);
-        }
+        g.setColour(juce::Colour(0xfff97316)); // Orange
+        g.strokePath(gdPath, juce::PathStrokeType(1.8f));
     }
-
-    // Axis labels
-    g.setColour(SoundIdTheme::textMuted);
-    g.setFont(juce::FontOptions(10.0f));
-    g.drawText("Param 1 ->", plotArea.withHeight(14.0f).translated(0.0f, plotArea.getHeight() + 2.0f), juce::Justification::centred, true);
-
-    // Vertical color bar with gradient
-    for (int y = 0; y < static_cast<int>(colorBarArea.getHeight()); ++y)
-    {
-        float normY = 1.0f - (static_cast<float>(y) / colorBarArea.getHeight());
-        g.setColour(viridisColor(normY));
-        g.fillRect(colorBarArea.getX(), colorBarArea.getY() + static_cast<float>(y), colorBarArea.getWidth(), 1.0f);
-    }
-    g.setColour(SoundIdTheme::borderCard);
-    g.drawRoundedRectangle(colorBarArea, 2.0f, 1.0f);
-
-    // Min/Max labels
-    g.setColour(SoundIdTheme::textMuted);
-    g.setFont(juce::FontOptions(9.0f));
-    g.drawText(juce::String(maxVal, 1), colorBarArea.translated(0.0f, -12.0f).withHeight(12.0f), juce::Justification::centred, false);
-    g.drawText(juce::String(minVal, 1), colorBarArea.translated(0.0f, colorBarArea.getHeight() + 1.0f).withHeight(12.0f), juce::Justification::centred, false);
-}
-
-// Viridis/Plasma warm perceptual color map (with high-contrast amber top)
-juce::Colour SoundIdCurvePlotter::viridisColor(float t) noexcept
-{
-    t = std::clamp(t, 0.0f, 1.0f);
-
-    // Perceptually balanced stops: deep violet -> cobalt -> teal -> emerald -> warm gold/amber
-    struct ColorStop { float pos; uint8_t r, g, b; };
-    static constexpr ColorStop stops[] = {
-        { 0.00f,  35,  18,  72 }, // Deep violet
-        { 0.16f,  45,  55, 120 }, // Cobalt
-        { 0.32f,  30, 100, 140 }, // Cyan/Blue
-        { 0.50f,  20, 135, 120 }, // Teal
-        { 0.68f,  29, 185,  84 }, // Vibrant green (#1DB954)
-        { 0.84f, 210, 175,  35 }, // Gold
-        { 1.00f, 245, 166,  35 }  // Technical Amber (#F5A623)
-    };
-
-    int idx = 0;
-    for (int i = 0; i < 6; ++i)
-    {
-        if (t >= stops[i].pos && t <= stops[i + 1].pos)
-        {
-            idx = i;
-            break;
-        }
-    }
-
-    float segT = (t - stops[idx].pos) / (stops[idx + 1].pos - stops[idx].pos);
-    segT = std::clamp(segT, 0.0f, 1.0f);
-
-    auto lerp = [](uint8_t a, uint8_t b, float f) -> uint8_t {
-        return static_cast<uint8_t>(static_cast<float>(a) + (static_cast<float>(b) - static_cast<float>(a)) * f);
-    };
-
-    return juce::Colour(lerp(stops[idx].r, stops[idx + 1].r, segT),
-                        lerp(stops[idx].g, stops[idx + 1].g, segT),
-                        lerp(stops[idx].b, stops[idx + 1].b, segT));
 }
 
 } // namespace abdaudiolab::gui

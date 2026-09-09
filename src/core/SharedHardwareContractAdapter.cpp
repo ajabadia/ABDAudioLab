@@ -44,6 +44,7 @@ void SharedHardwareContractAdapter::rebuildLocalCache()
         if (auto rawJson = sharedRegistry_.getRawContractJson(sharedC.id))
         {
             parseFunctionsFromRawJson(*rawJson, localC);
+            parseLifecycleFromRawJson(*rawJson, localC);
         }
 
         localCache_.push_back(std::move(localC));
@@ -72,6 +73,51 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
                 f.routingGuide.stimulusOutput = rg.value("stimulusOutput", std::string(""));
                 f.routingGuide.responseInput = rg.value("responseInput", std::string(""));
                 f.routingGuide.notes = rg.value("notes", std::string(""));
+            }
+
+            if (fJson.contains("measurementRecipe") && fJson["measurementRecipe"].is_object())
+            {
+                const auto& rJson = fJson["measurementRecipe"];
+                f.measurementRecipe.recipeType = rJson.value("recipeType", std::string("DIRECT_AUDIO_IN"));
+                f.measurementRecipe.description = rJson.value("description", std::string(""));
+                f.measurementRecipe.postSettlingDelayMs = rJson.value("postSettlingDelayMs", 100);
+
+                if (rJson.contains("setupActions") && rJson["setupActions"].is_array())
+                {
+                    for (const auto& aJson : rJson["setupActions"])
+                    {
+                        if (!aJson.is_object()) continue;
+                        HardwareSetupAction act;
+                        act.description = aJson.value("description", "");
+                        std::string methodStr = aJson.value("method", "MIDI_CC");
+                        if (methodStr == "NRPN") act.method = HardwareMethod::NRPN;
+                        else if (methodStr == "SYSEX_RAW") act.method = HardwareMethod::SYSEX_RAW;
+                        else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
+                        else act.method = HardwareMethod::MIDI_CC;
+
+                        act.channel = aJson.value("channel", 1);
+                        act.controlNumber = aJson.value("controlNumber", aJson.value("cc", aJson.value("nrpn", -1)));
+                        act.normalizedValue = aJson.value("normalizedValue", aJson.value("value", 0.0f));
+                        act.sysexHexPayload = aJson.value("sysexHexPayload", aJson.value("sysexHex", ""));
+                        act.settlingDelayMs = aJson.value("settlingDelayMs", 50);
+                        f.measurementRecipe.setupActions.push_back(std::move(act));
+                    }
+                }
+
+                if (rJson.contains("excitationNotes") && rJson["excitationNotes"].is_array())
+                {
+                    for (const auto& nJson : rJson["excitationNotes"])
+                    {
+                        if (!nJson.is_object()) continue;
+                        NoteSequenceEvent ev;
+                        ev.noteNumber = nJson.value("noteNumber", nJson.value("note", 60));
+                        ev.velocity = nJson.value("velocity", 100);
+                        ev.startDelayMs = nJson.value("startDelayMs", 0);
+                        ev.durationMs = nJson.value("durationMs", 1000);
+                        ev.isLegato = nJson.value("isLegato", false);
+                        f.measurementRecipe.excitationNotes.push_back(std::move(ev));
+                    }
+                }
             }
 
             if (fJson.contains("controls") && fJson["controls"].is_array())
@@ -124,6 +170,42 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
             f.controls.push_back(std::move(ctrl));
         }
         out.functions.push_back(std::move(f));
+    }
+}
+
+void SharedHardwareContractAdapter::parseLifecycleFromRawJson(const nlohmann::json& j, HardwareContract& out)
+{
+    if (j.contains("lifecycle") && j["lifecycle"].is_object())
+    {
+        const auto& lc = j["lifecycle"];
+        auto parseActions = [](const nlohmann::json& arrJson, std::vector<HardwareSetupAction>& actions) {
+            if (!arrJson.is_array()) return;
+            for (const auto& aJson : arrJson)
+            {
+                if (!aJson.is_object()) continue;
+                HardwareSetupAction act;
+                act.description = aJson.value("description", "");
+                std::string methodStr = aJson.value("method", "MIDI_CC");
+                if (methodStr == "NRPN") act.method = HardwareMethod::NRPN;
+                else if (methodStr == "SYSEX_RAW") act.method = HardwareMethod::SYSEX_RAW;
+                else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
+                else act.method = HardwareMethod::MIDI_CC;
+
+                act.channel = aJson.value("channel", 1);
+                act.controlNumber = aJson.value("controlNumber", aJson.value("cc", aJson.value("nrpn", -1)));
+                act.normalizedValue = aJson.value("normalizedValue", aJson.value("value", 0.0f));
+                act.sysexHexPayload = aJson.value("sysexHexPayload", aJson.value("sysexHex", ""));
+                act.settlingDelayMs = aJson.value("settlingDelayMs", 50);
+                actions.push_back(act);
+            }
+        };
+
+        if (lc.contains("preCalibrationSetup"))
+            parseActions(lc["preCalibrationSetup"], out.lifecycle.preCalibrationSetup);
+        if (lc.contains("preSessionSetup"))
+            parseActions(lc["preSessionSetup"], out.lifecycle.preSessionSetup);
+        if (lc.contains("postSessionTeardown"))
+            parseActions(lc["postSessionTeardown"], out.lifecycle.postSessionTeardown);
     }
 }
 

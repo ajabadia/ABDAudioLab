@@ -1,110 +1,10 @@
-/**
- * @file TestEditorPanel.cpp
- * @brief Reusable test parameter configuration panel (stimulus, duration, and matrix controls).
- * @author ABDSynths
- * @date 2026
- */
-
 #include "TestEditorPanel.h"
+#include "../core/AutoTestPresetEngine.h"
 #include <algorithm>
 
 namespace abdaudiolab::gui
 {
 
-namespace
-{
-enum ColumnId
-{
-    colIcon = 1,
-    colParam = 2,
-    colResolution = 3,
-    colSteps = 4,
-    colMin = 5,
-    colMax = 6,
-    colOrder = 7
-};
-
-bool isStandardStep(int step) noexcept
-{
-    return step == 1 || step == 3 || step == 5 || step == 8 || step == 16 || step == 32 || step == 64;
-}
-} // namespace
-
-// ============================================================================
-// OrderButtonsComponent
-// ============================================================================
-TestEditorPanel::OrderButtonsComponent::OrderButtonsComponent()
-{
-    btnUp.setTooltip("Move parameter up in sweep execution order");
-    btnUp.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnUp.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
-    addAndMakeVisible(btnUp);
-
-    btnDown.setTooltip("Move parameter down in sweep execution order");
-    btnDown.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnDown.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
-    addAndMakeVisible(btnDown);
-}
-
-void TestEditorPanel::OrderButtonsComponent::resized()
-{
-    auto b = getLocalBounds();
-    int h = b.getHeight() / 2;
-    btnUp.setBounds(b.removeFromTop(h));
-    btnDown.setBounds(b);
-}
-
-// ============================================================================
-// EstimationCardComponent
-// ============================================================================
-TestEditorPanel::EstimationCardComponent::EstimationCardComponent()
-{
-}
-
-void TestEditorPanel::EstimationCardComponent::setEstimation(int totalPoints, float totalSeconds)
-{
-    points = totalPoints;
-    seconds = totalSeconds;
-    repaint();
-}
-
-void TestEditorPanel::EstimationCardComponent::paint(juce::Graphics& g)
-{
-    auto bounds = getLocalBounds().toFloat().reduced(0.5f);
-    g.setColour(AppTheme::SurfaceSubtle);
-    g.fillRoundedRectangle(bounds, 8.0f);
-    g.setColour(AppTheme::BorderSubtle);
-    g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
-
-    auto content = bounds.reduced(14.0f, 6.0f);
-
-    // Green indicator pill badge
-    auto badgeArea = content.removeFromLeft(90.0f);
-    float badgeH = 18.0f;
-    auto badgeRect = badgeArea.withSizeKeepingCentre(badgeArea.getWidth(), badgeH);
-    g.setColour(AppTheme::AccentActive.withAlpha(0.15f));
-    g.fillRoundedRectangle(badgeRect, badgeH * 0.5f);
-    g.setFont(AppTheme::fontBold(9.5f));
-    g.setColour(AppTheme::AccentActive);
-    g.drawText("PLAN ESTIMATE", badgeRect, juce::Justification::centred, false);
-
-    content.removeFromLeft(12.0f);
-
-    int mins = static_cast<int>(seconds) / 60;
-    int secs = static_cast<int>(seconds) % 60;
-    juce::String durationStr = (mins > 0) ? (juce::String(mins) + "m " + juce::String(secs) + "s")
-                                          : (juce::String(secs) + "s");
-
-    juce::String mainText = juce::String(points) + " evaluation points total   |   Estimated Duration: ~" + durationStr;
-
-    g.setFont(AppTheme::fontBold(11.0f));
-    g.setColour(AppTheme::TextPrimary);
-    g.drawText(mainText, content, juce::Justification::centredLeft, true);
-}
-
-// ============================================================================
-// TestEditorPanel
-// ============================================================================
 TestEditorPanel::TestEditorPanel()
 {
     // Section 1: Presets & Test Name
@@ -260,23 +160,12 @@ TestEditorPanel::TestEditorPanel()
     lblMatrixSection.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
     addAndMakeVisible(lblMatrixSection);
 
-    matrixTable.setModel(this);
-    matrixTable.setRowHeight(34);
-    matrixTable.setHeaderHeight(26);
-    matrixTable.setColour(juce::ListBox::backgroundColourId, SoundIdTheme::bgCard);
-    matrixTable.setColour(juce::ListBox::outlineColourId, SoundIdTheme::borderSubtle);
-    matrixTable.setOutlineThickness(1);
-
-    auto& hdr = matrixTable.getHeader();
-    hdr.addColumn("ICON", colIcon, 32, 28, 40, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("PARAMETER", colParam, 170, 120, 260, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("STEP RESOLUTION", colResolution, 150, 130, 220, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("STEPS", colSteps, 55, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("MIN %", colMin, 52, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("MAX %", colMax, 52, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("ORDER", colOrder, 46, 40, 60, juce::TableHeaderComponent::notSortable);
-
-    addAndMakeVisible(matrixTable);
+    matrixTableComp.onControlsChanged = [this] {
+        currentConfig.controls = matrixTableComp.getControls();
+        updateEstimatedTime();
+        if (onConfigChanged) onConfigChanged();
+    };
+    addAndMakeVisible(matrixTableComp);
 
     // Section 4: Estimation Card
     addAndMakeVisible(estimationCard);
@@ -284,8 +173,7 @@ TestEditorPanel::TestEditorPanel()
 
 void TestEditorPanel::updateTheme()
 {
-    matrixTable.setColour(juce::ListBox::backgroundColourId, SoundIdTheme::bgCard);
-    matrixTable.setColour(juce::ListBox::outlineColourId, SoundIdTheme::borderSubtle);
+    matrixTableComp.updateTheme();
     lblPresetSelector.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     lblTestName.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     lblStimulusType.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
@@ -298,8 +186,6 @@ void TestEditorPanel::updateTheme()
     txtTestName.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
     txtManualDuration.setColour(juce::TextEditor::backgroundColourId, SoundIdTheme::surfaceSubtle);
     txtManualDuration.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
-    matrixTable.updateContent();
-    matrixTable.repaint();
     estimationCard.repaint();
     repaint();
 }
@@ -318,6 +204,35 @@ void TestEditorPanel::setPresetOptions(const std::vector<juce::String>& presetNa
     {
         comboPresets.addItem(presetNames[i], static_cast<int>(i + 1));
     }
+}
+
+void TestEditorPanel::populateWithAutoTestPresets()
+{
+    auto allPresets = core::AutoTestPresetEngine::getAllPresets();
+    std::vector<juce::String> names;
+    names.reserve(allPresets.size());
+    for (const auto& p : allPresets)
+    {
+        names.push_back("[" + juce::String(p.badgeText) + "] " + juce::String(p.displayName));
+    }
+    setPresetOptions(names);
+    setPresetSelectorVisible(true);
+
+    onPresetSelected = [this, allPresets](int idx) {
+        if (idx >= 0 && idx < static_cast<int>(allPresets.size()))
+        {
+            const auto& rec = allPresets[static_cast<size_t>(idx)];
+            currentConfig.testName = juce::String(rec.displayName);
+            currentConfig.stimulusType = rec.stimulusType;
+            currentConfig.burstDurationSec = rec.burstDurationSec;
+            currentConfig.captureMode = juce::String(rec.captureMode);
+            currentConfig.silenceThresholdDb = rec.silenceThresholdDb;
+
+            // Update UI widgets
+            setConfiguration(currentConfig);
+            if (onConfigChanged) onConfigChanged();
+        }
+    };
 }
 
 void TestEditorPanel::setConfiguration(const TestConfiguration& config)
@@ -351,7 +266,7 @@ void TestEditorPanel::setConfiguration(const TestConfiguration& config)
 
     btnAdaptiveTail.setToggleState(currentConfig.captureMode == "ADAPTIVE_ENVELOPE", juce::dontSendNotification);
 
-    matrixTable.updateContent();
+    matrixTableComp.setControls(currentConfig.controls);
     updateEstimatedTime();
     resized();
 }
@@ -373,11 +288,7 @@ int TestEditorPanel::getPreferredHeight() const
     y += 14; // Divider
     y += 24; // Matrix Header
 
-    int numRows = static_cast<int>(currentConfig.controls.size());
-    int tableContentH = 26 + std::max(1, numRows) * 34 + 6;
-    int tableH = std::clamp(tableContentH, 94, 260);
-    y += tableH;
-
+    y += matrixTableComp.getPreferredHeight();
     y += 56; // Estimation Card
     y += 16; // Bottom margin
     return y;
@@ -433,293 +344,11 @@ void TestEditorPanel::resized()
     lblMatrixSection.setBounds(0, y, contentW, 16);
     y += 22;
 
-    int numRows = static_cast<int>(currentConfig.controls.size());
-    int tableContentH = 26 + std::max(1, numRows) * 34 + 6;
-    int tableH = std::clamp(tableContentH, 94, 260);
-    matrixTable.setBounds(0, y, contentW, tableH);
+    int tableH = matrixTableComp.getPreferredHeight();
+    matrixTableComp.setBounds(0, y, contentW, tableH);
     y += tableH + 12;
 
     estimationCard.setBounds(0, y, contentW, 46);
-}
-
-// ============================================================================
-// TableListBoxModel Implementation
-// ============================================================================
-int TestEditorPanel::getNumRows()
-{
-    return static_cast<int>(currentConfig.controls.size());
-}
-
-void TestEditorPanel::paintRowBackground(juce::Graphics& g, int rowNumber, int width, int height, bool rowIsSelected)
-{
-    if (rowIsSelected)
-    {
-        g.fillAll(AppTheme::SurfaceHover);
-    }
-    else if (rowNumber % 2 == 1)
-    {
-        g.fillAll(AppTheme::BackgroundApp.withAlpha(0.60f));
-    }
-    else
-    {
-        g.fillAll(AppTheme::SurfaceCard);
-    }
-
-    g.setColour(AppTheme::BorderSubtle);
-    g.drawHorizontalLine(height - 1, 0.0f, static_cast<float>(width));
-}
-
-void TestEditorPanel::paintCell(juce::Graphics& g, int rowNumber, int columnId, int width, int height, bool /*rowIsSelected*/)
-{
-    if (rowNumber < 0 || rowNumber >= static_cast<int>(currentConfig.controls.size()))
-        return;
-
-    const auto& ctrl = currentConfig.controls[static_cast<size_t>(rowNumber)];
-
-    if (columnId == colParam)
-    {
-        g.setFont(AppTheme::fontBold(11.0f));
-        g.setColour(AppTheme::TextPrimary);
-        g.drawText(ctrl.name, 6, 0, width - 8, height, juce::Justification::centredLeft, true);
-    }
-}
-
-juce::Component* TestEditorPanel::refreshComponentForCell(int rowNumber, int columnId, bool /*isRowSelected*/,
-                                                           juce::Component* existingComponentToUpdate)
-{
-    if (rowNumber < 0 || rowNumber >= static_cast<int>(currentConfig.controls.size()))
-    {
-        delete existingComponentToUpdate;
-        return nullptr;
-    }
-
-    const auto& ctrl = currentConfig.controls[static_cast<size_t>(rowNumber)];
-
-    // 1. Column Icon
-    if (columnId == colIcon)
-    {
-        ControlIconComponent* iconComp = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            iconComp = dynamic_cast<ControlIconComponent*>(existingComponentToUpdate);
-        else
-            iconComp = new ControlIconComponent(ctrl.type);
-
-        if (iconComp != nullptr)
-            iconComp->setControlType(ctrl.type);
-
-        return iconComp;
-    }
-
-    // 2. Column Parameter Name: painted directly in paintCell for zero widget overhead
-    if (columnId == colParam)
-    {
-        delete existingComponentToUpdate;
-        return nullptr;
-    }
-
-    // 3. Column Step Resolution (ComboBox)
-    if (columnId == colResolution)
-    {
-        juce::ComboBox* combo = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            combo = dynamic_cast<juce::ComboBox*>(existingComponentToUpdate);
-        else
-        {
-            combo = new juce::ComboBox();
-            combo->setTooltip("Step Resolution - Preset number of points across sweep range");
-            combo->addItem("Fixed (1 step - single reference)", 1);
-            combo->addItem("3 Steps (0%, 50%, 100%)", 3);
-            combo->addItem("5 Steps (Standard: 0, 25, 50, 75, 100%)", 5);
-            combo->addItem("8 Steps (Detailed: 8 steps)", 8);
-            combo->addItem("16 Steps (High-Res: 16 steps)", 16);
-            combo->addItem("32 Steps (Ultra High-Res: 32 steps)", 32);
-            combo->addItem("64 Steps (Extreme: 64 steps)", 64);
-            combo->addItem("Custom Steps (Manual)...", 99);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before mutating state to avoid firing on recycled row
-        combo->onChange = nullptr;
-
-        int step = (ctrl.steps > 0) ? ctrl.steps : 1;
-        combo->setSelectedId(isStandardStep(step) ? step : 99, juce::dontSendNotification);
-
-        // Rebind callback capturing the EXACT rowNumber
-        combo->onChange = [this, rowNumber, combo] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(currentConfig.controls.size()))
-            {
-                auto& c = currentConfig.controls[static_cast<size_t>(rowNumber)];
-                int sId = combo->getSelectedId();
-                if (sId != 99)
-                {
-                    c.steps = sId;
-                    if (c.steps == 1) c.maxPct = c.minPct;
-                }
-                matrixTable.updateContent();
-                updateEstimatedTime();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        return combo;
-    }
-
-    // 4. Column Custom Steps (TextEditor)
-    if (columnId == colSteps)
-    {
-        juce::TextEditor* editor = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
-        else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(3, "0123456789");
-            editor->setTooltip("Step Count - Number of evaluation points for this control");
-            editor->setJustification(juce::Justification::centred);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before setting text
-        editor->onTextChange = nullptr;
-
-        int step = (ctrl.steps > 0) ? ctrl.steps : 1;
-        editor->setText(juce::String(step), juce::dontSendNotification);
-
-        bool isCustom = !isStandardStep(step);
-        editor->setEnabled(isCustom);
-        editor->setColour(juce::TextEditor::backgroundColourId, isCustom ? AppTheme::SurfaceCard : AppTheme::SurfaceHover);
-        editor->setColour(juce::TextEditor::textColourId, isCustom ? AppTheme::TextPrimary : AppTheme::TextSecondary);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(currentConfig.controls.size()))
-            {
-                int val = std::max(1, editor->getText().getIntValue());
-                currentConfig.controls[static_cast<size_t>(rowNumber)].steps = val;
-                updateEstimatedTime();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        return editor;
-    }
-
-    // 5. Column Min % (TextEditor)
-    if (columnId == colMin)
-    {
-        juce::TextEditor* editor = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
-        else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(5, "0123456789.");
-            editor->setTooltip("Minimum Value (%) - Sweep start point");
-            editor->setJustification(juce::Justification::centred);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before mutating text
-        editor->onTextChange = nullptr;
-        editor->setText(juce::String(ctrl.minPct, 1), juce::dontSendNotification);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(currentConfig.controls.size()))
-            {
-                float val = std::clamp(editor->getText().getFloatValue(), 0.0f, 100.0f);
-                auto& c = currentConfig.controls[static_cast<size_t>(rowNumber)];
-                c.minPct = val;
-                if (c.steps == 1)
-                {
-                    c.maxPct = val;
-                    matrixTable.updateContent();
-                }
-                updateEstimatedTime();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        return editor;
-    }
-
-    // 6. Column Max % (TextEditor)
-    if (columnId == colMax)
-    {
-        juce::TextEditor* editor = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
-        else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(5, "0123456789.");
-            editor->setTooltip("Maximum Value (%) - Sweep end point");
-            editor->setJustification(juce::Justification::centred);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before mutating text
-        editor->onTextChange = nullptr;
-        editor->setText(juce::String(ctrl.maxPct, 1), juce::dontSendNotification);
-
-        bool enabled = (ctrl.steps > 1);
-        editor->setEnabled(enabled);
-        editor->setColour(juce::TextEditor::backgroundColourId, enabled ? AppTheme::SurfaceCard : AppTheme::SurfaceHover);
-        editor->setColour(juce::TextEditor::textColourId, enabled ? AppTheme::TextPrimary : AppTheme::TextSecondary);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(currentConfig.controls.size()))
-            {
-                auto& c = currentConfig.controls[static_cast<size_t>(rowNumber)];
-                float val = std::clamp(editor->getText().getFloatValue(), c.minPct, 100.0f);
-                c.maxPct = val;
-                updateEstimatedTime();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        return editor;
-    }
-
-    // 7. Column Order (OrderButtonsComponent)
-    if (columnId == colOrder)
-    {
-        OrderButtonsComponent* order = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            order = dynamic_cast<OrderButtonsComponent*>(existingComponentToUpdate);
-        else
-            order = new OrderButtonsComponent();
-
-        // CRITICAL JUCE 8: Clear callbacks before mutating state
-        order->btnUp.onClick = nullptr;
-        order->btnDown.onClick = nullptr;
-
-        order->btnUp.setEnabled(rowNumber > 0);
-        order->btnDown.setEnabled(rowNumber + 1 < static_cast<int>(currentConfig.controls.size()));
-
-        // Rebind callbacks capturing EXACT rowNumber
-        order->btnUp.onClick = [this, rowNumber] {
-            if (rowNumber > 0 && rowNumber < static_cast<int>(currentConfig.controls.size()))
-            {
-                std::swap(currentConfig.controls[static_cast<size_t>(rowNumber)],
-                          currentConfig.controls[static_cast<size_t>(rowNumber - 1)]);
-                matrixTable.updateContent();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        order->btnDown.onClick = [this, rowNumber] {
-            if (rowNumber >= 0 && rowNumber + 1 < static_cast<int>(currentConfig.controls.size()))
-            {
-                std::swap(currentConfig.controls[static_cast<size_t>(rowNumber)],
-                          currentConfig.controls[static_cast<size_t>(rowNumber + 1)]);
-                matrixTable.updateContent();
-                if (onConfigChanged) onConfigChanged();
-            }
-        };
-
-        return order;
-    }
-
-    delete existingComponentToUpdate;
-    return nullptr;
 }
 
 } // namespace abdaudiolab::gui

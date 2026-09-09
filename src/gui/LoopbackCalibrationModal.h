@@ -37,8 +37,11 @@ public:
     void mouseDown(const juce::MouseEvent& e) override;
 
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
+    std::function<void()> onCalibrationSkipped;
 
     [[nodiscard]] const math::LoopbackCalibrationData& getCalibrationData() const noexcept { return calibrationData; }
+
+    void skipCalibration();
 
 private:
     void startCalibrationSweep();
@@ -52,6 +55,7 @@ private:
     juce::TextButton btnClose { "X" };
     juce::TextButton btnStartMeasure { "Start Loopback Measurement" };
     juce::TextButton btnApplyAndClose { "Apply Trim & Save Profile" };
+    juce::TextButton btnSkip { "Omitir y continuar sin calibrar" };
     juce::TextButton btnCancel { "Cancel" };
 
     juce::ProgressBar progressBar;

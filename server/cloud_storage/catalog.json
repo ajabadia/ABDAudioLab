@@ -1,0 +1,34 @@
+{
+  "items": {
+    "behringer_pro800_9850053f": {
+      "certification_id": "behringer_pro800_9850053f",
+      "hardware_id": "behringer_pro800",
+      "hardware_name": "Roland AIRA Bitrazer",
+      "sample_rate": 96000,
+      "measured_points": 16,
+      "average_snr_db": 89.0,
+      "average_thd_percent": 0.02,
+      "tier": "CERTIFIED_GOLD",
+      "sha256": "9850053fa6ec28c43260e7f7995c697806f93d7b125c9052c39b8591429fec8f",
+      "has_nam_model": false,
+      "published_at": "2026-09-05T22:24:32Z",
+      "report_url": "/api/v1/certifications/behringer_pro800_9850053f/report",
+      "package_url": "/api/v1/certifications/behringer_pro800_9850053f/package"
+    },
+    "behringer_pro800_d22545bf": {
+      "certification_id": "behringer_pro800_d22545bf",
+      "hardware_id": "behringer_pro800",
+      "hardware_name": "Roland AIRA Bitrazer",
+      "sample_rate": 96000,
+      "measured_points": 16,
+      "average_snr_db": 89.0,
+      "average_thd_percent": 0.02,
+      "tier": "CERTIFIED_GOLD",
+      "sha256": "d22545bf6c48860061ff18a4a3cbf02a883c6634ad15c7f87995e281c7cce05a",
+      "has_nam_model": false,
+      "published_at": "2026-09-05T22:35:42Z",
+      "report_url": "/api/v1/certifications/behringer_pro800_d22545bf/report",
+      "package_url": "/api/v1/certifications/behringer_pro800_d22545bf/package"
+    }
+  }
+}

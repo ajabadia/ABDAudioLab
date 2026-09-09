@@ -58,6 +58,23 @@ nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest&
     j["lineCalibrationGainDb"] = manifest.lineCalibrationGainDb;
     j["noiseFloorThresholdDb"] = manifest.noiseFloorThresholdDb;
     j["totalMeasuredPoints"] = manifest.totalMeasuredPoints;
+    j["operatorNotes"] = manifest.operatorNotes;
+    j["ambientTemperatureC"] = manifest.ambientTemperatureC;
+    j["warmupTimeMinutes"] = manifest.warmupTimeMinutes;
+
+    if (manifest.hasWienerHammersteinModel)
+    {
+        nlohmann::json wh;
+        wh["identified"] = true;
+        wh["h1Taps"] = manifest.whH1Taps;
+        wh["coeffA"] = manifest.whNonLinearCoeffA;
+        wh["h2Taps"] = manifest.whH2Taps;
+        wh["goodnessR2"] = manifest.whGoodnessOfFitR2;
+        wh["residualRms"] = manifest.whResidualErrorRms;
+        wh["preCentroidHz"] = manifest.whPreFilterCentroidHz;
+        wh["postCentroidHz"] = manifest.whPostFilterCentroidHz;
+        j["wienerHammerstein"] = wh;
+    }
 
     nlohmann::json testsJson = nlohmann::json::array();
     for (const auto& t : manifest.tests)
@@ -111,6 +128,9 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
         if (j.contains("lineCalibrationGainDb")) outManifest.lineCalibrationGainDb = j["lineCalibrationGainDb"].get<float>();
         if (j.contains("noiseFloorThresholdDb")) outManifest.noiseFloorThresholdDb = j["noiseFloorThresholdDb"].get<float>();
         if (j.contains("totalMeasuredPoints")) outManifest.totalMeasuredPoints = j["totalMeasuredPoints"].get<int>();
+        if (j.contains("operatorNotes")) outManifest.operatorNotes = j["operatorNotes"].get<std::string>();
+        if (j.contains("ambientTemperatureC")) outManifest.ambientTemperatureC = j["ambientTemperatureC"].get<float>();
+        if (j.contains("warmupTimeMinutes")) outManifest.warmupTimeMinutes = j["warmupTimeMinutes"].get<int>();
 
         outManifest.tests.clear();
         if (j.contains("tests") && j["tests"].is_array())
@@ -141,6 +161,20 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
                 outManifest.tests.push_back(tc);
             }
         }
+
+        if (j.contains("wienerHammerstein") && j["wienerHammerstein"].is_object())
+        {
+            const auto& wh = j["wienerHammerstein"];
+            outManifest.hasWienerHammersteinModel = true;
+            if (wh.contains("h1Taps")) outManifest.whH1Taps = wh["h1Taps"].get<std::vector<float>>();
+            if (wh.contains("coeffA")) outManifest.whNonLinearCoeffA = wh["coeffA"].get<float>();
+            if (wh.contains("h2Taps")) outManifest.whH2Taps = wh["h2Taps"].get<std::vector<float>>();
+            if (wh.contains("goodnessR2")) outManifest.whGoodnessOfFitR2 = wh["goodnessR2"].get<float>();
+            if (wh.contains("residualRms")) outManifest.whResidualErrorRms = wh["residualRms"].get<float>();
+            if (wh.contains("preCentroidHz")) outManifest.whPreFilterCentroidHz = wh["preCentroidHz"].get<float>();
+            if (wh.contains("postCentroidHz")) outManifest.whPostFilterCentroidHz = wh["postCentroidHz"].get<float>();
+        }
+
         return true;
     }
     catch (...)

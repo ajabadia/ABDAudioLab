@@ -48,6 +48,21 @@ struct SessionManifest
     int totalPointsMeasured { 0 };                       /**< Total points measured metric. */
     std::vector<std::string> recordedAudioFiles;         /**< Recorded raw audio artifact file paths. */
     std::vector<std::string> matrixFiles;                /**< Exported matrix dataset file paths. */
+
+    // 1.7.12 Laboratory observations and environmental parameters
+    std::string operatorNotes;                           /**< Free-form operator notes and laboratory observations. */
+    float ambientTemperatureC { 22.0f };                 /**< Laboratory ambient temperature in Celsius. */
+    int warmupTimeMinutes { 15 };                        /**< Hardware warm-up time in minutes before profiling. */
+
+    // 5.4 Wiener-Hammerstein Model parameters
+    bool hasWienerHammersteinModel { false };
+    std::vector<float> whH1Taps;
+    float whNonLinearCoeffA { 0.0f };
+    std::vector<float> whH2Taps;
+    float whGoodnessOfFitR2 { 0.0f };
+    float whResidualErrorRms { 0.0f };
+    float whPreFilterCentroidHz { 0.0f };
+    float whPostFilterCentroidHz { 0.0f };
 };
 
 /**

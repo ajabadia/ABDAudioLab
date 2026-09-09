@@ -12,8 +12,10 @@ TEST_CASE("SessionSerializer Serialization Roundtrip", "[core][serializer]")
     manifest.hardwareName = "MOCK_SYNTH_UNITTEST";
     manifest.targetModule = "FILTER_SCAN";
     manifest.appVersion = "1.1.0";
-    manifest.buildNumber = 157;
     manifest.totalPointsMeasured = 2;
+    manifest.operatorNotes = "Warmup 30m, room 21.5C, pristine test signal.";
+    manifest.ambientTemperatureC = 21.5f;
+    manifest.warmupTimeMinutes = 30;
 
     std::vector<abdaudiolab::exporting::MeasuredPoint> points;
     
@@ -55,6 +57,9 @@ TEST_CASE("SessionSerializer Serialization Roundtrip", "[core][serializer]")
     REQUIRE(loadOk);
     REQUIRE(loadedManifest.sessionTitle == manifest.sessionTitle);
     REQUIRE(loadedManifest.hardwareName == manifest.hardwareName);
+    REQUIRE(loadedManifest.operatorNotes == manifest.operatorNotes);
+    REQUIRE(std::abs(loadedManifest.ambientTemperatureC - 21.5f) < 0.001f);
+    REQUIRE(loadedManifest.warmupTimeMinutes == 30);
     REQUIRE(loadedPoints.size() == 2);
     REQUIRE(loadedPoints[0].pointId == "P_001");
     REQUIRE(loadedPoints[1].pointId == "P_002");

@@ -8,6 +8,7 @@
 #include "MidiIdentityDetector.h"
 #include <sstream>
 #include <algorithm>
+#include <thread>
 
 namespace abdaudiolab::hardware
 {
@@ -161,14 +162,15 @@ bool MidiIdentityDetector::parseIdentityReply(const juce::MidiMessage& msg,
                     }
                 }
 
-                if (modelMatches && bestScore < 10)
+                if (modelMatches && bestScore < 20)
                 {
-                    bestScore = 10;
+                    bestScore = 20;
                     bestDev.deviceId = data[1];
                     bestDev.hardwareId = c.id;
                     bestDev.displayName = c.displayName;
-                    bestDev.manufacturer = c.midiIdentity.manufacturer;
-                    bestDev.model = c.midiIdentity.model;
+                    bestDev.manufacturer = !c.midiIdentity.manufacturer.empty() ? c.midiIdentity.manufacturer
+                                         : (!c.manufacturer.empty() ? c.manufacturer : c.brand);
+                    bestDev.model = !c.midiIdentity.model.empty() ? c.midiIdentity.model : c.model;
                     bestDev.isSysExVerified = true;
                 }
             }
@@ -179,8 +181,9 @@ bool MidiIdentityDetector::parseIdentityReply(const juce::MidiMessage& msg,
                 bestDev.deviceId = data[1];
                 bestDev.hardwareId = c.id;
                 bestDev.displayName = c.displayName;
-                bestDev.manufacturer = c.midiIdentity.manufacturer;
-                bestDev.model = c.midiIdentity.model;
+                bestDev.manufacturer = !c.midiIdentity.manufacturer.empty() ? c.midiIdentity.manufacturer
+                                     : (!c.manufacturer.empty() ? c.manufacturer : c.brand);
+                bestDev.model = !c.midiIdentity.model.empty() ? c.midiIdentity.model : c.model;
                 bestDev.isSysExVerified = true;
             }
         }
@@ -353,6 +356,35 @@ std::vector<DiscoveredDevice> MidiIdentityDetector::scanAllPorts(int timeoutMs)
     }
 
     return discovered;
+}
+
+void MidiIdentityDetector::preWarmAsync(std::function<void(const std::vector<DiscoveredDevice>&)> onComplete)
+{
+    std::thread([this, onComplete = std::move(onComplete)]() {
+        auto found = scanAllPorts(50);
+        {
+            const juce::ScopedLock sl(scanLock);
+            cachedDiscoveredDevices = found;
+            preWarmed.store(true, std::memory_order_release);
+        }
+        if (onComplete)
+        {
+            juce::MessageManager::callAsync([onComplete, found]() {
+                onComplete(found);
+            });
+        }
+    }).detach();
+}
+
+bool MidiIdentityDetector::isPreWarmed() const noexcept
+{
+    return preWarmed.load(std::memory_order_acquire);
+}
+
+std::vector<DiscoveredDevice> MidiIdentityDetector::getCachedDiscoveredDevices() const
+{
+    const juce::ScopedLock sl(scanLock);
+    return cachedDiscoveredDevices;
 }
 
 } // namespace abdaudiolab::hardware

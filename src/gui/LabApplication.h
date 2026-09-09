@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file LabApplication.h
  * @brief JUCE application bootstrap: main window and application lifecycle.
  */
@@ -15,13 +15,13 @@ namespace abdaudiolab
 class LabMainWindow : public juce::DocumentWindow
 {
 public:
-    explicit LabMainWindow(juce::String name)
+    explicit LabMainWindow(juce::String name, MainContentComponent::StartupProgressCallback onProgress = nullptr)
         : DocumentWindow(name,
                          gui::SoundIdTheme::bgLight,
                          DocumentWindow::allButtons)
     {
         setUsingNativeTitleBar(true);
-        setContentOwned(new MainContentComponent(), true);
+        setContentOwned(new MainContentComponent(std::move(onProgress)), true);
 
         #if JUCE_IOS || JUCE_ANDROID
          setFullScreen(true);
@@ -56,21 +56,23 @@ public:
     {
         // 1. Show Instant Floating Splash Window (< 50ms)
         splashWindow = std::make_unique<gui::SoundIdSplashWindow>();
-        splashWindow->setStatus("Scanning Audio Interfaces & ASIO Drivers...", 0.25f);
+        splashWindow->reportProgress("Iniciando ABDAudioLab...", 0.05f, 15);
 
-        // 2. Initialize Main Engine and Window
+        // 2. Initialize Main Engine and Window with Real Startup Progress
         juce::MessageManager::callAsync([this]() {
-            if (splashWindow)
-                splashWindow->setStatus("Loading Hardware Contracts & DSP Profiles...", 0.65f);
+            auto progressCb = [this](const juce::String& msg, float prog) {
+                if (splashWindow)
+                    splashWindow->reportProgress(msg, prog, 35);
+            };
 
-            mainWindow = std::make_unique<LabMainWindow>(getApplicationName());
+            mainWindow = std::make_unique<LabMainWindow>(getApplicationName(), progressCb);
 
             if (splashWindow)
-                splashWindow->setStatus("Ready.", 1.0f);
+                splashWindow->reportProgress("Listo.", 1.0f, 60);
 
             // 3. Smooth fade-out transition
             juce::Component::SafePointer<gui::SoundIdSplashWindow> safeSplash(splashWindow.get());
-            juce::Timer::callAfterDelay(450, [safeSplash, this]() {
+            juce::Timer::callAfterDelay(550, [safeSplash, this]() {
                 if (safeSplash != nullptr)
                 {
                     safeSplash->dismiss([this]() {

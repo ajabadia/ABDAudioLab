@@ -44,6 +44,7 @@ TestConfigModal::TestConfigModal()
 
 void TestConfigModal::showDialog(juce::Component* parent, const TestConfiguration& initialConfig)
 {
+    editorPanel.populateWithAutoTestPresets();
     editorPanel.setConfiguration(initialConfig);
 
     if (parent != nullptr)

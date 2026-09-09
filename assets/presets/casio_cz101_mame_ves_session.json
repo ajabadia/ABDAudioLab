@@ -1,0 +1,3255 @@
+{
+  "profile_metadata": {
+    "ambient_temperature_c": 22.0,
+    "bit_depth": 24,
+    "hardware_name": "casio_cz101_mame_ves",
+    "operator_mode": "VIRTUAL_LOOPBACK_ASIO",
+    "operator_notes": "Automated Live Scan Suite for Casio CZ NZ-1 Phase Distortion engine (VES / MAME Core).",
+    "sample_rate": 44100.0,
+    "target_module": "CASIO_CZ_PD_ENGINE",
+    "timestamp": "2026-09-09T09:33:38.729+02:00",
+    "warmup_time_minutes": 15
+  },
+  "test_cases": [
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.0,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 0
+        }
+      ],
+      "point_index": 0,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_00",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.010101010091602802,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 1
+        }
+      ],
+      "point_index": 1,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_01",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.020202020183205605,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 2
+        }
+      ],
+      "point_index": 2,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_02",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.03030303120613098,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 3
+        }
+      ],
+      "point_index": 3,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_03",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.04040404036641121,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 4
+        }
+      ],
+      "point_index": 4,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_04",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.05050504952669144,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 5
+        }
+      ],
+      "point_index": 5,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_05",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.06060606241226196,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 6
+        }
+      ],
+      "point_index": 6,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_06",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.07070706784725189,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 7
+        }
+      ],
+      "point_index": 7,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_07",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.08080808073282242,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 8
+        }
+      ],
+      "point_index": 8,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_08",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.09090909361839294,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 9
+        }
+      ],
+      "point_index": 9,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_09",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.10101009905338287,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 10
+        }
+      ],
+      "point_index": 10,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_10",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.1111111119389534,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 11
+        }
+      ],
+      "point_index": 11,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_11",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.12121212482452393,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 12
+        }
+      ],
+      "point_index": 12,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_12",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.13131313025951385,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 13
+        }
+      ],
+      "point_index": 13,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_13",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.14141413569450378,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 14
+        }
+      ],
+      "point_index": 14,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_14",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.1515151560306549,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 15
+        }
+      ],
+      "point_index": 15,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_15",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.16161616146564484,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 16
+        }
+      ],
+      "point_index": 16,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_16",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.17171716690063477,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 17
+        }
+      ],
+      "point_index": 17,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_17",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.1818181872367859,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 18
+        }
+      ],
+      "point_index": 18,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_18",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.19191919267177582,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 19
+        }
+      ],
+      "point_index": 19,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_19",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.20202019810676575,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 20
+        }
+      ],
+      "point_index": 20,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_20",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.21212121844291687,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 21
+        }
+      ],
+      "point_index": 21,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_21",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.2222222238779068,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 22
+        }
+      ],
+      "point_index": 22,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_22",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.23232322931289673,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 23
+        }
+      ],
+      "point_index": 23,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_23",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.24242424964904785,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 24
+        }
+      ],
+      "point_index": 24,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_24",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.2525252401828766,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 25
+        }
+      ],
+      "point_index": 25,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_25",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.2626262605190277,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 26
+        }
+      ],
+      "point_index": 26,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_26",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.27272728085517883,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 27
+        }
+      ],
+      "point_index": 27,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_27",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.28282827138900757,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 28
+        }
+      ],
+      "point_index": 28,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_28",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.2929292917251587,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 29
+        }
+      ],
+      "point_index": 29,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_29",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.3030303120613098,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 30
+        }
+      ],
+      "point_index": 30,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_30",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.31313130259513855,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 31
+        }
+      ],
+      "point_index": 31,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_31",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.3232323229312897,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 32
+        }
+      ],
+      "point_index": 32,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_32",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.3333333432674408,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 33
+        }
+      ],
+      "point_index": 33,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_33",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.34343433380126953,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 34
+        }
+      ],
+      "point_index": 34,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_34",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.35353535413742065,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 35
+        }
+      ],
+      "point_index": 35,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_35",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.3636363744735718,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 36
+        }
+      ],
+      "point_index": 36,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_36",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.3737373650074005,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 37
+        }
+      ],
+      "point_index": 37,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_37",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.38383838534355164,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 38
+        }
+      ],
+      "point_index": 38,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_38",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.39393940567970276,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 39
+        }
+      ],
+      "point_index": 39,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_39",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4040403962135315,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 40
+        }
+      ],
+      "point_index": 40,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_40",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4141414165496826,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 41
+        }
+      ],
+      "point_index": 41,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_41",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.42424243688583374,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 42
+        }
+      ],
+      "point_index": 42,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_42",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4343434274196625,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 43
+        }
+      ],
+      "point_index": 43,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_43",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4444444477558136,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 44
+        }
+      ],
+      "point_index": 44,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_44",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4545454680919647,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 45
+        }
+      ],
+      "point_index": 45,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_45",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.46464645862579346,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 46
+        }
+      ],
+      "point_index": 46,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_46",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4747474789619446,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 47
+        }
+      ],
+      "point_index": 47,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_47",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.4848484992980957,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 48
+        }
+      ],
+      "point_index": 48,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_48",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.49494948983192444,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 49
+        }
+      ],
+      "point_index": 49,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_49",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5050504803657532,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 50
+        }
+      ],
+      "point_index": 50,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_50",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5151515007019043,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 51
+        }
+      ],
+      "point_index": 51,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_51",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5252525210380554,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 52
+        }
+      ],
+      "point_index": 52,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_52",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5353535413742065,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 53
+        }
+      ],
+      "point_index": 53,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_53",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5454545617103577,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 54
+        }
+      ],
+      "point_index": 54,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_54",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5555555820465088,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 55
+        }
+      ],
+      "point_index": 55,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_55",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5656565427780151,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 56
+        }
+      ],
+      "point_index": 56,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_56",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5757575631141663,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 57
+        }
+      ],
+      "point_index": 57,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_57",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5858585834503174,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 58
+        }
+      ],
+      "point_index": 58,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_58",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.5959596037864685,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 59
+        }
+      ],
+      "point_index": 59,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_59",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6060606241226196,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 60
+        }
+      ],
+      "point_index": 60,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_60",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6161616444587708,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 61
+        }
+      ],
+      "point_index": 61,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_61",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6262626051902771,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 62
+        }
+      ],
+      "point_index": 62,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_62",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6363636255264282,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 63
+        }
+      ],
+      "point_index": 63,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_63",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6464646458625793,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 64
+        }
+      ],
+      "point_index": 64,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_64",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6565656661987305,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 65
+        }
+      ],
+      "point_index": 65,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_65",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6666666865348816,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 66
+        }
+      ],
+      "point_index": 66,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_66",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6767676472663879,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 67
+        }
+      ],
+      "point_index": 67,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_67",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6868686676025391,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 68
+        }
+      ],
+      "point_index": 68,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_68",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.6969696879386902,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 69
+        }
+      ],
+      "point_index": 69,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_69",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7070707082748413,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 70
+        }
+      ],
+      "point_index": 70,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_70",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7171717286109924,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 71
+        }
+      ],
+      "point_index": 71,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_71",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7272727489471436,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 72
+        }
+      ],
+      "point_index": 72,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_72",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7373737096786499,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 73
+        }
+      ],
+      "point_index": 73,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_73",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.747474730014801,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 74
+        }
+      ],
+      "point_index": 74,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_74",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7575757503509521,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 75
+        }
+      ],
+      "point_index": 75,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_75",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7676767706871033,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 76
+        }
+      ],
+      "point_index": 76,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_76",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7777777910232544,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 77
+        }
+      ],
+      "point_index": 77,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_77",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7878788113594055,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 78
+        }
+      ],
+      "point_index": 78,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_78",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.7979797720909119,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 79
+        }
+      ],
+      "point_index": 79,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_79",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.808080792427063,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 80
+        }
+      ],
+      "point_index": 80,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_80",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8181818127632141,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 81
+        }
+      ],
+      "point_index": 81,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_81",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8282828330993652,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 82
+        }
+      ],
+      "point_index": 82,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_82",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8383838534355164,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 83
+        }
+      ],
+      "point_index": 83,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_83",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8484848737716675,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 84
+        }
+      ],
+      "point_index": 84,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_84",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8585858345031738,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 85
+        }
+      ],
+      "point_index": 85,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_85",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.868686854839325,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 86
+        }
+      ],
+      "point_index": 86,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_86",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8787878751754761,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 87
+        }
+      ],
+      "point_index": 87,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_87",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8888888955116272,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 88
+        }
+      ],
+      "point_index": 88,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_88",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.8989899158477783,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 89
+        }
+      ],
+      "point_index": 89,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_89",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9090909361839294,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 90
+        }
+      ],
+      "point_index": 90,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_90",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9191918969154358,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 91
+        }
+      ],
+      "point_index": 91,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_91",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9292929172515869,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 92
+        }
+      ],
+      "point_index": 92,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_92",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.939393937587738,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 93
+        }
+      ],
+      "point_index": 93,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_93",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9494949579238892,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 94
+        }
+      ],
+      "point_index": 94,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_94",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9595959782600403,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 95
+        }
+      ],
+      "point_index": 95,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_95",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9696969985961914,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 96
+        }
+      ],
+      "point_index": 96,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_96",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9797979593276978,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 97
+        }
+      ],
+      "point_index": 97,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_97",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 0.9898989796638489,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 98
+        }
+      ],
+      "point_index": 98,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_98",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "SYNCHRONOUS_SPECTRUM_SWEEP",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "WaveShaper",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Slider",
+          "normalized_value": 1.0,
+          "param_index": 1,
+          "param_name": "DCW_DEPTH",
+          "raw_value": 99
+        }
+      ],
+      "point_index": 99,
+      "queue_index": 0,
+      "stabilization_wait_ms": 50.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SineWave1kHz",
+      "test_id": "TC_CZ_DCW_99",
+      "total_points": 100
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.0,
+          "param_index": 1,
+          "param_name": "ENV_STEP_1",
+          "raw_value": 1
+        }
+      ],
+      "point_index": 0,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_1",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.1428571492433548,
+          "param_index": 2,
+          "param_name": "ENV_STEP_2",
+          "raw_value": 2
+        }
+      ],
+      "point_index": 1,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_2",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.2857142984867096,
+          "param_index": 3,
+          "param_name": "ENV_STEP_3",
+          "raw_value": 3
+        }
+      ],
+      "point_index": 2,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_3",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.4285714328289032,
+          "param_index": 4,
+          "param_name": "ENV_STEP_4",
+          "raw_value": 4
+        }
+      ],
+      "point_index": 3,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_4",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.5714285969734192,
+          "param_index": 5,
+          "param_name": "ENV_STEP_5",
+          "raw_value": 5
+        }
+      ],
+      "point_index": 4,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_5",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.7142857313156128,
+          "param_index": 6,
+          "param_name": "ENV_STEP_6",
+          "raw_value": 6
+        }
+      ],
+      "point_index": 5,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_6",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 0.8571428656578064,
+          "param_index": 7,
+          "param_name": "ENV_STEP_7",
+          "raw_value": 7
+        }
+      ],
+      "point_index": 6,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_7",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "ADAPTIVE_ENVELOPE",
+      "duration_sec": 5.0,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "TimeDynamic",
+      "is_autonomous_synth": false,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Knob",
+          "normalized_value": 1.0,
+          "param_index": 8,
+          "param_name": "ENV_STEP_8",
+          "raw_value": 8
+        }
+      ],
+      "point_index": 7,
+      "queue_index": 1,
+      "stabilization_wait_ms": 20.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "SyncPulses3",
+      "test_id": "TC_CZ_ENV_STEP_8",
+      "total_points": 8
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 60,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.0,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 60
+        }
+      ],
+      "point_index": 0,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_60",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 61,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.09090909361839294,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 61
+        }
+      ],
+      "point_index": 1,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_61",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 62,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.1818181872367859,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 62
+        }
+      ],
+      "point_index": 2,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_62",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 63,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.27272728085517883,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 63
+        }
+      ],
+      "point_index": 3,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_63",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 64,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.3636363744735718,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 64
+        }
+      ],
+      "point_index": 4,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_64",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 65,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.4545454680919647,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 65
+        }
+      ],
+      "point_index": 5,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_65",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 66,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.5454545617103577,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 66
+        }
+      ],
+      "point_index": 6,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_66",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 67,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.6363636255264282,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 67
+        }
+      ],
+      "point_index": 7,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_67",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 68,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.7272727489471436,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 68
+        }
+      ],
+      "point_index": 8,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_68",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 69,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.8181818127632141,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 69
+        }
+      ],
+      "point_index": 9,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_69",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 70,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 0.9090909361839294,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 70
+        }
+      ],
+      "point_index": 10,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_70",
+      "total_points": 12
+    },
+    {
+      "capture_mode": "AUTONOMOUS_PITCH_DETECTION",
+      "duration_sec": 1.5,
+      "end_freq_hz": 20000.0,
+      "functional_block_type": "NoiseFloor",
+      "is_autonomous_synth": true,
+      "midi_channel": 1,
+      "midi_note": 71,
+      "midi_velocity": 0.800000011920929,
+      "num_passes": 1,
+      "parameters": [
+        {
+          "control_type": "Key",
+          "normalized_value": 1.0,
+          "param_index": 1,
+          "param_name": "MIDI_NOTE",
+          "raw_value": 71
+        }
+      ],
+      "point_index": 11,
+      "queue_index": 2,
+      "stabilization_wait_ms": 10.0,
+      "start_freq_hz": 20.0,
+      "stimulus_type": "Silence",
+      "test_id": "TC_CZ_DCO_NOTE_71",
+      "total_points": 12
+    }
+  ]
+}

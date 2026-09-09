@@ -20,7 +20,8 @@ enum class StimulusType
     SquareWave1kHz,
     LogFarinaSweep,
     AmplitudeRamp,
-    NamCalibration     // Full multi-stage Neural Calibration sequence (Sync, dynamic sweep, noise bursts, multitone transients)
+    NamCalibration,    // Full multi-stage Neural Calibration sequence (Sync, dynamic sweep, noise bursts, multitone transients)
+    MetronomeTick     // Rhythmic 800 Hz click for continuous manual calibration sweeps (-24 dBFS)
 };
 
 /**
@@ -36,6 +37,7 @@ public:
 
     void prepare(double newSampleRate);
     void reset();
+    void stop() noexcept { reset(); }
 
     void setStimulus(StimulusType type, double durationSeconds = 2.0, float startFreqHz = 20.0f, float endFreqHz = 20000.0f);
 
@@ -45,6 +47,29 @@ public:
      * @param durationSeconds Total length of the sequence (default 9.0s).
      */
     static juce::AudioBuffer<float> generateNamCalibrationBuffer(double sampleRate, double durationSeconds = 9.0);
+
+    /**
+     * @brief Generates the ideal SyncPulses3 reference pattern (300ms, 3x 1kHz bursts with Hann windows).
+     * @param sampleRate Target sampling rate.
+     */
+    static std::vector<float> generateSyncPulses3Pattern(double sampleRate);
+
+    /**
+     * @brief Renders a clean, low-priority 800 Hz metronome click at -24 dBFS with a smooth Hann envelope.
+     *        Designed for the Manual Phase rhythm guide to avoid measurement corruption.
+     * @param destinationBuffer Buffer where the click is rendered (or mixed).
+     * @param numSamples Number of samples in the block.
+     * @param sampleRate The operating sample rate.
+     * @param clickDurationSec Duration of the click pulse (default 15ms).
+     * @param clickFreqHz Pitch of the tick (default 800 Hz).
+     * @param gainLinear Linear gain (default 0.063f ≈ -24 dBFS).
+     */
+    static void renderMetronomeTick(float* destinationBuffer, 
+                                    int numSamples, 
+                                    double sampleRate, 
+                                    double clickDurationSec = 0.015,
+                                    float clickFreqHz = 800.0f,
+                                    float gainLinear = 0.0630957f) noexcept;
 
     [[nodiscard]] bool isPlaying() const noexcept { return playing; }
     [[nodiscard]] bool hasFinished() const noexcept { return finished; }

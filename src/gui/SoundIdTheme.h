@@ -27,6 +27,7 @@ public:
     static inline juce::Colour textMuted        = AppTheme::TextMuted;
 
     static inline juce::Colour accentGreen      = AppTheme::AccentActive;
+    static inline juce::Colour accentBlue       { 0xff2563eb };
     static inline juce::Colour accentPurple     { 0xff8b5cf6 };
     static inline juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
     static inline juce::Colour accentAmber      = AppTheme::AccentWarning;

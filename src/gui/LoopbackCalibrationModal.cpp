@@ -47,6 +47,12 @@ LoopbackCalibrationModal::LoopbackCalibrationModal(audio::LabAudioEngine& engine
     btnCancel.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnCancel);
 
+    btnSkip.setTooltip("Omitir calibración y avanzar con ganancia nominal unitaria (0 dB) y sin compensación de latencia");
+    btnSkip.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnSkip.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
+    btnSkip.onClick = [this] { skipCalibration(); };
+    panel.addAndMakeVisible(btnSkip);
+
     progressBar.setColour(juce::ProgressBar::foregroundColourId, SoundIdTheme::accentGreen);
     progressBar.setColour(juce::ProgressBar::backgroundColourId, SoundIdTheme::borderSubtle);
     panel.addChildComponent(progressBar);
@@ -63,8 +69,12 @@ void LoopbackCalibrationModal::showDialog(juce::Component* parent)
     measurementStep = 0;
     progressValue = 0.0;
     liveInputPeak = 0.0f;
+    btnStartMeasure.setButtonText("Start Loopback Measurement");
     btnStartMeasure.setVisible(true);
     btnStartMeasure.setEnabled(true);
+    btnSkip.setButtonText("Omitir calibración");
+    btnSkip.setVisible(true);
+    btnSkip.setEnabled(true);
     btnApplyAndClose.setVisible(false);
     progressBar.setVisible(false);
     setVisible(true);
@@ -103,16 +113,17 @@ void LoopbackCalibrationModal::mouseDown(const juce::MouseEvent& e)
 void LoopbackCalibrationModal::resized()
 {
     auto area = getLocalBounds();
-    int panelW = juce::jmin(550, area.getWidth() - 32);
-    int panelH = juce::jmin(380, area.getHeight() - 32);
+    int panelW = juce::jmin(620, area.getWidth() - 32);
+    int panelH = juce::jmin(390, area.getHeight() - 32);
     panel.setBounds((area.getWidth() - panelW) / 2, (area.getHeight() - panelH) / 2, panelW, panelH);
 
     btnClose.setBounds(panelW - 36, 12, 24, 24);
 
     int bottomY = panelH - 46;
-    btnCancel.setBounds(24, bottomY, 90, 34);
-    btnStartMeasure.setBounds(panelW - 230, bottomY, 206, 34);
-    btnApplyAndClose.setBounds(panelW - 230, bottomY, 206, 34);
+    btnCancel.setBounds(24, bottomY, 80, 34);
+    btnSkip.setBounds(112, bottomY, 200, 34);
+    btnStartMeasure.setBounds(panelW - 240, bottomY, 216, 34);
+    btnApplyAndClose.setBounds(panelW - 240, bottomY, 216, 34);
     progressBar.setBounds(24, bottomY - 26, panelW - 48, 14);
 }
 
@@ -122,6 +133,7 @@ void LoopbackCalibrationModal::startCalibrationSweep()
     measurementStep = 0;
     progressValue = 0.0;
     btnStartMeasure.setEnabled(false);
+    btnSkip.setEnabled(false);
     progressBar.setVisible(true);
     panel.repaint();
 
@@ -172,17 +184,48 @@ void LoopbackCalibrationModal::processCalibrationResult()
     {
         currentState = State::Success;
         btnStartMeasure.setVisible(false);
+        btnSkip.setVisible(false);
         btnApplyAndClose.setVisible(true);
         btnApplyAndClose.setEnabled(true);
     }
     else
     {
         currentState = State::Failed;
+        btnStartMeasure.setButtonText("Reintentar medición");
         btnStartMeasure.setVisible(true);
         btnStartMeasure.setEnabled(true);
+        btnSkip.setButtonText("Omitir y continuar");
+        btnSkip.setVisible(true);
+        btnSkip.setEnabled(true);
+        btnApplyAndClose.setVisible(false);
         startTimerHz(30);
     }
     panel.repaint();
+}
+
+void LoopbackCalibrationModal::skipCalibration()
+{
+    stopTimer();
+    audioEngine.getResponseReceiver().reset();
+
+    calibrationData = {};
+    calibrationData.isCalibrated = false;
+    calibrationData.sampleRate = audioEngine.getSampleRate();
+    calibrationData.recommendedTrimGain = 1.0f; // 0 dB unity gain
+    calibrationData.targetHeadroomDbfs = -3.0f;
+    calibrationData.roundTripLatencyMs = 0.0f;
+    calibrationData.latencySamples = 0;
+    calibrationData.frequencyFlatnessDb = 0.0f;
+    calibrationData.deviceName = "Bypassed / Nominal (0 dB)";
+
+    audioEngine.setInputAutoTrim(1.0f);
+
+    if (onCalibrationSkipped)
+        onCalibrationSkipped();
+    else if (onCalibrationApplied)
+        onCalibrationApplied(calibrationData);
+
+    dismissDialog();
 }
 
 void LoopbackCalibrationModal::paint(juce::Graphics& g)
@@ -360,17 +403,40 @@ void LoopbackCalibrationModal::paint(juce::Graphics& g)
         drawMetric("Round-Trip Latency:", juce::String(calibrationData.roundTripLatencyMs, 2) + " ms", "(" + juce::String(calibrationData.latencySamples) + " samples)");
         drawMetric("Frequency Flatness:", juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB", "Max variance across 20 Hz - 20 kHz");
         drawMetric("Signal-to-Noise (SNR):", juce::String(calibrationData.snrDb, 1) + " dB", "THD+N: " + juce::String(calibrationData.thdPlusNoisePercent * 100.0f, 3) + "%");
+
+        // Advanced Loopback Diagnostics Warnings
+        if (calibrationData.phaseInversionDetected)
+        {
+            auto warnRow = content.removeFromTop(20.0f);
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentAmber);
+            g.drawText(juce::String::fromUTF8(u8"⚠ Inversión de fase detectada: polaridad invertida en retorno DAC -> ADC"), warnRow, juce::Justification::centredLeft, true);
+        }
+        if (calibrationData.clippingDetected)
+        {
+            auto warnRow = content.removeFromTop(20.0f);
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentRed);
+            g.drawText(juce::String::fromUTF8(u8"🔴 Clipping detectado (") + juce::String(calibrationData.clippedSamplesCount) + juce::String::fromUTF8(u8" muestras saturadas): reduzca ganancia de preamp"), warnRow, juce::Justification::centredLeft, true);
+        }
+        if (std::abs(calibrationData.dcOffsetVolts) > 0.01f)
+        {
+            auto warnRow = content.removeFromTop(20.0f);
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText("DC Offset detectado: " + juce::String(calibrationData.dcOffsetVolts, 4) + " V (consumiendo headroom)", warnRow, juce::Justification::centredLeft, true);
+        }
     }
     else if (currentState == State::Failed)
     {
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentRed);
-        g.drawText("CALIBRATION FAILED: INSUFFICIENT SIGNAL OR CLIPPING", content.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("CALIBRATION FAILED: INSUFFICIENT SIGNAL OR NO LOOPBACK", content.removeFromTop(18.0f), juce::Justification::centredLeft, true);
         content.removeFromTop(8.0f);
 
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"• Check that Audio Out 1 is connected directly to Audio In 1 with a patch cable.\n• Check that the soundcard input volume is turned up to moderate line level.\n• Ensure Audio Settings are set to the correct physical audio interface."), content.removeFromTop(60.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"• No se detectó señal de loopback entre DAC Out y ADC In.\n• Compruebe que el cable de retorno esté conectado y pulse 'Reintentar medición'.\n• O pulse 'Omitir y continuar' para saltarse este paso y operar con ganancia nominal (0 dB)."), content.removeFromTop(65.0f), juce::Justification::centredLeft, true);
     }
 }
 

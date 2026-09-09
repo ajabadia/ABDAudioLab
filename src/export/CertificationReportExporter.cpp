@@ -14,6 +14,7 @@ std::string CertificationReportExporter::generateFrequencyCurveSvg(const std::ve
                                                                      int height)
 {
     std::ostringstream svg;
+    svg.imbue(std::locale::classic());
     svg << "<svg width=\"" << width << "\" height=\"" << height << "\" viewBox=\"0 0 " << width << " " << height << "\" xmlns=\"http://www.w3.org/2000/svg\">\n";
     svg << "<style>\n";
     svg << "  .bg { fill: #f8f9fa; rx: 8px; stroke: #e2e8f0; stroke-width: 1; }\n";
@@ -101,6 +102,7 @@ std::string CertificationReportExporter::generateHeatmapSvg(const std::vector<Me
                                                              int height)
 {
     std::ostringstream svg;
+    svg.imbue(std::locale::classic());
     svg << "<svg width=\"" << width << "\" height=\"" << height << "\" viewBox=\"0 0 " << width << " " << height << "\" xmlns=\"http://www.w3.org/2000/svg\">\n";
     svg << "<style>\n";
     svg << "  .bg { fill: #f8f9fa; rx: 8px; stroke: #e2e8f0; stroke-width: 1; }\n";
@@ -155,6 +157,7 @@ std::string CertificationReportExporter::generateHeatmapSvg(const std::vector<Me
 std::string CertificationReportExporter::generateThdTableHtml(const std::vector<MeasuredPoint>& points)
 {
     std::ostringstream html;
+    html.imbue(std::locale::classic());
     html << "<table class=\"thd-table\">\n";
     html << "  <thead>\n";
     html << "    <tr><th>POINT ID</th><th>BLOCK</th><th>STIMULUS</th><th>CONTROLS & VALUES</th><th>THD %</th><th>SNR (dB)</th></tr>\n";
@@ -218,6 +221,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     std::ofstream file(targetPath);
     if (!file.is_open())
         return false;
+    file.imbue(std::locale::classic());
 
     std::vector<float> freqs;
     std::vector<float> mags;
@@ -260,6 +264,11 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "    .container { border: none; box-shadow: none; max-width: 100%; padding: 0; background: #ffffff; }\n";
     file << "  }\n";
     file << "</style>\n";
+    file << "<script>\n";
+    file << "  window.onload = function() {\n";
+    file << "    window.print();\n";
+    file << "  };\n";
+    file << "</script>\n";
     file << "</head>\n<body>\n";
 
     file << "<div class=\"container\">\n";

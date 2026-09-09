@@ -147,6 +147,10 @@ DeconvolutionResult FarinaDeconvolver::deconvolve(const std::vector<float>& reco
     computeFrequencyResponse(result.linearIR, sampleRate, result.frequenciesHz, result.frequencyResponseMagnitudeDb,
                              result.peakFrequencyHz, result.resonancePeakDb);
 
+    // Compute Phase and Group Delay
+    computePhaseAndGroupDelay(result.linearIR, sampleRate, result.frequenciesHz,
+                              result.phaseResponseRad, result.groupDelaySamples);
+
     // Calculate THD by measuring energy of harmonic distortion peaks before main linear peak
     // Farina offset for 2nd and 3rd harmonics: delta_t = T * ln(N) / ln(w2/w1)
     double logRatio = std::log(endFreqHz / startFreqHz);
@@ -231,6 +235,73 @@ void FarinaDeconvolver::computeFrequencyResponse(const std::vector<float>& impul
             outPeakDb = magDb;
             outPeakFreq = freq;
         }
+    }
+}
+
+void FarinaDeconvolver::computePhaseAndGroupDelay(const std::vector<float>& impulseResponse,
+                                                 double sampleRate,
+                                                 std::vector<float>& outFreqs,
+                                                 std::vector<float>& outPhaseRad,
+                                                 std::vector<float>& outGroupDelaySamples)
+{
+    const int fftOrder = 12; // 4096 points
+    const size_t fftSize = 1ULL << fftOrder;
+    juce::dsp::FFT fft(fftOrder);
+
+    std::vector<std::complex<float>> inData(fftSize, { 0.0f, 0.0f });
+    std::vector<std::complex<float>> outData(fftSize, { 0.0f, 0.0f });
+
+    size_t copyLen = std::min(impulseResponse.size(), fftSize);
+    for (size_t i = 0; i < copyLen; ++i)
+    {
+        inData[i] = { impulseResponse[i], 0.0f };
+    }
+
+    fft.perform(inData.data(), outData.data(), false);
+
+    const size_t numBins = fftSize / 2;
+    outFreqs.resize(numBins);
+    outPhaseRad.resize(numBins);
+    outGroupDelaySamples.resize(numBins, 0.0f);
+
+    float binWidth = static_cast<float>(sampleRate) / static_cast<float>(fftSize);
+
+    // Compute raw phase
+    for (size_t i = 0; i < numBins; ++i)
+    {
+        outFreqs[i] = static_cast<float>(i) * binWidth;
+        outPhaseRad[i] = std::atan2(outData[i].imag(), outData[i].real());
+    }
+
+    // Phase unwrapping
+    const float twoPi = 2.0f * static_cast<float>(std::numbers::pi);
+    for (size_t i = 1; i < numBins; ++i)
+    {
+        float diff = outPhaseRad[i] - outPhaseRad[i - 1];
+        while (diff > static_cast<float>(std::numbers::pi))
+        {
+            outPhaseRad[i] -= twoPi;
+            diff -= twoPi;
+        }
+        while (diff < -static_cast<float>(std::numbers::pi))
+        {
+            outPhaseRad[i] += twoPi;
+            diff += twoPi;
+        }
+    }
+
+    // Group delay: tau_g[k] = - d(phi) / d(omega)
+    // d(omega) = 2 * pi * binWidth / sampleRate = 2 * pi / fftSize rad/sample
+    const float deltaOmega = twoPi / static_cast<float>(fftSize);
+    for (size_t i = 1; i + 1 < numBins; ++i)
+    {
+        float dPhi = (outPhaseRad[i + 1] - outPhaseRad[i - 1]) * 0.5f;
+        outGroupDelaySamples[i] = -dPhi / deltaOmega;
+    }
+    if (numBins > 1)
+    {
+        outGroupDelaySamples[0] = outGroupDelaySamples[1];
+        outGroupDelaySamples[numBins - 1] = outGroupDelaySamples[numBins - 2];
     }
 }
 

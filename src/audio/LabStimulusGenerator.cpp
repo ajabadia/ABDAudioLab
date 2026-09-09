@@ -244,10 +244,51 @@ void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noe
                 }
                 break;
             }
+
+            case StimulusType::MetronomeTick:
+            {
+                // Rhythmic click for manual calibration: 800 Hz sinusoid with 15ms Hann window at -24 dBFS
+                const double clickDurationSec = 0.015;
+                if (t >= 0.0 && t < clickDurationSec)
+                {
+                    double phase = twoPi * 800.0 * t;
+                    double hann = 0.5 * (1.0 - std::cos(twoPi * (t / clickDurationSec)));
+                    sampleVal = static_cast<float>(std::sin(phase) * hann * 0.0630957); // -24 dBFS
+                }
+                else
+                {
+                    sampleVal = 0.0f;
+                }
+                break;
+            }
         }
 
         outputBuffer[i] = sampleVal;
         currentSampleIndex.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+void LabStimulusGenerator::renderMetronomeTick(float* destinationBuffer, 
+                                              int numSamples, 
+                                              double sampleRate, 
+                                              double clickDurationSec,
+                                              float clickFreqHz,
+                                              float gainLinear) noexcept
+{
+    if (destinationBuffer == nullptr || numSamples <= 0)
+        return;
+
+    const double sr = (sampleRate > 0.0) ? sampleRate : 96000.0;
+    const double twoPi = 2.0 * std::numbers::pi;
+    const int clickSamples = static_cast<int>(std::lround(clickDurationSec * sr));
+    const int samplesToWrite = std::min(numSamples, clickSamples);
+
+    for (int i = 0; i < samplesToWrite; ++i)
+    {
+        double t = static_cast<double>(i) / sr;
+        double phase = twoPi * static_cast<double>(clickFreqHz) * t;
+        double hann = 0.5 * (1.0 - std::cos(twoPi * (static_cast<double>(i) / static_cast<double>(clickSamples))));
+        destinationBuffer[i] += static_cast<float>(std::sin(phase) * hann * static_cast<double>(gainLinear));
     }
 }
 
@@ -270,6 +311,29 @@ juce::AudioBuffer<float> LabStimulusGenerator::generateNamCalibrationBuffer(doub
     }
 
     return buffer;
+}
+
+std::vector<float> LabStimulusGenerator::generateSyncPulses3Pattern(double sampleRate)
+{
+    const double sr = (sampleRate > 0.0) ? sampleRate : 96000.0;
+    const double durationSeconds = 0.300; // 300ms total
+    const int totalSamples = static_cast<int>(std::lround(durationSeconds * sr));
+    std::vector<float> pattern(static_cast<size_t>(totalSamples), 0.0f);
+
+    LabStimulusGenerator gen;
+    gen.prepare(sr);
+    gen.setStimulus(StimulusType::SyncPulses3, durationSeconds);
+
+    const int blockSize = 512;
+    int samplesGenerated = 0;
+    while (samplesGenerated < totalSamples)
+    {
+        int toGen = std::min(blockSize, totalSamples - samplesGenerated);
+        gen.processBlock(pattern.data() + samplesGenerated, toGen);
+        samplesGenerated += toGen;
+    }
+
+    return pattern;
 }
 
 } // namespace abdaudiolab::audio

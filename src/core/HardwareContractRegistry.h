@@ -32,6 +32,50 @@ struct HardwareRoutingGuide
     std::string notes;          // e.g. "Manual gate button can also be used"
 };
 
+enum class HardwareMethod
+{
+    MIDI_CC,
+    NRPN,
+    SYSEX_RAW,
+    MANUAL_PROMPT
+};
+
+struct HardwareSetupAction
+{
+    std::string description;
+    HardwareMethod method { HardwareMethod::MIDI_CC };
+    int channel { 1 };          // MIDI channel [1..16]
+    int controlNumber { -1 };   // CC or NRPN Parameter number
+    float normalizedValue { 0.0f };
+    std::string sysexHexPayload; // Hex string format: "F0 01 2F ... F7"
+    int settlingDelayMs { 50 };  // Physical settling delay for circuits
+};
+
+struct NoteSequenceEvent
+{
+    int noteNumber { 60 };
+    int velocity { 100 };
+    int startDelayMs { 0 };
+    int durationMs { 1000 };
+    bool isLegato { false };
+};
+
+struct MeasurementPresetRecipe
+{
+    std::string recipeType; // e.g. "INTERNAL_NOISE_EXCITATION", "LEGATO_PITCH_SWEEP", "DIRECT_AUDIO_IN", "BULK_SYSEX_DUMP", "MANUAL_PATCH"
+    std::string description;
+    std::vector<HardwareSetupAction> setupActions;
+    std::vector<NoteSequenceEvent> excitationNotes;
+    int postSettlingDelayMs { 100 };
+};
+
+struct HardwareLifecycleContract
+{
+    std::vector<HardwareSetupAction> preCalibrationSetup;
+    std::vector<HardwareSetupAction> preSessionSetup;
+    std::vector<HardwareSetupAction> postSessionTeardown;
+};
+
 struct HardwareFunction
 {
     std::string id;
@@ -44,6 +88,7 @@ struct HardwareFunction
     float silenceThresholdDb { -60.0f };
     HardwareRoutingGuide routingGuide;
     std::vector<HardwareControl> controls;
+    MeasurementPresetRecipe measurementRecipe;
 };
 
 struct MidiIdentityContract
@@ -63,7 +108,7 @@ struct HardwareContract
     std::string id;
     std::string displayName;
     std::string description;
-    std::string deviceType; // "MANUAL_EURORACK", "ANALOGUE_PEDAL", "AUTOMATED_SYSEX", "AUTOMATED_MIDI_CC", "MOCK_DSP"
+    std::string deviceType; // "MANUAL_EURORACK", "ANALOGUE_PEDAL", "AUTOMATED_SYSEX", "AUTOMATED_MIDI_CC", "VIRTUAL_LOOPBACK_ASIO", "MOCK_DSP"
     std::string brand;
     std::string brandLogo;
     std::string modelImage;
@@ -74,6 +119,7 @@ struct HardwareContract
     std::string theme { "audiolab-light" };
     MidiIdentityContract midiIdentity;
 
+    HardwareLifecycleContract lifecycle;
     std::vector<HardwareFunction> functions;
 };
 
@@ -84,14 +130,19 @@ public:
     ~HardwareContractRegistry() = default;
 
     bool loadContractsFromDirectory(const juce::File& contractsDir);
+    bool loadProfileResilient(const juce::File& jsonFile, HardwareContract& outContract, juce::String& outWarning);
+
+    std::function<void(const juce::String& warningMsg)> onProfileWarning;
 
     [[nodiscard]] bool hasContracts() const noexcept { return !contracts.empty(); }
     [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return contracts; }
+    [[nodiscard]] const std::vector<juce::String>& getWarnings() const noexcept { return warnings; }
     [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
     [[nodiscard]] const std::string& getLastError() const noexcept { return lastErrorMessage; }
 
 private:
     std::vector<HardwareContract> contracts;
+    std::vector<juce::String> warnings;
     std::string lastErrorMessage;
 };
 

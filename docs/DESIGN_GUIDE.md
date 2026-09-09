@@ -155,3 +155,21 @@ Se estandariza el uso de dos familias tipográficas incrustadas mediante binario
   - Tarjeta de estimación en `SurfaceSubtle` con tipografía mono (`ESTIMATED PLAN: 32 points total (~0m 32s)`).
   - Botón de acción principal: `Add to Session Plan` (40 px de altura, radio de 20 px píldora, fondo `AccentActive` o `TextPrimary`).
 
+---
+
+## 6. Especificación de Diseño: Asistente Rítmico con Metrónomo Visual (Modo Analógico Manual)
+
+Para sintetizadores clásicos o pedales analógicos sin automatización MIDI/SysEx (modo `MANUAL_PROMPT`), el pre-escaneo continuo requiere absorber las imperfecciones del movimiento de potenciómetros por manos humanas.
+
+### 6.1. Componentes del Asistente Visual y Acústico
+1. **Velocímetro de Perilla (Cadencia Continua)**:
+   - Arco circular o barra horizontal que avanza de 0% a 100% de forma estrictamente lineal a lo largo de 10 segundos.
+   - Micro-pulsos visuales de 1 segundo acompañados de un clic acústico sutil (onda senoidal de 800 Hz, 10 ms, -24 dBFS).
+   - Indicador empático: *«Gira el potenciómetro siguiendo la cadencia del metrónomo de mínimo a máximo»*.
+2. **Detección Dinámica de Extremos de Recorrido**:
+   - `LabAudioReceiver` no asume una duración fija; detecta el inicio del cambio espectral y la estabilización final de la señal, adaptando el buffer útil si el operador tarda entre 8.5 s y 12.0 s.
+3. **Filtro de Des-duplicación por Mesetas (Time-Density Flattening)**:
+   - `LabAnalyticEngine` analiza la derivada de la métrica principal. Ventanas donde la variación es nula (el operador congeló la mano) se colapsan a un único punto representativo.
+   - El eje temporal se re-mapea proporcionalmente en el espacio normalizado [0.0..1.0] garantizando una densidad uniforme sin artefactos de velocidad humana.
+
+

@@ -79,7 +79,7 @@ public:
         lblVersion.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblVersion);
 
-        lblDspEngine.setText(juce::String::fromUTF8(u8"DSP Engine: Farina \u2022 Wiener-Hammerstein \u2022 NAM / RTNeural \u2022 SysEx"), juce::dontSendNotification);
+        lblDspEngine.setText(juce::String::fromUTF8(u8"DSP Engine: Farina \u2022 Wiener-Hammerstein \u2022 SIMD AVX2 Splines \u2022 NAM / RTNeural"), juce::dontSendNotification);
         lblDspEngine.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
         lblDspEngine.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
         lblDspEngine.setJustificationType(juce::Justification::left);
@@ -191,17 +191,9 @@ public:
             g.drawLine(leftImageBounds.getRight(), card.getY(), leftImageBounds.getRight(), card.getBottom(), 1.0f);
         }
 
-        // 3. Version badge background pill (reduced vertical padding to 2px, height 17px)
-        auto rightArea = card.reduced(24.0f, 20.0f);
-        auto badgeArea = juce::Rectangle<float>(rightArea.getX(), rightArea.getY() + 92.0f, 62.0f, 17.0f);
-        g.setColour(SoundIdTheme::bgCardHover);
-        g.fillRoundedRectangle(badgeArea, 3.5f);
-        g.setColour(SoundIdTheme::borderSubtle);
-        g.drawRoundedRectangle(badgeArea, 3.5f, 1.0f);
-
         if (!isCloseable)
         {
-            // 4. Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
+            // Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
             float barY = card.getBottom() - 40.0f;
             float barX = card.getX() + 24.0f;
             float barW = card.getWidth() - 48.0f;
@@ -224,12 +216,6 @@ public:
                 g.setColour(SoundIdTheme::accentGreen);
                 g.fillRoundedRectangle(glowArea, 1.25f);
             }
-        }
-        else
-        {
-            float barY = card.getBottom() - 62.0f;
-            g.setColour(SoundIdTheme::borderSubtle);
-            g.drawHorizontalLine(static_cast<int>(barY), card.getX() + leftWidth + 24.0f, card.getRight() - 20.0f);
         }
     }
 
@@ -346,6 +332,17 @@ public:
     {
         if (splashComp)
             splashComp->setStatusMessage(msg, progress);
+    }
+
+    void reportProgress(const juce::String& msg, float progress = -1.0f, int minDwellMs = 25)
+    {
+        setStatus(msg, progress);
+        if (splashComp)
+            splashComp->repaint();
+        if (auto* peer = getPeer())
+            peer->performAnyPendingRepaintsNow();
+        if (minDwellMs > 0)
+            juce::Thread::sleep(minDwellMs);
     }
 
     void dismiss(std::function<void()> onDone)

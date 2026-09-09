@@ -23,6 +23,8 @@ struct DeconvolutionResult
     std::vector<float> linearIR;                   /**< Extracted linear impulse response (fundamental). */
     std::vector<float> frequencyResponseMagnitudeDb; /**< Frequency response magnitude spectrum in dBFS. */
     std::vector<float> frequenciesHz;              /**< Frequency axis bins in Hertz. */
+    std::vector<float> phaseResponseRad;           /**< Unwrapped phase response spectrum in radians. */
+    std::vector<float> groupDelaySamples;          /**< Group delay in samples: -d(phi)/d(omega). */
     float peakFrequencyHz { 0.0f };                /**< Frequency bin corresponding to maximum peak response. */
     float resonancePeakDb { 0.0f };                /**< Resonance peak magnitude in dB. */
     float thdPercent { 0.0f };                     /**< Total Harmonic Distortion percentage (THD %). */
@@ -87,6 +89,20 @@ public:
                                                     double sweepDurationSec,
                                                     float startFreqHz,
                                                     float endFreqHz);
+
+    /**
+     * @brief Computes unwrapped phase response (rad) and group delay (samples) from linear impulse response.
+     * @param impulseResponse Extracted linear impulse response.
+     * @param sampleRate Audio sampling rate in Hz.
+     * @param outFreqs Frequency axis output bins.
+     * @param outPhaseRad Unwrapped phase response output in radians.
+     * @param outGroupDelaySamples Group delay output in samples.
+     */
+    static void computePhaseAndGroupDelay(const std::vector<float>& impulseResponse,
+                                          double sampleRate,
+                                          std::vector<float>& outFreqs,
+                                          std::vector<float>& outPhaseRad,
+                                          std::vector<float>& outGroupDelaySamples);
 
 private:
     static void computeFrequencyResponse(const std::vector<float>& impulseResponse,

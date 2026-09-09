@@ -35,6 +35,9 @@ struct MeasuredPoint
     math::StatisticalPair muSigmaValue;  /**< Primary statistical metric (mean, stddev). */
     math::StatisticalPair secondaryValue;/**< Secondary statistical metric (mean, stddev). */
     math::StatisticalPair thdValue;      /**< THD statistical metric (mean, stddev). */
+    int globalIndex { -1 };              /**< Global session point index. */
+    int queueIndex { -1 };               /**< Queue test index. */
+    int pointIndexInTest { -1 };         /**< Point index within test (1-based). */
 };
 
 /**
@@ -69,6 +72,21 @@ struct SessionManifestData
     std::vector<ControlGridManifest> gridConfig; /**< Control grid configuration vector. */
     std::string cppHeaderFilename;       /**< Generated C++ header filename. */
     std::string jsonReportFilename;      /**< Generated JSON report filename. */
+
+    // 1.7.12 Laboratory observations and environmental parameters
+    std::string operatorNotes;           /**< Free-form operator notes and laboratory observations. */
+    float ambientTemperatureC { 22.0f }; /**< Laboratory ambient temperature in Celsius. */
+    int warmupTimeMinutes { 15 };        /**< Hardware warm-up time in minutes before profiling. */
+
+    // 5.4 Wiener-Hammerstein Non-Linear (LNL) Model parameters
+    bool hasWienerHammersteinModel { false };   /**< True if LNL identification was performed. */
+    std::vector<float> whH1Taps;                /**< Linear input FIR filter taps. */
+    float whNonLinearCoeffA { 0.0f };           /**< 3rd-order static non-linearity coefficient: f(u) = u + a * u^3. */
+    std::vector<float> whH2Taps;                /**< Linear output FIR filter taps. */
+    float whGoodnessOfFitR2 { 0.0f };           /**< Coefficient of determination R^2 [0.0, 1.0]. */
+    float whResidualErrorRms { 0.0f };          /**< Root-mean-square error between model and target. */
+    float whPreFilterCentroidHz { 0.0f };       /**< Spectral centroid of h1. */
+    float whPostFilterCentroidHz { 0.0f };      /**< Spectral centroid of h2. */
 };
 
 /**
@@ -115,6 +133,19 @@ public:
     static bool exportSessionManifest(const std::string& destinationManifestPath,
                                       const SessionManifestData& manifest,
                                       const std::vector<MeasuredPoint>& points);
+
+    /**
+     * @brief Exports measured points into an ES6 JavaScript module with Float32Array buffers for WebAudio / WASM.
+     * @param destinationJsPath Target filesystem path for JavaScript output.
+     * @param metadata Profiling session metadata.
+     * @param tableName Export variable identifier name.
+     * @param points Vector of measured data points.
+     * @return true on success, false on write error.
+     */
+    static bool exportToJavaScriptModule(const std::string& destinationJsPath,
+                                         const core::ProfilingMetadata& metadata,
+                                         const std::string& tableName,
+                                         const std::vector<MeasuredPoint>& points);
 };
 
 } // namespace abdaudiolab::exporting

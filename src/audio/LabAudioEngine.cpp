@@ -133,6 +133,19 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
         return;
     }
 
+    // 2b. Audition preview mode ("Comprobar cómo sonaría")
+    if (auditionActive.load(std::memory_order_relaxed) && auditionLutGridSize.load(std::memory_order_relaxed) > 0)
+    {
+        renderAuditionPreview(outputChannelData, numOutputChannels, samplesToProcess);
+        if (outputChannelData[0] != nullptr)
+        {
+            accumulateFft(outputChannelData[0], samplesToProcess);
+            const float* outR = (numOutputChannels > 1 && outputChannelData[1] != nullptr) ? outputChannelData[1] : outputChannelData[0];
+            updateTelemetryTaps(outputChannelData[0], outR, samplesToProcess);
+        }
+        return;
+    }
+
     // 3. Stimulus generation and DAC routing
     renderStimulusAndRoute(outputChannelData, numOutputChannels, samplesToProcess);
 
@@ -174,12 +187,93 @@ void LabAudioEngine::renderDiagnosticTone(float* const* outputChannelData, int n
     }
 }
 
+void LabAudioEngine::renderAuditionPreview(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept
+{
+    const int gridSize = auditionLutGridSize.load(std::memory_order_acquire);
+    if (gridSize <= 0 || auditionLutStorage.empty())
+        return;
+
+    const float cutoff = auditionCutoff.load(std::memory_order_relaxed);
+    const float reso = auditionResonance.load(std::memory_order_relaxed);
+    const int wf = auditionWaveform.load(std::memory_order_relaxed);
+
+    auditionFilter.setVoiceParameters(0, cutoff, reso);
+
+    const double sr = (currentSampleRate > 0.0) ? currentSampleRate : 96000.0;
+    const double oscFreq = 130.8128; // C3
+    const double twoPi = 2.0 * std::numbers::pi;
+    const double phaseInc = (twoPi * oscFreq) / sr;
+
+    for (int i = 0; i < samplesToProcess; ++i)
+    {
+        float s = 0.0f;
+        if (wf == 0) // Sawtooth
+        {
+            s = static_cast<float>((auditionOscPhase / std::numbers::pi) - 1.0);
+            auditionOscPhase += phaseInc;
+            if (auditionOscPhase >= twoPi)
+                auditionOscPhase -= twoPi;
+        }
+        else if (wf == 1) // Square / Pulse
+        {
+            s = (auditionOscPhase < std::numbers::pi) ? 0.6f : -0.6f;
+            auditionOscPhase += phaseInc;
+            if (auditionOscPhase >= twoPi)
+                auditionOscPhase -= twoPi;
+        }
+        else // White Noise
+        {
+            auditionNoiseSeed = auditionNoiseSeed * 1664525u + 1013904223u;
+            s = (static_cast<float>(auditionNoiseSeed) / 2147483648.0f - 1.0f) * 0.4f;
+        }
+        tempProcessBufferL[static_cast<size_t>(i)] = s;
+    }
+
+    std::array<float*, 8> voicePtrs = { tempProcessBufferL.data(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    auditionFilter.processPolyphonicBlock(voicePtrs.data(), samplesToProcess, auditionLutStorage.data(), gridSize);
+
+    const float outGain = 0.5f;
+    for (int ch = 0; ch < numOutputChannels; ++ch)
+    {
+        if (outputChannelData[ch] != nullptr)
+        {
+            for (int i = 0; i < samplesToProcess; ++i)
+            {
+                outputChannelData[ch][i] = tempProcessBufferL[static_cast<size_t>(i)] * outGain;
+            }
+        }
+    }
+}
+
 void LabAudioEngine::renderStimulusAndRoute(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept
 {
     // Zero-allocation stimulus buffer clearing for current block
     std::fill_n(tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess), 0.0f);
 
     generator.processBlock(tempProcessBufferL.data(), samplesToProcess);
+
+    // Mix rhythm metronome click if active (800 Hz, -24 dBFS, 15ms Hann window)
+    int totalMetSamples = metronomeTotalSamples.load(std::memory_order_acquire);
+    int currentMetSample = metronomeCurrentSample.load(std::memory_order_relaxed);
+    if (totalMetSamples > 0 && currentMetSample < totalMetSamples)
+    {
+        const double sr = (currentSampleRate > 0.0) ? currentSampleRate : 96000.0;
+        const double twoPi = 2.0 * std::numbers::pi;
+        const float gainLinear = 0.0630957f; // -24 dBFS
+        int samplesToRender = std::min(samplesToProcess, totalMetSamples - currentMetSample);
+
+        for (int i = 0; i < samplesToRender; ++i)
+        {
+            int s = currentMetSample + i;
+            double t = static_cast<double>(s) / sr;
+            double phase = twoPi * 800.0 * t;
+            double hann = 0.5 * (1.0 - std::cos(twoPi * (static_cast<double>(s) / static_cast<double>(totalMetSamples))));
+            float tickVal = static_cast<float>(std::sin(phase) * hann * static_cast<double>(gainLinear));
+
+            tempProcessBufferL[static_cast<size_t>(i)] += tickVal;
+        }
+        metronomeCurrentSample.fetch_add(samplesToRender, std::memory_order_relaxed);
+    }
 
     // Route generator output to physical DAC output channels (e.g. Left/Right channel 0 and 1)
     if (numOutputChannels > 0 && outputChannelData[0] != nullptr)

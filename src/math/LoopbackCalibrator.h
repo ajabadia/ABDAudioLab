@@ -19,6 +19,11 @@ struct LoopbackCalibrationData
     float thdPlusNoisePercent { 0.001f };
     float snrDb { 95.0f };
     float frequencyFlatnessDb { 0.1f }; // Max delta across 20Hz - 20kHz
+    bool phaseInversionDetected { false };  /**< True if hardware loopback cable or pre-amp inverts signal polarity. */
+    float phaseInversionCorrelation { 1.0f }; /**< Cross-correlation peak value (negative indicates inversion). */
+    bool clippingDetected { false };        /**< True if input exceeded ADC ceiling / reached saturation. */
+    int clippedSamplesCount { 0 };          /**< Total number of clipped audio samples detected. */
+    float dcOffsetVolts { 0.0f };           /**< Detected average DC offset level. */
     std::vector<float> freqsHz;
     std::vector<float> magnitudeDb;         // Sound card transfer function H(f)
     std::vector<float> inverseCorrectionDb; // Inverse filter to de-color hardware
@@ -51,6 +56,16 @@ public:
      * @brief Loads calibration data from JSON format.
      */
     static LoopbackCalibrationData loadCalibrationFromJson(const juce::File& file);
+
+    /**
+     * @brief Applies de-coloring inverse filter H_inv(f) to an audio buffer using frequency-domain compensation.
+     * @param audio Buffer to process in-place.
+     * @param calData Validated calibration dataset containing inverseCorrectionDb and freqsHz.
+     * @param sampleRate Audio sampling rate in Hz.
+     */
+    static void applyInverseCompensation(std::vector<float>& audio,
+                                         const LoopbackCalibrationData& calData,
+                                         double sampleRate);
 };
 
 } // namespace abdaudiolab::math

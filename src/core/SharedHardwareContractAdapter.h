@@ -56,6 +56,7 @@ public:
 private:
     void rebuildLocalCache();
     void parseFunctionsFromRawJson(const nlohmann::json& j, HardwareContract& out);
+    void parseLifecycleFromRawJson(const nlohmann::json& j, HardwareContract& out);
 
     abd::hwid::HardwareContractRegistry& sharedRegistry_;
     std::vector<HardwareContract> localCache_;

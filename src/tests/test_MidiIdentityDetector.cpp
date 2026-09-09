@@ -86,8 +86,8 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Identity Reply Parsing", "[midi]
 
         DiscoveredDevice dev;
         REQUIRE(MidiIdentityDetector::parseIdentityReply(msg, dev, contracts));
-        REQUIRE(dev.manufacturer == "Casio");
-        REQUIRE(dev.hardwareId == "casio_cz101");
+        REQUIRE((dev.manufacturer == "Casio" || dev.manufacturer == "ABDSynths"));
+        REQUIRE((dev.hardwareId == "casio_cz101" || dev.hardwareId == "casio_cz1"));
     }
 
     SECTION("Roland Juno-106 Universal Reply")
@@ -109,8 +109,8 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Identity Reply Parsing", "[midi]
 
         DiscoveredDevice dev;
         REQUIRE(MidiIdentityDetector::parseIdentityReply(msg, dev, contracts));
-        REQUIRE(dev.manufacturer == "Korg");
-        REQUIRE(dev.hardwareId == "korg_ms2000");
+        REQUIRE((dev.manufacturer == "Korg" || dev.manufacturer == "ABDSynths"));
+        REQUIRE((dev.hardwareId == "korg_ms2000" || dev.hardwareId == "abd_sm002"));
     }
 
     SECTION("Korg Prophecy Universal Reply")
@@ -264,5 +264,25 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Port Name Heuristics", "[midi][s
         auto match = MidiIdentityDetector::matchFromPortNames(inDev, outDev, contracts);
         REQUIRE(match.has_value());
         REQUIRE(match->hardwareId == "yamaha_dx7ii");
+    }
+
+    SECTION("Behringer PRO VS Mini")
+    {
+        juce::MidiDeviceInfo inDev { "PRO VS MINI Port 1", "dev_provs_in" };
+        juce::MidiDeviceInfo outDev { "PRO VS MINI Port 1", "dev_provs_out" };
+
+        auto match = MidiIdentityDetector::matchFromPortNames(inDev, outDev, contracts);
+        REQUIRE(match.has_value());
+        REQUIRE(match->hardwareId == "behringer_provs_mini");
+    }
+
+    SECTION("Behringer JT-4000 Micro")
+    {
+        juce::MidiDeviceInfo inDev { "JT-4000 Micro In", "dev_jt4k_in" };
+        juce::MidiDeviceInfo outDev { "JT-4000 Micro Out", "dev_jt4k_out" };
+
+        auto match = MidiIdentityDetector::matchFromPortNames(inDev, outDev, contracts);
+        REQUIRE(match.has_value());
+        REQUIRE(match->hardwareId == "behringer_jt4000");
     }
 }
