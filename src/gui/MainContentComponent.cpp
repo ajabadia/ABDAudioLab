@@ -193,12 +193,14 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     mainHeader.onConfigureAudioMidi = [this] { openAudioMidiSettings(); };
     mainHeader.onCalibrateClicked = [this] {
         stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::CalibrateLoopback);
+        sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
         if (stepperBar.onStepSelected != nullptr)
             stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::CalibrateLoopback);
         resized();
     };
     mainHeader.onHardwareSelectorClicked = [this] {
         stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
+        sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::HardwareRouting);
         if (stepperBar.onStepSelected != nullptr)
             stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::HardwareRouting);
         resized();
@@ -314,10 +316,17 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         mainHeader.updateCalibrationStatus(true, cal.sampleRate, false);
 
         stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
+        sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
+
+        auto summary = sidebarStepper.getSessionSummary();
+        summary.loopbackCalibrated = true;
+        summary.loopbackSnrDb = cal.snrDb > 0.0f ? cal.snrDb : 90.0f;
+        sidebarStepper.setSessionSummary(summary);
         resized();
     };
     nativeCalibrationPanel.onCalibrationSkipped = [this] {
         stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Skipped);
+        sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Skipped);
         mainHeader.updateCalibrationStatus(false, 0.0, true);
 
         manualPromptLabel.setText("Paso 2 Omitido: Operando con ganancia nominal (0 dB). ¡Paso 3 habilitado!", juce::dontSendNotification);
@@ -1415,10 +1424,63 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
     );
 
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Completed);
+
+    auto summary = sidebarStepper.getSessionSummary();
+    summary.hardwareName = juce::String(contract->displayName);
+    summary.hardwareCategory = juce::String(contract->deviceType);
+    sidebarStepper.setSessionSummary(summary);
+
     auto calStatus = stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback);
     if (calStatus != gui::WorkflowStepperBar::StepStatus::Completed && calStatus != gui::WorkflowStepperBar::StepStatus::Skipped)
     {
         stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::CalibrateLoopback);
+        sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
+    }
+
+    // Auto-populate default test plan for the selected function if queue is currently empty
+    if (suiteList.getQueueSize() == 0 && !contract->functions.empty())
+    {
+        const auto* targetFunc = &contract->functions[0];
+        for (const auto& f : contract->functions)
+        {
+            if (f.id == funcId.toStdString())
+            {
+                targetFunc = &f;
+                break;
+            }
+        }
+        const auto& f = *targetFunc;
+        gui::QueueItem item;
+        item.title = juce::String(contract->displayName) + " (" + juce::String(f.name) + ")";
+        item.hwId = hwId;
+        item.funcId = funcId;
+        item.burstDurationSec = f.defaultBurstDurationSec > 0.05f ? f.defaultBurstDurationSec : 1.0f;
+        item.captureMode = f.captureMode;
+
+        if (f.blockType == "TimeDynamic") item.stimulusType = audio::StimulusType::SyncPulses3;
+        else if (f.blockType == "WaveShaper") item.stimulusType = audio::StimulusType::AmplitudeRamp;
+        else if (f.blockType == "CyclicModulator") item.stimulusType = audio::StimulusType::SineWave1kHz;
+        else item.stimulusType = audio::StimulusType::LogFarinaSweep;
+
+        applyBadgeForStimulus(item, item.stimulusType);
+
+        int totalPts = 1;
+        for (size_t k = 0; k < f.controls.size(); ++k)
+        {
+            gui::ControlStepConfig cs;
+            cs.id = juce::String(f.controls[k].name);
+            cs.name = f.controls[k].name;
+            cs.type = f.controls[k].type;
+            cs.steps = (k == 0) ? 8 : ((k == 1) ? 4 : 1);
+            totalPts *= cs.steps;
+            item.controls.push_back(cs);
+        }
+        item.totalPoints = totalPts;
+        item.description = juce::String::fromUTF8(u8"Standard Recipe • ") + juce::String(item.totalPoints) + " points";
+        item.status = gui::QueueItemStatus::Queued;
+        item.id = "test_standard_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
+        suiteList.addTestToQueue(item);
     }
 }
 

@@ -1,4 +1,4 @@
-#include "SoundIdSidebarStepper.h"
+﻿#include "SoundIdSidebarStepper.h"
 
 namespace abdaudiolab::gui
 {

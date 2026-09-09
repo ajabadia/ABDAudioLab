@@ -45,10 +45,10 @@ private:
     State currentState { State::ReadyToMeasure };
     math::LoopbackCalibrationData calibrationData;
 
-    juce::TextButton btnStartMeasure { "Iniciar Calibración Loopback" };
-    juce::TextButton btnSkip { "Omitir Calibración (Bypass Nominal 0 dB)" };
-    juce::TextButton btnContinue { "Continuar a Ejecutar Sesión ➔" };
-    juce::TextButton btnRetry { "Reintentar Calibración" };
+    juce::TextButton btnStartMeasure { juce::String::fromUTF8(u8"Iniciar Calibración Loopback") };
+    juce::TextButton btnSkip { juce::String::fromUTF8(u8"Omitir Calibración (Bypass Nominal 0 dB)") };
+    juce::TextButton btnContinue { juce::String::fromUTF8(u8"Continuar a Ejecutar Sesión ➔") };
+    juce::TextButton btnRetry { juce::String::fromUTF8(u8"Reintentar Calibración") };
 
     juce::ProgressBar progressBar;
     double progressValue { 0.0 };

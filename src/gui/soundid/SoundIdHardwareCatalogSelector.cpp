@@ -58,7 +58,7 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     addAndMakeVisible(comboModel);
 
-    comboObjective.setTextWhenNothingSelected("4. Objetivo / Bloque de Medición...");
+    comboObjective.setTextWhenNothingSelected(juce::String::fromUTF8(u8"4. Objetivo / Bloque de Medición..."));
     comboObjective.onChange = [this] {
         syncVisualCards();
         if (onSelectionChanged)
@@ -261,13 +261,13 @@ void SoundIdHardwareCatalogSelector::syncVisualCards()
         }
         else
         {
-            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Modo Libre / Conexión Manual", false);
+            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", juce::String::fromUTF8(u8"Modo Libre / Conexión Manual"), false);
         }
     }
     else
     {
         deviceDisplayCard.setDevice(nullptr);
-        wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Configuración Personalizada / Libre", false);
+        wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", juce::String::fromUTF8(u8"Configuración Personalizada / Libre"), false);
     }
     repaint();
 }

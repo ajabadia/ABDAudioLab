@@ -1,4 +1,4 @@
-#include "HardwareWiringDiagramComponent.h"
+﻿#include "HardwareWiringDiagramComponent.h"
 #include "SoundIdTheme.h"
 
 namespace abdaudiolab::gui

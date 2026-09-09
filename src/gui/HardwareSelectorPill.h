@@ -88,15 +88,8 @@ public:
             content.removeFromLeft(6.0f);
         }
 
-        // 2. Chevron on the far right
-        auto chevArea = content.removeFromRight(10.0f);
-        g.setColour(SoundIdTheme::textMuted);
-        g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
-        g.drawText("v", chevArea, juce::Justification::centred, false);
-        content.removeFromRight(6.0f);
-
-        // 3. Status LED dot indicator (Traffic light)
-        auto ledArea = content.removeFromRight(12.0f);
+        // 2. Status LED dot indicator (Traffic light) on the right
+        auto ledArea = content.removeFromRight(14.0f);
         float ledSize = 8.0f;
         auto ledRect = juce::Rectangle<float>(ledArea.getCentreX() - ledSize * 0.5f,
                                               ledArea.getCentreY() - ledSize * 0.5f,

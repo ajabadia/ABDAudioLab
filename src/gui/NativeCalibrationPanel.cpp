@@ -1,4 +1,4 @@
-﻿#include "NativeCalibrationPanel.h"
+#include "NativeCalibrationPanel.h"
 #include "SoundIdTheme.h"
 #include <cmath>
 
@@ -203,7 +203,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(32.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("Paso 2: Calibración de Lazo Cerrado (Loopback)", headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
+    g.drawText(juce::String::fromUTF8(u8"Paso 2: Calibración de Lazo Cerrado (Loopback)"), headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
 
     // Estado Badge
     auto badgeRect = headerRow.removeFromRight(150.0f).reduced(0.0f, 3.0f);
@@ -213,7 +213,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff065f46));
-        g.drawText("● CALIBRADO", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"● CALIBRADO"), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Skipped)
     {
@@ -221,7 +221,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff92400e));
-        g.drawText("⏭ OMITIDO (NOMINAL)", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"⏭ OMITIDO (NOMINAL)"), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Measuring)
     {
@@ -229,7 +229,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff3730a3));
-        g.drawText("⟳ MIDIENDO...", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"⟳ MIDIENDO..."), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Failed)
     {
@@ -237,7 +237,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentRed);
-        g.drawText("✕ NIVEL BAJO / CLIP", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"✕ NIVEL BAJO / CLIP"), badgeRect, juce::Justification::centred, true);
     }
     else
     {
@@ -256,7 +256,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     // Subtítulo explicativo
     g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("La calibración de lazo cerrado compensa la latencia ida-vuelta del convertidor DAC/ADC y ajusta automáticamente la ganancia a -3.0 dBFS para mediciones científicas estables.",
+    g.drawText(juce::String::fromUTF8(u8"La calibración de lazo cerrado compensa la latencia ida-vuelta del convertidor DAC/ADC y ajusta automáticamente la ganancia a -3.0 dBFS para mediciones científicas estables."),
                content.removeFromTop(32.0f), juce::Justification::topLeft, true);
 
     content.removeFromTop(12.0f);
@@ -292,9 +292,12 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         leftCol.removeFromTop(8.0f);
     };
 
-    drawStepItem(1, "Conectar Cable de Retorno (Loopback)", "Conecta un cable jack físico directo desde la Salida Audio 1 (DAC) a la Entrada Audio 1 (ADC).");
-    drawStepItem(2, "Verificar Nivel de Ganancia", "Ajusta el previo de la tarjeta para que el medidor de señal marque nivel saludable (entre -24 y -3 dBFS).");
-    drawStepItem(3, "Disparar Barrido Farina", "Un pulso logarítmico de 1.0s extraerá la función de transferencia H(f) y el desfase de muestras.");
+    drawStepItem(1, juce::String::fromUTF8(u8"Conectar Cable de Retorno (Loopback)"),
+                 juce::String::fromUTF8(u8"Conecta un cable jack físico directo desde la Salida Audio 1 (DAC) a la Entrada Audio 1 (ADC)."));
+    drawStepItem(2, juce::String::fromUTF8(u8"Verificar Nivel de Ganancia"),
+                 juce::String::fromUTF8(u8"Ajusta el previo de la tarjeta para que el medidor de señal marque nivel saludable (entre -24 y -3 dBFS)."));
+    drawStepItem(3, juce::String::fromUTF8(u8"Disparar Barrido Farina"),
+                 juce::String::fromUTF8(u8"Un pulso logarítmico de 1.0s extraerá la función de transferencia H(f) y el desfase de muestras."));
 
     // --- Columna Derecha: Monitor Balístico de Nivel & Métricas ---
     g.setColour(SoundIdTheme::bgCardHover);
@@ -306,7 +309,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText("MONITOR DE SEÑAL EN TIEMPO REAL", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText(juce::String::fromUTF8(u8"MONITOR DE SEÑAL EN TIEMPO REAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     meterArea.removeFromTop(8.0f);
 
     // Vúmetro horizontal
@@ -331,7 +334,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     juce::String dbText = (liveDb < -70.0f) ? "-inf dBFS" : juce::String(liveDb, 1) + " dBFS";
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("Nivel entrada: " + dbText, meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText(juce::String::fromUTF8(u8"Nivel entrada: ") + dbText, meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
     meterArea.removeFromTop(10.0f);
     g.setColour(SoundIdTheme::borderSubtle);
@@ -344,25 +347,25 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     if (currentState == State::Success)
     {
         float trimDb = 20.0f * std::log10(std::max(calibrationData.recommendedTrimGain, 1e-4f));
-        g.drawText("Latencia medida: " + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
-                   juce::String(calibrationData.latencySamples) + " muestras)",
+        g.drawText(juce::String::fromUTF8(u8"Latencia medida: ") + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
+                   juce::String(calibrationData.latencySamples) + juce::String::fromUTF8(u8" muestras)"),
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         juce::String sign = (trimDb >= 0.0f) ? "+" : "";
-        g.drawText("Ajuste Auto-Trim: " + sign + juce::String(trimDb, 2) + " dB",
+        g.drawText(juce::String::fromUTF8(u8"Ajuste Auto-Trim: ") + sign + juce::String(trimDb, 2) + " dB",
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("Planitud H(f): +/- " + juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB",
+        g.drawText(juce::String::fromUTF8(u8"Planitud H(f): +/- ") + juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB",
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
     else if (currentState == State::Skipped)
     {
-        g.drawText("Modo: Bypass Nominal (Sin compensación)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("Ganancia fijada: 1.0x (0.0 dB)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("Latencia asumida: 0 muestras", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"Modo: Bypass Nominal (Sin compensación)"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"Ganancia fijada: 1.0x (0.0 dB)"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"Latencia asumida: 0 muestras"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
     else
     {
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText("Esperando ejecución de barrido...", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"Esperando ejecución de barrido..."), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
 }
 
