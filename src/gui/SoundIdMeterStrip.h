@@ -30,6 +30,11 @@ public:
     std::function<void(bool start)> onProfilingToggled;
     std::function<void()> onAutoTrimClicked;
     std::function<void(float trimGain)> onTrimChanged;
+    /** Fired when the master button is clicked while a session is running (pause/resume). */
+    std::function<void()> onPauseResumeClicked;
+
+    /** Called by MainContentComponent to sync the pause LED state. */
+    void setSessionPaused(bool paused);
 
     void timerCallback() override;
     void paint(juce::Graphics& g) override;
@@ -46,6 +51,7 @@ private:
     int peakHoldInTimer { 0 }, peakHoldOutTimer { 0 };
 
     bool isProfilingActive { false };
+    bool isSessionPaused_  { false };
     float trimGainLinear { 1.0f };
 
     juce::Slider trimSlider;

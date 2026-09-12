@@ -10,6 +10,17 @@ ProfilingHardwareDispatcher::ProfilingHardwareDispatcher(hardware::IHardwareCont
 
 void ProfilingHardwareDispatcher::setParameter(int paramIndex, float normalizedValue)
 {
+    if (targetPlugin != nullptr)
+    {
+        const auto& params = targetPlugin->getParameters();
+        int zeroBased = paramIndex - 1;
+        if (zeroBased >= 0 && zeroBased < params.size() && params[zeroBased] != nullptr)
+        {
+            params[zeroBased]->setValueNotifyingHost(std::clamp(normalizedValue, 0.0f, 1.0f));
+            return;
+        }
+    }
+
     if (hardware != nullptr)
     {
         hardware->setParameter(paramIndex, normalizedValue);

@@ -22,8 +22,16 @@ SoundIdMeterStrip::SoundIdMeterStrip()
     powerIcon.addEllipse(2.0f, 2.0f, 20.0f, 20.0f);
     masterButton.setShape(powerIcon, true, true, false);
     masterButton.onClick = [this] {
-        if (onProfilingToggled) onProfilingToggled(!isProfilingActive);
-        if (onMasterToggleClicked) onMasterToggleClicked();
+        if (isProfilingActive)
+        {
+            // Session is running: delegate to pause/resume cycle
+            if (onPauseResumeClicked) onPauseResumeClicked();
+        }
+        else
+        {
+            if (onProfilingToggled) onProfilingToggled(true);
+            if (onMasterToggleClicked) onMasterToggleClicked();
+        }
     };
     addAndMakeVisible(masterButton);
 
@@ -47,6 +55,14 @@ void SoundIdMeterStrip::setLevels(float inPeakL, float inPeakR, float inRms,
 void SoundIdMeterStrip::setProfilingActive(bool active)
 {
     isProfilingActive = active;
+    if (!active)
+        isSessionPaused_ = false;
+    repaint();
+}
+
+void SoundIdMeterStrip::setSessionPaused(bool paused)
+{
+    isSessionPaused_ = paused;
     repaint();
 }
 
@@ -139,8 +155,14 @@ void SoundIdMeterStrip::paint(juce::Graphics& g)
 
     auto botArea = bounds.removeFromBottom(60.0f);
     g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
-    g.setColour(isProfilingActive ? SoundIdTheme::accentGreen : SoundIdTheme::textSecondary);
-    g.drawText(isProfilingActive ? "Profiling\nActive" : "Profiling\nStopped", botArea.removeFromBottom(24.0f), juce::Justification::centred, true);
+    if (isProfilingActive && isSessionPaused_)
+        g.setColour(SoundIdTheme::accentAmber);
+    else if (isProfilingActive)
+        g.setColour(SoundIdTheme::accentGreen);
+    else
+        g.setColour(SoundIdTheme::textSecondary);
+    const char* statusText = isProfilingActive ? (isSessionPaused_ ? "Profiling\nPaused" : "Profiling\nActive") : "Profiling\nStopped";
+    g.drawText(statusText, botArea.removeFromBottom(24.0f), juce::Justification::centred, true);
 
     // Draw Meter Bars
     auto meterArea = bounds.reduced(6.0f, 6.0f);

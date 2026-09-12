@@ -235,6 +235,23 @@ void TestEditorPanel::populateWithAutoTestPresets()
     };
 }
 
+void TestEditorPanel::setAvailablePluginParams(const std::vector<ControlStepConfig>& params)
+{
+    matrixTableComp.setAvailableParams(params);
+    // In plugin mode: start with empty controls so the user picks what they need
+    if (currentConfig.controls.empty())
+    {
+        matrixTableComp.setControls({});
+    }
+    resized();
+}
+
+void TestEditorPanel::clearAvailablePluginParams()
+{
+    matrixTableComp.clearAvailableParams();
+    resized();
+}
+
 void TestEditorPanel::setConfiguration(const TestConfiguration& config)
 {
     currentConfig = config;
@@ -271,11 +288,18 @@ void TestEditorPanel::setConfiguration(const TestConfiguration& config)
     resized();
 }
 
+void TestEditorPanel::setIsManualHardware(bool isManualMode)
+{
+    isManual = isManualMode;
+    updateEstimatedTime();
+}
+
 void TestEditorPanel::updateEstimatedTime()
 {
-    int totalPts = currentConfig.getTotalMeasurementPoints();
-    float totalSec = static_cast<float>(totalPts) * currentConfig.burstDurationSec;
-    estimationCard.setEstimation(totalPts, totalSec);
+    // Synchronize latest controls from table component before calculating
+    currentConfig.controls = matrixTableComp.getControls();
+    auto estimate = currentConfig.calculateEstimate(isManual);
+    estimationCard.setEstimation(estimate);
 }
 
 int TestEditorPanel::getPreferredHeight() const
@@ -289,7 +313,7 @@ int TestEditorPanel::getPreferredHeight() const
     y += 24; // Matrix Header
 
     y += matrixTableComp.getPreferredHeight();
-    y += 56; // Estimation Card
+    y += 64; // Enriched Estimation Card (was 56)
     y += 16; // Bottom margin
     return y;
 }
@@ -348,7 +372,7 @@ void TestEditorPanel::resized()
     matrixTableComp.setBounds(0, y, contentW, tableH);
     y += tableH + 12;
 
-    estimationCard.setBounds(0, y, contentW, 46);
+    estimationCard.setBounds(0, y, contentW, 54);
 }
 
 } // namespace abdaudiolab::gui

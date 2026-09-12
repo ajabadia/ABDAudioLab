@@ -168,7 +168,7 @@ void OperatorCardsContainerComponent::layoutMultiControlGridView(juce::Graphics&
     auto headerRow = contentArea.removeFromTop(16.0f);
     g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::accentGreen);
-    g.drawText("SELECTED PARAMETER TELEMETRY & SPECIFICATION [" + juce::String(selIdx + 1) + "/" + juce::String(parameterSteps.size()) + "]",
+    g.drawText("SELECTED PARAMETER TELEMETRY & SPECIFICATIONS [" + juce::String(selIdx + 1) + "/" + juce::String(parameterSteps.size()) + "]",
                headerRow, juce::Justification::centredLeft, true);
 
     auto titleRow = contentArea.removeFromTop(18.0f);
@@ -179,8 +179,8 @@ void OperatorCardsContainerComponent::layoutMultiControlGridView(juce::Graphics&
 
     auto readoutRow = contentArea.removeFromTop(16.0f);
     int pct = static_cast<int>(std::round(selPs.normalizedValue * 100.0f));
-    juce::String normStr = "Target: " + juce::String(pct) + "% (" + juce::String(selPs.normalizedValue, 3) + " norm)";
-    juce::String rangeStr = "Range: " + juce::String(static_cast<int>(selPs.minNormalized * 100.0f)) + "% - " +
+    juce::String normStr = "Target Value: " + juce::String(pct) + "% (" + juce::String(selPs.normalizedValue, 3) + " norm)";
+    juce::String rangeStr = "Target Range: " + juce::String(static_cast<int>(selPs.minNormalized * 100.0f)) + "% - " +
                             juce::String(static_cast<int>(selPs.maxNormalized * 100.0f)) + "%";
 
     g.setFont(juce::FontOptions(10.5f, juce::Font::plain));

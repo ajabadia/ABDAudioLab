@@ -341,10 +341,8 @@ void DrawerHardwareTab::setHardwareList(const std::vector<HardwareItem>& list)
     {
         hwModeCombo.addItem(hardwareList[i].displayName, static_cast<int>(i + 1));
     }
-    if (!hardwareList.empty() && hwModeCombo.getSelectedId() <= 0)
-    {
-        hwModeCombo.setSelectedId(1, juce::sendNotification);
-    }
+    hwModeCombo.setSelectedId(0, juce::dontSendNotification);
+    clearSelectedHardware();
 }
 
 void DrawerHardwareTab::setContracts(std::vector<core::HardwareContract> contractsList)

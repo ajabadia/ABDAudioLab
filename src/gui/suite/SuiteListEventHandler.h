@@ -31,6 +31,8 @@ public:
         std::function<void(int queueIndex, int pointIndex)> onClearPointClicked;
         std::function<void(int queueIndex, int pointIndex)> onDeletePointClicked;
         std::function<void(const std::vector<std::pair<int, int>>& points)> onRerunSelectedClicked;
+        /** Fired when the user selects "Re-run this Point" from the context menu while session is active. */
+        std::function<void(int queueIndex, int pointIndex)> onRerunPointRequested;
         std::function<void()> onQueueChanged;
     };
 

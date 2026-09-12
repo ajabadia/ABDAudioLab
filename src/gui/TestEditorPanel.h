@@ -32,6 +32,14 @@ public:
     void setPresetOptions(const std::vector<juce::String>& presetNames);
     void populateWithAutoTestPresets();
 
+    void setIsManualHardware(bool isManual);
+    [[nodiscard]] bool isManualHardware() const noexcept { return isManual; }
+
+    /** Pass the full list of plugin parameters so the user can add them one by one.
+     *  When non-empty, a '+ Add Parameter' button appears in the matrix table section. */
+    void setAvailablePluginParams(const std::vector<ControlStepConfig>& params);
+    void clearAvailablePluginParams();
+
     std::function<void(int presetIndex)> onPresetSelected;
     std::function<void()> onConfigChanged;
 
@@ -44,6 +52,7 @@ private:
     void updateEstimatedTime();
 
     TestConfiguration currentConfig;
+    bool isManual { false };
 
     // Section 1: Presets & Test Name
     juce::Label lblPresetSelector;

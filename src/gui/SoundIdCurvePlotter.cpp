@@ -10,13 +10,13 @@ namespace abdaudiolab::gui
 
 SoundIdCurvePlotter::SoundIdCurvePlotter()
 {
-    btnCurve.setButtonText(juce::String::fromUTF8(u8"Curve (\u03bc \u00b1 \u03c3)"));
+    btnCurve.setButtonText(juce::String::fromUTF8("Curve (\xCE\xBC \xC2\xB1 \xCF\x83)"));
     btnHeatmap.setButtonText("2D Heatmap");
     btnSpectrum.setButtonText("Spectrum FFT");
     btnPhaseDelay.setButtonText("Phase / GD");
     btnWaterfall3D.setButtonText("3D Mountains");
 
-    btnCurve.setTooltip(juce::String::fromUTF8(u8"Display statistical mean response curve (\u03bc) with shaded confidence band (\u00b1\u03c3)"));
+    btnCurve.setTooltip(juce::String::fromUTF8("Display statistical mean response curve (\xCE\xBC) with shaded confidence band (\xC2\xB1\xCF\x83)"));
     btnHeatmap.setTooltip("Display 2D parameter excitation grid heatmap with Viridis color scale");
     btnSpectrum.setTooltip("Live FFT spectrum analyzer (20 Hz - 20 kHz, logarithmic)");
     btnPhaseDelay.setTooltip("Display unwrapped phase response and group delay (Farina deconvolution)");

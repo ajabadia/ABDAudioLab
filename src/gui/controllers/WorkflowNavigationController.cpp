@@ -11,6 +11,7 @@ namespace abdaudiolab::gui
 {
 
 WorkflowNavigationController::WorkflowNavigationController(SoundIdSidebarStepper& stepper,
+                                                           DrawerSetupTab& infoTab,
                                                            SoundIdHardwareCatalogSelector& catalog,
                                                            NativeCalibrationPanel& calPanel,
                                                            ExportReportPanel& exportPanel,
@@ -20,6 +21,7 @@ WorkflowNavigationController::WorkflowNavigationController(SoundIdSidebarStepper
                                                            OperatorStepModalDialog& opModal,
                                                            CenterSplitterBar& splitter)
     : sidebarStepper(stepper),
+      setupTab(infoTab),
       catalogSelector(catalog),
       nativeCalibrationPanel(calPanel),
       exportReportPanel(exportPanel),
@@ -36,8 +38,6 @@ WorkflowNavigationController::WorkflowNavigationController(SoundIdSidebarStepper
 
 void WorkflowNavigationController::setStep(Step targetStep)
 {
-    if (currentStep == targetStep) return;
-
     currentStep = targetStep;
     sidebarStepper.setCurrentStep(targetStep);
 
@@ -60,6 +60,7 @@ void WorkflowNavigationController::setStepLocked(Step step, bool locked)
 void WorkflowNavigationController::resetToNewSession()
 {
     catalogSelector.setHardwareLocked(false);
+    sidebarStepper.setStepStatus(Step::SystemInfo, StepStatus::Completed);
     sidebarStepper.setStepStatus(Step::HardwareRouting, StepStatus::Current);
     sidebarStepper.setStepStatus(Step::CalibrateLoopback, StepStatus::Pending);
     sidebarStepper.setStepStatus(Step::RunSession, StepStatus::Pending);
@@ -77,8 +78,27 @@ void WorkflowNavigationController::resetToNewSession()
 
 void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, float currentBottomH, bool isSplittingBalanced)
 {
-    if (currentStep == Step::HardwareRouting)
+    if (currentStep == Step::SystemInfo)
     {
+        catalogSelector.setVisible(false);
+        nativeCalibrationPanel.setVisible(false);
+        exportReportPanel.setVisible(false);
+        suiteList.setVisible(false);
+        operatorStepModal.setVisible(false);
+        centerSplitterBar.setVisible(false);
+        healthPanel.setVisible(false);
+        curvePlotter.setVisible(false);
+
+        setupTab.setVisible(true);
+        // Center studio topology card nicely with responsive width
+        auto infoBounds = bounds;
+        int maxW = std::min(infoBounds.getWidth(), 880);
+        int x = infoBounds.getX() + (infoBounds.getWidth() - maxW) / 2;
+        setupTab.setBounds(x, infoBounds.getY(), maxW, infoBounds.getHeight());
+    }
+    else if (currentStep == Step::HardwareRouting)
+    {
+        setupTab.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -92,6 +112,7 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     }
     else if (currentStep == Step::CalibrateLoopback)
     {
+        setupTab.setVisible(false);
         catalogSelector.setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -105,6 +126,7 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     }
     else if (currentStep == Step::ExportReport)
     {
+        setupTab.setVisible(false);
         catalogSelector.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -118,6 +140,7 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     }
     else // Step::RunSession
     {
+        setupTab.setVisible(false);
         catalogSelector.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);

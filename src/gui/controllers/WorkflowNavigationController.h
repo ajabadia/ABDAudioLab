@@ -12,6 +12,7 @@
 
 #include "../soundid/SoundIdSidebarStepper.h"
 #include "../soundid/SoundIdHardwareCatalogSelector.h"
+#include "../drawers/DrawerSetupTab.h"
 #include "../NativeCalibrationPanel.h"
 #include "../ExportReportPanel.h"
 #include "../SoundIdCurvePlotter.h"
@@ -25,7 +26,7 @@ namespace abdaudiolab::gui
 
 /**
  * @class WorkflowNavigationController
- * @brief Coordinates the 4 steps of the SoundID workflow, manages panel visibility and geometry.
+ * @brief Coordinates the 5 steps of the SoundID workflow (Step 0: Info to Step 4: Export), manages panel visibility and geometry.
  */
 class WorkflowNavigationController
 {
@@ -34,6 +35,7 @@ public:
     using StepStatus = SoundIdSidebarStepper::StepStatus;
 
     WorkflowNavigationController(SoundIdSidebarStepper& stepper,
+                                 DrawerSetupTab& infoTab,
                                  SoundIdHardwareCatalogSelector& catalog,
                                  NativeCalibrationPanel& calPanel,
                                  ExportReportPanel& exportPanel,
@@ -60,6 +62,7 @@ private:
     Step currentStep { Step::HardwareRouting };
 
     SoundIdSidebarStepper& sidebarStepper;
+    DrawerSetupTab& setupTab;
     SoundIdHardwareCatalogSelector& catalogSelector;
     NativeCalibrationPanel& nativeCalibrationPanel;
     ExportReportPanel& exportReportPanel;

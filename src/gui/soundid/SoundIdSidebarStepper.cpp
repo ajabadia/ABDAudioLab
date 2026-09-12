@@ -1,24 +1,27 @@
-﻿#include "SoundIdSidebarStepper.h"
+#include "SoundIdSidebarStepper.h"
 
 namespace abdaudiolab::gui
 {
 
 SoundIdSidebarStepper::SoundIdSidebarStepper()
 {
-    stepStatuses[Step::HardwareRouting]   = StepStatus::Current;
+    stepStatuses[Step::SystemInfo]        = StepStatus::Current;
+    stepStatuses[Step::HardwareRouting]   = StepStatus::Pending;
     stepStatuses[Step::CalibrateLoopback] = StepStatus::Pending;
     stepStatuses[Step::RunSession]        = StepStatus::Pending;
     stepStatuses[Step::ExportReport]      = StepStatus::Pending;
 
-    stepTitles[Step::HardwareRouting]   = "1. Hardware & Routing";
-    stepTitles[Step::CalibrateLoopback] = "2. Calibrate Loopback";
+    stepTitles[Step::SystemInfo]        = "0. Studio Environment";
+    stepTitles[Step::CalibrateLoopback] = "1. Calibrate Loopback";
+    stepTitles[Step::HardwareRouting]   = "2. Hardware & Routing";
     stepTitles[Step::RunSession]        = "3. Run Session";
     stepTitles[Step::ExportReport]      = "4. Export & Report";
 
-    stepDescriptions[Step::HardwareRouting]   = "Target, I/O & Wiring";
-    stepDescriptions[Step::CalibrateLoopback] = "Interface DAC/ADC Check";
-    stepDescriptions[Step::RunSession]        = "Excitation & Profiling";
-    stepDescriptions[Step::ExportReport]      = "NAM, LUT & Certification";
+    stepDescriptions[Step::SystemInfo]        = "Audio, MIDI & Environment";
+    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Interface DAC/ADC Check");
+    stepDescriptions[Step::HardwareRouting]   = juce::String::fromUTF8(u8"Target, I/O & Wiring");
+    stepDescriptions[Step::RunSession]        = juce::String::fromUTF8(u8"Excitation & Profiling");
+    stepDescriptions[Step::ExportReport]      = juce::String::fromUTF8(u8"NAM, LUT & Certification");
 
     btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25c0")); // ◀ (collapse to left)
     btnToggleCollapse.setTooltip("Collapse / Expand Navigation Rail");
@@ -108,11 +111,11 @@ void SoundIdSidebarStepper::paint(juce::Graphics& g)
     auto contentArea = b.reduced(collapsedState ? 4.0f : 10.0f, 8.0f);
     contentArea.removeFromTop(28.0f); // Top bar space for collapse toggle
 
-    // 2. Render Step Rows (4 steps)
-    const float rowHeight = collapsedState ? 46.0f : 56.0f;
-    const float stepSpacing = 8.0f;
+    // 2. Render Step Rows (5 steps: 0. Información to 4. Export & Report)
+    const float rowHeight = collapsedState ? 44.0f : 52.0f;
+    const float stepSpacing = 6.0f;
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         Step step = static_cast<Step>(i);
         auto rowRect = contentArea.removeFromTop(rowHeight);
@@ -218,7 +221,7 @@ void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rect
     else
     {
         g.setColour(badgeTextColour);
-        g.drawText(juce::String(static_cast<int>(step) + 1), badgeRect, juce::Justification::centred, false);
+        g.drawText(juce::String(static_cast<int>(step)), badgeRect, juce::Justification::centred, false);
     }
 
     // If expanded, draw title and subtitle description
@@ -234,7 +237,7 @@ void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rect
         g.setColour(isCurrent ? textPrimary : (status == StepStatus::Completed ? textPrimary : textMuted));
         
         juce::String title = stepTitles[step];
-        if (isLocked) title += juce::String::fromUTF8(u8" \U0001f512");
+        if (isLocked) title += " [Locked]";
         g.drawText(title, titleArea, juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions(10.0f));
@@ -268,13 +271,19 @@ void SoundIdSidebarStepper::drawSummaryCard(juce::Graphics& g, juce::Rectangle<f
     if (summaryInfo.loopbackCalibrated)
     {
         g.setColour(SoundIdTheme::accentGreen);
-        g.drawText(juce::String::fromUTF8(u8"\u25cf Calibrated (SNR ") + juce::String(summaryInfo.loopbackSnrDb, 1) + " dB)",
+        g.drawText(juce::String(juce::CharPointer_UTF8("\xE2\x97\x8F Calibrated (SNR ")) + juce::String(summaryInfo.loopbackSnrDb, 1) + " dB)",
+                   inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+    }
+    else if (summaryInfo.loopbackBypassed)
+    {
+        g.setColour(SoundIdTheme::accentAmber);
+        g.drawText(juce::String(juce::CharPointer_UTF8("\xE2\x97\x8F Loopback: Bypassed (0 dB)")),
                    inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
     }
     else
     {
         g.setColour(SoundIdTheme::accentAmber);
-        g.drawText(juce::String::fromUTF8(u8"\u25cf Loopback: Uncalibrated"),
+        g.drawText(juce::String(juce::CharPointer_UTF8("\xE2\x97\x8F Loopback: Uncalibrated")),
                    inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
     }
 
@@ -299,13 +308,13 @@ void SoundIdSidebarStepper::mouseMove(const juce::MouseEvent& event)
     auto contentArea = b.reduced(collapsedState ? 4.0f : 10.0f, 8.0f);
     contentArea.removeFromTop(28.0f);
 
-    const float rowHeight = collapsedState ? 46.0f : 56.0f;
-    const float stepSpacing = 8.0f;
+    const float rowHeight = collapsedState ? 44.0f : 52.0f;
+    const float stepSpacing = 6.0f;
 
     std::optional<Step> foundStep;
     float currentY = contentArea.getY();
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 5; ++i)
     {
         auto rowRect = juce::Rectangle<float>(contentArea.getX(), currentY, contentArea.getWidth(), rowHeight);
         if (rowRect.contains(event.position))

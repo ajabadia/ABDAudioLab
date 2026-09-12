@@ -53,6 +53,8 @@ inline juce::File locateAssetFile(const juce::String& relPath)
 
         found = findExisting(sharedAssetsDir.getChildFile("models").getChildFile(relPath));
         if (found.existsAsFile()) return found;
+        found = findExisting(sharedAssetsDir.getChildFile("interfaces").getChildFile(relPath));
+        if (found.existsAsFile()) return found;
         found = findExisting(sharedAssetsDir.getChildFile("brands").getChildFile(relPath));
         if (found.existsAsFile()) return found;
         found = findExisting(sharedAssetsDir.getChildFile("icons").getChildFile(relPath));

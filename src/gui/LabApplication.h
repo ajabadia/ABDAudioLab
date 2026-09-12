@@ -27,7 +27,7 @@ public:
          setFullScreen(true);
         #else
          setResizable(true, true);
-         setResizeLimits(850, 580, 1920, 1080);
+         setResizeLimits(1080, 680, 3840, 2160);
          centreWithSize(getWidth(), getHeight());
         #endif
 
@@ -54,21 +54,34 @@ public:
 
     void initialise(const juce::String& /*commandLine*/) override
     {
+        // 0. Setup FileLogger so logs are captured to disk
+        fileLogger.reset(juce::FileLogger::createDateStampedLogger(
+            "ABDAudioLab",
+            "ABDAudioLab_",
+            ".log",
+            "=== ABDAudioLab Session Started [" + getApplicationName() + " v" + getApplicationVersion() + "] ==="
+        ));
+        juce::Logger::setCurrentLogger(fileLogger.get());
+        if (fileLogger != nullptr)
+        {
+            juce::Logger::writeToLog("[App] Diagnostic log initialized: " + fileLogger->getLogFile().getFullPathName());
+        }
+
         // 1. Show Instant Floating Splash Window (< 50ms)
         splashWindow = std::make_unique<gui::SoundIdSplashWindow>();
-        splashWindow->reportProgress("Iniciando ABDAudioLab...", 0.05f, 15);
+        splashWindow->reportProgress("Iniciando ABDAudioLab...", 0.05f);
 
         // 2. Initialize Main Engine and Window with Real Startup Progress
         juce::MessageManager::callAsync([this]() {
             auto progressCb = [this](const juce::String& msg, float prog) {
                 if (splashWindow)
-                    splashWindow->reportProgress(msg, prog, 35);
+                    splashWindow->reportProgress(msg, prog);
             };
 
             mainWindow = std::make_unique<LabMainWindow>(getApplicationName(), progressCb);
 
             if (splashWindow)
-                splashWindow->reportProgress("Listo.", 1.0f, 60);
+                splashWindow->reportProgress("Listo.", 1.0f);
 
             // 3. Smooth fade-out transition
             juce::Component::SafePointer<gui::SoundIdSplashWindow> safeSplash(splashWindow.get());
@@ -85,8 +98,11 @@ public:
 
     void shutdown() override
     {
+        juce::Logger::writeToLog("=== ABDAudioLab Session Shutdown ===");
         splashWindow.reset();
         mainWindow.reset();
+        juce::Logger::setCurrentLogger(nullptr);
+        fileLogger.reset();
     }
 
     void systemRequestedQuit() override
@@ -99,6 +115,7 @@ public:
     }
 
 private:
+    std::unique_ptr<juce::FileLogger> fileLogger;
     std::unique_ptr<gui::SoundIdSplashWindow> splashWindow;
     std::unique_ptr<LabMainWindow> mainWindow;
 };

@@ -82,6 +82,9 @@ SlideInDrawer::SlideInDrawer()
     tabSetup.onAboutClicked = [this] {
         if (onAboutClicked) onAboutClicked();
     };
+    tabSetup.onRefreshRequested = [this] {
+        if (onRefreshSetupRequested) onRefreshSetupRequested();
+    };
 
     // ==========================================
     // Bottom Action Bar
@@ -189,10 +192,11 @@ void SlideInDrawer::openHardwareDrawer()
     openDrawer();
 }
 
-void SlideInDrawer::openTestEditorDrawer(const TestConfiguration& initialConfig, int editingIndex)
+void SlideInDrawer::openTestEditorDrawer(const TestConfiguration& initialConfig, int editingIndex, bool isManual)
 {
     testEditorConfig = initialConfig;
     currentEditingTestIndex = editingIndex;
+    testEditorPanel.setIsManualHardware(isManual);
     testEditorPanel.populateWithAutoTestPresets();
     testEditorPanel.setConfiguration(testEditorConfig);
     switchViewMode(DrawerViewMode::TestAndParametersEditor);

@@ -28,6 +28,8 @@ public:
 
     void setHardwareLocked(bool locked);
     [[nodiscard]] bool isHardwareLockedActive() const noexcept { return isHardwareLocked; }
+    void resetSelection();
+    void setPluginVirtualRouting(const juce::String& pluginName, const juce::String& format, bool isInstrument);
 
     [[nodiscard]] const HardwareWiringDiagramComponent& getWiringDiagram() const noexcept { return wiringDiagram; }
     [[nodiscard]] const HardwareDeviceDisplayCardComponent& getDeviceDisplayCard() const noexcept { return deviceDisplayCard; }
@@ -35,6 +37,7 @@ public:
     std::function<void(const juce::String& hwId, const juce::String& funcId)> onHardwareSelected;
     std::function<void()> onContinueToCalibration;
     std::function<void()> onOpenAdvancedSettings;
+    std::function<void()> onOpenTopologyModal;
     std::function<void()> onAutoDetectRequested;
     std::function<void()> onNewFlowRequested;
 
@@ -55,6 +58,7 @@ private:
 
     juce::TextButton btnContinue;
     juce::TextButton btnAdvanced;
+    juce::TextButton btnOpenTopology { "Studio Connection Map" };
 
     // Componentes gráficos desacoplados
     HardwareWiringDiagramComponent wiringDiagram;

@@ -9,6 +9,7 @@
 
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <atomic>
 #include <array>
@@ -82,6 +83,12 @@ public:
      * @brief Attaches mock hardware controller for offline self-test loopback.
      */
     void setMockHardware(hardware::MockHardwareController* mock) noexcept { mockHardware = mock; }
+
+    /**
+     * @brief Attaches active software plugin instance for direct internal digital loopback (VST3, AU, LV2).
+     */
+    void setActivePluginInstance(juce::AudioPluginInstance* plugin, double sampleRate = 0.0, int blockSize = 0);
+    [[nodiscard]] juce::AudioPluginInstance* getActivePluginInstance() const noexcept { return activePlugin.load(std::memory_order_acquire); }
 
     /**
      * @brief Enables or disables 1 kHz diagnostic reference test tone.
@@ -210,6 +217,8 @@ private:
     LabStimulusGenerator generator;
     LabAudioReceiver receiver;
     hardware::MockHardwareController* mockHardware { nullptr };
+    std::atomic<juce::AudioPluginInstance*> activePlugin { nullptr };
+    juce::MidiBuffer pluginMidiMessages;
 
     // Diagnostic tone state
     std::atomic<bool> diagnosticToneActive { false };

@@ -99,8 +99,44 @@ HardwareDeviceDisplayCardComponent::HardwareDeviceDisplayCardComponent()
 {
 }
 
+void HardwareDeviceDisplayCardComponent::clear()
+{
+    isPluginModeActive = false;
+    brandLogoDrawable.reset();
+    modelSvgDrawable.reset();
+    modelRasterImage = juce::Image();
+    currentHwBrand.clear();
+    currentHwDisplayName.clear();
+    currentHwCategory.clear();
+    repaint();
+}
+
+void HardwareDeviceDisplayCardComponent::setPluginInfo(const juce::String& name, const juce::String& manufacturer, const juce::String& format, bool isInstrument)
+{
+    isPluginModeActive = true;
+    brandLogoDrawable.reset();
+    modelSvgDrawable.reset();
+
+    juce::File defaultImgFile;
+    if (isInstrument)
+        defaultImgFile = locateAssetFile("models/generic-digital-keyboard.png");
+    else
+        defaultImgFile = locateAssetFile("models/generic-audio-rack.png");
+
+    if (defaultImgFile.existsAsFile())
+        modelRasterImage = juce::ImageFileFormat::loadFrom(defaultImgFile);
+    else
+        modelRasterImage = juce::Image();
+
+    currentHwBrand = manufacturer.isNotEmpty() ? manufacturer : "Generic";
+    currentHwDisplayName = name.isNotEmpty() ? name : "Plugin Virtual";
+    currentHwCategory = isInstrument ? (format + " Virtual Instrument") : (format + " Virtual Effect");
+    repaint();
+}
+
 void HardwareDeviceDisplayCardComponent::setDevice(const core::HardwareContract* contract)
 {
+    isPluginModeActive = false;
     brandLogoDrawable.reset();
     modelSvgDrawable.reset();
     modelRasterImage = juce::Image();
@@ -108,11 +144,15 @@ void HardwareDeviceDisplayCardComponent::setDevice(const core::HardwareContract*
     currentHwDisplayName.clear();
     currentHwCategory.clear();
 
-    if (contract != nullptr)
+    if (contract == nullptr)
     {
-        currentHwDisplayName = juce::String(contract->displayName);
-        currentHwBrand = juce::String(contract->brand);
-        currentHwCategory = juce::String(contract->deviceType);
+        repaint();
+        return;
+    }
+
+    currentHwDisplayName = juce::String(contract->displayName);
+    currentHwBrand = juce::String(contract->brand);
+    currentHwCategory = juce::String(contract->deviceType);
 
         // 1. Cargar Brand Logo (soporta dark mode y color swaps idénticos a SlideInDrawer)
         if (!contract->brandLogo.empty())
@@ -208,7 +248,26 @@ void HardwareDeviceDisplayCardComponent::setDevice(const core::HardwareContract*
                 }
             }
         }
-    }
+
+        // Fallback genérico según categoría si no tiene imagen asignada
+        if (modelSvgDrawable == nullptr && !modelRasterImage.isValid())
+        {
+            juce::String cat = currentHwCategory.toLowerCase();
+            juce::File fallbackFile;
+            if (cat.contains("pedal") || cat.contains("stompbox") || cat.contains("guitar"))
+                fallbackFile = locateAssetFile("models/generic-guitar-pedal.png");
+            else if (cat.contains("eurorack") || cat.contains("modular"))
+                fallbackFile = locateAssetFile("models/generic-eurorack.png");
+            else if (cat.contains("rack") || cat.contains("studio") || cat.contains("efecto") || cat.contains("effect"))
+                fallbackFile = locateAssetFile("models/generic-audio-rack.png");
+            else if (cat.contains("anal") || cat.contains("analog"))
+                fallbackFile = locateAssetFile("models/generic-analog-keyboard.png");
+            else
+                fallbackFile = locateAssetFile("models/generic-digital-keyboard.png");
+
+            if (fallbackFile.existsAsFile())
+                modelRasterImage = juce::ImageFileFormat::loadFrom(fallbackFile);
+        }
     repaint();
 }
 
@@ -223,39 +282,54 @@ void HardwareDeviceDisplayCardComponent::paint(juce::Graphics& g)
 
     auto dInner = deviceCard.reduced(14.0f, 12.0f);
 
-    // Cabecera de la tarjeta con nombre de dispositivo y marca
-    auto cardTitleRow = dInner.removeFromTop(24.0f);
-    float logoW = (brandLogoDrawable != nullptr || currentHwBrand.isNotEmpty()) ? 80.0f : 0.0f;
-    auto titleArea = cardTitleRow.removeFromLeft(cardTitleRow.getWidth() - logoW);
+    // 1. Caso: Sin selección (Estado Limpio / Nueva Sesión)
+    if (!isPluginModeActive && currentHwDisplayName.isEmpty())
+    {
+        g.setFont(juce::FontOptions("Inter", 13.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textMuted);
+        g.drawText(juce::String::fromUTF8(u8"SIN DISPOSITIVO SELECCIONADO"), dInner.removeFromTop(24.0f), juce::Justification::centred, true);
 
-    g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
-    g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(currentHwDisplayName.isNotEmpty() ? currentHwDisplayName : juce::String::fromUTF8(u8"Dispositivo Analógico"),
-               titleArea, juce::Justification::centredLeft, true);
+        g.setColour(SoundIdTheme::borderCard);
+        g.drawRoundedRectangle(dInner.reduced(16.0f, 16.0f), 6.0f, 1.0f);
 
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Seleccione un sintetizador, pedal o plugin virtual en el menú superior."),
+                   dInner, juce::Justification::centred, true);
+        return;
+    }
+
+    // 2. TÍTULO / LOGO DE LA MARCA (Arriba del todo, centrado y limpio)
+    auto logoArea = dInner.removeFromTop(32.0f);
     if (brandLogoDrawable != nullptr)
     {
-        auto logoBox = cardTitleRow.toFloat();
-        brandLogoDrawable->drawWithin(g, logoBox, juce::RectanglePlacement::xRight | juce::RectanglePlacement::yMid | juce::RectanglePlacement::onlyReduceInSize, 1.0f);
+        brandLogoDrawable->drawWithin(g, logoArea, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize, 1.0f);
     }
     else if (currentHwBrand.isNotEmpty())
     {
-        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
-        g.setColour(SoundIdTheme::textMuted);
-        g.drawText(currentHwBrand, cardTitleRow, juce::Justification::centredRight, true);
+        g.setFont(juce::FontOptions("Inter", 16.0f, juce::Font::bold));
+        g.setColour(isPluginModeActive ? SoundIdTheme::accentPurple : SoundIdTheme::textPrimary);
+        g.drawText(currentHwBrand, logoArea, juce::Justification::centred, true);
     }
 
-    g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
-    g.setColour(SoundIdTheme::accentGreen);
-    g.drawText("Tipo: " + (currentHwCategory.isNotEmpty() ? currentHwCategory : "MANUAL_EURORACK"),
-               dInner.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    dInner.removeFromTop(4.0f);
 
-    dInner.removeFromTop(8.0f);
-    g.setColour(SoundIdTheme::borderSubtle);
-    g.fillRect(dInner.removeFromTop(1.0f));
-    dInner.removeFromTop(10.0f);
+    // 3. Pie inferior reservado para NOMBRE y TIPO
+    auto bottomTextCard = dInner.removeFromBottom(44.0f);
+    auto nameArea = bottomTextCard.removeFromTop(24.0f);
+    auto typeArea = bottomTextCard.removeFromTop(18.0f);
 
-    // Área de renderizado del sintetizador / pedal
+    g.setFont(juce::FontOptions("Inter", 14.5f, juce::Font::bold));
+    g.setColour(SoundIdTheme::textPrimary);
+    g.drawText(currentHwDisplayName, nameArea, juce::Justification::centred, true);
+
+    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+    g.setColour(isPluginModeActive ? SoundIdTheme::accentBlue : SoundIdTheme::accentGreen);
+    g.drawText("Type: " + currentHwCategory, typeArea, juce::Justification::centred, true);
+
+    dInner.removeFromBottom(6.0f);
+
+    // 4. IMAGEN / VISTA CENTRAL
     auto imageArea = dInner;
     if (modelSvgDrawable != nullptr)
     {
@@ -265,14 +339,25 @@ void HardwareDeviceDisplayCardComponent::paint(juce::Graphics& g)
     {
         g.drawImage(modelRasterImage, imageArea, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
     }
+    else if (isPluginModeActive)
+    {
+        g.setColour(SoundIdTheme::accentPurple.withAlpha(0.2f));
+        g.fillRoundedRectangle(imageArea.reduced(10.0f, 10.0f), 6.0f);
+        g.setColour(SoundIdTheme::accentPurple.withAlpha(0.6f));
+        g.drawRoundedRectangle(imageArea.reduced(10.0f, 10.0f), 6.0f, 1.5f);
+
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentPurple);
+        g.drawText(juce::String::fromUTF8(u8"PLUGIN VIRTUAL CARGADO\n(Lazo Digital Directo Sin Latencia)"),
+                   imageArea, juce::Justification::centred, true);
+    }
     else
     {
-        // Gráfico decorativo de fallback para hardware sin imagen
         g.setColour(SoundIdTheme::borderCard);
-        g.drawRoundedRectangle(imageArea.reduced(20.0f, 20.0f), 6.0f, 1.0f);
+        g.drawRoundedRectangle(imageArea.reduced(16.0f, 16.0f), 6.0f, 1.0f);
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText(juce::String::fromUTF8(u8"HARDWARE ANALÓGICO CONECTADO"), imageArea, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"EQUIPO FÍSICO CONECTADO"), imageArea, juce::Justification::centred, true);
     }
 }
 

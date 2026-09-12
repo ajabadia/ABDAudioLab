@@ -108,7 +108,7 @@ struct HardwareContract
     std::string id;
     std::string displayName;
     std::string description;
-    std::string deviceType; // "MANUAL_EURORACK", "ANALOGUE_PEDAL", "AUTOMATED_SYSEX", "AUTOMATED_MIDI_CC", "VIRTUAL_LOOPBACK_ASIO", "MOCK_DSP"
+    std::string deviceType; // "MANUAL_EURORACK", "ANALOGUE_PEDAL", "AUTOMATED_SYSEX", "AUTOMATED_MIDI_CC", "VIRTUAL_LOOPBACK_ASIO", "MOCK_DSP", "SOFTWARE_PLUGIN"
     std::string brand;
     std::string brandLogo;
     std::string modelImage;
@@ -134,11 +134,24 @@ public:
 
     std::function<void(const juce::String& warningMsg)> onProfileWarning;
 
-    [[nodiscard]] bool hasContracts() const noexcept { return !contracts.empty(); }
     [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return contracts; }
+    [[nodiscard]] bool hasContracts() const noexcept { return !contracts.empty(); }
     [[nodiscard]] const std::vector<juce::String>& getWarnings() const noexcept { return warnings; }
     [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
     [[nodiscard]] const std::string& getLastError() const noexcept { return lastErrorMessage; }
+
+    void registerContract(const HardwareContract& contract)
+    {
+        for (auto& c : contracts)
+        {
+            if (c.id == contract.id)
+            {
+                c = contract;
+                return;
+            }
+        }
+        contracts.push_back(contract);
+    }
 
 private:
     std::vector<HardwareContract> contracts;

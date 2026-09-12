@@ -53,7 +53,7 @@ SoundIdSuiteList::SoundIdSuiteList()
     };
     addAndMakeVisible(btnRunSession);
 
-    btnRerunSelected.setButtonText(juce::String::fromUTF8(u8"⚡ Re-Measure (0)"));
+    btnRerunSelected.setButtonText("Re-Measure (0)");
     btnRerunSelected.setTooltip("Re-Measure Selected Points - Launch profiling only for selected or invalidated points and patch session");
     btnRerunSelected.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnRerunSelected.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
@@ -132,8 +132,12 @@ void SoundIdSuiteList::syncEventHandlerCallbacks()
     cb.onRerunSelectedClicked = [this](const std::vector<std::pair<int, int>>& pts) {
         if (onRerunSelectedClicked) onRerunSelectedClicked(pts);
     };
+    cb.onRerunPointRequested = [this](int qIdx, int pIdx) {
+        if (onRerunPointRequested) onRerunPointRequested(qIdx, pIdx);
+    };
     cb.onQueueChanged = [this]() {
         updateSelectionButton();
+        updateCompactViewButtonState();
         layoutRows();
         rowsContent.repaint();
     };
@@ -241,6 +245,7 @@ void SoundIdSuiteList::moveTestDown(int index)
 void SoundIdSuiteList::toggleTestExpanded(int index)
 {
     modelManager.toggleExpanded(index);
+    updateCompactViewButtonState();
     layoutRows();
     rowsContent.repaint();
 }
@@ -272,6 +277,48 @@ void SoundIdSuiteList::updateTheme()
     btnClear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
     rowsContent.repaint();
     repaint();
+}
+
+void SoundIdSuiteList::setStandardTestAvailable(bool available)
+{
+    btnAddStandard.setEnabled(available);
+    if (!available)
+    {
+        btnAddStandard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted.withAlpha(0.5f));
+        btnAddStandard.setTooltip("Add Standard Test - No hardware contracts defined for the current device");
+    }
+    else
+    {
+        btnAddStandard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        btnAddStandard.setTooltip("Add Standard Test - Automatically configure optimal sweep matrix for selected hardware module");
+    }
+}
+
+void SoundIdSuiteList::updateCompactViewButtonState()
+{
+    // Compact View only makes sense when there are expanded tests with points to hide
+    const auto& queue = modelManager.getQueue();
+    bool hasExpandableContent = false;
+    for (const auto& item : queue)
+    {
+        if (item.totalPoints > 0 && item.isExpanded)
+        {
+            hasExpandableContent = true;
+            break;
+        }
+    }
+
+    btnViewMode.setEnabled(hasExpandableContent);
+    if (!hasExpandableContent)
+    {
+        btnViewMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted.withAlpha(0.5f));
+        btnViewMode.setTooltip("Compact View - No expanded tests with visible points to compact");
+    }
+    else
+    {
+        btnViewMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+        btnViewMode.setTooltip("Toggle View Mode - Switch between single-bar compact summary and full detailed point inspection");
+    }
 }
 
 void SoundIdSuiteList::updateItemStatus(int index, QueueItemStatus status, int currentPoint)
@@ -372,14 +419,14 @@ void SoundIdSuiteList::updateSelectionButton()
     if (count > 0)
     {
         btnRerunSelected.setEnabled(true);
-        btnRerunSelected.setButtonText(juce::String::fromUTF8(u8"⚡ Re-Measure (") + juce::String(count) + ")");
+        btnRerunSelected.setButtonText("Re-Measure (" + juce::String(count) + ")");
         btnRerunSelected.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber.withAlpha(0.25f));
         btnRerunSelected.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
     }
     else
     {
         btnRerunSelected.setEnabled(false);
-        btnRerunSelected.setButtonText(juce::String::fromUTF8(u8"⚡ Re-Measure (0)"));
+        btnRerunSelected.setButtonText("Re-Measure (0)");
         btnRerunSelected.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
         btnRerunSelected.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textMuted);
     }
@@ -410,7 +457,9 @@ void SoundIdSuiteList::layoutRows()
         }
     }
 
-    int viewW = viewport.getViewWidth();
+    int viewW = viewport.getMaximumVisibleWidth();
+    if (viewW <= 0)
+        viewW = viewport.getWidth();
     rowsContent.setSize(std::max(viewW, 400), static_cast<int>(totalH));
 }
 

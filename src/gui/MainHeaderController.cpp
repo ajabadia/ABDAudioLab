@@ -57,11 +57,6 @@ MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     btnThemeToggle = std::make_unique<ThemeToggleButton>();
     btnThemeToggle->onClick = [this] { if (onThemeToggled) onThemeToggled(); };
     addAndMakeVisible(btnThemeToggle.get());
-
-    // 7. Info Button
-    btnInfo = std::make_unique<MonochromeInfoButton>();
-    btnInfo->onClick = [this] { if (onInfoClicked) onInfoClicked(); };
-    addAndMakeVisible(btnInfo.get());
 }
 
 MainHeaderController::~MainHeaderController()
@@ -166,7 +161,6 @@ void MainHeaderController::updateTheme()
     if (btnThemeToggle != nullptr) btnThemeToggle->repaint();
     if (btnHardwareSelector != nullptr) btnHardwareSelector->repaint();
     if (audioMidiStatusPill != nullptr) audioMidiStatusPill->repaint();
-    if (btnInfo != nullptr) btnInfo->repaint();
     repaint();
 }
 
@@ -181,6 +175,8 @@ void MainHeaderController::showFileMenu()
     menu.addSeparator();
     menu.addItem(6, "Export Certification Report (PDF/HTML)...");
     menu.addItem(7, "Open Export Folder");
+    menu.addSeparator();
+    menu.addItem(9, "Scan Plugin Directories...");
     menu.addSeparator();
     menu.addItem(8, "Exit ABDAudioLab");
 
@@ -198,6 +194,7 @@ void MainHeaderController::showFileMenu()
             case 6: if (safeThis->onExportCertificationReport) safeThis->onExportCertificationReport(); break;
             case 7: if (safeThis->onOpenExportFolder) safeThis->onOpenExportFolder(); break;
             case 8: if (safeThis->onExitApp) safeThis->onExitApp(); break;
+            case 9: if (safeThis->onScanPluginDirectories) safeThis->onScanPluginDirectories(); break;
             default: break;
         }
     });
@@ -206,28 +203,49 @@ void MainHeaderController::showFileMenu()
 void MainHeaderController::resized()
 {
     auto topArea = getLocalBounds();
+    int totalW = topArea.getWidth();
 
-    btnFileMenu.setBounds(topArea.removeFromLeft(68).withHeight(32));
-    topArea.removeFromLeft(8);
-    btnScope.setBounds(topArea.removeFromLeft(74).withHeight(32));
-    topArea.removeFromLeft(8);
-
-    if (audioMidiStatusPill != nullptr)
-        audioMidiStatusPill->setBounds(topArea.removeFromLeft(240).withHeight(32));
-
-    if (btnInfo != nullptr)
-        btnInfo->setBounds(topArea.removeFromRight(32).withSizeKeepingCentre(28, 28));
-    topArea.removeFromRight(8);
-
+    // 1. Theme toggle en el extremo derecho
     if (btnThemeToggle != nullptr)
-        btnThemeToggle->setBounds(topArea.removeFromRight(36).withHeight(32));
-    topArea.removeFromRight(8);
+    {
+        btnThemeToggle->setBounds(topArea.removeFromRight(34).withHeight(30).withY(topArea.getY() + 1));
+        topArea.removeFromRight(6);
+    }
+
+    // 2. Botones de la izquierda (File y Scope)
+    btnFileMenu.setBounds(topArea.removeFromLeft(64).withHeight(30).withY(topArea.getY() + 1));
+    topArea.removeFromLeft(6);
+    btnScope.setBounds(topArea.removeFromLeft(70).withHeight(30).withY(topArea.getY() + 1));
+    topArea.removeFromLeft(6);
+
+    // Pill de Audio/MIDI con ancho adaptativo
+    int statusPillW = juce::jlimit(160, 220, (totalW > 1100) ? 220 : (totalW > 980 ? 190 : 160));
+    if (audioMidiStatusPill != nullptr)
+    {
+        audioMidiStatusPill->setBounds(topArea.removeFromLeft(statusPillW).withHeight(30).withY(topArea.getY() + 1));
+        topArea.removeFromLeft(6);
+    }
+
+    // 3. Elementos de la derecha: Calibrate Pill y Hardware Selector Pill
+    int hwPillW = juce::jlimit(180, 280, (totalW > 1180) ? 280 : (totalW > 1020 ? 230 : 180));
+    int calPillW = juce::jlimit(130, 175, (totalW > 1100) ? 175 : 140);
+
+    // Evitar cualquier colisión con el área izquierda
+    int remainingW = topArea.getWidth();
+    if (hwPillW + calPillW + 6 > remainingW)
+    {
+        float ratio = static_cast<float>(std::max(10, remainingW - 6)) / static_cast<float>(hwPillW + calPillW);
+        hwPillW = std::max(110, static_cast<int>(hwPillW * ratio));
+        calPillW = std::max(100, remainingW - hwPillW - 6);
+    }
 
     if (btnHardwareSelector != nullptr)
-        btnHardwareSelector->setBounds(topArea.removeFromRight(320).withHeight(32));
-    topArea.removeFromRight(8);
+    {
+        btnHardwareSelector->setBounds(topArea.removeFromRight(hwPillW).withHeight(30).withY(topArea.getY() + 1));
+        topArea.removeFromRight(6);
+    }
 
-    btnCalibratePill.setBounds(topArea.removeFromRight(185).withHeight(32));
+    btnCalibratePill.setBounds(topArea.removeFromRight(calPillW).withHeight(30).withY(topArea.getY() + 1));
 }
 
 void MainHeaderController::paint(juce::Graphics& /*g*/)

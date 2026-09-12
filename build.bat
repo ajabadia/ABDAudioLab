@@ -61,10 +61,10 @@ if exist "!SHARED_ASSETS!" (
 
 :: 3. Configure with CMake
 echo [Info] Configuring project with CMake...
-cmake -B build -G "Visual Studio 18 2026" -A x64
+cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 if %errorlevel% neq 0 (
     echo [Info] Trying fallback CMake configuration...
-    cmake -B build
+    cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     if %errorlevel% neq 0 (
         echo [Error] CMake configuration failed.
         exit /b 1

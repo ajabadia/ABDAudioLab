@@ -30,8 +30,9 @@ public:
     juce::String getTooltip() override;
     enum class Step 
     { 
-        HardwareRouting = 0, 
+        SystemInfo = 0,
         CalibrateLoopback, 
+        HardwareRouting, 
         RunSession, 
         ExportReport 
     };
@@ -50,6 +51,7 @@ public:
         juce::String hardwareName { "None Selected" };
         juce::String hardwareCategory { "-" };
         bool loopbackCalibrated { false };
+        bool loopbackBypassed { false };
         float loopbackSnrDb { 0.0f };
         int pointsMeasured { 0 };
         int totalPointsPlanned { 0 };
@@ -90,7 +92,7 @@ protected:
     void mouseUp(const juce::MouseEvent& event) override;
 
 private:
-    Step currentStep { Step::HardwareRouting };
+    Step currentStep { Step::SystemInfo };
     bool collapsedState { false };
     std::optional<Step> hoveredStep;
 

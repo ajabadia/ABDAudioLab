@@ -39,13 +39,15 @@ public:
     void openDrawer();
     void openFileDrawer(const juce::String& currentExportPath);
     void openHardwareDrawer();
-    void openTestEditorDrawer(const TestConfiguration& initialConfig, int editingIndex = -1);
+    void openTestEditorDrawer(const TestConfiguration& initialConfig, int editingIndex = -1, bool isManual = false);
     void openSetupDrawer(const TelemetryInfo& info);
     void closeDrawer();
     [[nodiscard]] bool isDrawerOpen() const noexcept { return isOpen; }
     [[nodiscard]] DrawerViewMode getCurrentViewMode() const noexcept { return currentViewMode; }
 
     void setTelemetryInfo(const TelemetryInfo& info);
+    DrawerSetupTab& getSetupTab() noexcept { return tabSetup; }
+    const DrawerSetupTab& getSetupTab() const noexcept { return tabSetup; }
     void setHardwareList(const std::vector<HardwareItem>& list);
     void setContracts(std::vector<core::HardwareContract> contractsList);
     void setSelectedHardwareId(const juce::String& id);
@@ -66,6 +68,10 @@ public:
 
     [[nodiscard]] audio::StimulusType getSelectedStimulusType() const;
     [[nodiscard]] const TestConfiguration& getCustomConfiguration() const noexcept { return testEditorConfig; }
+
+    /** Plugin mode: pass parameter list so the user can pick which ones to include in the matrix. */
+    void setAvailablePluginParams(const std::vector<ControlStepConfig>& params) { testEditorPanel.setAvailablePluginParams(params); }
+    void clearAvailablePluginParams() { testEditorPanel.clearAvailablePluginParams(); }
 
     // Laboratory Conditions & Notes (1.7.12)
     [[nodiscard]] juce::String getOperatorNotes() const { return tabFileSession.getOperatorNotes(); }
@@ -94,6 +100,7 @@ public:
     std::function<void()> onOpenAudioSettingsClicked;
     std::function<void()> onAboutClicked;
     std::function<void()> onCheckUpdatesClicked;
+    std::function<void()> onRefreshSetupRequested;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

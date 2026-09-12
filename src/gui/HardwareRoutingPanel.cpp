@@ -1,4 +1,4 @@
-﻿#include "HardwareRoutingPanel.h"
+#include "HardwareRoutingPanel.h"
 #include "SoundIdTheme.h"
 #include "AppTheme.h"
 
@@ -18,7 +18,7 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     addAndMakeVisible(btnAutoDetect);
 
     // Hardware locked banner and change button (for loaded sessions)
-    lblHardwareLockedBanner.setText(juce::String::fromUTF8(u8"Perfil de hardware bloqueado para la sesión activa.\nPara medir otro hardware o submódulo, haz clic a la derecha."), juce::dontSendNotification);
+    lblHardwareLockedBanner.setText("Hardware profile locked for the active session.\nTo measure different hardware or submodule, click Unlock on the right.", juce::dontSendNotification);
     lblHardwareLockedBanner.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::italic));
     lblHardwareLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, SoundIdTheme::bgCardHover);
@@ -26,7 +26,7 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     lblHardwareLockedBanner.setVisible(false);
     addChildComponent(lblHardwareLockedBanner);
 
-    btnChangeHwOrNewFlow.setButtonText(juce::String::fromUTF8(u8"Cambiar Hardware / Nuevo Flujo"));
+    btnChangeHwOrNewFlow.setButtonText("Change Hardware / New Flow");
     btnChangeHwOrNewFlow.setTooltip("Desbloquear selector para elegir otro sintetizador o submodulo e iniciar un nuevo flujo");
     btnChangeHwOrNewFlow.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnChangeHwOrNewFlow.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -40,8 +40,8 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     addChildComponent(btnChangeHwOrNewFlow);
 
     // Hardware device selector
-    hwDeviceCombo.setTextWhenNothingSelected(juce::String::fromUTF8(u8"Seleccionar Dispositivo de Hardware..."));
-    hwDeviceCombo.setTooltip(juce::String::fromUTF8(u8"Elige el sintetizador analógico, pedal o módulo a perfilar"));
+    hwDeviceCombo.setTextWhenNothingSelected("Select Hardware Device...");
+    hwDeviceCombo.setTooltip("Choose analog synthesizer, guitar pedal, or rack unit to profile");
     hwDeviceCombo.onChange = [this] {
         updateFunctionsCombo();
         updateRoutingDisplay();
@@ -52,8 +52,8 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     addAndMakeVisible(hwDeviceCombo);
 
     // Hardware function / block selector
-    hwFunctionCombo.setTextWhenNothingSelected(juce::String::fromUTF8(u8"Seleccionar Función / Bloque..."));
-    hwFunctionCombo.setTooltip(juce::String::fromUTF8(u8"Selecciona el bloque del hardware a caracterizar (ej: VCF Cutoff, VCA)"));
+    hwFunctionCombo.setTextWhenNothingSelected("Select Function / Block...");
+    hwFunctionCombo.setTooltip("Select hardware submodule/block to characterize (e.g., VCF Cutoff, VCA, Overdrive)");
     hwFunctionCombo.onChange = [this] {
         updateRoutingDisplay();
         if (onHardwareSelected)
@@ -66,8 +66,8 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     addAndMakeVisible(deviceDisplayCard);
 
     // Navigation and advanced buttons
-    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Calibración (Paso 2) ➔"));
-    btnContinue.setTooltip(juce::String::fromUTF8(u8"Confirmar selección y avanzar al Paso 2: Calibración de Lazo Cerrado"));
+    btnContinue.setButtonText(juce::String::fromUTF8("Proceed to Run Session (Step 3) \xE2\x86\x92"));
+    btnContinue.setTooltip("Confirm configuration and advance to Step 3: Run Session");
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -76,8 +76,8 @@ HardwareRoutingPanel::HardwareRoutingPanel()
     };
     addAndMakeVisible(btnContinue);
 
-    btnAdvanced.setButtonText(juce::String::fromUTF8(u8"Ajustes Avanzados..."));
-    btnAdvanced.setTooltip(juce::String::fromUTF8(u8"Abrir el panel lateral para configuración avanzada de puertos y parámetros"));
+    btnAdvanced.setButtonText("Advanced Settings...");
+    btnAdvanced.setTooltip("Open side drawer for advanced port and parameter configuration");
     btnAdvanced.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnAdvanced.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnAdvanced.onClick = [this] {
@@ -85,6 +85,15 @@ HardwareRoutingPanel::HardwareRoutingPanel()
             onOpenAdvancedSettings();
     };
     addAndMakeVisible(btnAdvanced);
+
+    btnOpenTopology.setTooltip("Open interactive studio wiring and device topology map");
+    btnOpenTopology.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnOpenTopology.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnOpenTopology.onClick = [this] {
+        if (onOpenTopologyModal)
+            onOpenTopologyModal();
+    };
+    addAndMakeVisible(btnOpenTopology);
 
     hotplugMonitor.onDevicePlugged = [this](const hardware::DiscoveredDevice& dev) {
         juce::MessageManager::callAsync([this, dev] {
@@ -104,7 +113,7 @@ HardwareRoutingPanel::HardwareRoutingPanel()
 
     hotplugMonitor.onDeviceUnplugged = [this](const juce::String& portName) {
         juce::MessageManager::callAsync([this, portName] {
-            setAutoDetectButtonText(juce::String::fromUTF8(u8"Desconectado: ") + portName);
+            setAutoDetectButtonText("Disconnected: " + portName);
         });
     };
 }
@@ -117,8 +126,7 @@ void HardwareRoutingPanel::setHardwareLocked(bool locked)
     btnAutoDetect.setVisible(!locked);
     lblHardwareLockedBanner.setVisible(locked);
     btnChangeHwOrNewFlow.setVisible(locked);
-    btnContinue.setButtonText(locked ? juce::String::fromUTF8(u8"Ir a Ejecución de Sesión (Paso 3) ➔")
-                                    : juce::String::fromUTF8(u8"Continuar a Calibración (Paso 2) ➔"));
+    btnContinue.setButtonText(juce::String::fromUTF8("Proceed to Run Session (Step 3) \xE2\x86\x92"));
 
     if (locked)
     {
@@ -163,10 +171,10 @@ void HardwareRoutingPanel::setContracts(const std::vector<core::HardwareContract
         hwDeviceCombo.addItem(label, static_cast<int>(i + 1));
     }
 
-    if (!contractsList.empty() && hwDeviceCombo.getSelectedId() == 0)
-    {
-        hwDeviceCombo.setSelectedId(1, juce::sendNotification);
-    }
+    hwDeviceCombo.setSelectedId(0, juce::dontSendNotification);
+    hwFunctionCombo.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
 }
 
 void HardwareRoutingPanel::setSelectedHardware(const juce::String& hwId, const juce::String& funcId)
@@ -254,9 +262,9 @@ void HardwareRoutingPanel::updateBrandAndModelGraphics()
 void HardwareRoutingPanel::updateRoutingDisplay()
 {
     bool isMidiAutonomous = false;
-    juce::String routingStimulusText = juce::String::fromUTF8(u8"Salida Audio 1 (DAC) ➔ Entrada de Audio del Hardware");
-    juce::String routingResponseText = juce::String::fromUTF8(u8"Salida de Audio del Hardware ➔ Entrada Audio 1 (ADC)");
-    juce::String routingNotesText = juce::String::fromUTF8(u8"Conecta los cables de audio analógicos y el interfaz MIDI antes de continuar.");
+    juce::String routingStimulusText = "Audio Out 1 (DAC) -> Hardware Audio In";
+    juce::String routingResponseText = "Hardware Audio Out -> Audio In 1 (ADC)";
+    juce::String routingNotesText = "Connect analog audio patch cables and MIDI interface before proceeding.";
 
     int selHw = hwDeviceCombo.getSelectedId() - 1;
     if (selHw >= 0 && selHw < static_cast<int>(contractsList.size()))
@@ -284,24 +292,24 @@ void HardwareRoutingPanel::updateRoutingDisplay()
             if (!fn.routingGuide.stimulusOutput.empty())
                 routingStimulusText = juce::String(fn.routingGuide.stimulusOutput);
             else if (isMidiAutonomous)
-                routingStimulusText = juce::String::fromUTF8(u8"Entrada MIDI / USB (Sintetizador)");
+                routingStimulusText = "MIDI / USB Input (Synthesizer)";
 
             if (!fn.routingGuide.responseInput.empty())
                 routingResponseText = juce::String(fn.routingGuide.responseInput);
             else if (isMidiAutonomous)
-                routingResponseText = juce::String::fromUTF8(u8"Salida de Audio del Sintetizador");
+                routingResponseText = "Synthesizer Audio Output";
 
             if (!fn.routingGuide.notes.empty())
                 routingNotesText = juce::String(fn.routingGuide.notes);
             else if (isMidiAutonomous)
-                routingNotesText = juce::String::fromUTF8(u8"El sintetizador genera el audio internamente excitado por notas MIDI. No es necesario conectar la salida DAC de la tarjeta.");
+                routingNotesText = "Synthesizer generates audio internally via MIDI notes. DAC output cable is not required.";
         }
         else if (isSynthHardware)
         {
             isMidiAutonomous = true;
-            routingStimulusText = juce::String::fromUTF8(u8"Entrada MIDI / USB (Sintetizador)");
-            routingResponseText = juce::String::fromUTF8(u8"Salida de Audio del Sintetizador");
-            routingNotesText = juce::String::fromUTF8(u8"El sintetizador genera el audio internamente excitado por notas MIDI. No es necesario conectar la salida DAC de la tarjeta.");
+            routingStimulusText = "MIDI / USB Input (Synthesizer)";
+            routingResponseText = "Synthesizer Audio Output";
+            routingNotesText = "Synthesizer generates audio internally via MIDI notes. DAC output cable is not required.";
         }
     }
 
@@ -334,7 +342,7 @@ void HardwareRoutingPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(30.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String::fromUTF8(u8"Paso 1: Selección de Hardware y Enrutamiento Físico"),
+    g.drawText("Step 2: Hardware Selection & Physical Routing",
                headerRow.removeFromLeft(500.0f), juce::Justification::centredLeft, true);
 
     auto badgeRect = headerRow.removeFromRight(130.0f).reduced(0.0f, 3.0f);
@@ -342,7 +350,7 @@ void HardwareRoutingPanel::paint(juce::Graphics& g)
     g.fillRoundedRectangle(badgeRect, 6.0f);
     g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::accentGreen);
-    g.drawText("PASO 1 / 4", badgeRect, juce::Justification::centred, true);
+    g.drawText("PASO 2 / 4", badgeRect, juce::Justification::centred, true);
 
     content.removeFromTop(10.0f);
     g.setColour(SoundIdTheme::borderSubtle);
@@ -369,7 +377,7 @@ void HardwareRoutingPanel::paint(juce::Graphics& g)
     auto lblRow2 = leftCol.removeFromTop(18.0f);
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText(juce::String::fromUTF8(u8"FUNCIÓN ANALÓGICA / BLOQUE A PERFILAR"), lblRow2, juce::Justification::centredLeft, true);
+    g.drawText("ANALOG FUNCTION / TARGET SUBMODULE", lblRow2, juce::Justification::centredLeft, true);
 }
 
 void HardwareRoutingPanel::resized()
@@ -421,8 +429,50 @@ void HardwareRoutingPanel::resized()
 
     // 4. Botones de acción inferiores
     int bottomY = cardBounds.getBottom() - 52;
-    btnAdvanced.setBounds(contentX, bottomY, 180, 36);
-    btnContinue.setBounds(cardBounds.getRight() - 28 - 300, bottomY, 300, 36);
+    btnAdvanced.setBounds(contentX, bottomY, 150, 36);
+    btnOpenTopology.setBounds(contentX + 150 + 10, bottomY, 160, 36);
+    btnContinue.setBounds(cardBounds.getRight() - 28 - 280, bottomY, 280, 36);
+}
+
+void HardwareRoutingPanel::resetSelection()
+{
+    isHardwareLocked = false;
+    hwDeviceCombo.clear(juce::dontSendNotification);
+    hwFunctionCombo.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
+    btnAutoDetect.setButtonText("Auto-Detect Hardware");
+    btnContinue.setEnabled(true);
+
+    for (size_t i = 0; i < contractsList.size(); ++i)
+        hwDeviceCombo.addItem(contractsList[i].displayName, static_cast<int>(i + 1));
+
+    repaint();
+}
+
+void HardwareRoutingPanel::setPluginVirtualRouting(const juce::String& pluginName, const juce::String& format, bool isInstrument)
+{
+    isHardwareLocked = false;
+    deviceDisplayCard.setPluginInfo(pluginName, "", format, isInstrument);
+    if (isInstrument)
+    {
+        wiringDiagram.setPluginRouting(
+            "Internal MIDI Sequencer",
+            "Plugin (MIDI In)",
+            "Plugin (Audio Out)",
+            "ABDAudioLab Capture",
+            "Direct digital loop. Zero converter latency.");
+    }
+    else
+    {
+        wiringDiagram.setPluginRouting(
+            "Stimulus Generator",
+            "Plugin (Audio In)",
+            "Plugin (Audio Out)",
+            "ABDAudioLab Capture",
+            "Direct digital closed loop. Zero converter coloration.");
+    }
+    repaint();
 }
 
 } // namespace abdaudiolab::gui

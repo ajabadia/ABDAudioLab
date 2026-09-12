@@ -12,10 +12,7 @@ enum ColumnId
     colIcon = 1,
     colParam = 2,
     colResolution = 3,
-    colSteps = 4,
-    colMin = 5,
-    colMax = 6,
-    colOrder = 7
+    colAdvancedToggle = 4
 };
 
 bool isStandardStep(int step) noexcept
@@ -25,31 +22,204 @@ bool isStandardStep(int step) noexcept
 } // namespace
 
 // ============================================================================
-// OrderButtonsComponent
+// AdvancedSettingsPanel Implementation
 // ============================================================================
-MatrixResolutionTableComponent::OrderButtonsComponent::OrderButtonsComponent()
+MatrixResolutionTableComponent::AdvancedSettingsPanel::AdvancedSettingsPanel()
 {
-    btnUp.setTooltip("Move parameter up in sweep execution order");
-    btnUp.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnUp.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
-    addAndMakeVisible(btnUp);
+    lblTitle.setFont(AppTheme::fontBold(11.0f));
+    lblTitle.setColour(juce::Label::textColourId, SoundIdTheme::accentBlue);
+    addAndMakeVisible(lblTitle);
 
-    btnDown.setTooltip("Move parameter down in sweep execution order");
-    btnDown.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnDown.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
-    addAndMakeVisible(btnDown);
+    lblRange.setText("Range:", juce::dontSendNotification);
+    lblRange.setFont(AppTheme::fontRegular(10.5f));
+    lblRange.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    addAndMakeVisible(lblRange);
+
+    txtMin.setInputRestrictions(5, "0123456789.");
+    txtMin.setTooltip("Minimum Value (%) - Sweep start point");
+    txtMin.setJustification(juce::Justification::centred);
+    txtMin.setColour(juce::TextEditor::backgroundColourId, AppTheme::SurfaceCard);
+    txtMin.setColour(juce::TextEditor::textColourId, AppTheme::TextPrimary);
+    addAndMakeVisible(txtMin);
+
+    lblRangeDash.setText("—", juce::dontSendNotification);
+    lblRangeDash.setFont(AppTheme::fontRegular(10.5f));
+    lblRangeDash.setJustificationType(juce::Justification::centred);
+    lblRangeDash.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    addAndMakeVisible(lblRangeDash);
+
+    txtMax.setInputRestrictions(5, "0123456789.");
+    txtMax.setTooltip("Maximum Value (%) - Sweep end point");
+    txtMax.setJustification(juce::Justification::centred);
+    txtMax.setColour(juce::TextEditor::backgroundColourId, AppTheme::SurfaceCard);
+    txtMax.setColour(juce::TextEditor::textColourId, AppTheme::TextPrimary);
+    addAndMakeVisible(txtMax);
+
+    lblUnitMin.setText("%", juce::dontSendNotification);
+    lblUnitMin.setFont(AppTheme::fontRegular(10.0f));
+    lblUnitMin.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    addAndMakeVisible(lblUnitMin);
+
+    lblUnitMax.setText("%", juce::dontSendNotification);
+    lblUnitMax.setFont(AppTheme::fontRegular(10.0f));
+    lblUnitMax.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    addAndMakeVisible(lblUnitMax);
+
+    lblOrder.setText("Order:", juce::dontSendNotification);
+    lblOrder.setFont(AppTheme::fontRegular(10.5f));
+    lblOrder.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    addAndMakeVisible(lblOrder);
+
+    btnMoveEarlier.setTooltip("Move parameter earlier in sweep execution order");
+    btnMoveEarlier.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnMoveEarlier.setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
+    btnMoveEarlier.onClick = [this] { if (onMoveOrder) onMoveOrder(-1); };
+    addAndMakeVisible(btnMoveEarlier);
+
+    btnMoveLater.setTooltip("Move parameter later in sweep execution order");
+    btnMoveLater.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnMoveLater.setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
+    btnMoveLater.onClick = [this] { if (onMoveOrder) onMoveOrder(1); };
+    addAndMakeVisible(btnMoveLater);
+
+    lblCustomSteps.setText("Custom Points:", juce::dontSendNotification);
+    lblCustomSteps.setFont(AppTheme::fontRegular(10.5f));
+    lblCustomSteps.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+    addChildComponent(lblCustomSteps);
+
+    txtCustomSteps.setInputRestrictions(4, "0123456789");
+    txtCustomSteps.setTooltip("Exact number of measurement evaluation points for this control");
+    txtCustomSteps.setJustification(juce::Justification::centred);
+    txtCustomSteps.setColour(juce::TextEditor::backgroundColourId, AppTheme::SurfaceCard);
+    txtCustomSteps.setColour(juce::TextEditor::textColourId, AppTheme::TextPrimary);
+    addChildComponent(txtCustomSteps);
+
+    btnRemove.setTooltip("Remove this parameter from the measurement matrix");
+    btnRemove.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+    btnRemove.setColour(juce::TextButton::textColourOffId, AppTheme::TextSecondary);
+    btnRemove.onClick = [this] { if (onRemove) onRemove(); };
+    addAndMakeVisible(btnRemove);
 }
 
-void MatrixResolutionTableComponent::OrderButtonsComponent::resized()
+void MatrixResolutionTableComponent::AdvancedSettingsPanel::setTargetControl(int index, ControlStepConfig* config, int totalControls)
 {
-    auto b = getLocalBounds();
-    int h = b.getHeight() / 2;
-    btnUp.setBounds(b.removeFromTop(h));
-    btnDown.setBounds(b);
+    targetIndex = index;
+    targetConfig = config;
+
+    if (targetConfig == nullptr)
+    {
+        setVisible(false);
+        return;
+    }
+
+    lblTitle.setText("Advanced settings \u2022 " + targetConfig->name, juce::dontSendNotification);
+
+    // Range bindings with immediate cross-validation
+    txtMin.onTextChange = nullptr;
+    txtMax.onTextChange = nullptr;
+
+    txtMin.setText(juce::String(targetConfig->minPct, 1), juce::dontSendNotification);
+    txtMax.setText(juce::String(targetConfig->maxPct, 1), juce::dontSendNotification);
+
+    txtMin.onTextChange = [this] {
+        if (targetConfig == nullptr) return;
+        float val = std::clamp(txtMin.getText().getFloatValue(), 0.0f, 100.0f);
+        if (val > targetConfig->maxPct)
+        {
+            val = targetConfig->maxPct;
+            txtMin.setText(juce::String(val, 1), juce::dontSendNotification);
+        }
+        targetConfig->minPct = val;
+        if (onChanged) onChanged();
+    };
+
+    txtMax.onTextChange = [this] {
+        if (targetConfig == nullptr) return;
+        float val = std::clamp(txtMax.getText().getFloatValue(), 0.0f, 100.0f);
+        if (val < targetConfig->minPct)
+        {
+            val = targetConfig->minPct;
+            txtMax.setText(juce::String(val, 1), juce::dontSendNotification);
+        }
+        targetConfig->maxPct = val;
+        if (onChanged) onChanged();
+    };
+
+    btnMoveEarlier.setEnabled(targetIndex > 0);
+    btnMoveLater.setEnabled(targetIndex + 1 < totalControls);
+
+    // Custom steps visibility: ONLY visible when isCustom is explicitly true
+    bool showCustom = targetConfig->isCustom;
+    lblCustomSteps.setVisible(showCustom);
+    txtCustomSteps.setVisible(showCustom);
+
+    if (showCustom)
+    {
+        txtCustomSteps.onTextChange = nullptr;
+        txtCustomSteps.setText(juce::String(targetConfig->steps), juce::dontSendNotification);
+        txtCustomSteps.onTextChange = [this] {
+            if (targetConfig == nullptr) return;
+            int pts = std::clamp(txtCustomSteps.getText().getIntValue(), 1, 512);
+            targetConfig->steps = pts;
+            if (onChanged) onChanged();
+        };
+    }
+
+    setVisible(true);
+    resized();
+    repaint();
+}
+
+void MatrixResolutionTableComponent::AdvancedSettingsPanel::paint(juce::Graphics& g)
+{
+    auto b = getLocalBounds().toFloat().reduced(0.5f);
+    g.setColour(SoundIdTheme::surfaceSubtle.withAlpha(0.65f));
+    g.fillRoundedRectangle(b, 6.0f);
+    g.setColour(SoundIdTheme::borderSubtle);
+    g.drawRoundedRectangle(b, 6.0f, 1.0f);
+}
+
+void MatrixResolutionTableComponent::AdvancedSettingsPanel::resized()
+{
+    auto b = getLocalBounds().reduced(10, 6);
+    int rowH = 24;
+
+    // Top Row: Title + Remove Button
+    auto topRow = b.removeFromTop(rowH);
+    btnRemove.setBounds(topRow.removeFromRight(105).reduced(0, 2));
+    lblTitle.setBounds(topRow);
+
+    b.removeFromTop(4);
+
+    // Middle Row: Range and Order
+    auto midRow = b.removeFromTop(rowH);
+
+    lblRange.setBounds(midRow.removeFromLeft(46));
+    txtMin.setBounds(midRow.removeFromLeft(40));
+    lblUnitMin.setBounds(midRow.removeFromLeft(14));
+    lblRangeDash.setBounds(midRow.removeFromLeft(16));
+    txtMax.setBounds(midRow.removeFromLeft(40));
+    lblUnitMax.setBounds(midRow.removeFromLeft(18));
+
+    midRow.removeFromLeft(16); // spacing
+
+    lblOrder.setBounds(midRow.removeFromLeft(42));
+    btnMoveEarlier.setBounds(midRow.removeFromLeft(95).reduced(1, 1));
+    midRow.removeFromLeft(4);
+    btnMoveLater.setBounds(midRow.removeFromLeft(90).reduced(1, 1));
+
+    // Bottom Row: Custom Points (if visible)
+    if (lblCustomSteps.isVisible())
+    {
+        b.removeFromTop(4);
+        auto customRow = b.removeFromTop(rowH);
+        lblCustomSteps.setBounds(customRow.removeFromLeft(90));
+        txtCustomSteps.setBounds(customRow.removeFromLeft(50));
+    }
 }
 
 // ============================================================================
-// MatrixResolutionTableComponent
+// MatrixResolutionTableComponent Implementation
 // ============================================================================
 MatrixResolutionTableComponent::MatrixResolutionTableComponent()
 {
@@ -61,22 +231,61 @@ MatrixResolutionTableComponent::MatrixResolutionTableComponent()
     matrixTable.setOutlineThickness(1);
 
     auto& hdr = matrixTable.getHeader();
-    hdr.addColumn("ICON", colIcon, 32, 28, 40, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("PARAMETER", colParam, 170, 120, 260, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("STEP RESOLUTION", colResolution, 150, 130, 220, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("STEPS", colSteps, 55, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("MIN %", colMin, 52, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("MAX %", colMax, 52, 45, 75, juce::TableHeaderComponent::notSortable);
-    hdr.addColumn("ORDER", colOrder, 46, 40, 60, juce::TableHeaderComponent::notSortable);
+    // 4 compact columns: Icon, Parameter, Resolution preset, and Advanced chevron toggle
+    hdr.addColumn("ICON",            colIcon,            32,  28,  40,  juce::TableHeaderComponent::notSortable);
+    hdr.addColumn("PARAMETER",       colParam,          160, 100, 300, juce::TableHeaderComponent::notSortable);
+    hdr.addColumn("STEP RESOLUTION", colResolution,     150, 130, 220, juce::TableHeaderComponent::notSortable);
+    hdr.addColumn("",                colAdvancedToggle,  34,  30,  44,  juce::TableHeaderComponent::notSortable);
 
     addAndMakeVisible(matrixTable);
+
+    advancedPanel.setVisible(false);
+    advancedPanel.onChanged = [this] {
+        matrixTable.updateContent();
+        matrixTable.repaint();
+        if (onControlsChanged) onControlsChanged();
+    };
+    advancedPanel.onMoveOrder = [this](int dir) {
+        if (activeAdvancedRow >= 0 && activeAdvancedRow < static_cast<int>(controlList.size()))
+        {
+            int dest = activeAdvancedRow + dir;
+            moveRow(activeAdvancedRow, dest);
+        }
+    };
+    advancedPanel.onRemove = [this] {
+        if (activeAdvancedRow >= 0 && activeAdvancedRow < static_cast<int>(controlList.size()))
+        {
+            removeRow(activeAdvancedRow);
+        }
+    };
+    addChildComponent(advancedPanel);
+
+    btnAddParam.setTooltip("Add a plugin parameter to the measurement matrix");
+    btnAddParam.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnAddParam.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+    btnAddParam.onClick = [this] { showAddParamMenu(); };
+    btnAddParam.setVisible(false);
+    addAndMakeVisible(btnAddParam);
 }
 
 void MatrixResolutionTableComponent::setControls(const std::vector<ControlStepConfig>& controls)
 {
     controlList = controls;
+    if (activeAdvancedRow >= static_cast<int>(controlList.size()))
+        activeAdvancedRow = -1;
+
+    if (activeAdvancedRow >= 0)
+    {
+        advancedPanel.setTargetControl(activeAdvancedRow, &controlList[static_cast<size_t>(activeAdvancedRow)], static_cast<int>(controlList.size()));
+    }
+    else
+    {
+        advancedPanel.setVisible(false);
+    }
+
     matrixTable.updateContent();
     matrixTable.repaint();
+    resized();
 }
 
 void MatrixResolutionTableComponent::updateTheme()
@@ -87,16 +296,173 @@ void MatrixResolutionTableComponent::updateTheme()
     matrixTable.repaint();
 }
 
+void MatrixResolutionTableComponent::setAvailableParams(const std::vector<ControlStepConfig>& availableParams)
+{
+    availableParamsList = availableParams;
+    btnAddParam.setVisible(!availableParamsList.empty());
+    resized();
+}
+
+void MatrixResolutionTableComponent::clearAvailableParams()
+{
+    availableParamsList.clear();
+    btnAddParam.setVisible(false);
+    resized();
+}
+
+void MatrixResolutionTableComponent::toggleAdvancedRow(int rowIndex)
+{
+    if (activeAdvancedRow == rowIndex)
+    {
+        // Toggle close
+        activeAdvancedRow = -1;
+        advancedPanel.setVisible(false);
+    }
+    else if (rowIndex >= 0 && rowIndex < static_cast<int>(controlList.size()))
+    {
+        // Open/switch to this row
+        activeAdvancedRow = rowIndex;
+        advancedPanel.setTargetControl(activeAdvancedRow, &controlList[static_cast<size_t>(activeAdvancedRow)], static_cast<int>(controlList.size()));
+    }
+    else
+    {
+        activeAdvancedRow = -1;
+        advancedPanel.setVisible(false);
+    }
+
+    matrixTable.updateContent();
+    matrixTable.repaint();
+    if (auto* parent = getParentComponent())
+        parent->resized();
+    else
+        resized();
+}
+
+void MatrixResolutionTableComponent::showAddParamMenu()
+{
+    juce::PopupMenu menu;
+    menu.addSectionHeader("Plugin Parameters");
+
+    int menuId = 1;
+    std::vector<int> unmappedIndices;
+    for (int i = 0; i < static_cast<int>(availableParamsList.size()); ++i)
+    {
+        const auto& ap = availableParamsList[static_cast<size_t>(i)];
+        bool alreadyAdded = false;
+        for (const auto& c : controlList)
+        {
+            if (c.id == ap.id || c.name == ap.name)
+            {
+                alreadyAdded = true;
+                break;
+            }
+        }
+        if (!alreadyAdded)
+        {
+            menu.addItem(menuId, ap.name);
+            unmappedIndices.push_back(i);
+            ++menuId;
+        }
+    }
+
+    if (unmappedIndices.empty())
+    {
+        menu.addItem(1, "(All parameters already added)", false);
+        menu.showMenuAsync(juce::PopupMenu::Options{}.withTargetComponent(&btnAddParam));
+        return;
+    }
+
+    menu.showMenuAsync(
+        juce::PopupMenu::Options{}.withTargetComponent(&btnAddParam),
+        [this, unmappedIndices](int result)
+        {
+            if (result <= 0) return;
+            int idx = unmappedIndices[static_cast<size_t>(result - 1)];
+            ControlStepConfig cs = availableParamsList[static_cast<size_t>(idx)];
+            cs.steps = 5;
+            cs.isCustom = false;
+            cs.minPct = 0.0f;
+            cs.maxPct = 100.0f;
+            cs.sortOrder = static_cast<int>(controlList.size());
+            controlList.push_back(cs);
+            matrixTable.updateContent();
+            matrixTable.repaint();
+            if (auto* p = getParentComponent()) p->resized(); else resized();
+            if (onControlsChanged) onControlsChanged();
+        });
+}
+
+void MatrixResolutionTableComponent::removeRow(int rowIndex)
+{
+    if (rowIndex < 0 || rowIndex >= static_cast<int>(controlList.size())) return;
+    controlList.erase(controlList.begin() + rowIndex);
+
+    if (activeAdvancedRow == rowIndex)
+    {
+        activeAdvancedRow = -1;
+        advancedPanel.setVisible(false);
+    }
+    else if (activeAdvancedRow > rowIndex)
+    {
+        activeAdvancedRow--;
+        advancedPanel.setTargetControl(activeAdvancedRow, &controlList[static_cast<size_t>(activeAdvancedRow)], static_cast<int>(controlList.size()));
+    }
+
+    matrixTable.updateContent();
+    matrixTable.repaint();
+    if (auto* p = getParentComponent()) p->resized(); else resized();
+    if (onControlsChanged) onControlsChanged();
+}
+
+void MatrixResolutionTableComponent::moveRow(int fromIndex, int toIndex)
+{
+    if (fromIndex < 0 || fromIndex >= static_cast<int>(controlList.size())) return;
+    if (toIndex < 0 || toIndex >= static_cast<int>(controlList.size())) return;
+
+    std::swap(controlList[static_cast<size_t>(fromIndex)], controlList[static_cast<size_t>(toIndex)]);
+    activeAdvancedRow = toIndex;
+    advancedPanel.setTargetControl(activeAdvancedRow, &controlList[static_cast<size_t>(activeAdvancedRow)], static_cast<int>(controlList.size()));
+
+    matrixTable.updateContent();
+    matrixTable.repaint();
+    if (onControlsChanged) onControlsChanged();
+}
+
 int MatrixResolutionTableComponent::getPreferredHeight() const
 {
     int numRows = static_cast<int>(controlList.size());
     int tableContentH = 26 + std::max(1, numRows) * 34 + 6;
-    return std::clamp(tableContentH, 94, 260);
+    int tableH = std::clamp(tableContentH, 94, 220);
+
+    int advH = 0;
+    if (activeAdvancedRow >= 0 && activeAdvancedRow < static_cast<int>(controlList.size()))
+    {
+        advH = controlList[static_cast<size_t>(activeAdvancedRow)].isCustom ? 90 : 66;
+    }
+
+    return tableH + advH + (btnAddParam.isVisible() ? 30 : 0);
 }
 
 void MatrixResolutionTableComponent::resized()
 {
-    matrixTable.setBounds(getLocalBounds());
+    auto b = getLocalBounds();
+
+    if (btnAddParam.isVisible())
+    {
+        btnAddParam.setBounds(b.removeFromBottom(26).reduced(0, 2));
+    }
+
+    if (activeAdvancedRow >= 0 && activeAdvancedRow < static_cast<int>(controlList.size()))
+    {
+        int advH = controlList[static_cast<size_t>(activeAdvancedRow)].isCustom ? 86 : 64;
+        advancedPanel.setBounds(b.removeFromBottom(advH).reduced(0, 2));
+    }
+    else
+    {
+        advancedPanel.setVisible(false);
+    }
+
+    matrixTable.setBounds(b);
 }
 
 // ============================================================================
@@ -109,7 +475,11 @@ int MatrixResolutionTableComponent::getNumRows()
 
 void MatrixResolutionTableComponent::paintRowBackground(juce::Graphics& g, int rowNumber, int width, int height, bool rowIsSelected)
 {
-    if (rowIsSelected)
+    if (rowNumber == activeAdvancedRow)
+    {
+        g.fillAll(SoundIdTheme::accentBlue.withAlpha(0.12f));
+    }
+    else if (rowIsSelected)
     {
         g.fillAll(AppTheme::SurfaceHover);
     }
@@ -136,7 +506,7 @@ void MatrixResolutionTableComponent::paintCell(juce::Graphics& g, int rowNumber,
     if (columnId == colParam)
     {
         g.setFont(AppTheme::fontBold(11.0f));
-        g.setColour(AppTheme::TextPrimary);
+        g.setColour(rowNumber == activeAdvancedRow ? SoundIdTheme::accentBlue : AppTheme::TextPrimary);
         g.drawText(ctrl.name, 6, 0, width - 8, height, juce::Justification::centredLeft, true);
     }
 }
@@ -167,14 +537,14 @@ juce::Component* MatrixResolutionTableComponent::refreshComponentForCell(int row
         return iconComp;
     }
 
-    // 2. Column Parameter Name: painted directly in paintCell for zero widget overhead
+    // 2. Column Parameter Name: painted directly in paintCell for high rendering performance
     if (columnId == colParam)
     {
         delete existingComponentToUpdate;
         return nullptr;
     }
 
-    // 3. Column Step Resolution (ComboBox)
+    // 3. Column Step Resolution (ComboBox) with clean semantic presets
     if (columnId == colResolution)
     {
         juce::ComboBox* combo = nullptr;
@@ -184,34 +554,47 @@ juce::Component* MatrixResolutionTableComponent::refreshComponentForCell(int row
         {
             combo = new juce::ComboBox();
             combo->setTooltip("Step Resolution - Preset number of points across sweep range");
-            combo->addItem("Fixed (1 step - single reference)", 1);
-            combo->addItem("3 Steps (0%, 50%, 100%)", 3);
-            combo->addItem("5 Steps (Standard: 0, 25, 50, 75, 100%)", 5);
-            combo->addItem("8 Steps (Detailed: 8 steps)", 8);
-            combo->addItem("16 Steps (High-Res: 16 steps)", 16);
-            combo->addItem("32 Steps (Ultra High-Res: 32 steps)", 32);
-            combo->addItem("64 Steps (Extreme: 64 steps)", 64);
-            combo->addItem("Custom Steps (Manual)...", 99);
+            combo->addItem("Fixed (1 point)", 1);
+            combo->addItem("Coarse (3 points)", 3);
+            combo->addItem("Standard (5 points)", 5);
+            combo->addItem("Detailed (8 points)", 8);
+            combo->addItem("Fine (16 points)", 16);
+            combo->addItem("Ultra-Fine (32 points)", 32);
+            combo->addItem("Extreme (64 points)", 64);
+            combo->addItem("Custom...", 99);
         }
 
-        // CRITICAL JUCE 8: Clear callback before mutating state to avoid firing on recycled row
         combo->onChange = nullptr;
 
-        int step = (ctrl.steps > 0) ? ctrl.steps : 1;
-        combo->setSelectedId(isStandardStep(step) ? step : 99, juce::dontSendNotification);
+        int selectedId = ctrl.isCustom ? 99 : (isStandardStep(ctrl.steps) ? ctrl.steps : 99);
+        combo->setSelectedId(selectedId, juce::dontSendNotification);
 
-        // Rebind callback capturing the EXACT rowNumber
         combo->onChange = [this, rowNumber, combo] {
             if (rowNumber >= 0 && rowNumber < static_cast<int>(controlList.size()))
             {
                 auto& c = controlList[static_cast<size_t>(rowNumber)];
                 int sId = combo->getSelectedId();
-                if (sId != 99)
+                if (sId == 99)
                 {
+                    c.isCustom = true;
+                    // Keep existing steps or default to 10 if standard 1
+                    if (c.steps <= 1) c.steps = 10;
+                    // Auto-open advanced panel so user can immediately edit points
+                    toggleAdvancedRow(rowNumber);
+                }
+                else
+                {
+                    c.isCustom = false;
                     c.steps = sId;
                     if (c.steps == 1) c.maxPct = c.minPct;
+                    if (activeAdvancedRow == rowNumber)
+                    {
+                        advancedPanel.setTargetControl(rowNumber, &c, static_cast<int>(controlList.size()));
+                        resized();
+                    }
                 }
                 matrixTable.updateContent();
+                matrixTable.repaint();
                 if (onControlsChanged) onControlsChanged();
             }
         };
@@ -219,149 +602,21 @@ juce::Component* MatrixResolutionTableComponent::refreshComponentForCell(int row
         return combo;
     }
 
-    // 4. Column Custom Steps (TextEditor)
-    if (columnId == colSteps)
+    // 4. Column Advanced Toggle Button (Chevron ▾ / ▴)
+    if (columnId == colAdvancedToggle)
     {
-        juce::TextEditor* editor = nullptr;
+        AdvancedToggleComponent* toggleComp = nullptr;
         if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
+            toggleComp = dynamic_cast<AdvancedToggleComponent*>(existingComponentToUpdate);
         else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(3, "0123456789");
-            editor->setTooltip("Custom Steps - Exact evaluation points count");
-            editor->setJustification(juce::Justification::centred);
-        }
+            toggleComp = new AdvancedToggleComponent();
 
-        // CRITICAL JUCE 8: Clear callback before mutating text
-        editor->onTextChange = nullptr;
-        editor->setText(juce::String(ctrl.steps), juce::dontSendNotification);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(controlList.size()))
-            {
-                int val = std::max(1, editor->getText().getIntValue());
-                controlList[static_cast<size_t>(rowNumber)].steps = val;
-                if (onControlsChanged) onControlsChanged();
-            }
+        toggleComp->setState(activeAdvancedRow == rowNumber);
+        toggleComp->onToggle = [this, rowNumber] {
+            toggleAdvancedRow(rowNumber);
         };
 
-        return editor;
-    }
-
-    // 5. Column Min % (TextEditor)
-    if (columnId == colMin)
-    {
-        juce::TextEditor* editor = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
-        else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(5, "0123456789.");
-            editor->setTooltip("Minimum Value (%) - Sweep start point");
-            editor->setJustification(juce::Justification::centred);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before mutating text
-        editor->onTextChange = nullptr;
-        editor->setText(juce::String(ctrl.minPct, 1), juce::dontSendNotification);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(controlList.size()))
-            {
-                float val = std::clamp(editor->getText().getFloatValue(), 0.0f, 100.0f);
-                auto& c = controlList[static_cast<size_t>(rowNumber)];
-                c.minPct = val;
-                if (c.steps == 1)
-                {
-                    c.maxPct = val;
-                    matrixTable.updateContent();
-                }
-                if (onControlsChanged) onControlsChanged();
-            }
-        };
-
-        return editor;
-    }
-
-    // 6. Column Max % (TextEditor)
-    if (columnId == colMax)
-    {
-        juce::TextEditor* editor = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            editor = dynamic_cast<juce::TextEditor*>(existingComponentToUpdate);
-        else
-        {
-            editor = new juce::TextEditor();
-            editor->setInputRestrictions(5, "0123456789.");
-            editor->setTooltip("Maximum Value (%) - Sweep end point");
-            editor->setJustification(juce::Justification::centred);
-        }
-
-        // CRITICAL JUCE 8: Clear callback before mutating text
-        editor->onTextChange = nullptr;
-        editor->setText(juce::String(ctrl.maxPct, 1), juce::dontSendNotification);
-
-        bool enabled = (ctrl.steps > 1);
-        editor->setEnabled(enabled);
-        editor->setColour(juce::TextEditor::backgroundColourId, enabled ? AppTheme::SurfaceCard : AppTheme::SurfaceHover);
-        editor->setColour(juce::TextEditor::textColourId, enabled ? AppTheme::TextPrimary : AppTheme::TextSecondary);
-
-        // Rebind callback capturing EXACT rowNumber
-        editor->onTextChange = [this, rowNumber, editor] {
-            if (rowNumber >= 0 && rowNumber < static_cast<int>(controlList.size()))
-            {
-                auto& c = controlList[static_cast<size_t>(rowNumber)];
-                float val = std::clamp(editor->getText().getFloatValue(), c.minPct, 100.0f);
-                c.maxPct = val;
-                if (onControlsChanged) onControlsChanged();
-            }
-        };
-
-        return editor;
-    }
-
-    // 7. Column Order (OrderButtonsComponent)
-    if (columnId == colOrder)
-    {
-        OrderButtonsComponent* order = nullptr;
-        if (existingComponentToUpdate != nullptr)
-            order = dynamic_cast<OrderButtonsComponent*>(existingComponentToUpdate);
-        else
-            order = new OrderButtonsComponent();
-
-        // CRITICAL JUCE 8: Clear callbacks before mutating state
-        order->btnUp.onClick = nullptr;
-        order->btnDown.onClick = nullptr;
-
-        order->btnUp.setEnabled(rowNumber > 0);
-        order->btnDown.setEnabled(rowNumber + 1 < static_cast<int>(controlList.size()));
-
-        // Rebind callbacks capturing EXACT rowNumber
-        order->btnUp.onClick = [this, rowNumber] {
-            if (rowNumber > 0 && rowNumber < static_cast<int>(controlList.size()))
-            {
-                std::swap(controlList[static_cast<size_t>(rowNumber)],
-                          controlList[static_cast<size_t>(rowNumber - 1)]);
-                matrixTable.updateContent();
-                if (onControlsChanged) onControlsChanged();
-            }
-        };
-
-        order->btnDown.onClick = [this, rowNumber] {
-            if (rowNumber >= 0 && rowNumber + 1 < static_cast<int>(controlList.size()))
-            {
-                std::swap(controlList[static_cast<size_t>(rowNumber)],
-                          controlList[static_cast<size_t>(rowNumber + 1)]);
-                matrixTable.updateContent();
-                if (onControlsChanged) onControlsChanged();
-            }
-        };
-
-        return order;
+        return toggleComp;
     }
 
     delete existingComponentToUpdate;

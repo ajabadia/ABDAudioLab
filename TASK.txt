@@ -1,0 +1,1 @@
+Lee PLAN.md e implementa las funciones setPointStatus, getPointStatus y resetPointStatuses en src/gui/SoundIdSuiteList.cpp delegando en modelManager.

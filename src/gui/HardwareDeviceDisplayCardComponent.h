@@ -15,6 +15,8 @@ public:
     void paint(juce::Graphics& g) override;
 
     void setDevice(const core::HardwareContract* contract);
+    void setPluginInfo(const juce::String& name, const juce::String& manufacturer, const juce::String& format, bool isInstrument);
+    void clear();
 
     [[nodiscard]] const juce::String& getDisplayName() const noexcept { return currentHwDisplayName; }
     [[nodiscard]] const juce::String& getBrand() const noexcept { return currentHwBrand; }
@@ -23,6 +25,7 @@ public:
     [[nodiscard]] bool hasBrandLogo() const noexcept { return brandLogoDrawable != nullptr; }
 
 private:
+    bool isPluginModeActive = false;
     std::unique_ptr<juce::Drawable> modelSvgDrawable;
     juce::Image modelRasterImage;
     std::unique_ptr<juce::Drawable> brandLogoDrawable;

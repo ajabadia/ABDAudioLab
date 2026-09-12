@@ -80,11 +80,35 @@ public:
 
         auto content = bounds.reduced(8.0f, 3.0f);
 
-        // 1. Hardware Thumbnail icon on the left
+        // 1. Hardware Thumbnail icon on the left (or vector plug icon if software plugin)
+        bool isPlugin = hwDisplayName.containsIgnoreCase("Plugin") ||
+                        hwDisplayName.containsIgnoreCase("[Instrumento]") ||
+                        hwDisplayName.containsIgnoreCase("[Efecto]") ||
+                        hwFunctionName.containsIgnoreCase("Virtual");
+
         if (hwThumbnail.isValid())
         {
             auto thumbArea = content.removeFromLeft(30.0f);
             g.drawImage(hwThumbnail, thumbArea, juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize);
+            content.removeFromLeft(6.0f);
+        }
+        else if (isPlugin)
+        {
+            auto thumbArea = content.removeFromLeft(20.0f);
+            auto c = thumbArea.getCentre();
+            g.setColour(SoundIdTheme::accentBlue);
+            g.drawLine(c.x - 3.0f, c.y - 6.5f, c.x - 3.0f, c.y - 3.0f, 1.2f);
+            g.drawLine(c.x + 3.0f, c.y - 6.5f, c.x + 3.0f, c.y - 3.0f, 1.2f);
+            juce::Path plug;
+            plug.startNewSubPath(c.x - 5.5f, c.y - 3.0f);
+            plug.lineTo(c.x + 5.5f, c.y - 3.0f);
+            plug.lineTo(c.x + 5.5f, c.y + 2.0f);
+            plug.lineTo(c.x + 2.5f, c.y + 5.5f);
+            plug.lineTo(c.x - 2.5f, c.y + 5.5f);
+            plug.lineTo(c.x - 5.5f, c.y + 2.0f);
+            plug.closeSubPath();
+            g.strokePath(plug, juce::PathStrokeType(1.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            g.drawLine(c.x, c.y + 5.5f, c.x, c.y + 8.5f, 1.3f);
             content.removeFromLeft(6.0f);
         }
 

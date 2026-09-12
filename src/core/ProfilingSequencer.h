@@ -101,6 +101,15 @@ public:
     void repeatCurrentStep();   // Repeat the last measured step without losing progress
     void stepBack();            // Return to previous measurement step
 
+    /** Freeze the session between test iterations (does not abort). */
+    void pauseSession();
+    /** Resume a previously paused session. */
+    void resumeSession();
+    /** Queue a single point by its global index for re-run without resetting others. */
+    void scheduleRerunPoint(int globalPointIndex);
+
+    [[nodiscard]] bool isSessionPaused() const noexcept { return sessionPaused.load(std::memory_order_acquire); }
+
     [[nodiscard]] SequencerState getCurrentState() const noexcept { return currentState.load(std::memory_order_relaxed); }
     [[nodiscard]] bool isRunningSession() const noexcept { return isThreadRunning(); }
     [[nodiscard]] const std::vector<exporting::MeasuredPoint>& getMeasuredPoints() const noexcept { return measuredPoints; }
@@ -130,6 +139,13 @@ private:
     std::atomic<bool> safetyAborted { false };
     std::atomic<bool> linearBypassDetected { false };
     std::atomic<bool> adaptiveOptimizationApplied { false };
+
+    // Phase 14: Pause / Resume
+    std::atomic<bool> sessionPaused { false };
+    juce::WaitableEvent resumeEvent { false };  // manual-reset = false (auto-reset)
+
+    // Phase 14: Granular single-point re-run
+    std::atomic<int> rerunPointIndex { -1 };
 
     ProgressCallback progressCallback;
     PointMeasuredCallback pointMeasuredCallback;

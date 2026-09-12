@@ -35,6 +35,12 @@ void SuiteListEventHandler::showPointContextMenu(int queueIndex, int pointIndex)
         menu.addSeparator();
         menu.addItem(8, "Re-Measure Selected (" + juce::String(model.getSelectedPointCount()) + ") Points Now");
     }
+    // Live single-point re-run (only available when a session is active)
+    if (cb.onRerunPointRequested)
+    {
+        menu.addSeparator();
+        menu.addItem(9, "Re-run Point #" + juce::String(pointIndex + 1) + " (Live Session)");
+    }
 
     menu.showMenuAsync(juce::PopupMenu::Options(), [this, queueIndex, pointIndex](int result) {
         if (result == 1) model.togglePointSelection(queueIndex, pointIndex);
@@ -56,6 +62,11 @@ void SuiteListEventHandler::showPointContextMenu(int queueIndex, int pointIndex)
             auto sel = model.getSelectedPoints();
             if (!sel.empty() && cb.onRerunSelectedClicked)
                 cb.onRerunSelectedClicked(sel);
+        }
+        else if (result == 9)
+        {
+            if (cb.onRerunPointRequested)
+                cb.onRerunPointRequested(queueIndex, pointIndex);
         }
 
         if (cb.onQueueChanged)

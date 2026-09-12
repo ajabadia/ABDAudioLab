@@ -8,19 +8,20 @@ namespace abdaudiolab::gui
 NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     : audioEngine(engine), progressBar(progressValue)
 {
-    btnStartMeasure.setTooltip("Inicia la calibración inyectando un barrido Farina de 1.0s para medir ganancia, retardo y respuesta");
+    btnStartMeasure.setTooltip("Fires a 1.0s Farina logarithmic sweep to measure round-trip gain, latency and transfer function H(f)");
     btnStartMeasure.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnStartMeasure.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnStartMeasure.onClick = [this] { startCalibrationSweep(); };
     addAndMakeVisible(btnStartMeasure);
 
-    btnSkip.setTooltip("Avanza directamente al Paso 3 con ganancia unitaria nominal (0 dB) y 0 muestras de latencia");
+    btnSkip.setTooltip("Proceed to Step 2 with nominal unity gain (0 dB) and 0 latency samples. Disables interface latency compensation.");
     btnSkip.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnSkip.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
     btnSkip.onClick = [this] { skipCalibration(); };
     addAndMakeVisible(btnSkip);
 
-    btnContinue.setTooltip("Avanzar a la pantalla de ejecución de mediciones del Paso 3");
+    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Hardware & Routing (Paso 2) ➔"));
+    btnContinue.setTooltip("Advance to Step 2: hardware selection and routing");
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -29,7 +30,7 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     };
     addChildComponent(btnContinue);
 
-    btnRetry.setTooltip("Repetir el barrido de calibración tras ajustar niveles");
+    btnRetry.setTooltip("Repeat the calibration sweep after adjusting input levels");
     btnRetry.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber);
     btnRetry.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     btnRetry.onClick = [this] { startCalibrationSweep(); };
@@ -203,7 +204,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(32.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String::fromUTF8(u8"Paso 2: Calibración de Lazo Cerrado (Loopback)"), headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
+    g.drawText("Step 1: Closed-Loop Loopback Calibration", headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
 
     // Estado Badge
     auto badgeRect = headerRow.removeFromRight(150.0f).reduced(0.0f, 3.0f);
@@ -213,7 +214,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff065f46));
-        g.drawText(juce::String::fromUTF8(u8"● CALIBRADO"), badgeRect, juce::Justification::centred, true);
+        g.drawText("● CALIBRATION COMPLETE", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Skipped)
     {
@@ -221,7 +222,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff92400e));
-        g.drawText(juce::String::fromUTF8(u8"⏭ OMITIDO (NOMINAL)"), badgeRect, juce::Justification::centred, true);
+        g.drawText("⏭ CALIBRATION BYPASSED", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Measuring)
     {
@@ -229,7 +230,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff3730a3));
-        g.drawText(juce::String::fromUTF8(u8"⟳ MIDIENDO..."), badgeRect, juce::Justification::centred, true);
+        g.drawText("⟳ MEASURING...", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Failed)
     {
@@ -237,7 +238,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentRed);
-        g.drawText(juce::String::fromUTF8(u8"✕ NIVEL BAJO / CLIP"), badgeRect, juce::Justification::centred, true);
+        g.drawText("✕ LEVEL LOW / CLIP", badgeRect, juce::Justification::centred, true);
     }
     else
     {
@@ -245,7 +246,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText("PENDIENTE", badgeRect, juce::Justification::centred, true);
+        g.drawText("CALIBRATION PENDING", badgeRect, juce::Justification::centred, true);
     }
 
     content.removeFromTop(12.0f);
@@ -256,7 +257,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     // Subtítulo explicativo
     g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText(juce::String::fromUTF8(u8"La calibración de lazo cerrado compensa la latencia ida-vuelta del convertidor DAC/ADC y ajusta automáticamente la ganancia a -3.0 dBFS para mediciones científicas estables."),
+    g.drawText("Closed-loop calibration compensates DAC/ADC round-trip latency and auto-trims input gain to the target headroom for stable, reproducible measurements.",
                content.removeFromTop(32.0f), juce::Justification::topLeft, true);
 
     content.removeFromTop(12.0f);
@@ -292,12 +293,12 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         leftCol.removeFromTop(8.0f);
     };
 
-    drawStepItem(1, juce::String::fromUTF8(u8"Conectar Cable de Retorno (Loopback)"),
-                 juce::String::fromUTF8(u8"Conecta un cable jack físico directo desde la Salida Audio 1 (DAC) a la Entrada Audio 1 (ADC)."));
-    drawStepItem(2, juce::String::fromUTF8(u8"Verificar Nivel de Ganancia"),
-                 juce::String::fromUTF8(u8"Ajusta el previo de la tarjeta para que el medidor de señal marque nivel saludable (entre -24 y -3 dBFS)."));
-    drawStepItem(3, juce::String::fromUTF8(u8"Disparar Barrido Farina"),
-                 juce::String::fromUTF8(u8"Un pulso logarítmico de 1.0s extraerá la función de transferencia H(f) y el desfase de muestras."));
+    drawStepItem(1, "1. Connect Loopback Cable",
+                 "Connect a physical jack cable from Audio Output 1 (DAC) to Audio Input 1 (ADC) of your interface.");
+    drawStepItem(2, "2. Verify Gain Levels",
+                 "Adjust your interface preamp until the real-time signal meter reads -3.0 dBFS (\u00b10.5 dBFS).");
+    drawStepItem(3, "3. Trigger Farina Sweep",
+                 "Click the button below to fire a 1.0s logarithmic sweep. Extracts round-trip latency and transfer function H(f).");
 
     // --- Columna Derecha: Monitor Balístico de Nivel & Métricas ---
     g.setColour(SoundIdTheme::bgCardHover);
@@ -309,7 +310,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText(juce::String::fromUTF8(u8"MONITOR DE SEÑAL EN TIEMPO REAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText("REAL-TIME SIGNAL MONITOR", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     meterArea.removeFromTop(8.0f);
 
     // Vúmetro horizontal
@@ -334,7 +335,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     juce::String dbText = (liveDb < -70.0f) ? "-inf dBFS" : juce::String(liveDb, 1) + " dBFS";
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText(juce::String::fromUTF8(u8"Nivel entrada: ") + dbText, meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText("Input level: " + dbText, meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
     meterArea.removeFromTop(10.0f);
     g.setColour(SoundIdTheme::borderSubtle);
@@ -347,25 +348,25 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     if (currentState == State::Success)
     {
         float trimDb = 20.0f * std::log10(std::max(calibrationData.recommendedTrimGain, 1e-4f));
-        g.drawText(juce::String::fromUTF8(u8"Latencia medida: ") + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
-                   juce::String(calibrationData.latencySamples) + juce::String::fromUTF8(u8" muestras)"),
+        g.drawText("Round-trip latency: " + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
+                   juce::String(calibrationData.latencySamples) + " samples)",
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         juce::String sign = (trimDb >= 0.0f) ? "+" : "";
-        g.drawText(juce::String::fromUTF8(u8"Ajuste Auto-Trim: ") + sign + juce::String(trimDb, 2) + " dB",
+        g.drawText("Auto-Trim gain: " + sign + juce::String(trimDb, 2) + " dB",
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText(juce::String::fromUTF8(u8"Planitud H(f): +/- ") + juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB",
+        g.drawText("H(f) flatness: \u00b1" + juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB",
                    meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
     else if (currentState == State::Skipped)
     {
-        g.drawText(juce::String::fromUTF8(u8"Modo: Bypass Nominal (Sin compensación)"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText(juce::String::fromUTF8(u8"Ganancia fijada: 1.0x (0.0 dB)"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText(juce::String::fromUTF8(u8"Latencia asumida: 0 muestras"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Mode: Bypassed (no latency compensation)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Gain: 1.0x (0.0 dB nominal)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Assumed latency: 0 samples", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
     else
     {
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText(juce::String::fromUTF8(u8"Esperando ejecución de barrido..."), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Awaiting sweep execution...", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     }
 }
 

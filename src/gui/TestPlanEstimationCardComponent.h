@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TestConfiguration.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace abdaudiolab::gui
@@ -7,7 +8,8 @@ namespace abdaudiolab::gui
 
 /**
  * @class TestPlanEstimationCardComponent
- * @brief Standalone UI card that computes and displays test plan evaluation points and estimated duration.
+ * @brief Standalone UI card that computes and displays test plan evaluation points,
+ * dimensional matrix breakdown, physical control adjustments, and estimated duration.
  */
 class TestPlanEstimationCardComponent : public juce::Component
 {
@@ -16,14 +18,15 @@ public:
     ~TestPlanEstimationCardComponent() override = default;
 
     void setEstimation(int totalPoints, float totalSeconds);
+    void setEstimation(const ProfilingTimeEstimate& estimate);
     void paint(juce::Graphics& g) override;
 
-    [[nodiscard]] int getPoints() const noexcept { return points; }
-    [[nodiscard]] float getSeconds() const noexcept { return seconds; }
+    [[nodiscard]] int getPoints() const noexcept { return currentEstimate.measurementStates; }
+    [[nodiscard]] float getSeconds() const noexcept { return currentEstimate.estimatedTotalSeconds; }
+    [[nodiscard]] const ProfilingTimeEstimate& getEstimate() const noexcept { return currentEstimate; }
 
 private:
-    int points { 0 };
-    float seconds { 0.0f };
+    ProfilingTimeEstimate currentEstimate;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TestPlanEstimationCardComponent)
 };

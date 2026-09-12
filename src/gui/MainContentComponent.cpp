@@ -6,6 +6,8 @@
  */
 
 #include "MainContentComponent.h"
+#include "hardware/AudioMidiInterfaceDetector.h"
+#include "core/plugins/PluginHardwareContractAdapter.h"
 #include <cmath>
 
 namespace abdaudiolab
@@ -65,26 +67,33 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     report("Escaneando contratos de hardware en ABDSharedAssets...", 0.45f);
 
-    // Load Contract Specifications Dynamically from contracts/hardware/ via relative traversal
+    // Load Contract Specifications: Prioritize ABDSharedAssets/contracts as the single source of truth
     std::vector<juce::File> roots = {
+        juce::File("D:/desarrollos/ABDSynths/ABDSharedAssets/contracts"),
         juce::File::getCurrentWorkingDirectory(),
         juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory()
     };
 
     for (auto root : roots)
     {
+        // Direct ABDSharedAssets/contracts directory
+        if (root.isDirectory() && root.getFileName() == "contracts" && hardwareManager.getContractRegistry().loadContractsFromDirectory(root))
+            break;
+
         for (int i = 0; i < 6; ++i)
         {
-            auto direct = root.getChildFile("contracts").getChildFile("hardware");
-            if (direct.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(direct))
-                break;
-
+            // 1. Check ABDSharedAssets/contracts (sibling or child)
             auto shared = root.getChildFile("ABDSharedAssets").getChildFile("contracts");
             if (shared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(shared))
                 break;
 
             auto siblingShared = root.getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
             if (siblingShared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(siblingShared))
+                break;
+
+            // 2. Fallback to local contracts/hardware
+            auto direct = root.getChildFile("contracts").getChildFile("hardware");
+            if (direct.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(direct))
                 break;
 
             root = root.getParentDirectory();
@@ -175,6 +184,21 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
     drawer.setHardwareLocked(false);
 
+    // Wire SessionIoController Callbacks
+    sessionIoController.setExportDirectory(exportDirectory);
+    sessionIoController.onSessionLoaded = [this](const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points) {
+        applyLoadedSession(manifest, points);
+    };
+    sessionIoController.onSessionSaved = [this](const juce::File& /*savedFile*/) {
+        drawer.openFileDrawer(exportDirectory.getFullPathName());
+    };
+    sessionIoController.onStatusNotification = [this](const juce::String& msg, bool isError) {
+        manualPromptLabel.setText(msg, juce::dontSendNotification);
+        manualPromptLabel.setColour(juce::Label::textColourId, isError ? juce::Colours::coral : gui::SoundIdTheme::accentGreen);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(5000);
+    };
+
     // Main Header Controller Integration (Barra Superior Modular)
     mainHeader.onNewSession = [this] { promptNewSession(); };
     mainHeader.onOpenSession = [this] { handleOpenSession(); };
@@ -189,21 +213,84 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     mainHeader.onExitApp = [this] { confirmAndExit(); };
 
+    // Plugin Scan Directories modal wiring
+    mainHeader.onScanPluginDirectories = [this] {
+        juce::Logger::writeToLog("[MainComponent] Opening Plugin Scan Directories modal...");
+        pluginScanModal.showModal(this);
+    };
+    pluginScanModal.onScanRequested = [this](const juce::FileSearchPath& paths,
+                                              std::function<void(const juce::String&, float)> progressCb) {
+        juce::Logger::writeToLog("[MainComponent] Plugin scan requested. Search paths: " + paths.toString());
+        // Run scan in background thread
+        auto safePaths = paths;
+        auto safeProgressCb = std::move(progressCb);
+        juce::Thread::launch([this, safePaths, safeProgressCb]() {
+            juce::Logger::writeToLog("[MainComponent] Background scan thread started.");
+            pluginHostManager.scanPlugins(safePaths, true, safeProgressCb);
+            juce::Logger::writeToLog("[MainComponent] Background scan finished, saving cache...");
+            pluginHostManager.saveCache(core::PluginHostManager::getDefaultCacheFile());
+
+            juce::MessageManager::callAsync([this]() {
+                auto plugins = pluginHostManager.getAvailablePlugins();
+                juce::Logger::writeToLog("[MainComponent] Updating catalogSelector with "
+                    + juce::String(static_cast<int>(plugins.size())) + " plugins.");
+                catalogSelector.setAvailablePlugins(plugins);
+
+                if (pluginScanModal.onScanComplete)
+                    pluginScanModal.onScanComplete(static_cast<int>(plugins.size()));
+
+                juce::Logger::writeToLog("[PluginHost] Scan complete: "
+                    + juce::String(static_cast<int>(plugins.size())) + " plugins found");
+            });
+        });
+    };
+
+    // Startup: load persisted plugin directories and scan if any exist
+    {
+        auto dirs = pluginScanModal.loadPersistedDirectories();
+        juce::Logger::writeToLog("[MainComponent] Loaded " + juce::String(dirs.size()) + " persisted plugin directories.");
+        if (!dirs.empty())
+        {
+            juce::FileSearchPath startupPaths;
+            for (const auto& dir : dirs)
+            {
+                if (dir.isDirectory())
+                {
+                    juce::Logger::writeToLog("[MainComponent]   Persisted dir: " + dir.getFullPathName());
+                    startupPaths.add(dir);
+                }
+                else
+                {
+                    juce::Logger::writeToLog("[MainComponent WARNING] Persisted path is not a valid directory: " + dir.getFullPathName());
+                }
+            }
+            if (startupPaths.getNumPaths() > 0)
+            {
+                juce::Logger::writeToLog("[MainComponent] Launching background startup plugin scan...");
+                juce::Thread::launch([this, startupPaths]() {
+                    juce::Logger::writeToLog("[MainComponent] Startup background scan thread executing...");
+                    pluginHostManager.scanPlugins(startupPaths, true, nullptr);
+                    pluginHostManager.saveCache(core::PluginHostManager::getDefaultCacheFile());
+
+                    juce::MessageManager::callAsync([this]() {
+                        auto plugins = pluginHostManager.getAvailablePlugins();
+                        catalogSelector.setAvailablePlugins(plugins);
+                        juce::Logger::writeToLog("[PluginHost] Startup scan complete: "
+                            + juce::String(static_cast<int>(plugins.size()))
+                            + " plugins loaded into catalog.");
+                    });
+                });
+            }
+        }
+    }
+
     mainHeader.onScopeToggle = [this] { toggleScopeWebWindow(); };
     mainHeader.onConfigureAudioMidi = [this] { openAudioMidiSettings(); };
     mainHeader.onCalibrateClicked = [this] {
-        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::CalibrateLoopback);
-        sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
-        if (stepperBar.onStepSelected != nullptr)
-            stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::CalibrateLoopback);
-        resized();
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
     };
     mainHeader.onHardwareSelectorClicked = [this] {
-        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
-        sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::HardwareRouting);
-        if (stepperBar.onStepSelected != nullptr)
-            stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::HardwareRouting);
-        resized();
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::HardwareRouting);
     };
     mainHeader.onThemeToggled = [this] {
         auto newMode = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Light)
@@ -221,13 +308,40 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         if (scopeWebWindow != nullptr)
             scopeWebWindow->updateTheme();
+        if (topologyFloatingWindow != nullptr)
+        {
+            auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
+            topologyFloatingWindow->setTheme(themeStr, gui::AppTheme::BackgroundApp);
+        }
 
         drawer.updateTheme();
         operatorStepModal.updateTheme();
+        setupInfoTab.updateTheme();
         repaint();
     };
-    mainHeader.onInfoClicked = [this] { showInfoDrawer(); };
     addAndMakeVisible(mainHeader);
+
+    // Step 0: Setup & Telemetry Info Tab (Paso 0: Información)
+    setupInfoTab.onOpenAudioSettingsClicked = [this] {
+        openAudioMidiSettings();
+    };
+    setupInfoTab.onOpenTopologyModalClicked = [this] {
+        toggleStudioTopologyWindow();
+    };
+    setupInfoTab.onAboutClicked = [this] {
+        showAboutDialog();
+    };
+    setupInfoTab.onRefreshRequested = [this] {
+        updateSetupDrawerInfo();
+        manualPromptLabel.setText("✓ Audio/MIDI connections and telemetry refreshed.", juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(3000);
+        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+            toggleStudioTopologyWindow();
+    };
+    addChildComponent(setupInfoTab);
+    setupInfoTab.setVisible(false);
+    updateSetupDrawerInfo();
 
     // 4. Workflow Stepper Bar & Export Report Panel (Paso 4: Certificación SoundID)
     addChildComponent(exportReportPanel);
@@ -254,12 +368,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         {
             prepareAuditionLut();
             audioEngine.enableAuditionMode(true);
-            exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"\U0001f3a7 Audición DSP activada. Ajuste Cutoff y Resonancia para escuchar el modelo."));
+            exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"Audición DSP activada. Ajuste Cutoff y Resonancia para escuchar el modelo."));
         }
         else
         {
             audioEngine.enableAuditionMode(false);
-            exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"⏹ Audición DSP detenida."));
+            exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"Audición DSP detenida."));
         }
     };
     exportReportPanel.onAuditionParamsChanged = [this](float p1, float p2) {
@@ -278,23 +392,22 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         drawer.setSelectedHardwareId(hwId);
     };
     hardwareRoutingPanel.onContinueToCalibration = [this] {
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
-        if (stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback) == gui::WorkflowStepperBar::StepStatus::Completed)
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::HardwareRouting,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+        if (sidebarStepper.getStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback) == gui::SoundIdSidebarStepper::StepStatus::Completed)
         {
-            stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::RunSession);
-            if (stepperBar.onStepSelected != nullptr)
-                stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::RunSession);
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
         }
         else
         {
-            stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::CalibrateLoopback);
-            if (stepperBar.onStepSelected != nullptr)
-                stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::CalibrateLoopback);
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
         }
-        resized();
     };
     hardwareRoutingPanel.onOpenAdvancedSettings = [this] {
         drawer.openHardwareDrawer();
+    };
+    hardwareRoutingPanel.onOpenTopologyModal = [this] {
+        toggleStudioTopologyWindow();
     };
     hardwareRoutingPanel.onAutoDetectRequested = [this] {
         drawer.triggerAutoDetect();
@@ -329,16 +442,15 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Skipped);
         mainHeader.updateCalibrationStatus(false, 0.0, true);
 
-        manualPromptLabel.setText("Paso 2 Omitido: Operando con ganancia nominal (0 dB). ¡Paso 3 habilitado!", juce::dontSendNotification);
+        manualPromptLabel.setText("Step 1 Bypassed: Operating with nominal gain (0 dB). Step 2 enabled!", juce::dontSendNotification);
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(4000);
         resized();
     };
     nativeCalibrationPanel.onContinueToSession = [this] {
-        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::RunSession);
-        if (stepperBar.onStepSelected != nullptr)
-            stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::RunSession);
-        resized();
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::HardwareRouting);
     };
     addChildComponent(nativeCalibrationPanel);
 
@@ -353,7 +465,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 break;
 
             case gui::WorkflowStepperBar::Step::RunSession:
-                manualPromptLabel.setText("Paso 3: Sesión de Profiling lista. Pulse Play en el medidor derecho para comenzar.", juce::dontSendNotification);
+                manualPromptLabel.setText("Step 3: Profiling session ready. Click Play on the right panel to begin.", juce::dontSendNotification);
                 manualPromptLabel.setVisible(true);
                 hidePromptAfterDelay(4000);
                 break;
@@ -362,19 +474,43 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 updateExportReportMetrics();
                 break;
         }
-        sidebarStepper.setCurrentStep(static_cast<gui::SoundIdSidebarStepper::Step>(targetStep));
+        stepperBar.setCurrentStep(targetStep);
+        workflowNavController.setStep(static_cast<gui::WorkflowNavigationController::Step>(targetStep));
         resized();
     };
     // Hide horizontal stepperBar in favor of collapsible sidebarStepper, maintaining full logic
     stepperBar.setVisible(false);
     addChildComponent(stepperBar);
 
-    // Wire collapsible vertical sidebarStepper
-    sidebarStepper.onStepSelected = [this](gui::SoundIdSidebarStepper::Step targetStep) {
+    // Coordinate WorkflowNavigationController as the Single Source of Truth
+    workflowNavController.onStepChanged = [this](gui::WorkflowNavigationController::Step targetStep) {
         stepperBar.setCurrentStep(static_cast<gui::WorkflowStepperBar::Step>(targetStep));
-        if (stepperBar.onStepSelected != nullptr)
-            stepperBar.onStepSelected(static_cast<gui::WorkflowStepperBar::Step>(targetStep));
+        switch (targetStep)
+        {
+            case gui::WorkflowNavigationController::Step::SystemInfo:
+                showInfoDrawer();
+                break;
+
+            case gui::WorkflowNavigationController::Step::HardwareRouting:
+                break;
+
+            case gui::WorkflowNavigationController::Step::CalibrateLoopback:
+                nativeCalibrationPanel.resetToInitialState();
+                break;
+
+            case gui::WorkflowNavigationController::Step::RunSession:
+                manualPromptLabel.setText("Step 3: Profiling session ready. Click Play on the right panel to begin.", juce::dontSendNotification);
+                manualPromptLabel.setVisible(true);
+                hidePromptAfterDelay(4000);
+                break;
+
+            case gui::WorkflowNavigationController::Step::ExportReport:
+                updateExportReportMetrics();
+                break;
+        }
+        resized();
     };
+
     sidebarStepper.onCollapseToggled = [this](bool /*collapsed*/) {
         resized();
     };
@@ -383,15 +519,90 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     // Wire cascading catalog selector
     catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
     catalogSelector.onSelectionChanged = [this](const juce::String& hwId, const juce::String& funcId) {
-        onHardwareSelected(hwId, funcId);
+        if (catalogSelector.isPluginVirtualMode())
+        {
+            // Clear physical hardware selection to prevent residues
+            drawer.clearSelectedHardware();
+            sessionCoordinator.setHardwareContext(&hardwareManager, {});
+            hardwareRoutingPanel.setHardwareLocked(false);
+            hardwareRoutingPanel.setPluginVirtualRouting(
+                activePluginDescription.name.isNotEmpty() ? activePluginDescription.name : "Plugin Virtual",
+                activePluginDescription.pluginFormatName.isNotEmpty() ? activePluginDescription.pluginFormatName : "VST3",
+                activePluginDescription.isInstrument
+            );
+
+            // Update standard test button state
+            suiteList.setStandardTestAvailable(activePluginInstance != nullptr);
+            return;
+        }
+
+        // Switching to physical hardware: safely disconnect virtual plugin if any
+        if (activePluginInstance != nullptr)
+        {
+            pluginWindowController.closePluginWindow();
+            audioEngine.setActivePluginInstance(nullptr);
+            sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+            activePluginInstance.reset();
+            activePluginDescription = {};
+        }
+
         drawer.setSelectedHardwareId(hwId);
+        onHardwareSelected(hwId, funcId);
+        hardwareRoutingPanel.setSelectedHardware(hwId, funcId);
         gui::SoundIdSidebarStepper::SessionSummaryInfo summary = sidebarStepper.getSessionSummary();
         summary.hardwareName = hwId;
         sidebarStepper.setSessionSummary(summary);
+
+        const auto* c = hardwareManager.findContractById(hwId.toStdString());
+        suiteList.setStandardTestAvailable(c != nullptr && !c->functions.empty());
     };
     catalogSelector.onContinueRequested = [this] {
-        if (hardwareRoutingPanel.onContinueToCalibration != nullptr)
-            hardwareRoutingPanel.onContinueToCalibration();
+        if (catalogSelector.isPluginVirtualMode())
+        {
+            catalogSelector.setHardwareLocked(true);
+            drawer.setHardwareLocked(true);
+            hardwareRoutingPanel.setHardwareLocked(true);
+
+            if (activePluginInstance != nullptr)
+            {
+                auto imgFile = gui::locateAssetFile(activePluginDescription.isInstrument
+                    ? "models/generic-digital-keyboard.png"
+                    : "models/generic-audio-rack.png");
+                juce::Image pluginThumb;
+                if (imgFile.existsAsFile())
+                    pluginThumb = juce::ImageFileFormat::loadFrom(imgFile);
+
+                juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? " [Instrumento]" : " [Efecto]");
+                mainHeader.setHardwareInfo(
+                    plugTitle,
+                    activePluginDescription.pluginFormatName + " Virtual Bus",
+                    pluginThumb,
+                    gui::HardwareConnectionStatus::Connected
+                );
+
+                auto summary = sidebarStepper.getSessionSummary();
+                summary.hardwareName = plugTitle;
+                summary.hardwareCategory = "PLUGIN_VIRTUAL";
+                sidebarStepper.setSessionSummary(summary);
+            }
+        }
+        else
+        {
+            juce::String hwId = catalogSelector.getSelectedHardwareId();
+            juce::String funcId = catalogSelector.getSelectedFunctionId();
+            if (hwId.isNotEmpty())
+            {
+                onHardwareSelected(hwId, funcId);
+                drawer.setSelectedHardwareId(hwId);
+                catalogSelector.setHardwareLocked(true);
+                drawer.setHardwareLocked(true);
+                hardwareRoutingPanel.setHardwareLocked(true);
+            }
+        }
+
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::HardwareRouting,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
     };
     catalogSelector.onAutoDetectRequested = [this] {
         drawer.triggerAutoDetect();
@@ -400,6 +611,150 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         if (drawer.onNewFlowRequested != nullptr)
             drawer.onNewFlowRequested();
     };
+    catalogSelector.onLoadPluginFromFileRequested = [this] {
+        juce::Logger::writeToLog("[MainComponent] onLoadPluginFromFileRequested triggered.");
+        auto chooser = std::make_shared<juce::FileChooser>(
+            juce::String::fromUTF8(u8"Seleccionar Plugin VST3 / AU / LV2"),
+            juce::File::getSpecialLocation(juce::File::commonApplicationDataDirectory),
+            "*.vst3;*.component;*.lv2");
+
+        chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc) {
+                auto result = fc.getResult();
+                if (result == juce::File{})
+                {
+                    juce::Logger::writeToLog("[MainComponent] FileChooser closed without selection.");
+                    return;
+                }
+
+                juce::Logger::writeToLog("[MainComponent] FileChooser selected: " + result.getFullPathName());
+
+                double sr = 44100.0;
+                int bs = 512;
+                if (auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice())
+                {
+                    sr = device->getCurrentSampleRate();
+                    bs = device->getCurrentBufferSizeSamples();
+                }
+                juce::Logger::writeToLog("[MainComponent] Audio settings -> SampleRate: " + juce::String(sr) + ", BlockSize: " + juce::String(bs));
+
+                juce::Logger::writeToLog("[MainComponent] Calling pluginHostManager.loadPluginFromFileAsync for: " + result.getFileName());
+                pluginHostManager.loadPluginFromFileAsync(result, sr, bs,
+                    [this, result, sr, bs](std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error) {
+                        juce::Logger::writeToLog("[MainComponent] loadPluginFromFileAsync returned for: " + result.getFileName());
+                        // Wrap in shared_ptr so the lambda is copyable for MessageManager::callAsync
+                        auto sharedInst = std::make_shared<std::unique_ptr<juce::AudioPluginInstance>>(std::move(instance));
+                        juce::MessageManager::callAsync([this, sharedInst, error, result, sr, bs]() {
+                            if (error.isNotEmpty() || *sharedInst == nullptr)
+                            {
+                                juce::Logger::writeToLog("[PluginHost ERROR] Failed to load plugin from file: " + error);
+                                juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
+                                    "Error al cargar plugin", error.isEmpty() ? "Plugin no compatible" : error);
+                                return;
+                            }
+
+                            juce::Logger::writeToLog("[MainComponent] Safely disconnecting previous plugin instance...");
+                            pluginWindowController.closePluginWindow();
+                            audioEngine.setActivePluginInstance(nullptr);
+                            sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+
+                            // Store the instance and connect to audio engine & dispatcher
+                            activePluginInstance = std::move(*sharedInst);
+                            audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
+                            sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
+
+                            juce::PluginDescription desc;
+                            activePluginInstance->fillInPluginDescription(desc);
+                            activePluginDescription = desc;
+
+                            // Create and register dynamic hardware contract for custom tests and parameters
+                            auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);
+                            hardwareManager.getContractRegistry().registerContract(dynContract);
+                            drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
+                            drawer.setSelectedHardwareId(juce::String(dynContract.id));
+
+                            hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
+                            hardwareRoutingPanel.setPluginVirtualRouting(desc.name, desc.pluginFormatName, desc.isInstrument);
+
+                            suiteList.setStandardTestAvailable(true);
+
+                            // Load plugin default image for Header and Setup
+                            auto imgFile = gui::locateAssetFile(desc.isInstrument
+                                ? "models/generic-digital-keyboard.png"
+                                : "models/generic-audio-rack.png");
+                            juce::Image pluginImg;
+                            if (imgFile.existsAsFile())
+                                pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
+
+                            // Update Header and Stepper
+                            juce::String plugTitle = desc.name + (desc.isInstrument ? " [Instrumento]" : " [Efecto]");
+                            mainHeader.setHardwareInfo(
+                                plugTitle,
+                                desc.pluginFormatName + " Virtual Bus",
+                                pluginImg,
+                                gui::HardwareConnectionStatus::Connected
+                            );
+
+                            // Update Step 0 (Información) and Drawer Setup Tab
+                            setupInfoTab.setTargetHardwareInfo(
+                                plugTitle,
+                                desc.pluginFormatName + " Virtual Bus",
+                                "Internal Digital Bus (Zero Converter Coloration)",
+                                pluginImg,
+                                nullptr,
+                                "PLUGIN_VIRTUAL"
+                            );
+                            drawer.getSetupTab().setTargetHardwareInfo(
+                                plugTitle,
+                                desc.pluginFormatName + " Virtual Bus",
+                                "Internal Digital Bus (Zero Converter Coloration)",
+                                pluginImg,
+                                nullptr,
+                                "PLUGIN_VIRTUAL"
+                            );
+                            updateSetupDrawerInfo();
+
+                            auto summary = sidebarStepper.getSessionSummary();
+                            summary.hardwareName = plugTitle;
+                            summary.hardwareCategory = "PLUGIN_VIRTUAL";
+                            sidebarStepper.setSessionSummary(summary);
+
+                            juce::Logger::writeToLog("[PluginHost] Plugin loaded from file & ready: " + activePluginInstance->getName());
+
+                            // Refresh the catalog selector with scanned plugins
+                            catalogSelector.setAvailablePlugins(pluginHostManager.getAvailablePlugins());
+                        });
+                    });
+            });
+    };
+    catalogSelector.onPluginSelected = [this](const juce::PluginDescription& desc) {
+        juce::Logger::writeToLog("[MainComponent] onPluginSelected: '" + desc.name + "' [" + desc.pluginFormatName + "]");
+        loadPluginInstance(desc, nullptr);
+    };
+    catalogSelector.onShowPluginGuiRequested = [this] {
+        juce::Logger::writeToLog("[MainComponent] onShowPluginGuiRequested. activePluginInstance is "
+            + juce::String(activePluginInstance != nullptr ? "valid" : "nullptr"));
+        if (activePluginInstance != nullptr)
+        {
+            pluginWindowController.showPluginWindow(activePluginInstance.get(), activePluginInstance->getName());
+        }
+        else if (auto* desc = catalogSelector.getSelectedPluginDescription())
+        {
+            juce::Logger::writeToLog("[MainComponent] Loading plugin first before showing GUI: " + desc->name);
+            loadPluginInstance(*desc, [this](bool success) {
+                if (success && activePluginInstance != nullptr)
+                    pluginWindowController.showPluginWindow(activePluginInstance.get(), activePluginInstance->getName());
+            });
+        }
+        else
+        {
+            juce::Logger::writeToLog("[MainComponent WARNING] No active plugin or selected description available to show GUI.");
+        }
+    };
+
+    // Initialize plugin host cache
+    pluginHostManager.loadCache(core::PluginHostManager::getDefaultCacheFile());
+
     addChildComponent(catalogSelector);
 
     // 5. Center Curve Plotter & Real-Time Visualization
@@ -449,9 +804,35 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // 5. Bottom Test Queue (Session Test Plan & CRUD)
     suiteList.onAddStandardClicked = [this] {
-        juce::String selectedHwId = drawer.getSelectedHardwareId();
+        // Determine contract: plugin virtual mode uses the dynamic contract; physical mode uses drawer selection
+        juce::String targetHwId;
+        if (catalogSelector.isPluginVirtualMode() || activePluginInstance != nullptr)
+        {
+            // Use the dynamic contract registered for this plugin
+            targetHwId = juce::String("plugin_") + juce::File::createLegalFileName(activePluginDescription.fileOrIdentifier);
+            // Fallback: search by name if not found
+            if (hardwareManager.findContractById(targetHwId.toStdString()) == nullptr)
+            {
+                const auto& allContracts = hardwareManager.getContractRegistry().getContracts();
+                for (const auto& c : allContracts)
+                {
+                    if (juce::String(c.id).startsWith("plugin_") &&
+                        (activePluginDescription.name.isEmpty() ||
+                         juce::String(c.displayName).containsIgnoreCase(activePluginDescription.name)))
+                    {
+                        targetHwId = juce::String(c.id);
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            targetHwId = drawer.getSelectedHardwareId();
+        }
+
         juce::String selectedFuncId = drawer.getSelectedFunctionId();
-        const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
+        const auto* contract = hardwareManager.findContractById(targetHwId.toStdString());
         if (contract == nullptr || contract->functions.empty()) return;
 
         const auto* targetFunc = &contract->functions[0];
@@ -485,7 +866,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             stdConf.controls.push_back(cs);
         }
 
-        drawer.openTestEditorDrawer(stdConf, -1);
+        bool isManual = (contract->deviceType == "MANUAL_EURORACK" || contract->deviceType == "ANALOGUE_PEDAL");
+        drawer.openTestEditorDrawer(stdConf, -1, isManual);
     };
 
     suiteList.onAddCustomClicked = [this] {
@@ -494,12 +876,42 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         customConf.stimulusType = audio::StimulusType::LogFarinaSweep;
         customConf.burstDurationSec = 1.0f;
         customConf.captureMode = "FIXED_TIME";
-        
+
+        // Plugin Virtual mode: expose all plugin parameters for the user to pick
+        if (activePluginInstance != nullptr)
+        {
+            customConf.testName = juce::String(activePluginDescription.name) + " \u2013 Custom Profile";
+            std::vector<gui::ControlStepConfig> availableParams;
+            const auto& params = activePluginInstance->getParameters();
+            for (int i = 0; i < params.size(); ++i)
+            {
+                auto* p = params[i];
+                if (p == nullptr) continue;
+                gui::ControlStepConfig cs;
+                cs.id = juce::String(i);
+                cs.name = p->getName(64);
+                cs.type = "Normalized";
+                cs.steps = 1;
+                cs.minPct = 0.0f;
+                cs.maxPct = 100.0f;
+                cs.sortOrder = i;
+                availableParams.push_back(cs);
+            }
+            // Open the drawer first, then set the available params (plugin is automated)
+            drawer.openTestEditorDrawer(customConf, -1, false);
+            drawer.setAvailablePluginParams(availableParams);
+            return;
+        }
+
+        // Hardware mode: pre-fill controls from contract (existing behaviour)
         juce::String selectedHwId = drawer.getSelectedHardwareId();
         juce::String selectedFuncId = drawer.getSelectedFunctionId();
         const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
+        drawer.clearAvailablePluginParams();
+        bool isManual = false;
         if (contract != nullptr && !contract->functions.empty())
         {
+            isManual = (contract->deviceType == "MANUAL_EURORACK" || contract->deviceType == "ANALOGUE_PEDAL");
             const auto* targetFunc = &contract->functions[0];
             for (const auto& func : contract->functions)
             {
@@ -519,10 +931,13 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 customConf.controls.push_back(cs);
             }
         }
-        drawer.openTestEditorDrawer(customConf, -1);
+        drawer.openTestEditorDrawer(customConf, -1, isManual);
     };
 
     suiteList.onEditTestClicked = [this](int index, const gui::QueueItem& item) {
+        const auto* contract = item.hwId.isNotEmpty() ? hardwareManager.findContractById(item.hwId.toStdString()) : nullptr;
+        bool isManual = (contract != nullptr) && (contract->deviceType == "MANUAL_EURORACK" || contract->deviceType == "ANALOGUE_PEDAL");
+
         if (item.status == gui::QueueItemStatus::Completed || item.status == gui::QueueItemStatus::Incomplete)
         {
             confirmationModal.show(
@@ -532,7 +947,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 "Edit & Invalidate",
                 "",
                 "Cancel",
-                [this, index, item](gui::ConfirmationModalDialog::Result result) {
+                [this, index, item, isManual](gui::ConfirmationModalDialog::Result result) {
                     if (result == gui::ConfirmationModalDialog::Result::Primary)
                     {
                         gui::TestConfiguration conf;
@@ -541,7 +956,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                         conf.burstDurationSec = item.burstDurationSec;
                         conf.captureMode = item.captureMode;
                         conf.controls = item.controls;
-                        drawer.openTestEditorDrawer(conf, index);
+                        drawer.openTestEditorDrawer(conf, index, isManual);
                     }
                 }
             );
@@ -554,7 +969,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             conf.burstDurationSec = item.burstDurationSec;
             conf.captureMode = item.captureMode;
             conf.controls = item.controls;
-            drawer.openTestEditorDrawer(conf, index);
+            drawer.openTestEditorDrawer(conf, index, isManual);
         }
     };
 
@@ -616,8 +1031,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             float stepPct = (item.totalPoints > 1) ? (static_cast<float>(pointIdx) / static_cast<float>(item.totalPoints - 1) * 100.0f) : 0.0f;
             
             juce::String statusStr = (item.status == gui::QueueItemStatus::Completed) ? "Measured" : "Queued";
-            juce::String prompt = "Point #" + juce::String(pointIdx + 1) + " / " + juce::String(item.totalPoints) 
-                                + " (" + juce::String(stepPct, 1) + "% Pos) — " + item.title;
+            juce::String prompt = "Current State: Point #" + juce::String(pointIdx + 1) + "/" + juce::String(item.totalPoints) 
+                                + " (" + juce::String(stepPct, 1) + "% Position) \u2014 " + item.title;
 
             std::vector<core::ParameterStep> pSteps;
 
@@ -811,6 +1226,14 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     drawer.onAboutClicked = [this] {
         showAboutDialog();
     };
+    drawer.onRefreshSetupRequested = [this] {
+        updateSetupDrawerInfo();
+        manualPromptLabel.setText(juce::String::fromUTF8(u8"✓ Telemetría y conexiones actualizadas."), juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(3000);
+        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+            toggleStudioTopologyWindow();
+    };
     drawer.onNewSessionClicked = [this] {
         promptNewSession();
     };
@@ -960,13 +1383,52 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         sessionManager.triggerAutoSave(buildCurrentSessionManifest());
     };
 
+    // Phase 14: Pause/Resume — master button cycles; LED state synced back to strip
+    meterStrip.onPauseResumeClicked = [this] {
+        sessionCoordinator.togglePauseSession();
+    };
+    sessionCoordinator.onSessionPauseStateChanged = [this](bool isPaused) {
+        meterStrip.setSessionPaused(isPaused);
+    };
+
+    // Phase 14: Single-point live re-run from context menu
+    suiteList.onRerunPointRequested = [this](int queueIndex, int pointIndex) {
+        if (!sequencer.isRunningSession()) return;
+        // Compute the flat globalPointIndex by walking the queue up to (queueIndex, pointIndex)
+        int globalIdx = 0;
+        const auto& queue = suiteList.getQueue();
+        for (int qi = 0; qi < static_cast<int>(queue.size()); ++qi)
+        {
+            const auto& item = queue[static_cast<size_t>(qi)];
+            if (item.isSkipped) continue;
+            if (qi == queueIndex)
+            {
+                globalIdx += pointIndex;
+                break;
+            }
+            globalIdx += static_cast<int>(item.pointStatuses.size());
+        }
+        sessionCoordinator.rerunSelectedPoint(globalIdx);
+        // Reset the cell status so the user sees the re-run starting
+        suiteList.setPointStatus(queueIndex, pointIndex, gui::PointStatus::Running);
+    };
+
     sessionCoordinator.wireSequencerCallbacks();
 
     addKeyListener(this);
     setWantsKeyboardFocus(true);
     audioEngine.getDeviceManager().addChangeListener(this);
     startTimerHz(60);
-    setSize(1040, 720);
+
+    // Ensure initial state starts completely clean with no hardware selected
+    drawer.clearSelectedHardware();
+    hardwareRoutingPanel.resetSelection();
+    catalogSelector.resetSelection();
+    mainHeader.clearHardware();
+    suiteList.setStandardTestAvailable(false);
+    suiteList.clearQueue();
+
+    setSize(1240, 780);
 
     report("Precalentando Monitor Reactivo de Hardware MIDI...", 0.88f);
     // Pre-warm MIDI Hardware Hotplug Monitor & Detector in background
@@ -987,12 +1449,24 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
 MainContentComponent::~MainContentComponent()
 {
+    juce::Logger::writeToLog("[MainComponent] Destructor: closing plugin window and resetting active plugin.");
+    pluginWindowController.closePluginWindow();
+    audioEngine.setActivePluginInstance(nullptr);
+    sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+    activePluginInstance.reset();
+
     audioEngine.getDeviceManager().removeChangeListener(this);
 
     if (scopeWebWindow != nullptr)
     {
         scopeWebWindow->setVisible(false);
         scopeWebWindow = nullptr;
+    }
+
+    if (topologyFloatingWindow != nullptr)
+    {
+        topologyFloatingWindow->setVisible(false);
+        topologyFloatingWindow = nullptr;
     }
 
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
@@ -1009,6 +1483,12 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
     if (source == &audioEngine.getDeviceManager())
     {
         mainHeader.updateAudioMidiStatus();
+        updateSetupDrawerInfo();
+
+        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+        {
+            toggleStudioTopologyWindow();
+        }
     }
 }
 
@@ -1258,9 +1738,176 @@ void MainContentComponent::toggleScopeWebWindow()
     }
 }
 
+void MainContentComponent::toggleStudioTopologyWindow()
+{
+    if (topologyFloatingWindow == nullptr)
+    {
+        topologyFloatingWindow = std::make_unique<abd::topology::StudioTopologyFloatingWindow>();
+    }
+
+    // Build dynamic studio topology JSON payload
+    nlohmann::json root;
+
+    // 1. Target Hardware (Center Hero)
+    juce::String hwId = drawer.getSelectedHardwareId();
+    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
+    const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+
+    std::string targetImg = "models/generic-digital-keyboard.png";
+    std::string targetName = "No Target Selected";
+    std::string targetCat = "Hardware Device";
+    std::string targetDetails = "Direct Loopback";
+
+    bool targetHasMidi = false;
+    if (contract != nullptr)
+    {
+        targetName = contract->displayName;
+        targetCat = contract->deviceType;
+        auto fnName = drawer.getActiveFunctionDisplayName().trim();
+        if (fnName.isNotEmpty())
+            targetDetails = "Profile: " + fnName.toStdString();
+        else
+            targetDetails = "Profile: Default Factory Setup";
+
+        // Determinar si el hardware bajo prueba posee MIDI
+        if (contract->deviceType != "ANALOGUE_PEDAL" && 
+            contract->deviceType != "MANUAL_EURORACK" && 
+            contract->deviceType != "VIRTUAL_LOOPBACK_ASIO")
+        {
+            if (!contract->midiIdentity.model.empty() || 
+                !contract->midiIdentity.manufacturer.empty() ||
+                !contract->midiIdentity.portNameMatches.empty() ||
+                contract->deviceType == "AUTOMATED_SYSEX" || 
+                contract->deviceType == "AUTOMATED_MIDI_CC")
+            {
+                targetHasMidi = true;
+            }
+        }
+
+        if (!contract->modelImage.empty())
+        {
+            auto f = gui::locateAssetFile(contract->modelImage);
+            if (f.existsAsFile())
+                targetImg = contract->modelImage;
+        }
+        else
+        {
+            std::string catLower = targetCat;
+            std::transform(catLower.begin(), catLower.end(), catLower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (catLower.find("pedal") != std::string::npos || catLower.find("guitar") != std::string::npos)
+                targetImg = "models/generic-guitar-pedal.png";
+            else if (catLower.find("eurorack") != std::string::npos || catLower.find("modular") != std::string::npos)
+                targetImg = "models/generic-eurorack.png";
+            else if (catLower.find("rack") != std::string::npos || catLower.find("studio") != std::string::npos)
+                targetImg = "models/generic-audio-rack.png";
+            else if (catLower.find("anal") != std::string::npos)
+                targetImg = "models/generic-analog-keyboard.png";
+            else if (catLower.find("drum") != std::string::npos)
+                targetImg = "models/generic-drum-machine.png";
+            else if (catLower.find("preamp") != std::string::npos || catLower.find("mic") != std::string::npos)
+                targetImg = "models/generic-mic-preamp.png";
+            else if (catLower.find("desktop") != std::string::npos)
+                targetImg = "models/generic-desktop-module.png";
+            else
+                targetImg = "models/generic-digital-keyboard.png";
+        }
+    }
+
+    root["target"] = {
+        { "name", targetName },
+        { "category", targetCat },
+        { "details", targetDetails },
+        { "image", targetImg },
+        { "hasMidi", targetHasMidi }
+    };
+
+    // 2. Detected Devices & Interfaces
+    root["devices"] = nlohmann::json::array();
+    root["connections"] = nlohmann::json::array();
+
+    auto detectedInterfaces = hardware::AudioMidiInterfaceDetector::detectInterfaces(audioEngine.getDeviceManager());
+    for (size_t i = 0; i < detectedInterfaces.size(); ++i)
+    {
+        const auto& iface = detectedInterfaces[i];
+        std::string devId = "dev_" + std::to_string(i);
+
+        std::string ifaceDetails = "Detected in OS";
+        if (iface.isAudioConnected && iface.isMidiInConnected && iface.isMidiOutConnected)
+            ifaceDetails = "Audio & MIDI I/O Assigned";
+        else if (iface.isAudioConnected)
+            ifaceDetails = "Audio Assigned";
+        else if (iface.isMidiInConnected || iface.isMidiOutConnected)
+            ifaceDetails = "MIDI Assigned";
+
+        nlohmann::json portsJson = nlohmann::json::array();
+        for (const auto& p : iface.ports)
+        {
+            portsJson.push_back({
+                { "id", p.portId.toStdString() },
+                { "name", p.name.toStdString() },
+                { "type", p.type.toStdString() },
+                { "connected", p.isConnected }
+            });
+        }
+
+        bool connectsToTarget = false;
+        if (iface.isAudioConnected) connectsToTarget = true;
+        if (targetHasMidi && (iface.isMidiInConnected || iface.isMidiOutConnected)) connectsToTarget = true;
+
+        root["devices"].push_back({
+            { "id", devId },
+            { "name", iface.displayName.toStdString() },
+            { "details", ifaceDetails },
+            { "image", iface.imageRelPath.toStdString() },
+            { "assigned", connectsToTarget },
+            { "hasAudio", iface.hasAudioHardware },
+            { "hasMidi", iface.hasMidiHardware },
+            { "ports", portsJson }
+        });
+
+        // 3. Cables / Conexiones dirigidas al Target
+        // Conectar a cada puerto activo específico del interface
+        for (const auto& p : iface.ports)
+        {
+            if (!p.isConnected) continue;
+
+            if (p.type == "audioOut")
+            {
+                root["connections"].push_back({ { "type", "audioOut" }, { "from", devId }, { "to", "target" }, { "fromPort", p.portId.toStdString() } });
+            }
+            else if (p.type == "audioIn")
+            {
+                root["connections"].push_back({ { "type", "audioIn" }, { "from", "target" }, { "to", devId }, { "toPort", p.portId.toStdString() } });
+            }
+            else if (targetHasMidi && p.type == "midiOut")
+            {
+                root["connections"].push_back({ { "type", "midiOut" }, { "from", devId }, { "to", "target" }, { "fromPort", p.portId.toStdString() } });
+            }
+            else if (targetHasMidi && p.type == "midiIn")
+            {
+                root["connections"].push_back({ { "type", "midiIn" }, { "from", "target" }, { "to", devId }, { "toPort", p.portId.toStdString() } });
+            }
+        }
+    }
+
+    auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
+    topologyFloatingWindow->setTheme(themeStr, gui::AppTheme::BackgroundApp);
+    topologyFloatingWindow->updateTopology(root);
+
+    if (topologyFloatingWindow->isVisible())
+    {
+        topologyFloatingWindow->toFront(true);
+    }
+    else
+    {
+        topologyFloatingWindow->setVisible(true);
+        topologyFloatingWindow->toFront(true);
+    }
+}
 
 
-void MainContentComponent::showInfoDrawer()
+
+void MainContentComponent::updateSetupDrawerInfo()
 {
     gui::TelemetryInfo info;
     auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice();
@@ -1279,13 +1926,23 @@ void MainContentComponent::showInfoDrawer()
         info.latencyMs = 2.67;
     }
 
-    auto midiInputs = juce::MidiInput::getAvailableDevices();
-    if (!midiInputs.isEmpty())
-        info.midiInputName = midiInputs[0].name;
+    // MIDI Input real activo (solo los puertos habilitados en AudioDeviceManager)
+    juce::StringArray activeMidiInNames;
+    for (const auto& mIn : juce::MidiInput::getAvailableDevices())
+    {
+        if (audioEngine.getDeviceManager().isMidiInputDeviceEnabled(mIn.identifier))
+            activeMidiInNames.add(mIn.name);
+    }
+    if (!activeMidiInNames.isEmpty())
+        info.midiInputName = activeMidiInNames.joinIntoString(", ");
+    else
+        info.midiInputName = "None";
 
-    auto midiOutputs = juce::MidiOutput::getAvailableDevices();
-    if (!midiOutputs.isEmpty())
-        info.midiOutputName = midiOutputs[0].name;
+    // MIDI Output real activo (solo el dispositivo asignado como default output en AudioDeviceManager)
+    if (auto* defOut = audioEngine.getDeviceManager().getDefaultMidiOutput())
+        info.midiOutputName = defOut->getName();
+    else
+        info.midiOutputName = "None";
 
     info.exportDirectoryPath = exportDirectory.getFullPathName();
     info.autoTrimGainDb = (audioEngine.getInputAutoTrim() > 1e-4f) ? (20.0f * std::log10(audioEngine.getInputAutoTrim())) : 0.0f;
@@ -1293,7 +1950,153 @@ void MainContentComponent::showInfoDrawer()
     info.appVersion = version::kAppVersion;
     info.buildNumber = version::kBuildNumber;
 
-    drawer.openSetupDrawer(info);
+    setupInfoTab.setTelemetryInfo(info);
+    drawer.getSetupTab().setTelemetryInfo(info);
+
+    // Keep target hardware info synchronized from selected contract or active plugin
+    if (activePluginInstance != nullptr)
+    {
+        auto fullImgFile = gui::locateAssetFile(activePluginDescription.isInstrument
+            ? "models/generic-digital-keyboard.png"
+            : "models/generic-audio-rack.png");
+        juce::Image pluginFullImg;
+        if (fullImgFile.existsAsFile())
+            pluginFullImg = juce::ImageFileFormat::loadFrom(fullImgFile);
+
+        juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? " [Instrumento]" : " [Efecto]");
+        setupInfoTab.setTargetHardwareInfo(
+            plugTitle,
+            activePluginDescription.pluginFormatName + " Virtual Bus",
+            "Internal Digital Bus (Zero Converter Coloration)",
+            pluginFullImg,
+            nullptr,
+            "PLUGIN_VIRTUAL"
+        );
+        drawer.getSetupTab().setTargetHardwareInfo(
+            plugTitle,
+            activePluginDescription.pluginFormatName + " Virtual Bus",
+            "Internal Digital Bus (Zero Converter Coloration)",
+            pluginFullImg,
+            nullptr,
+            "PLUGIN_VIRTUAL"
+        );
+    }
+    else
+    {
+        juce::String hwId = drawer.getSelectedHardwareId();
+        if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
+        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        if (contract != nullptr)
+        {
+            // Hardware is considered "connected" when an active controller has been assigned
+            // (MidiDeviceHotplugMonitor does not expose a synchronous discovered-device list).
+            const bool isConnected = (hardwareManager.getActiveController() != nullptr);
+
+            juce::String status = isConnected ? "CONNECTED HARDWARE" : "SELECTED PROFILE";
+            juce::Colour col = isConnected ? gui::SoundIdTheme::accentGreen : gui::SoundIdTheme::accentAmber;
+
+            setupInfoTab.setTargetHardwareInfo(
+                juce::String(contract->displayName),
+                drawer.getActiveFunctionDisplayName(),
+                "Direct Loopback / Audio Routing",
+                drawer.getActiveModelRasterImage(),
+                nullptr,
+                juce::String(contract->deviceType),
+                status,
+                col
+            );
+            drawer.getSetupTab().setTargetHardwareInfo(
+                juce::String(contract->displayName),
+                drawer.getActiveFunctionDisplayName(),
+                "Direct Loopback / Audio Routing",
+                drawer.getActiveModelRasterImage(),
+                nullptr,
+                juce::String(contract->deviceType),
+                status,
+                col
+            );
+        }
+    }
+
+    // Detect known host Audio/MIDI hardware interfaces (e.g., PreSonus AudioBox, Roland AIRA MX-1, Generic)
+    auto detectedInterfaces = hardware::AudioMidiInterfaceDetector::detectInterfaces(audioEngine.getDeviceManager());
+    if (!detectedInterfaces.empty())
+    {
+        // Encontrar el interface activo en el software (o el primero si ninguno está activo)
+        const auto* activeIface = &detectedInterfaces.front();
+        for (const auto& candidate : detectedInterfaces)
+        {
+            if (candidate.isAnyActiveInSoftware())
+            {
+                activeIface = &candidate;
+                break;
+            }
+        }
+
+        const auto& iface = *activeIface;
+        bool isConnectedToSoftware = iface.isAnyActiveInSoftware();
+
+        // Determinar conectividad real del software
+        bool hasAudioActive = (device != nullptr && device->isOpen());
+        bool hasMidiInActive = false;
+        for (const auto& mIn : juce::MidiInput::getAvailableDevices())
+        {
+            if (audioEngine.getDeviceManager().isMidiInputDeviceEnabled(mIn.identifier))
+            {
+                hasMidiInActive = true;
+                break;
+            }
+        }
+        bool hasMidiOutActive = (audioEngine.getDeviceManager().getDefaultMidiOutput() != nullptr);
+
+        juce::String details;
+        if (hasAudioActive && hasMidiInActive && hasMidiOutActive)
+            details = "Audio & MIDI I/O Asignados";
+        else if (hasAudioActive && (hasMidiInActive || hasMidiOutActive))
+            details = "Audio y MIDI Parcial";
+        else if (hasAudioActive)
+            details = "Audio Asignado";
+        else if (hasMidiInActive || hasMidiOutActive)
+            details = "Solo MIDI Activo";
+        else
+            details = "Detectada en Windows (No Asignada)";
+
+        juce::Image ifaceImg;
+        auto imgFile = gui::locateAssetFile(iface.imageRelPath);
+        if (imgFile.existsAsFile())
+            ifaceImg = juce::ImageFileFormat::loadFrom(imgFile);
+
+        setupInfoTab.setDetectedInterfaceInfo(iface.displayName,
+                                              details,
+                                              ifaceImg,
+                                              isConnectedToSoftware,
+                                              hasAudioActive, // Audio In real
+                                              hasAudioActive, // Audio Out real
+                                              hasMidiInActive, // MIDI In real
+                                              hasMidiOutActive); // MIDI Out real
+
+        drawer.getSetupTab().setDetectedInterfaceInfo(iface.displayName,
+                                                      details,
+                                                      ifaceImg,
+                                                      isConnectedToSoftware,
+                                                      hasAudioActive, // Audio In real
+                                                      hasAudioActive, // Audio Out real
+                                                      hasMidiInActive, // MIDI In real
+                                                      hasMidiOutActive); // MIDI Out real
+    }
+    else
+    {
+        setupInfoTab.setDetectedInterfaceInfo({}, {}, {}, false, false, false, false, false);
+        drawer.getSetupTab().setDetectedInterfaceInfo({}, {}, {}, false, false, false, false, false);
+    }
+}
+
+void MainContentComponent::showInfoDrawer()
+{
+    updateSetupDrawerInfo();
+
+    if (drawer.isDrawerOpen())
+        drawer.closeDrawer();
 }
 
 void MainContentComponent::chooseExportFolder()
@@ -1317,11 +2120,53 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
 
     gui::HardwareConnectionStatus connStatus = hardwareManager.selectHardware(hwId, funcId, audioEngine);
 
+    juce::String funcName;
+    for (const auto& fn : contract->functions)
+    {
+        if (juce::String(fn.id) == funcId)
+        {
+            funcName = juce::String(fn.name);
+            break;
+        }
+    }
+    if (funcName.isEmpty() && !contract->functions.empty())
+        funcName = juce::String(contract->functions.front().name);
+    if (funcName.isEmpty())
+        funcName = drawer.getActiveFunctionDisplayName();
+
+    juce::Image hwImg;
+    if (!contract->modelImage.empty())
+    {
+        auto imgFile = gui::locateAssetFile(juce::String(contract->modelImage));
+        if (imgFile.existsAsFile())
+            hwImg = juce::ImageFileFormat::loadFrom(imgFile);
+    }
+    if (!hwImg.isValid())
+        hwImg = drawer.getActiveModelRasterImage();
+
     mainHeader.setHardwareInfo(
         juce::String(contract->displayName),
-        drawer.getActiveFunctionDisplayName(),
-        drawer.getActiveModelRasterImage(),
+        funcName,
+        hwImg,
         connStatus
+    );
+
+    setupInfoTab.setTargetHardwareInfo(
+        juce::String(contract->displayName),
+        funcName,
+        "Direct Loopback / Audio Routing",
+        hwImg,
+        nullptr,
+        juce::String(contract->deviceType)
+    );
+
+    drawer.getSetupTab().setTargetHardwareInfo(
+        juce::String(contract->displayName),
+        funcName,
+        "Direct Loopback / Audio Routing",
+        hwImg,
+        nullptr,
+        juce::String(contract->deviceType)
     );
 
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
@@ -2046,12 +2891,19 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
         suiteList.addTestToQueue(item);
     }
 
-    // Bloquear Pasos 1 y 2 para proteger el ruteo del hardware en sesiones cargadas
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting, true);
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::CalibrateLoopback, true);
+    // Set step statuses for loaded session
+    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::SystemInfo, false);
+    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting, false);
+    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::CalibrateLoopback, false);
+    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::SystemInfo, false);
+    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::HardwareRouting, false);
+    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, false);
+
+    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::SystemInfo, gui::WorkflowStepperBar::StepStatus::Completed);
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
 
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::SystemInfo, gui::SoundIdSidebarStepper::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
 
@@ -2071,8 +2923,7 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Current);
     }
 
-    if (stepperBar.onStepSelected != nullptr)
-        stepperBar.onStepSelected(targetStep);
+    workflowNavController.setStep(targetSidebarStep);
     resized();
 
     manualPromptLabel.setText("Session loaded: " + juce::String(manifest.hardwareDisplayName) + " (" + juce::String(points.size()) + " points)", juce::dontSendNotification);
@@ -2082,69 +2933,54 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
 
 void MainContentComponent::handleSaveSession()
 {
-    if (sessionManager.getActiveSessionFile().existsAsFile())
-    {
-        saveSessionToFile(sessionManager.getActiveSessionFile());
-        return;
-    }
-    handleSaveSessionAs();
+    core::SessionManifest manifest = buildCurrentSessionManifest();
+    core::ProfilingMetadata meta;
+    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
+    meta.sampleRate = audioEngine.getCurrentSampleRate();
+    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
+    meta.ambientTemperatureC = drawer.getAmbientTemperature();
+    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
+
+    sessionIoController.handleSaveSession(manifest, meta);
 }
 
 void MainContentComponent::handleSaveSessionAs()
 {
+    core::SessionManifest manifest = buildCurrentSessionManifest();
+    core::ProfilingMetadata meta;
+    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
+    meta.sampleRate = audioEngine.getCurrentSampleRate();
+    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
+    meta.ambientTemperatureC = drawer.getAmbientTemperature();
+    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
+
     juce::String defaultName = drawer.getActiveHardwareDisplayName().replaceCharacter(' ', '_') + ".abdlabtest";
-    sessionReportManager.triggerSaveSessionAsync(exportDirectory, defaultName, [this](const juce::File& file) {
-        if (file != juce::File())
-            saveSessionToFile(file);
-    });
+    sessionIoController.handleSaveSessionAs(manifest, meta, defaultName);
 }
 
 void MainContentComponent::saveSessionToFile(const juce::File& file)
 {
     core::SessionManifest manifest = buildCurrentSessionManifest();
-    bool ok = sessionManager.saveSessionToPackage(file, manifest);
-    if (ok)
-    {
-        const auto& sessionPoints = sessionManager.getMeasuredPoints();
-        juce::String baseName = file.getFileNameWithoutExtension();
+    core::ProfilingMetadata meta;
+    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
+    meta.sampleRate = audioEngine.getCurrentSampleRate();
+    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
+    meta.ambientTemperatureC = drawer.getAmbientTemperature();
+    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
 
-        core::ProfilingMetadata meta;
-        meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-        meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-        meta.sampleRate = audioEngine.getCurrentSampleRate();
-        meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-        meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-        meta.ambientTemperatureC = drawer.getAmbientTemperature();
-        meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-        sessionReportManager.exportLutAndJsonReports(exportDirectory, baseName, meta, sessionPoints);
-
-        manualPromptLabel.setText("Session package saved successfully: " + file.getFileName(), juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-
-        // Update file drawer preview
-        drawer.openFileDrawer(exportDirectory.getFullPathName());
-        hidePromptAfterDelay(4000);
-    }
-    else
-    {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon,
-            "Save Failed",
-            "Could not write session package to:\n" + file.getFullPathName() + "\n\nPlease check disk space and folder permissions.",
-            "OK"
-        );
-    }
+    sessionIoController.saveSessionToFile(file, manifest, meta);
 }
 
 void MainContentComponent::exportCertificationReport()
 {
-    if (!exportDirectory.exists())
-        exportDirectory.createDirectory();
-
     juce::String hwId = drawer.getSelectedHardwareId();
     juce::String funcId = drawer.getSelectedFunctionId();
-    juce::String baseName = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
 
     exporting::SessionManifestData manifest;
     manifest.hardwareId = hwId.toStdString();
@@ -2154,32 +2990,7 @@ void MainContentComponent::exportCertificationReport()
     manifest.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
     manifest.sampleRate = audioEngine.getCurrentSampleRate();
 
-    juce::File htmlFile;
-    bool success = sessionReportManager.exportCertificationHtmlReport(
-        exportDirectory,
-        baseName,
-        manifest,
-        sessionManager.getMeasuredPoints(),
-        htmlFile
-    );
-
-    if (success)
-    {
-        manualPromptLabel.setText("Certification Report exported: " + htmlFile.getFileName(), juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-        drawer.openFileDrawer(exportDirectory.getFullPathName());
-        htmlFile.startAsProcess();
-        hidePromptAfterDelay(5000);
-    }
-    else
-    {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon,
-            "Export Failed",
-            "Could not generate HTML Certification Report at:\n" + htmlFile.getFullPathName(),
-            "OK"
-        );
-    }
+    sessionIoController.exportCertificationReport(hwId, funcId, manifest);
 }
 
 void MainContentComponent::updateExportReportMetrics()
@@ -2215,18 +3026,11 @@ void MainContentComponent::updateExportReportMetrics()
 
 void MainContentComponent::exportProductionPackage()
 {
-    const auto& sessionPoints = sessionManager.getMeasuredPoints();
-    if (!exportDirectory.exists())
-        exportDirectory.createDirectory();
-
     juce::String hwId = drawer.getSelectedHardwareId();
     juce::String funcId = drawer.getSelectedFunctionId();
     if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
     if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
-    juce::String baseName = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
 
-    // 1. C++ Header with alignas(16)
-    juce::File headerFile = exportDirectory.getChildFile(baseName + "_lut.h");
     core::ProfilingMetadata meta;
     meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
     if (meta.hardwareName.empty())
@@ -2241,14 +3045,7 @@ void MainContentComponent::exportProductionPackage()
     meta.operatorNotes = drawer.getOperatorNotes().toStdString();
     meta.ambientTemperatureC = drawer.getAmbientTemperature();
     meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-    exporting::LutExporter::exportToCppHeader(headerFile.getFullPathName().toStdString(), meta, (baseName + "_table").toStdString(), sessionPoints);
 
-    // 2. JSON Telemetry Report
-    juce::File jsonFile = exportDirectory.getChildFile(baseName + "_telemetry.json");
-    exporting::LutExporter::exportToJsonReport(jsonFile.getFullPathName().toStdString(), meta, sessionPoints);
-
-    // 3. HTML Certification Report with auto-print
-    juce::File htmlFile = exportDirectory.getChildFile(baseName + "_Certification_Report.html");
     exporting::SessionManifestData manifest;
     manifest.hardwareId = hwId.toStdString();
     manifest.hardwareName = meta.hardwareName;
@@ -2260,72 +3057,18 @@ void MainContentComponent::exportProductionPackage()
     manifest.operatorNotes = drawer.getOperatorNotes().toStdString();
     manifest.ambientTemperatureC = drawer.getAmbientTemperature();
     manifest.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-    manifest.cppHeaderFilename = headerFile.getFileName().toStdString();
-    manifest.jsonReportFilename = jsonFile.getFileName().toStdString();
-    exporting::CertificationReportExporter::exportReportToHtml(htmlFile.getFullPathName().toStdString(), manifest, sessionPoints);
 
-    // 4. Session Manifest JSON
-    juce::File manifestFile = exportDirectory.getChildFile(baseName + "_manifest.json");
-    exporting::LutExporter::exportSessionManifest(manifestFile.getFullPathName().toStdString(), manifest, sessionPoints);
-
-    // Immediate visual confirmation on Step 4 certification card
-    exportReportPanel.showExportSuccess(exportDirectory.getFullPathName(), baseName);
-
-    manualPromptLabel.setText(juce::String::fromUTF8(u8"⚡ Paquete de producción exportado con éxito (C++ alignas(16), JSON, HTML)"), juce::dontSendNotification);
-    manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
-    manualPromptLabel.setVisible(true);
-    hidePromptAfterDelay(5000);
-
-    // 5. Asynchronous Pre-Flight Sanitizer & Local Staging Sealing via Python
-    juce::Thread::launch([dirPath = exportDirectory.getFullPathName(), this]() {
-        juce::ChildProcess proc;
-        juce::String cmd = "python tools/sync_certification_cloud.py --dir \"" + dirPath + "\" --target local";
-        if (proc.start(cmd))
-        {
-            proc.waitForProcessToFinish(6000);
-            if (proc.getExitCode() == 0)
-            {
-                juce::MessageManager::callAsync([this]() {
-                    manualPromptLabel.setText(juce::String::fromUTF8(u8"✓ Paquete sellado y verificado con éxito (CRC-32 & SHA-256 en dist_packages/)"), juce::dontSendNotification);
-                    manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
-                    manualPromptLabel.setVisible(true);
-                    hidePromptAfterDelay(5000);
-                });
-            }
-        }
-    });
+    sessionIoController.exportProductionPackage(hwId, funcId, meta, manifest);
 }
 
 void MainContentComponent::openCertificationReportHtml()
 {
-    if (!exportDirectory.exists())
-        exportDirectory.createDirectory();
-
     juce::String hwId = drawer.getSelectedHardwareId();
     juce::String funcId = drawer.getSelectedFunctionId();
     if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
     if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
-    juce::String baseName = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
-    juce::File htmlFile = exportDirectory.getChildFile(baseName + "_Certification_Report.html");
 
-    if (!htmlFile.existsAsFile())
-    {
-        exportProductionPackage();
-    }
-
-    if (htmlFile.existsAsFile())
-    {
-        bool launched = htmlFile.startAsProcess();
-        if (!launched)
-        {
-            juce::URL(htmlFile).launchInDefaultBrowser();
-        }
-        exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"✓ Abriendo informe en el navegador: ") + htmlFile.getFileName());
-    }
-    else
-    {
-        exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"⚠️ No se pudo generar el informe HTML."), true);
-    }
+    sessionIoController.openCertificationReportHtml(hwId, funcId);
 }
 
 void MainContentComponent::prepareAuditionLut()
@@ -2376,38 +3119,8 @@ void MainContentComponent::prepareAuditionLut()
 
 void MainContentComponent::publishCertificationToCloud()
 {
-    if (!exportDirectory.exists())
-        exportDirectory.createDirectory();
-
-    // Ensure production package is exported first
     exportProductionPackage();
-
-    exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"☁️ Conectando y auditando con la API Cloud de Certificación..."));
-
-    juce::Thread::launch([dirPath = exportDirectory.getFullPathName(), this]() {
-        juce::ChildProcess proc;
-        juce::String cmd = "python tools/sync_certification_cloud.py --dir \"" + dirPath + "\" --target rest";
-        if (proc.start(cmd))
-        {
-            proc.waitForProcessToFinish(10000);
-            int exitCode = proc.getExitCode();
-
-            juce::MessageManager::callAsync([this, exitCode]() {
-                if (exitCode == 0)
-                {
-                    exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"✓ ¡Certificación publicada con éxito en la Nube Comunitaria! (CERTIFIED_GOLD)"));
-                    manualPromptLabel.setText(juce::String::fromUTF8(u8"✓ Publicación Cloud completada: Bundle .tar.gz verificado e indexado."), juce::dontSendNotification);
-                    manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
-                    manualPromptLabel.setVisible(true);
-                    hidePromptAfterDelay(5000);
-                }
-                else
-                {
-                    exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"⚠️ API Cloud: Servidor no disponible o bundle rechazado. Revisa la consola."), true);
-                }
-            });
-        }
-    });
+    sessionIoController.publishCertificationToCloud();
 }
 
 void MainContentComponent::promptNewSession()
@@ -2450,32 +3163,31 @@ void MainContentComponent::performNewSessionReset()
     drawer.setHardwareLocked(false);
     drawer.clearSelectedHardware();
     hardwareRoutingPanel.setHardwareLocked(false);
+    hardwareRoutingPanel.resetSelection();
     catalogSelector.setHardwareLocked(false);
+    catalogSelector.resetSelection();
     mainHeader.clearHardware();
+    suiteList.setStandardTestAvailable(false);
+
+    // Disconnect and release active plugin instance
+    if (activePluginInstance != nullptr)
+    {
+        juce::Logger::writeToLog("[NewSession] Releasing active plugin instance: " + activePluginDescription.name);
+        pluginWindowController.closePluginWindow();
+        audioEngine.setActivePluginInstance(nullptr);
+        sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+        activePluginInstance.reset();
+        activePluginDescription = {};
+    }
 
     // Reset session summary in sidebar stepper
     gui::SoundIdSidebarStepper::SessionSummaryInfo emptySummary;
     sidebarStepper.setSessionSummary(emptySummary);
 
-    // Desbloquear Pasos 1 y 2 para la nueva sesión y volver a Paso 1
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting, false);
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::CalibrateLoopback, false);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Current);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Pending);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, gui::WorkflowStepperBar::StepStatus::Pending);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Pending);
-    stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
+    // Reset workflow stepper navigation via WorkflowNavigationController
+    workflowNavController.resetToNewSession();
 
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Current);
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Pending);
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::RunSession, gui::SoundIdSidebarStepper::StepStatus::Pending);
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Pending);
-    sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::HardwareRouting);
-
-    if (stepperBar.onStepSelected != nullptr)
-        stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::HardwareRouting);
-
-    manualPromptLabel.setText(juce::String::fromUTF8(u8"Nueva sesión inicializada. Seleccione el dispositivo y objetivo a medir."), juce::dontSendNotification);
+    manualPromptLabel.setText(juce::String::fromUTF8(u8"Nueva sesi\u00f3n inicializada. Seleccione el dispositivo y objetivo a medir."), juce::dontSendNotification);
     manualPromptLabel.setVisible(true);
     hidePromptAfterDelay(4000);
     resized();
@@ -2483,55 +3195,12 @@ void MainContentComponent::performNewSessionReset()
 
 void MainContentComponent::handleOpenSession()
 {
-    if (sessionManager.isDirty() && sessionManager.hasPoints())
-    {
-        confirmationModal.show(
-            this,
-            "Unsaved Changes",
-            "The current session contains unsaved measurement points.\nDo you want to save before opening another session?",
-            "Save",
-            "Don't Save",
-            "Cancel",
-            [this](gui::ConfirmationModalDialog::Result result) {
-                if (result == gui::ConfirmationModalDialog::Result::Primary)
-                {
-                    handleSaveSession();
-                    performOpenSessionFileChooser();
-                }
-                else if (result == gui::ConfirmationModalDialog::Result::Secondary)
-                {
-                    performOpenSessionFileChooser();
-                }
-            }
-        );
-    }
-    else
-    {
-        performOpenSessionFileChooser();
-    }
+    sessionIoController.handleOpenSession(this);
 }
 
 void MainContentComponent::performOpenSessionFileChooser()
 {
-    sessionReportManager.triggerLoadSessionAsync(exportDirectory, [this](const juce::File& file) {
-        if (file.existsAsFile())
-        {
-            juce::String err;
-            if (sessionManager.loadSessionFromPackage(file, err))
-            {
-                applyLoadedSession(sessionManager.getManifest(), sessionManager.getMeasuredPoints());
-            }
-            else
-            {
-                juce::AlertWindow::showMessageBoxAsync(
-                    juce::AlertWindow::WarningIcon,
-                    "Failed to Open Session",
-                    err,
-                    "OK"
-                );
-            }
-        }
-    });
+    sessionIoController.handleOpenSession(this);
 }
 
 void MainContentComponent::promptDeleteTest(int index, const gui::QueueItem& item)
@@ -2671,6 +3340,102 @@ void MainContentComponent::openAudioABVerificationModal()
         }
     }
     abVerificationModal.showDialog(this);
+}
+
+void MainContentComponent::loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded)
+{
+    juce::Logger::writeToLog("[MainComponent] loadPluginInstance called for: '" + desc.name
+        + "' [" + desc.pluginFormatName + "] UID: " + desc.fileOrIdentifier);
+
+    double sr = 44100.0;
+    int bs = 512;
+    if (auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice())
+    {
+        sr = device->getCurrentSampleRate();
+        bs = device->getCurrentBufferSizeSamples();
+    }
+    juce::Logger::writeToLog("[MainComponent] Audio settings -> SR: " + juce::String(sr) + ", BS: " + juce::String(bs));
+
+    activePluginDescription = desc;
+
+    juce::Logger::writeToLog("[MainComponent] Calling pluginHostManager.instantiatePluginAsync for: " + desc.name);
+    pluginHostManager.instantiatePluginAsync(desc, sr, bs,
+        [this, desc, onLoaded, sr, bs](std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error) {
+            juce::Logger::writeToLog("[MainComponent] instantiatePluginAsync returned callback for: " + desc.name);
+            auto sharedInst = std::make_shared<std::unique_ptr<juce::AudioPluginInstance>>(std::move(instance));
+            juce::MessageManager::callAsync([this, desc, sharedInst, error, onLoaded, sr, bs]() {
+                if (error.isNotEmpty() || *sharedInst == nullptr)
+                {
+                    juce::Logger::writeToLog("[PluginHost ERROR] Failed to instantiate plugin '" + desc.name + "': " + error);
+                    if (onLoaded) onLoaded(false);
+                    return;
+                }
+
+                juce::Logger::writeToLog("[MainComponent] Safely disconnecting previous plugin instance before assignment...");
+                pluginWindowController.closePluginWindow();
+                audioEngine.setActivePluginInstance(nullptr);
+                sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+
+                activePluginInstance = std::move(*sharedInst);
+                audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
+                sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
+
+                // Generate dynamic HardwareContract and register it
+                auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);
+                hardwareManager.getContractRegistry().registerContract(dynContract);
+                drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
+                drawer.setSelectedHardwareId(juce::String(dynContract.id));
+
+                hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
+                hardwareRoutingPanel.setPluginVirtualRouting(desc.name, desc.pluginFormatName, desc.isInstrument);
+
+                suiteList.setStandardTestAvailable(true);
+
+                // Load plugin default image for Header and Setup
+                auto imgFile = gui::locateAssetFile(desc.isInstrument
+                    ? "models/generic-digital-keyboard.png"
+                    : "models/generic-audio-rack.png");
+                juce::Image pluginImg;
+                if (imgFile.existsAsFile())
+                    pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
+
+                // Update Header and Stepper
+                juce::String plugTitle = desc.name + (desc.isInstrument ? " [Instrumento]" : " [Efecto]");
+                mainHeader.setHardwareInfo(
+                    plugTitle,
+                    desc.pluginFormatName + " Virtual Bus",
+                    pluginImg,
+                    gui::HardwareConnectionStatus::Connected
+                );
+
+                // Update Step 0 (Información) and Drawer Setup Tab
+                setupInfoTab.setTargetHardwareInfo(
+                    plugTitle,
+                    desc.pluginFormatName + " Virtual Bus",
+                    "Internal Digital Bus (Zero Converter Coloration)",
+                    pluginImg,
+                    nullptr,
+                    "PLUGIN_VIRTUAL"
+                );
+                drawer.getSetupTab().setTargetHardwareInfo(
+                    plugTitle,
+                    desc.pluginFormatName + " Virtual Bus",
+                    "Internal Digital Bus (Zero Converter Coloration)",
+                    pluginImg,
+                    nullptr,
+                    "PLUGIN_VIRTUAL"
+                );
+                updateSetupDrawerInfo();
+
+                auto summary = sidebarStepper.getSessionSummary();
+                summary.hardwareName = plugTitle;
+                summary.hardwareCategory = "PLUGIN_VIRTUAL";
+                sidebarStepper.setSessionSummary(summary);
+
+                juce::Logger::writeToLog("[PluginHost] Plugin instantiated & ready: " + activePluginInstance->getName());
+                if (onLoaded) onLoaded(true);
+            });
+        });
 }
 
 } // namespace abdaudiolab

@@ -50,7 +50,10 @@ bool ProfilingSequencer::startSession(const ProfilingSession& session,
     safetyAborted.store(false, std::memory_order_release);
     linearBypassDetected.store(false, std::memory_order_release);
     adaptiveOptimizationApplied.store(false, std::memory_order_release);
+    sessionPaused.store(false, std::memory_order_release);
+    rerunPointIndex.store(-1, std::memory_order_release);
     audioEngine.getResponseReceiver().resetOverloadGuard();
+
 
     exportDir.createDirectory();
     startThread();
@@ -59,6 +62,8 @@ bool ProfilingSequencer::startSession(const ProfilingSession& session,
 
 void ProfilingSequencer::stopSession()
 {
+    sessionPaused.store(false, std::memory_order_release);
+    resumeEvent.signal();  // unblock the pause gate in the run loop
     signalThreadShouldExit();
     stopThread(4000);
     if (hardwareDispatcher != nullptr)
@@ -68,6 +73,7 @@ void ProfilingSequencer::stopSession()
     }
     currentState.store(SequencerState::Idle, std::memory_order_release);
 }
+
 
 void ProfilingSequencer::confirmOperatorStep()
 {
@@ -84,6 +90,23 @@ void ProfilingSequencer::stepBack()
 {
     stepBackRequested.store(true, std::memory_order_release);
     operatorConfirmed.store(true, std::memory_order_release);
+}
+
+void ProfilingSequencer::pauseSession()
+{
+    sessionPaused.store(true, std::memory_order_release);
+    notifyProgress(0.0f, "Session paused by operator.", SequencerState::Idle);
+}
+
+void ProfilingSequencer::resumeSession()
+{
+    sessionPaused.store(false, std::memory_order_release);
+    resumeEvent.signal();
+}
+
+void ProfilingSequencer::scheduleRerunPoint(int globalPointIndex)
+{
+    rerunPointIndex.store(globalPointIndex, std::memory_order_release);
 }
 
 void ProfilingSequencer::notifyProgress(float progress, const juce::String& task, SequencerState state)
@@ -331,6 +354,37 @@ void ProfilingSequencer::run()
     for (int i = 0; i < totalTests; ++i)
     {
         if (threadShouldExit()) return;
+
+        // ── Phase 14: Pause gate (waits between iterations, not mid-capture) ──
+        while (sessionPaused.load(std::memory_order_acquire) && !threadShouldExit())
+        {
+            notifyProgress(0.0f, "Session paused — waiting for operator resume.", SequencerState::Idle);
+            resumeEvent.wait(300); // wake every 300 ms to re-check exit flag
+        }
+        if (threadShouldExit()) return;
+
+        // ── Phase 14: Granular single-point re-run ──
+        int rerunIdx = rerunPointIndex.exchange(-1, std::memory_order_acq_rel);
+        if (rerunIdx >= 0)
+        {
+            // Find the test-case index whose globalPointIndex matches
+            for (int seek = 0; seek < totalTests; ++seek)
+            {
+                if (testCases[seek].globalPointIndex == rerunIdx)
+                {
+                    // Remove the previously stored point for that index if it exists
+                    measuredPoints.erase(
+                        std::remove_if(measuredPoints.begin(), measuredPoints.end(),
+                            [rerunIdx](const exporting::MeasuredPoint& p) {
+                                return p.globalIndex == rerunIdx;
+                            }),
+                        measuredPoints.end());
+                    i = seek - 1; // loop will do ++i bringing us to seek
+                    break;
+                }
+            }
+            continue;
+        }
 
         const auto& tc = testCases[i];
 

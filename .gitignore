@@ -17,3 +17,9 @@ captures/
 Thumbs.db
 .cache/
 .vscode/
+.aider*
+
+# Shared assets junctions (linked from ../ABDSharedAssets)
+assets/brands/
+assets/models/
+contracts/

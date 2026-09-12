@@ -12,8 +12,9 @@ TEST_CASE("HardwareWiringDiagramComponent - State & text updates", "[HardwareRou
 
     SECTION("Default values initialization")
     {
-        CHECK(comp.getStimulusText().contains("Salida Audio 1 (DAC)"));
-        CHECK(comp.getResponseText().contains("Entrada Audio 1 (ADC)"));
+        CHECK(comp.isEmpty());
+        CHECK(comp.getStimulusText().isEmpty());
+        CHECK(comp.getResponseText().isEmpty());
         CHECK_FALSE(comp.getIsMidiAutonomous());
     }
 

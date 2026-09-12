@@ -50,10 +50,15 @@
 #include "gui/controllers/WorkflowNavigationController.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
+#include <StudioTopology/StudioTopologyFloatingWindow.h>
 #include "export/CertificationReportExporter.h"
 #include "export/NamDatasetExporter.h"
 #include "config/AutoUpdaterConfig.h"
 #include <AutoUpdater/AutoUpdater.h>
+#include "core/plugins/PluginHostManager.h"
+#include "core/plugins/PluginHardwareContractAdapter.h"
+#include "gui/plugins/PluginWindowController.h"
+#include "gui/plugins/PluginScanDirectoriesModal.h"
 
 namespace abdaudiolab
 {
@@ -83,10 +88,12 @@ public:
 
     void updateSplitLayout();
     void toggleScopeWebWindow();
+    void toggleStudioTopologyWindow();
     void preWarmScopeWindow();
     void preWarmHardwareDetector();
     void performOfflineReanalysis();
     void showInfoDrawer();
+    void updateSetupDrawerInfo();
     void chooseExportFolder();
     void onHardwareSelected(const juce::String& hwId, const juce::String& funcId);
     void hidePromptAfterDelay(int delayMs = 4000);
@@ -131,6 +138,12 @@ private:
     // Engine & Controllers
     audio::LabAudioEngine audioEngine;
     core::HardwareManager hardwareManager;
+    core::PluginHostManager pluginHostManager;
+    gui::PluginWindowController pluginWindowController;
+    gui::PluginScanDirectoriesModal pluginScanModal;
+    std::unique_ptr<juce::AudioPluginInstance> activePluginInstance;
+    juce::PluginDescription activePluginDescription;
+    void loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded = nullptr);
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
@@ -155,6 +168,7 @@ private:
     gui::ExportReportPanel exportReportPanel;
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
+    std::unique_ptr<abd::topology::StudioTopologyFloatingWindow> topologyFloatingWindow;
     std::unique_ptr<gui::SoundIdSplashWindow> aboutSplashWindow;
 
     gui::SoundIdCurvePlotter curvePlotter;
@@ -168,13 +182,14 @@ private:
     gui::LoopbackCalibrationModal loopbackModal { audioEngine };
     gui::HardwareRoutingPanel hardwareRoutingPanel;
     gui::NativeCalibrationPanel nativeCalibrationPanel { audioEngine };
+    gui::DrawerSetupTab setupInfoTab;
     gui::OperatorStepModalDialog operatorStepModal;
     gui::ConfirmationModalDialog confirmationModal;
     gui::AudioABVerificationModal abVerificationModal;
 
     // Sub-controllers
     gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
-    gui::WorkflowNavigationController workflowNavController { sidebarStepper, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
+    gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

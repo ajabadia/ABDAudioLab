@@ -48,7 +48,7 @@ public:
             };
             addAndMakeVisible(btnCheckUpdates);
 
-            lblCredits.setText(juce::String::fromUTF8(u8"\u00A9 2026 ABD Synths \u2022 Audio Lab Research Group"), juce::dontSendNotification);
+            lblCredits.setText(juce::String::fromUTF8(u8"\u00A9 2026 ABD Synths"), juce::dontSendNotification);
             lblCredits.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
             lblCredits.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
             lblCredits.setJustificationType(juce::Justification::left);
@@ -67,7 +67,7 @@ public:
         lblTitle.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblTitle);
 
-        lblSubtitle.setText("Hardware Audio & ACB Profiling System", juce::dontSendNotification);
+        lblSubtitle.setText("Universal Hardware Profiling & DSP Synthesis Suite", juce::dontSendNotification);
         lblSubtitle.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
         lblSubtitle.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
         lblSubtitle.setJustificationType(juce::Justification::left);
@@ -79,7 +79,7 @@ public:
         lblVersion.setJustificationType(juce::Justification::left);
         addAndMakeVisible(lblVersion);
 
-        lblDspEngine.setText(juce::String::fromUTF8(u8"DSP Engine: Farina \u2022 Wiener-Hammerstein \u2022 SIMD AVX2 Splines \u2022 NAM / RTNeural"), juce::dontSendNotification);
+        lblDspEngine.setText(juce::String::fromUTF8(u8"DSP Engine: Farina Sine Sweep \u2022 Wiener-Hammerstein LNL \u2022 SIMD Splines \u2022 NAM / RTNeural"), juce::dontSendNotification);
         lblDspEngine.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
         lblDspEngine.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
         lblDspEngine.setJustificationType(juce::Justification::left);
@@ -193,20 +193,22 @@ public:
 
         if (!isCloseable)
         {
-            // Minimalist Progress Bar (2.5px height, moved up 8px from bottom)
-            float barY = card.getBottom() - 40.0f;
+            // Progress Bar (4px height, clearly visible green fill)
+            float barY = card.getBottom() - 38.0f;
             float barX = card.getX() + 24.0f;
             float barW = card.getWidth() - 48.0f;
-            auto barArea = juce::Rectangle<float>(barX, barY, barW, 2.5f);
+            auto barArea = juce::Rectangle<float>(barX, barY, barW, 4.0f);
 
+            g.setColour(SoundIdTheme::surfaceSubtle);
+            g.fillRoundedRectangle(barArea, 2.0f);
             g.setColour(SoundIdTheme::borderSubtle);
-            g.fillRoundedRectangle(barArea, 1.25f);
+            g.drawRoundedRectangle(barArea.reduced(0.5f), 2.0f, 1.0f);
 
             if (progress >= 0.0f)
             {
                 auto fillArea = barArea.withWidth(barArea.getWidth() * std::clamp(progress, 0.0f, 1.0f));
                 g.setColour(SoundIdTheme::accentGreen);
-                g.fillRoundedRectangle(fillArea, 1.25f);
+                g.fillRoundedRectangle(fillArea, 2.0f);
             }
             else
             {
@@ -334,15 +336,13 @@ public:
             splashComp->setStatusMessage(msg, progress);
     }
 
-    void reportProgress(const juce::String& msg, float progress = -1.0f, int minDwellMs = 25)
+    void reportProgress(const juce::String& msg, float progress = -1.0f)
     {
         setStatus(msg, progress);
         if (splashComp)
             splashComp->repaint();
         if (auto* peer = getPeer())
             peer->performAnyPendingRepaintsNow();
-        if (minDwellMs > 0)
-            juce::Thread::sleep(minDwellMs);
     }
 
     void dismiss(std::function<void()> onDone)

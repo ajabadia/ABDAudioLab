@@ -19,10 +19,15 @@ void HardwareControlRenderer::drawTargetValueBadge(juce::Graphics& g, juce::Rect
 void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
     bool isCompact = (area.getWidth() < 100.0f);
-    g.setFont(juce::FontOptions(isCompact ? 9.5f : 11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions(isCompact ? 8.5f : 10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(isCompact ? 16.0f : 20.0f);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(isCompact ? 14.0f : 18.0f);
+    juce::String nameStr = juce::String(ps.paramName).trim();
+    if (nameStr.endsWithIgnoreCase(" ADJ"))
+        nameStr = nameStr.dropLastCharacters(4).trim();
+    else if (nameStr.endsWithIgnoreCase(" ADJUST"))
+        nameStr = nameStr.dropLastCharacters(7).trim();
+    g.drawFittedText(nameStr.toUpperCase(), titleArea.toNearestInt(), juce::Justification::centred, 1, 0.8f);
 
     float badgeW = juce::jmin(area.getWidth() - 4.0f, 90.0f);
     float badgeH = isCompact ? 16.0f : 20.0f;
@@ -105,10 +110,13 @@ void HardwareControlRenderer::drawKnob(juce::Graphics& g, juce::Rectangle<float>
 
 void HardwareControlRenderer::drawSlider(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(20.0f);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(18.0f);
+    juce::String nameStr = juce::String(ps.paramName).trim();
+    if (nameStr.endsWithIgnoreCase(" ADJ"))
+        nameStr = nameStr.dropLastCharacters(4).trim();
+    g.drawFittedText(nameStr.toUpperCase(), titleArea.toNearestInt(), juce::Justification::centred, 1, 0.8f);
 
     auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
 
@@ -141,10 +149,13 @@ void HardwareControlRenderer::drawSlider(juce::Graphics& g, juce::Rectangle<floa
 
 void HardwareControlRenderer::drawJackPort(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(20.0f);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(18.0f);
+    juce::String nameStr = juce::String(ps.paramName).trim();
+    if (nameStr.endsWithIgnoreCase(" ADJ"))
+        nameStr = nameStr.dropLastCharacters(4).trim();
+    g.drawFittedText(nameStr.toUpperCase(), titleArea.toNearestInt(), juce::Justification::centred, 1, 0.8f);
 
     auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(80.0f, 20.0f);
 
@@ -179,10 +190,13 @@ void HardwareControlRenderer::drawJackPort(juce::Graphics& g, juce::Rectangle<fl
 
 void HardwareControlRenderer::drawButton(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(20.0f);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(18.0f);
+    juce::String nameStr = juce::String(ps.paramName).trim();
+    if (nameStr.endsWithIgnoreCase(" ADJ"))
+        nameStr = nameStr.dropLastCharacters(4).trim();
+    g.drawFittedText(nameStr.toUpperCase(), titleArea.toNearestInt(), juce::Justification::centred, 1, 0.8f);
 
     auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
 
@@ -215,10 +229,13 @@ void HardwareControlRenderer::drawButton(juce::Graphics& g, juce::Rectangle<floa
 
 void HardwareControlRenderer::drawSwitch(juce::Graphics& g, juce::Rectangle<float> area, const core::ParameterStep& ps)
 {
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    auto titleArea = area.removeFromTop(20.0f);
-    g.drawText(juce::String(ps.paramName).toUpperCase(), titleArea, juce::Justification::centred, true);
+    auto titleArea = area.removeFromTop(18.0f);
+    juce::String nameStr = juce::String(ps.paramName).trim();
+    if (nameStr.endsWithIgnoreCase(" ADJ"))
+        nameStr = nameStr.dropLastCharacters(4).trim();
+    g.drawFittedText(nameStr.toUpperCase(), titleArea.toNearestInt(), juce::Justification::centred, 1, 0.8f);
 
     auto valArea = area.removeFromBottom(22.0f).withSizeKeepingCentre(64.0f, 20.0f);
 

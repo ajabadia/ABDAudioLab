@@ -37,8 +37,8 @@ OperatorStepModalDialog::OperatorStepModalDialog()
     btnStepBack.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     addAndMakeVisible(btnStepBack);
 
-    btnToggleMetronome.setButtonText(juce::String::fromUTF8(u8"⏱ Metrónomo (10s)"));
-    btnToggleMetronome.setTooltip("Activar guía rítmica visual y sonora de 10s para barridos manuales continuos");
+    btnToggleMetronome.setButtonText("Metronome (10s)");
+    btnToggleMetronome.setTooltip("Enable 10s visual and audible rhythmic guide for continuous manual sweeps");
     btnToggleMetronome.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnToggleMetronome.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnToggleMetronome.onClick = [this] {
@@ -51,7 +51,7 @@ OperatorStepModalDialog::OperatorStepModalDialog()
     };
     metronomeWidget.onSweepFinished = [this] {
         setMeasuringState(true);
-        btnAccept.setButtonText(juce::String::fromUTF8(u8"Barrido Finalizado ✓"));
+        btnAccept.setButtonText(juce::String::fromUTF8("Sweep Finished \xE2\x9C\x93"));
         if (onAccept) onAccept();
     };
     metronomeWidget.onCloseRequested = [this] {
@@ -117,12 +117,12 @@ OperatorStepModalDialog::OperatorStepModalDialog()
             if (!metronomeWidget.getIsRunning())
             {
                 metronomeWidget.startSweep(10.0);
-                btnAccept.setButtonText(juce::String::fromUTF8(u8"Pausar Barrido [Space]"));
+                btnAccept.setButtonText("Pause Sweep [Space]");
             }
             else
             {
                 metronomeWidget.stopSweep();
-                btnAccept.setButtonText(juce::String::fromUTF8(u8"Reanudar Barrido [Space]"));
+                btnAccept.setButtonText("Resume Sweep [Space]");
             }
         }
         else

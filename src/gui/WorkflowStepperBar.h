@@ -15,8 +15,9 @@ class WorkflowStepperBar : public juce::Component
 public:
     enum class Step 
     { 
-        HardwareRouting = 0, 
+        SystemInfo = 0,
         CalibrateLoopback, 
+        HardwareRouting, 
         RunSession, 
         ExportReport 
     };
@@ -30,15 +31,17 @@ public:
         Warning 
     };
 
-    WorkflowStepperBar() : currentStep(Step::HardwareRouting)
+    WorkflowStepperBar() : currentStep(Step::SystemInfo)
     {
-        stepStatuses[Step::HardwareRouting]  = StepStatus::Current;
+        stepStatuses[Step::SystemInfo]        = StepStatus::Current;
+        stepStatuses[Step::HardwareRouting]   = StepStatus::Pending;
         stepStatuses[Step::CalibrateLoopback] = StepStatus::Pending;
         stepStatuses[Step::RunSession]        = StepStatus::Pending;
         stepStatuses[Step::ExportReport]      = StepStatus::Pending;
 
-        stepNames[Step::HardwareRouting]  = "1. Hardware & Routing";
-        stepNames[Step::CalibrateLoopback] = "2. Calibrate Loopback";
+        stepNames[Step::SystemInfo]        = "0. Información";
+        stepNames[Step::CalibrateLoopback] = "1. Calibrate Loopback";
+        stepNames[Step::HardwareRouting]   = "2. Hardware & Routing";
         stepNames[Step::RunSession]        = "3. Run Session";
         stepNames[Step::ExportReport]      = "4. Export & Report";
     }
@@ -100,7 +103,7 @@ protected:
         auto bounds = getLocalBounds().toFloat();
         g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
 
-        const int numSteps = 4;
+        const int numSteps = 5;
         const float segmentWidth = bounds.getWidth() / static_cast<float>(numSteps);
         const float centerY = bounds.getCentreY();
         const float nodeRadius = 10.0f;
@@ -237,7 +240,7 @@ protected:
             else
             {
                 g.setColour(isCurrent ? textPrimary : textMuted);
-                g.drawText(juce::String(i + 1), nodeBounds, juce::Justification::centred, false);
+                g.drawText(juce::String(i), nodeBounds, juce::Justification::centred, false);
             }
 
             // Draw textual label next to bubble
@@ -249,7 +252,7 @@ protected:
             auto labelBounds = juce::Rectangle<float>(labelX, center.getY() - 10.0f, labelWidth, 20.0f);
             juce::String stepLabel = stepNames[step];
             if (isLocked)
-                stepLabel += juce::String::fromUTF8(u8" \U0001F512");
+                stepLabel += " [Bloqueado]";
             g.drawText(stepLabel, labelBounds, juce::Justification::centredLeft, true);
 
             // Hover highlight for accessible steps
@@ -264,8 +267,8 @@ protected:
     void mouseMove(const juce::MouseEvent& event) override
     {
         auto bounds = getLocalBounds().toFloat();
-        float segmentWidth = bounds.getWidth() / 4.0f;
-        int stepIdx = juce::jlimit(0, 3, static_cast<int>(event.position.getX() / segmentWidth));
+        float segmentWidth = bounds.getWidth() / 5.0f;
+        int stepIdx = juce::jlimit(0, 4, static_cast<int>(event.position.getX() / segmentWidth));
         Step stepUnderMouse = static_cast<Step>(stepIdx);
 
         if (!hoveredStep.has_value() || *hoveredStep != stepUnderMouse)
@@ -288,8 +291,8 @@ protected:
     void mouseUp(const juce::MouseEvent& event) override
     {
         auto bounds = getLocalBounds().toFloat();
-        float segmentWidth = bounds.getWidth() / 4.0f;
-        int stepIdx = juce::jlimit(0, 3, static_cast<int>(event.position.getX() / segmentWidth));
+        float segmentWidth = bounds.getWidth() / 5.0f;
+        int stepIdx = juce::jlimit(0, 4, static_cast<int>(event.position.getX() / segmentWidth));
         Step targetStep = static_cast<Step>(stepIdx);
 
         if (canNavigateTo(targetStep))

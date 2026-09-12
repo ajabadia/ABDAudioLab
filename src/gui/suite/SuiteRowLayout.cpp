@@ -90,17 +90,21 @@ SuitePointRowLayout SuitePointRowLayout::calculate(float y, float width, int poi
     auto subArea = l.rowRect.reduced(6.0f, 2.0f);
     l.selectBoxRect = subArea.removeFromLeft(16.0f).withSizeKeepingCentre(13.0f, 13.0f);
     subArea.removeFromLeft(6.0f);
-    l.labelRect = subArea.removeFromLeft(180.0f);
-    l.statusPillRect = subArea.removeFromLeft(86.0f).withSizeKeepingCentre(80.0f, 16.0f);
 
-    auto subActions = subArea.removeFromRight(150.0f);
-    l.delBtnRect = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
-    subActions.removeFromRight(6.0f);
+    // Right action buttons first (fixed width)
+    l.delBtnRect = subArea.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+    subArea.removeFromRight(6.0f);
+    l.clearBtnRect = subArea.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+    subArea.removeFromRight(6.0f);
+    l.viewBtnRect = subArea.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+    subArea.removeFromRight(6.0f);
 
-    l.clearBtnRect = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
-    subActions.removeFromRight(6.0f);
+    // Status pill (fixed width)
+    l.statusPillRect = subArea.removeFromRight(86.0f).withSizeKeepingCentre(80.0f, 16.0f);
+    subArea.removeFromRight(4.0f);
 
-    l.viewBtnRect = subActions.removeFromRight(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+    // Label gets all remaining space
+    l.labelRect = subArea;
 
     return l;
 }

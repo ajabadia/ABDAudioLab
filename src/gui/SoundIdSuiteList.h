@@ -6,12 +6,50 @@
 #include "suite/SuiteDataModels.h"
 #include "suite/SuiteQueueModelManager.h"
 #include "suite/SuiteListEventHandler.h"
+#include "suite/SuiteIcons.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <vector>
 #include <memory>
 
 namespace abdaudiolab::gui
 {
+
+/**
+ * @brief Monochromatic vector button for targeted point re-measurement (no emojis).
+ */
+class ReMeasureButton : public juce::TextButton
+{
+public:
+    ReMeasureButton() : juce::TextButton("Re-Measure (0)") {}
+
+    void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+        auto bgCol = findColour(juce::TextButton::buttonColourId);
+        auto textCol = isEnabled() ? findColour(juce::TextButton::textColourOffId)
+                                   : SoundIdTheme::textMuted.withAlpha(0.6f);
+
+        if (shouldDrawButtonAsHighlighted && isEnabled())
+            bgCol = bgCol.brighter(0.08f);
+        if (shouldDrawButtonAsDown && isEnabled())
+            bgCol = bgCol.darker(0.05f);
+
+        g.setColour(bgCol);
+        g.fillRoundedRectangle(bounds, 6.0f);
+        g.setColour(SoundIdTheme::borderSubtle);
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 6.0f, 1.0f);
+
+        // Vector monochromatic reload / refresh icon on the left
+        auto content = bounds.reduced(10.0f, 0.0f);
+        auto iconBounds = content.removeFromLeft(13.0f).withSizeKeepingCentre(13.0f, 13.0f);
+        suite_icons::drawReset(g, iconBounds, textCol);
+
+        content.removeFromLeft(6.0f);
+        g.setColour(textCol);
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+        g.drawText(getButtonText(), content, juce::Justification::centredLeft, true);
+    }
+};
 
 /**
  * @brief Interactive Batch Test Plan Queue with single-line rows, vertical scrolling Viewport,
@@ -72,6 +110,8 @@ public:
     std::function<void(int queueIndex, int pointIndex)> onClearPointClicked;
     std::function<void(int queueIndex, int pointIndex)> onDeletePointClicked;
     std::function<void(const std::vector<std::pair<int, int>>& points)> onRerunSelectedClicked;
+    /** Fired when the user right-clicks a point and selects "Re-run this Point" during an active session. */
+    std::function<void(int queueIndex, int pointIndex)> onRerunPointRequested;
     std::function<void()> onAddStandardClicked;
     std::function<void()> onAddCustomClicked;
     std::function<void(bool start)> onToggleSessionRunClicked;
@@ -82,6 +122,8 @@ public:
     void setChevronGlyph(const juce::String& glyph);
     [[nodiscard]] bool getIsCollapsed() const noexcept { return isCollapsed; }
     void updateTheme();
+    void setStandardTestAvailable(bool available);
+    void updateCompactViewButtonState();
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -116,7 +158,7 @@ private:
     bool isCompactView { false };
 
     juce::TextButton btnRunSession { "RUN SESSION TESTS" };
-    juce::TextButton btnRerunSelected { "Re-Measure Selected (0)" };
+    ReMeasureButton btnRerunSelected;
     juce::TextButton btnAddStandard { "+ Add Standard Test" };
     juce::TextButton btnAddCustom { "+ Add Custom Test" };
     juce::TextButton btnViewMode { "Compact View" };

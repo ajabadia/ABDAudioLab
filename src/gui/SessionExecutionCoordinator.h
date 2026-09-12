@@ -44,6 +44,12 @@ public:
     void repeatCurrentStep();
     void stepBack();
 
+    /** Toggle session pause / resume. */
+    void togglePauseSession();
+    /** Re-run a single point by its global index. */
+    void rerunSelectedPoint(int globalPointIndex);
+    [[nodiscard]] bool isSessionPaused() const noexcept;
+
     void triggerStartSession(const core::ProfilingSession& session,
                              const juce::File& exportDir,
                              const juce::String& baseName,
@@ -60,6 +66,8 @@ public:
     std::function<void(const juce::String& error)> onExecutionErrorTriggered;
     std::function<void(bool isPatching)> onSessionFinished;
     std::function<void()> onSessionAutoSaveRequested;
+    /** Fired when pause state changes: true = paused, false = running. */
+    std::function<void(bool isPaused)> onSessionPauseStateChanged;
 
 private:
     core::ProfilingSequencer& sequencer;

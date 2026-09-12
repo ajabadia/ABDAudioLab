@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_processors/juce_audio_processors.h>
 #include "HardwareContractRegistry.h"
 #include "../hardware/HardwareController.h"
 
@@ -29,6 +30,16 @@ public:
         return hardware;
     }
 
+    void setTargetPluginInstance(juce::AudioPluginInstance* plugin) noexcept
+    {
+        targetPlugin = plugin;
+    }
+
+    [[nodiscard]] juce::AudioPluginInstance* getTargetPluginInstance() const noexcept
+    {
+        return targetPlugin;
+    }
+
     void setParameter(int paramIndex, float normalizedValue);
     void executeLifecycleActions(const std::vector<HardwareSetupAction>& actions);
     void executeMeasurementRecipe(const MeasurementPresetRecipe& recipe);
@@ -47,6 +58,7 @@ public:
 
 private:
     hardware::IHardwareController* hardware { nullptr };
+    juce::AudioPluginInstance* targetPlugin { nullptr };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProfilingHardwareDispatcher)
 };

@@ -67,6 +67,31 @@ void LabAudioEngine::saveAudioSettings(const juce::File& settingsFile)
     }
 }
 
+void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, double sampleRate, int blockSize)
+{
+    auto* oldPlugin = activePlugin.exchange(nullptr, std::memory_order_acq_rel);
+    if (oldPlugin != nullptr)
+    {
+        juce::Logger::writeToLog("[AudioEngine] Releasing resources for previous plugin: " + oldPlugin->getName());
+        oldPlugin->releaseResources();
+    }
+
+    if (plugin != nullptr)
+    {
+        double sr = sampleRate > 0.0 ? sampleRate : currentSampleRate;
+        if (sr <= 0.0) sr = 44100.0;
+        int bs = blockSize > 0 ? blockSize : static_cast<int>(tempProcessBufferL.size());
+        if (bs <= 0) bs = 512;
+
+        juce::Logger::writeToLog("[AudioEngine] Preparing plugin '" + plugin->getName()
+            + "' with SR: " + juce::String(sr) + ", BS: " + juce::String(bs));
+        plugin->prepareToPlay(sr, bs);
+        juce::Logger::writeToLog("[AudioEngine] Plugin prepareToPlay completed successfully.");
+
+        activePlugin.store(plugin, std::memory_order_release);
+    }
+}
+
 void LabAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
     if (device != nullptr)
@@ -87,10 +112,23 @@ void LabAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
     receiver.prepare(currentSampleRate);
     if (mockHardware != nullptr)
         mockHardware->resetDsp(currentSampleRate);
+
+    if (auto* plugin = activePlugin.load(std::memory_order_acquire))
+    {
+        int bufferSize = (device != nullptr) ? device->getCurrentBufferSizeSamples() : 512;
+        juce::Logger::writeToLog("[AudioEngine] Audio device starting: preparing plugin '" + plugin->getName()
+            + "' for SR: " + juce::String(currentSampleRate) + ", BS: " + juce::String(bufferSize));
+        plugin->prepareToPlay(currentSampleRate, bufferSize);
+    }
 }
 
 void LabAudioEngine::audioDeviceStopped()
 {
+    if (auto* plugin = activePlugin.load(std::memory_order_acquire))
+    {
+        juce::Logger::writeToLog("[AudioEngine] Audio device stopped: releasing plugin resources for '" + plugin->getName() + "'");
+        plugin->releaseResources();
+    }
 }
 
 void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
@@ -317,6 +355,49 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
     int samplesToProcess,
     float trim) noexcept
 {
+    // If an active software plugin is hosted, route stimulus block directly through its processBlock
+    if (auto* plugin = activePlugin.load(std::memory_order_acquire))
+    {
+        float* channels[2] = { tempProcessBufferL.data(), tempProcessBufferR.data() };
+        juce::AudioBuffer<float> pluginBuf(channels, 2, samplesToProcess);
+        
+        // Zero channel R if mono stimulus was generated
+        std::copy_n(tempProcessBufferL.data(), samplesToProcess, tempProcessBufferR.data());
+
+        plugin->processBlock(pluginBuf, pluginMidiMessages);
+        pluginMidiMessages.clear();
+
+        if (std::abs(trim - 1.0f) > 0.001f)
+        {
+            for (int i = 0; i < samplesToProcess; ++i)
+            {
+                tempProcessBufferL[static_cast<size_t>(i)] *= trim;
+                tempProcessBufferR[static_cast<size_t>(i)] *= trim;
+            }
+        }
+        receiver.processBlock(tempProcessBufferL.data(), samplesToProcess);
+
+        // Measure plugin output levels
+        float inSumSqL = 0.0f, inPeakL = 0.0f;
+        float inSumSqR = 0.0f, inPeakR = 0.0f;
+        for (int i = 0; i < samplesToProcess; ++i)
+        {
+            float sL = std::abs(tempProcessBufferL[static_cast<size_t>(i)]);
+            if (sL > inPeakL) inPeakL = sL;
+            inSumSqL += sL * sL;
+
+            float sR = std::abs(tempProcessBufferR[static_cast<size_t>(i)]);
+            if (sR > inPeakR) inPeakR = sR;
+            inSumSqR += sR * sR;
+        }
+        inputPeakL.store(inPeakL, std::memory_order_relaxed);
+        inputPeakR.store(inPeakR, std::memory_order_relaxed);
+        inputRmsL.store(std::sqrt(inSumSqL / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
+        inputRmsR.store(std::sqrt(inSumSqR / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
+
+        return { tempProcessBufferL.data(), tempProcessBufferR.data() };
+    }
+
     // If Mock Hardware is active, process signal through simulated DSP loopback
     if (mockHardware != nullptr)
     {

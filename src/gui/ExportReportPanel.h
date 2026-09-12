@@ -21,12 +21,12 @@ public:
     ExportReportPanel()
     {
         // Header texts with Sonarworks SoundID Reference style
-        titleLabel.setText(juce::String::fromUTF8(u8"CERTIFICACIÓN DE HARDWARE REALIZADA"), juce::dontSendNotification);
+        titleLabel.setText("HARDWARE CERTIFICATION COMPLETED", juce::dontSendNotification);
         titleLabel.setFont(juce::FontOptions(18.0f, juce::Font::bold));
         titleLabel.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(titleLabel);
 
-        subtitleLabel.setText(juce::String::fromUTF8(u8"El dispositivo ha sido caracterizado con éxito mediante el lazo cerrado adaptativo."), juce::dontSendNotification);
+        subtitleLabel.setText("The device has been successfully characterized via adaptive closed-loop measurement.", juce::dontSendNotification);
         subtitleLabel.setFont(juce::FontOptions(13.0f, juce::Font::plain));
         subtitleLabel.setJustificationType(juce::Justification::centred);
         addAndMakeVisible(subtitleLabel);
@@ -38,25 +38,25 @@ public:
         addAndMakeVisible(exportButton);
 
         // Cloud Publish Button
-        publishCloudButton.setButtonText(juce::String::fromUTF8(u8"\u2601\ufe0f PUBLICAR EN LA NUBE (API)"));
-        publishCloudButton.setTooltip(juce::String::fromUTF8(u8"Audita con JSON Schema y publica el bundle .tar.gz en el servidor central comunitario"));
+        publishCloudButton.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x98\x81 PUBLISH TO CLOUD (API)")));
+        publishCloudButton.setTooltip("Validate with JSON Schema and publish the bundle .tar.gz to the central community server");
         publishCloudButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
         publishCloudButton.onClick = [this] { if (onPublishCloudRequested) onPublishCloudRequested(); };
         addAndMakeVisible(publishCloudButton);
 
         // Secondary quick action buttons
-        openFolderButton.setButtonText(juce::String::fromUTF8(u8"Abrir carpeta"));
+        openFolderButton.setButtonText("Open Export Folder");
         openFolderButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
         openFolderButton.onClick = [this] { if (onOpenFolderRequested) onOpenFolderRequested(); };
         addAndMakeVisible(openFolderButton);
 
-        viewHtmlButton.setButtonText(juce::String::fromUTF8(u8"Ver informe HTML"));
+        viewHtmlButton.setButtonText("View HTML Report");
         viewHtmlButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
         viewHtmlButton.onClick = [this] { if (onViewHtmlRequested) onViewHtmlRequested(); };
         addAndMakeVisible(viewHtmlButton);
 
         // Real-Time Audition DSP Preview Toggle ("Comprobar cómo sonaría")
-        auditionToggleButton.setButtonText(juce::String::fromUTF8(u8"\U0001f3a7 PROBAR CÓMO SONARÍA (AUDICIÓN DSP)"));
+        auditionToggleButton.setButtonText("PREVIEW AUDIO CORRECTION (DSP AUDITION)");
         auditionToggleButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
         auditionToggleButton.onClick = [this] {
             isAuditioning = !isAuditioning;
@@ -66,8 +66,8 @@ public:
         addAndMakeVisible(auditionToggleButton);
 
         // A/B Verification Button (Cross-Validation against physical hardware)
-        btnVerifyAb.setButtonText(juce::String::fromUTF8(u8"\U0001f52c VERIFICACIÓN A/B (DSP vs HARDWARE)"));
-        btnVerifyAb.setTooltip(juce::String::fromUTF8(u8"Contrastar audio del hardware contra el modelo DSP emulado mediante correlación cruzada y análisis espectral FFT"));
+        btnVerifyAb.setButtonText("A/B VERIFICATION (DSP vs HARDWARE)");
+        btnVerifyAb.setTooltip("Compare physical hardware audio against emulated DSP model via cross-correlation and FFT spectral analysis");
         btnVerifyAb.setMouseCursor(juce::MouseCursor::PointingHandCursor);
         btnVerifyAb.onClick = [this] { if (onVerifyAbRequested) onVerifyAbRequested(); };
         addAndMakeVisible(btnVerifyAb);
@@ -103,9 +103,9 @@ public:
         };
         addChildComponent(sliderResonance);
 
-        comboWaveform.addItem(juce::String::fromUTF8(u8"Sierra (130 Hz)"), 1);
-        comboWaveform.addItem(juce::String::fromUTF8(u8"Cuadrada (130 Hz)"), 2);
-        comboWaveform.addItem(juce::String::fromUTF8(u8"Ruido Blanco"), 3);
+        comboWaveform.addItem("Sawtooth (130 Hz)", 1);
+        comboWaveform.addItem("Square (130 Hz)", 2);
+        comboWaveform.addItem("White Noise", 3);
         comboWaveform.setSelectedId(1, juce::dontSendNotification);
         comboWaveform.onChange = [this] {
             if (onAuditionWaveformChanged)
@@ -135,9 +135,9 @@ public:
     void showExportSuccess(const juce::String& targetFolder, const juce::String& baseName)
     {
         juce::ignoreUnused(targetFolder, baseName);
-        exportButton.setButtonText(juce::String::fromUTF8(u8"✓ \u00a1PAQUETE EXPORTADO!"));
+        exportButton.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x9C\x93 PACKAGE EXPORTED!")));
         exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff008753));
-        statusLabel.setText(juce::String::fromUTF8(u8"✓ Paquete exportado: Header C++ (alignas 16), JSON Telemetría, Reporte HTML y Manifiesto"), juce::dontSendNotification);
+        statusLabel.setText(juce::String(juce::CharPointer_UTF8("\xE2\x9C\x93 Package exported: C++ Header (alignas 16), Telemetry JSON, HTML Report, and Manifest")), juce::dontSendNotification);
         statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff00a86b));
         statusLabel.setVisible(true);
         startTimer(4000);
@@ -161,20 +161,20 @@ public:
      */
     void updateMetrics(float avgSnr, float noiseFloor, float avgThd, int totalTakes, float durationSec)
     {
-        metricsText = juce::String::fromUTF8(u8"MÉTRICAS DE CALIDAD ACÚSTICA\n\n")
-            + juce::String::fromUTF8(u8"• Relación Señal/Ruido (SNR Medio): ") + juce::String(avgSnr, 1) + " dB\n"
-            + juce::String::fromUTF8(u8"• Piso de Ruido Residual: ") + juce::String(noiseFloor, 1) + " dBfs\n"
-            + juce::String::fromUTF8(u8"• Distorsión Armónica (THD Promedio): ") + juce::String(avgThd, 3) + "%\n"
-            + juce::String::fromUTF8(u8"• Tomas Quirúrgicas: ") + juce::String(totalTakes) + juce::String::fromUTF8(u8" (Optimizadas vía Catmull-Rom)\n")
-            + juce::String::fromUTF8(u8"• Duración de Adquisición: ") + juce::String(durationSec, 1) + " segundos";
+        metricsText = "ACOUSTIC QUALITY METRICS\n\n"
+            + juce::String("• Signal-to-Noise Ratio (Mean SNR): ") + juce::String(avgSnr, 1) + " dB\n"
+            + juce::String("• Residual Noise Floor: ") + juce::String(noiseFloor, 1) + " dBFS\n"
+            + juce::String("• Harmonic Distortion (Mean THD): ") + juce::String(avgThd, 3) + "%\n"
+            + juce::String("• Surgical Takes: ") + juce::String(totalTakes) + " (Catmull-Rom optimized)\n"
+            + juce::String("• Acquisition Duration: ") + juce::String(durationSec, 1) + " seconds";
 
         repaint();
     }
 
     void updateAuditionUi()
     {
-        auditionToggleButton.setButtonText(isAuditioning ? juce::String::fromUTF8(u8"⏹ DETENER AUDICIÓN DSP")
-                                                         : juce::String::fromUTF8(u8"\U0001f3a7 PROBAR CÓMO SONARÍA (AUDICIÓN DSP)"));
+        auditionToggleButton.setButtonText(isAuditioning ? "STOP DSP AUDITION"
+                                                         : "PREVIEW AUDIO CORRECTION (DSP AUDITION)");
         auditionToggleButton.setColour(juce::TextButton::buttonColourId, isAuditioning ? juce::Colour(0xff2563eb) : juce::Colour(0xff334155));
 
         lblCutoff.setVisible(isAuditioning);
@@ -283,12 +283,12 @@ protected:
         buttonRow1.removeFromLeft(8);
         viewHtmlButton.setBounds(buttonRow1);
 
-        // Row 2: Audition Mode controls & A/B Verification
+        // Row 2: Audition Mode controls & A/B Verification (height 34px)
         innerBottom.removeFromTop(8);
-        auto auditionRow = innerBottom.removeFromTop(30);
-        auditionToggleButton.setBounds(auditionRow.removeFromLeft(180));
+        auto auditionRow = innerBottom.removeFromTop(34);
+        auditionToggleButton.setBounds(auditionRow.removeFromLeft(220));
         auditionRow.removeFromLeft(8);
-        btnVerifyAb.setBounds(auditionRow.removeFromLeft(220));
+        btnVerifyAb.setBounds(auditionRow.removeFromLeft(240));
 
         if (isAuditioning)
         {
@@ -329,7 +329,7 @@ private:
         stopTimer();
         exportButton.setButtonText(juce::String::fromUTF8(u8"\u26a1 EXPORT PRODUCTION PACKAGE (1-CLICK)"));
         exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00a86b));
-        publishCloudButton.setButtonText(juce::String::fromUTF8(u8"\u2601\ufe0f PUBLICAR EN LA NUBE (API)"));
+        publishCloudButton.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x98\x81 PUBLISH TO CLOUD (API)")));
         publishCloudButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
         repaint();
     }

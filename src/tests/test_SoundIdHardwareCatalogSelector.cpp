@@ -63,11 +63,11 @@ TEST_CASE("SoundIdHardwareCatalogSelector - Cascading Filter Logic", "[SoundIdHa
 
     selector.setContracts(dummyContracts);
 
-    SECTION("Initial population defaults to first type and cascades")
+    SECTION("Initial population starts empty without auto-selecting hardware")
     {
-        CHECK(selector.getSelectedDeviceType().isNotEmpty());
-        CHECK(selector.getSelectedBrand().isNotEmpty());
-        CHECK(selector.getSelectedHardwareId().isNotEmpty());
+        CHECK(selector.getSelectedDeviceType().isEmpty());
+        CHECK(selector.getSelectedBrand().isEmpty());
+        CHECK(selector.getSelectedHardwareId().isEmpty());
     }
 
     SECTION("Direct selection updates cascading state")

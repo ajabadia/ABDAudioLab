@@ -64,13 +64,13 @@ public:
     std::function<void()> onExportCertificationReport;
     std::function<void()> onOpenExportFolder;
     std::function<void()> onExitApp;
+    std::function<void()> onScanPluginDirectories;
 
     std::function<void()> onScopeToggle;
     std::function<void()> onConfigureAudioMidi;
     std::function<void()> onCalibrateClicked;
     std::function<void()> onHardwareSelectorClicked;
     std::function<void()> onThemeToggled;
-    std::function<void()> onInfoClicked;
 
 private:
     audio::LabAudioEngine& audioEngine;
@@ -84,7 +84,6 @@ private:
     std::unique_ptr<AudioMidiStatusPill> audioMidiStatusPill;
     std::unique_ptr<HardwareSelectorPill> btnHardwareSelector;
     std::unique_ptr<ThemeToggleButton> btnThemeToggle;
-    std::unique_ptr<MonochromeInfoButton> btnInfo;
 
     // Calibration flashing state
     bool isFlashing { false };

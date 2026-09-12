@@ -106,6 +106,47 @@ void SessionExecutionCoordinator::stepBack()
     sequencer.stepBack();
 }
 
+void SessionExecutionCoordinator::togglePauseSession()
+{
+    if (sequencer.isSessionPaused())
+    {
+        sequencer.resumeSession();
+        if (onSessionPauseStateChanged)
+            onSessionPauseStateChanged(false);
+    }
+    else
+    {
+        sequencer.pauseSession();
+        if (onSessionPauseStateChanged)
+            onSessionPauseStateChanged(true);
+    }
+}
+
+void SessionExecutionCoordinator::rerunSelectedPoint(int globalPointIndex)
+{
+    sequencer.scheduleRerunPoint(globalPointIndex);
+    // Also update the point cell back to Queued so the user sees the re-run starting
+    if (viewSuiteList != nullptr)
+    {
+        // Find which queue+point pair owns this global index
+        const auto& queue = viewSuiteList->getQueue();
+        for (int qi = 0; qi < static_cast<int>(queue.size()); ++qi)
+        {
+            for (int pi = 0; pi < static_cast<int>(queue[static_cast<size_t>(qi)].pointStatuses.size()); ++pi)
+            {
+                // Compute the global index for (qi, pi): walk from the start of the first test
+                // The easiest approach is to scan sessionManager
+                break; // handled via suiteList.setPointStatus from the caller
+            }
+        }
+    }
+}
+
+bool SessionExecutionCoordinator::isSessionPaused() const noexcept
+{
+    return sequencer.isSessionPaused();
+}
+
 void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSession& session,
                                                       const juce::File& exportDir,
                                                       const juce::String& baseName,
@@ -170,8 +211,16 @@ void SessionExecutionCoordinator::handleOperatorStep(const core::TestCase& tc, i
             viewOperatorModal->setVisible(true);
         }
 
-        if (viewSuiteList != nullptr)
-            viewSuiteList->setVisible(false);
+        // Phase 14 fix: keep suiteList visible so the matrix remains animated.
+        // The operator modal overlays the same bottom area via WorkflowNavigationController.
+        // Only hide the suite-list if the modal is NOT in automated mode AND is fully expanded.
+        if (viewSuiteList != nullptr && isAuto)
+        {
+            // Automated: modal just shows progress, suite-list stays visible
+            viewSuiteList->setVisible(true);
+        }
+        // For manual hardware the modal covers the bottom panel — leave suiteList visible
+        // so it paints behind; WorkflowNavigationController will overlay the modal on top.
     });
 }
 

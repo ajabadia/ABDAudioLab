@@ -18,12 +18,12 @@ static std::vector<abdaudiolab::core::HardwareContract> loadTestContracts()
 
     for (const auto& root : searchRoots)
     {
-        auto c1 = root.getChildFile("contracts").getChildFile("hardware");
-        if (c1.isDirectory() && registry.loadContractsFromDirectory(c1))
-            break;
-
         auto c2 = root.getChildFile("contracts");
         if (c2.isDirectory() && registry.loadContractsFromDirectory(c2))
+            break;
+
+        auto c1 = root.getChildFile("contracts").getChildFile("hardware");
+        if (c1.isDirectory() && registry.loadContractsFromDirectory(c1))
             break;
     }
 

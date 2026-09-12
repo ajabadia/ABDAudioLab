@@ -417,7 +417,7 @@ void LoopbackCalibrationModal::paint(juce::Graphics& g)
             auto warnRow = content.removeFromTop(20.0f);
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentRed);
-            g.drawText(juce::String::fromUTF8(u8"🔴 Clipping detectado (") + juce::String(calibrationData.clippedSamplesCount) + juce::String::fromUTF8(u8" muestras saturadas): reduzca ganancia de preamp"), warnRow, juce::Justification::centredLeft, true);
+            g.drawText(juce::String::fromUTF8(u8"[!] Clipping detectado (") + juce::String(calibrationData.clippedSamplesCount) + juce::String::fromUTF8(u8" muestras saturadas): reduzca ganancia de preamp"), warnRow, juce::Justification::centredLeft, true);
         }
         if (std::abs(calibrationData.dcOffsetVolts) > 0.01f)
         {

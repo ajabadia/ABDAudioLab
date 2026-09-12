@@ -17,19 +17,22 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     addAndMakeVisible(btnAutoDetect);
 
-    // Libre Mode button
-    btnLibreMode.setTooltip("Caracterizar cualquier hardware no perfilado previamente o pruebas libres");
+    // Libre Mode button (Dispositivo no listado / pruebas libres)
+    btnLibreMode.setButtonText("Unlisted Device (Free Mode)");
+    btnLibreMode.setTooltip("Profile DIY synthesizers, analog pedals or modular gear not present in the fixed catalog");
     btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     btnLibreMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnLibreMode.onClick = [this] {
         isLibreMode = !isLibreMode;
         if (isLibreMode)
         {
-            btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber.withAlpha(0.2f));
+            btnLibreMode.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x9C\x93 Free Mode Active")));
+            btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber.withAlpha(0.25f));
             btnLibreMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
         }
         else
         {
+            btnLibreMode.setButtonText("Unlisted Device (Free Mode)");
             btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
             btnLibreMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
         }
@@ -39,30 +42,87 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     addAndMakeVisible(btnLibreMode);
 
+    // Load Plugin button (hidden by default, visible when Plugin Virtual type selected)
+    btnLoadPlugin.setButtonText("Load Plugin from file...");
+    btnLoadPlugin.setTooltip("Select a .vst3 plugin file from disk to profile");
+    btnLoadPlugin.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
+    btnLoadPlugin.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+    btnLoadPlugin.onClick = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] 'Cargar Plugin desde archivo...' button clicked.");
+        if (onLoadPluginFromFileRequested)
+            onLoadPluginFromFileRequested();
+    };
+    btnLoadPlugin.setVisible(false);
+    addChildComponent(btnLoadPlugin);
+
+    // Show Plugin GUI button (hidden by default)
+    btnShowPluginGui.setButtonText("Open Plugin GUI");
+    btnShowPluginGui.setTooltip("Display native graphical interface of the loaded plugin");
+    btnShowPluginGui.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentPurple.withAlpha(0.2f));
+    btnShowPluginGui.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentPurple);
+    btnShowPluginGui.onClick = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] 'Abrir GUI del Plugin' button clicked.");
+        if (onShowPluginGuiRequested)
+            onShowPluginGuiRequested();
+    };
+    btnShowPluginGui.setVisible(false);
+    addChildComponent(btnShowPluginGui);
+
     // Cascading combos
-    comboDeviceType.setTextWhenNothingSelected("1. Tipo de Dispositivo (Sintetizador, Pedal, Eurorack...)");
+    comboDeviceType.setTextWhenNothingSelected("1. Device Type (Synthesizer, Pedal, Eurorack...)");
     comboDeviceType.onChange = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] comboDeviceType changed: '" + comboDeviceType.getText() + "'");
         rebuildBrandsForCurrentType();
+        resized(); // Re-layout buttons for plugin vs hardware mode
     };
     addAndMakeVisible(comboDeviceType);
 
-    comboBrand.setTextWhenNothingSelected("2. Marca / Fabricante...");
+    comboBrand.setTextWhenNothingSelected("2. Brand / Manufacturer...");
     comboBrand.onChange = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] comboBrand changed: '" + comboBrand.getText() + "'");
         rebuildModelsForCurrentBrand();
     };
     addAndMakeVisible(comboBrand);
 
-    comboModel.setTextWhenNothingSelected("3. Modelo...");
+    comboModel.setTextWhenNothingSelected("3. Model...");
     comboModel.onChange = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] comboModel changed: '" + comboModel.getText()
+            + "' (Id: " + juce::String(comboModel.getSelectedId()) + ", isPluginMode: " + juce::String(isPluginMode ? "YES" : "NO") + ")");
         rebuildObjectivesForCurrentModel();
+        if (isPluginMode)
+        {
+            if (auto* desc = getSelectedPluginDescription())
+            {
+                juce::Logger::writeToLog("[CatalogSelector] Triggering onPluginSelected: '" + desc->name + "'");
+                if (onPluginSelected)
+                    onPluginSelected(*desc);
+            }
+            else
+            {
+                juce::Logger::writeToLog("[CatalogSelector WARNING] getSelectedPluginDescription() returned nullptr");
+            }
+        }
     };
     addAndMakeVisible(comboModel);
 
-    comboObjective.setTextWhenNothingSelected(juce::String::fromUTF8(u8"4. Objetivo / Bloque de Medición..."));
+    comboObjective.setTextWhenNothingSelected("4. Target / Measurement Block...");
     comboObjective.onChange = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] comboObjective changed: '" + comboObjective.getText()
+            + "' (Id: " + juce::String(comboObjective.getSelectedId()) + ")");
         syncVisualCards();
-        if (onSelectionChanged)
+        if (isPluginMode)
+        {
+            if (auto* desc = getSelectedPluginDescription())
+            {
+                juce::Logger::writeToLog("[CatalogSelector] comboObjective triggered onPluginSelected: '" + desc->name + "'");
+                if (onPluginSelected)
+                    onPluginSelected(*desc);
+            }
+        }
+        else if (onSelectionChanged)
+        {
             onSelectionChanged(getSelectedHardwareId(), getSelectedFunctionId());
+        }
     };
     addAndMakeVisible(comboObjective);
 
@@ -71,7 +131,7 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     addAndMakeVisible(wiringDiagram);
 
     // Navigation buttons
-    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Calibración (Paso 2) ➔"));
+    btnContinue.setButtonText(juce::String::fromUTF8("Proceed to Run Session (Step 3) \xE2\x86\x92"));
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -80,13 +140,13 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     addAndMakeVisible(btnContinue);
 
-    lblLockedBanner.setText("Perfil de hardware fijado para la sesión activa.", juce::dontSendNotification);
+    lblLockedBanner.setText("Hardware profile locked for the active session.", juce::dontSendNotification);
     lblLockedBanner.setFont(juce::FontOptions(11.0f, juce::Font::italic));
     lblLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     lblLockedBanner.setVisible(false);
     addChildComponent(lblLockedBanner);
 
-    btnUnlock.setButtonText("Cambiar Hardware / Desbloquear");
+    btnUnlock.setButtonText("Change Hardware / Unlock");
     btnUnlock.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnUnlock.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnUnlock.onClick = [this] {
@@ -102,7 +162,17 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
 void SoundIdHardwareCatalogSelector::setContracts(const std::vector<core::HardwareContract>& contracts)
 {
     contractsList = contracts;
+    if (isPluginMode)
+        return; // Preserve active selection and UI state when in virtual plugin mode
     rebuildDeviceTypes();
+}
+
+void SoundIdHardwareCatalogSelector::setAvailablePlugins(const std::vector<juce::PluginDescription>& plugins)
+{
+    juce::Logger::writeToLog("[CatalogSelector] setAvailablePlugins received " + juce::String(plugins.size()) + " plugins.");
+    availablePlugins = plugins;
+    if (isPluginMode)
+        rebuildBrandsForCurrentType();
 }
 
 void SoundIdHardwareCatalogSelector::setHardwareLocked(bool locked)
@@ -112,14 +182,26 @@ void SoundIdHardwareCatalogSelector::setHardwareLocked(bool locked)
     comboBrand.setEnabled(!locked);
     comboModel.setEnabled(!locked);
     comboObjective.setEnabled(!locked);
-    btnAutoDetect.setVisible(!locked);
+
+    btnAutoDetect.setVisible(!locked && !isPluginMode);
+    btnLibreMode.setVisible(!locked && !isPluginMode);
     btnLibreMode.setEnabled(!locked);
+
+    btnLoadPlugin.setVisible(!locked && isPluginMode);
+    btnShowPluginGui.setVisible(isPluginMode);
 
     lblLockedBanner.setVisible(locked);
     btnUnlock.setVisible(locked);
 
-    btnContinue.setButtonText(locked ? juce::String::fromUTF8(u8"Ir a Ejecución de Sesión (Paso 3) ➔")
-                                    : juce::String::fromUTF8(u8"Continuar a Calibración (Paso 2) ➔"));
+    if (locked)
+    {
+        if (isPluginMode)
+            lblLockedBanner.setText("Active virtual plugin assigned for the session.", juce::dontSendNotification);
+        else
+            lblLockedBanner.setText("Hardware profile locked for the active session.", juce::dontSendNotification);
+    }
+
+    btnContinue.setButtonText(juce::String::fromUTF8("Proceed to Run Session (Step 3) \xE2\x86\x92"));
     resized();
     repaint();
 }
@@ -132,7 +214,8 @@ void SoundIdHardwareCatalogSelector::rebuildDeviceTypes()
     for (const auto& c : contractsList)
     {
         juce::String dt = juce::String(c.deviceType).trim();
-        if (dt.isNotEmpty())
+        // Virtual plugins are accessed via the dedicated unified 'Plugin Virtual' entry
+        if (dt.isNotEmpty() && !dt.equalsIgnoreCase("SOFTWARE_PLUGIN"))
             types.insert(dt);
     }
 
@@ -142,17 +225,65 @@ void SoundIdHardwareCatalogSelector::rebuildDeviceTypes()
         comboDeviceType.addItem(t, id++);
     }
 
-    if (comboDeviceType.getNumItems() > 0)
-    {
-        comboDeviceType.setSelectedId(1, juce::dontSendNotification);
-        rebuildBrandsForCurrentType();
-    }
+    // Always append Plugin Virtual type
+    comboDeviceType.addItem("Virtual Plugin (VST3 / AU / LV2)", id++);
+
+    comboDeviceType.setSelectedId(0, juce::dontSendNotification);
+    comboBrand.clear(juce::dontSendNotification);
+    comboModel.clear(juce::dontSendNotification);
+    comboObjective.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
 }
 
 void SoundIdHardwareCatalogSelector::rebuildBrandsForCurrentType()
 {
     comboBrand.clear(juce::dontSendNotification);
     juce::String selectedType = comboDeviceType.getText();
+
+    if (comboDeviceType.getSelectedId() <= 0)
+    {
+        comboModel.clear(juce::dontSendNotification);
+        comboObjective.clear(juce::dontSendNotification);
+        deviceDisplayCard.clear();
+        wiringDiagram.clear();
+        return;
+    }
+
+    // Detect if we're in plugin virtual mode
+    isPluginMode = selectedType.containsIgnoreCase("Plugin") || selectedType.equalsIgnoreCase("SOFTWARE_PLUGIN");
+    btnLoadPlugin.setVisible(isPluginMode && !isHardwareLocked);
+    btnShowPluginGui.setVisible(isPluginMode);
+    btnAutoDetect.setVisible(!isPluginMode && !isHardwareLocked);
+    btnLibreMode.setVisible(!isPluginMode && !isHardwareLocked);
+
+    if (isPluginMode)
+    {
+        // Populate brands from scanned plugins
+        std::set<juce::String> pluginBrands;
+        for (const auto& pd : availablePlugins)
+        {
+            juce::String mfr = pd.manufacturerName.trim();
+            if (mfr.isNotEmpty())
+                pluginBrands.insert(mfr);
+        }
+
+        int id = 1;
+        for (const auto& b : pluginBrands)
+            comboBrand.addItem(b, id++);
+
+        // Always add a generic entry if no plugins scanned
+        if (comboBrand.getNumItems() == 0)
+            comboBrand.addItem("(No plugins scanned)", 1);
+
+        comboBrand.setSelectedId(0, juce::dontSendNotification);
+        comboModel.clear(juce::dontSendNotification);
+        comboObjective.clear(juce::dontSendNotification);
+        deviceDisplayCard.clear();
+        wiringDiagram.clear();
+        return;
+    }
+
     std::set<juce::String> brands;
 
     for (const auto& c : contractsList)
@@ -172,20 +303,50 @@ void SoundIdHardwareCatalogSelector::rebuildBrandsForCurrentType()
         comboBrand.addItem(b, id++);
     }
 
-    if (comboBrand.getNumItems() > 0)
-    {
-        comboBrand.setSelectedId(1, juce::dontSendNotification);
-        rebuildModelsForCurrentBrand();
-    }
-    else
-    {
-        rebuildModelsForCurrentBrand();
-    }
+    comboBrand.setSelectedId(0, juce::dontSendNotification);
+    comboModel.clear(juce::dontSendNotification);
+    comboObjective.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
 }
 
 void SoundIdHardwareCatalogSelector::rebuildModelsForCurrentBrand()
 {
     comboModel.clear(juce::dontSendNotification);
+
+    if (comboBrand.getSelectedId() <= 0)
+    {
+        comboObjective.clear(juce::dontSendNotification);
+        deviceDisplayCard.clear();
+        wiringDiagram.clear();
+        return;
+    }
+
+    if (isPluginMode)
+    {
+        // Populate models from scanned plugins filtered by selected brand
+        juce::String selectedBrand = comboBrand.getText();
+        for (size_t i = 0; i < availablePlugins.size(); ++i)
+        {
+            const auto& pd = availablePlugins[i];
+            if (pd.manufacturerName.trim().equalsIgnoreCase(selectedBrand))
+            {
+                juce::String label = pd.name;
+                if (pd.isInstrument)
+                    label += " [Instrument]";
+                else
+                    label += " [Effect]";
+                comboModel.addItem(label, static_cast<int>(i + 1));
+            }
+        }
+
+        comboModel.setSelectedId(0, juce::dontSendNotification);
+        comboObjective.clear(juce::dontSendNotification);
+        deviceDisplayCard.clear();
+        wiringDiagram.clear();
+        return;
+    }
+
     juce::String selectedType = comboDeviceType.getText();
     juce::String selectedBrand = comboBrand.getText();
 
@@ -203,20 +364,42 @@ void SoundIdHardwareCatalogSelector::rebuildModelsForCurrentBrand()
         }
     }
 
-    if (comboModel.getNumItems() > 0)
-    {
-        comboModel.setSelectedId(comboModel.getItemId(0), juce::dontSendNotification);
-        rebuildObjectivesForCurrentModel();
-    }
-    else
-    {
-        rebuildObjectivesForCurrentModel();
-    }
+    comboModel.setSelectedId(0, juce::dontSendNotification);
+    comboObjective.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
 }
 
 void SoundIdHardwareCatalogSelector::rebuildObjectivesForCurrentModel()
 {
     comboObjective.clear(juce::dontSendNotification);
+
+    if (comboModel.getSelectedId() <= 0)
+    {
+        deviceDisplayCard.clear();
+        wiringDiagram.clear();
+        return;
+    }
+
+    if (isPluginMode)
+    {
+        if (auto* desc = getSelectedPluginDescription())
+        {
+            juce::String mainLabel = desc->isInstrument 
+                ? "Acoustic Profiling / MIDI Modulation [SynthOscillator]"
+                : "Frequency Response / THD [SpectrumFilter]";
+            comboObjective.addItem(mainLabel, 1);
+        }
+        else
+        {
+            comboObjective.addItem("Virtual DSP Processing [AudioProcessor]", 1);
+        }
+        comboObjective.addItem("Free / Manual Inspection", 9999);
+        comboObjective.setSelectedId(1, juce::dontSendNotification);
+        syncVisualCards();
+        return;
+    }
+
     int selIndex = comboModel.getSelectedId() - 1;
 
     if (selIndex >= 0 && selIndex < static_cast<int>(contractsList.size()))
@@ -237,12 +420,48 @@ void SoundIdHardwareCatalogSelector::rebuildObjectivesForCurrentModel()
 
     if (comboObjective.getNumItems() > 0)
         comboObjective.setSelectedId(1, juce::sendNotification);
-
-    syncVisualCards();
 }
 
 void SoundIdHardwareCatalogSelector::syncVisualCards()
 {
+    if (isPluginMode)
+    {
+        if (auto* desc = getSelectedPluginDescription())
+        {
+            deviceDisplayCard.setPluginInfo(desc->name, desc->manufacturerName, desc->pluginFormatName, desc->isInstrument);
+            if (desc->isInstrument)
+            {
+                wiringDiagram.setPluginRouting(
+                    "Internal MIDI Sequencer",
+                    "Plugin (MIDI In)",
+                    "Plugin (Audio Out)",
+                    "ABDAudioLab Capture",
+                    "Direct digital loop. Zero converter latency. Internal MIDI + Audio bus.");
+            }
+            else
+            {
+                wiringDiagram.setPluginRouting(
+                    "Stimulus Generator",
+                    "Plugin (Audio In)",
+                    "Plugin (Audio Out)",
+                    "ABDAudioLab Capture",
+                    "Direct digital closed loop. Zero physical converter coloration.");
+            }
+        }
+        else
+        {
+            deviceDisplayCard.setPluginInfo("Plugin Virtual", "Generic", "VST3 / AU", true);
+            wiringDiagram.setPluginRouting(
+                juce::String::fromUTF8(u8"Stimulus Generator"),
+                juce::String::fromUTF8(u8"Plugin (In)"),
+                juce::String::fromUTF8(u8"Plugin (Out)"),
+                juce::String::fromUTF8(u8"ABDAudioLab Capture"),
+                juce::String::fromUTF8(u8"Internal Direct Bus \u2013 Zero Converter Coloration"));
+        }
+        repaint();
+        return;
+    }
+
     int selIndex = comboModel.getSelectedId() - 1;
     if (selIndex >= 0 && selIndex < static_cast<int>(contractsList.size()) && !isLibreMode)
     {
@@ -261,20 +480,45 @@ void SoundIdHardwareCatalogSelector::syncVisualCards()
         }
         else
         {
-            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", juce::String::fromUTF8(u8"Modo Libre / Conexión Manual"), false);
+            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Free Mode / Manual Routing", false);
         }
     }
     else
     {
-        deviceDisplayCard.setDevice(nullptr);
-        wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", juce::String::fromUTF8(u8"Configuración Personalizada / Libre"), false);
+        deviceDisplayCard.clear();
+        wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Custom / Unlisted Setup", false);
     }
+    repaint();
+}
+
+void SoundIdHardwareCatalogSelector::resetSelection()
+{
+    isHardwareLocked = false;
+    isLibreMode = false;
+    isPluginMode = false;
+    btnLoadPlugin.setVisible(false);
+    btnShowPluginGui.setVisible(false);
+    btnAutoDetect.setVisible(true);
+    btnLibreMode.setVisible(true);
+    btnLibreMode.setButtonText("Unlisted Device (Free Mode)");
+    comboDeviceType.setSelectedId(0, juce::dontSendNotification);
+    comboBrand.clear(juce::dontSendNotification);
+    comboModel.clear(juce::dontSendNotification);
+    comboObjective.clear(juce::dontSendNotification);
+    deviceDisplayCard.clear();
+    wiringDiagram.clear();
     repaint();
 }
 
 juce::String SoundIdHardwareCatalogSelector::getSelectedHardwareId() const
 {
     if (isLibreMode) return "LIBRE_CUSTOM";
+    if (isPluginMode)
+    {
+        if (auto* desc = getSelectedPluginDescription())
+            return "plugin_" + juce::File(desc->fileOrIdentifier).getFileNameWithoutExtension();
+        return "PLUGIN_VIRTUAL";
+    }
     int sel = comboModel.getSelectedId() - 1;
     if (sel >= 0 && sel < static_cast<int>(contractsList.size()))
         return juce::String(contractsList[static_cast<size_t>(sel)].id);
@@ -284,6 +528,7 @@ juce::String SoundIdHardwareCatalogSelector::getSelectedHardwareId() const
 juce::String SoundIdHardwareCatalogSelector::getSelectedFunctionId() const
 {
     if (isLibreMode) return "CUSTOM_FUNCTION";
+    if (isPluginMode) return "vst3_audio_processor";
     int sel = comboModel.getSelectedId() - 1;
     int fnSel = comboObjective.getSelectedId() - 1;
     if (sel >= 0 && sel < static_cast<int>(contractsList.size()))
@@ -297,12 +542,21 @@ juce::String SoundIdHardwareCatalogSelector::getSelectedFunctionId() const
 
 juce::String SoundIdHardwareCatalogSelector::getSelectedDeviceType() const
 {
-    return comboDeviceType.getText();
+    return comboDeviceType.getSelectedId() > 0 ? comboDeviceType.getText() : juce::String();
 }
 
 juce::String SoundIdHardwareCatalogSelector::getSelectedBrand() const
 {
-    return comboBrand.getText();
+    return comboBrand.getSelectedId() > 0 ? comboBrand.getText() : juce::String();
+}
+
+const juce::PluginDescription* SoundIdHardwareCatalogSelector::getSelectedPluginDescription() const
+{
+    if (!isPluginMode) return nullptr;
+    int sel = comboModel.getSelectedId() - 1;
+    if (sel >= 0 && sel < static_cast<int>(availablePlugins.size()))
+        return &availablePlugins[static_cast<size_t>(sel)];
+    return nullptr;
 }
 
 void SoundIdHardwareCatalogSelector::setSelectedHardware(const juce::String& hwId, const juce::String& funcId)
@@ -312,12 +566,26 @@ void SoundIdHardwareCatalogSelector::setSelectedHardware(const juce::String& hwI
         if (contractsList[i].id == hwId.toStdString())
         {
             const auto& c = contractsList[i];
-            comboDeviceType.setText(c.deviceType, juce::dontSendNotification);
+            for (int t = 1; t <= comboDeviceType.getNumItems(); ++t)
+            {
+                if (comboDeviceType.getItemText(t - 1).equalsIgnoreCase(juce::String(c.deviceType)))
+                {
+                    comboDeviceType.setSelectedId(t, juce::dontSendNotification);
+                    break;
+                }
+            }
             rebuildBrandsForCurrentType();
 
             juce::String b = juce::String(c.brand).trim();
             if (b.isEmpty()) b = juce::String(c.manufacturer).trim();
-            comboBrand.setText(b, juce::dontSendNotification);
+            for (int bIdx = 1; bIdx <= comboBrand.getNumItems(); ++bIdx)
+            {
+                if (comboBrand.getItemText(bIdx - 1).equalsIgnoreCase(b))
+                {
+                    comboBrand.setSelectedId(bIdx, juce::dontSendNotification);
+                    break;
+                }
+            }
             rebuildModelsForCurrentBrand();
 
             comboModel.setSelectedId(static_cast<int>(i + 1), juce::dontSendNotification);
@@ -353,49 +621,96 @@ void SoundIdHardwareCatalogSelector::resized()
 {
     auto b = getLocalBounds().reduced(16);
 
-    // Top Row: Auto-Detect and Libre Mode
-    auto topRow = b.removeFromTop(36);
-    if (!isHardwareLocked)
+    // 1. Fila Superior: Auto-Detect y Dispositivo No Listado (Modo Libre) / Plugin buttons
+    auto topRow = b.removeFromTop(34);
+    if (isHardwareLocked)
     {
-        btnAutoDetect.setBounds(topRow.removeFromLeft(260));
-        topRow.removeFromLeft(12);
-        btnLibreMode.setBounds(topRow.removeFromLeft(180));
+        btnAutoDetect.setBounds({});
+        btnLibreMode.setBounds({});
+        btnLoadPlugin.setBounds({});
+
+        int unlockW = 240;
+        btnUnlock.setBounds(topRow.removeFromRight(unlockW));
+        topRow.removeFromRight(10);
+
+        if (isPluginMode)
+        {
+            int guiW = 180;
+            btnShowPluginGui.setBounds(topRow.removeFromRight(guiW));
+            topRow.removeFromRight(10);
+        }
+        else
+        {
+            btnShowPluginGui.setBounds({});
+        }
+
+        lblLockedBanner.setBounds(topRow);
     }
     else
     {
-        lblLockedBanner.setBounds(topRow.removeFromLeft(360));
-        btnUnlock.setBounds(topRow.removeFromRight(220));
+        lblLockedBanner.setBounds({});
+        btnUnlock.setBounds({});
+
+        if (isPluginMode)
+        {
+            btnAutoDetect.setBounds({});
+            btnLibreMode.setBounds({});
+            int loadBtnW = juce::jmin(250, topRow.getWidth() / 2 - 6);
+            btnLoadPlugin.setBounds(topRow.removeFromLeft(loadBtnW));
+            topRow.removeFromLeft(12);
+            int guiBtnW = juce::jmin(200, topRow.getWidth());
+            btnShowPluginGui.setBounds(topRow.removeFromLeft(guiBtnW));
+        }
+        else
+        {
+            btnLoadPlugin.setBounds({});
+            btnShowPluginGui.setBounds({});
+            int autoBtnW = juce::jmin(250, topRow.getWidth() / 2 - 6);
+            btnAutoDetect.setBounds(topRow.removeFromLeft(autoBtnW));
+            topRow.removeFromLeft(12);
+            int libreBtnW = juce::jmin(250, topRow.getWidth());
+            btnLibreMode.setBounds(topRow.removeFromLeft(libreBtnW));
+        }
     }
 
-    b.removeFromTop(16);
+    b.removeFromTop(12);
 
-    // Bottom Navigation Bar
-    auto bottomBar = b.removeFromBottom(42);
-    btnContinue.setBounds(bottomBar.removeFromRight(260));
+    // 2. Selectores en dos filas (2 combos por fila) para legibilidad óptima
+    int comboGap = 12;
+    int comboH = 32;
 
-    b.removeFromBottom(16);
+    // Fila 1: 1. Tipo de Dispositivo y 2. Marca / Fabricante
+    auto combosRow1 = b.removeFromTop(comboH);
+    int colW = (combosRow1.getWidth() - comboGap) / 2;
+    comboDeviceType.setBounds(combosRow1.removeFromLeft(colW));
+    combosRow1.removeFromLeft(comboGap);
+    comboBrand.setBounds(combosRow1);
 
-    // Split Canvas: Left Column = 4-Step Cascading Dropdowns; Right Column = Visual Cards
-    auto leftCol = b.removeFromLeft(juce::jmax(300, b.getWidth() / 2 - 12));
-    b.removeFromLeft(24);
+    b.removeFromTop(8);
+
+    // Fila 2: 3. Modelo y 4. Objetivo / Bloque
+    auto combosRow2 = b.removeFromTop(comboH);
+    comboModel.setBounds(combosRow2.removeFromLeft(colW));
+    combosRow2.removeFromLeft(comboGap);
+    comboObjective.setBounds(combosRow2);
+
+    b.removeFromTop(14);
+
+    // 3. Barra Inferior de Navegación (Continuar a Ejecución de Sesión)
+    auto bottomBar = b.removeFromBottom(38);
+    btnContinue.setBounds(bottomBar.removeFromRight(280));
+
+    b.removeFromBottom(12);
+
+    // 4. Zona Central Inferior: Columna Izquierda (Tarjeta de Hardware más ancha ~60%) y Derecha (Diagrama de Conexiones ~40%)
+    int colGap = 16;
+    int leftColW = static_cast<int>((b.getWidth() - colGap) * 0.60f);
+
+    auto leftCol = b.removeFromLeft(leftColW);
+    b.removeFromLeft(colGap);
     auto rightCol = b;
 
-    // Left Column: 4 Cascading Dropdowns
-    const int comboHeight = 36;
-    const int spacing = 16;
-
-    comboDeviceType.setBounds(leftCol.removeFromTop(comboHeight));
-    leftCol.removeFromTop(spacing);
-    comboBrand.setBounds(leftCol.removeFromTop(comboHeight));
-    leftCol.removeFromTop(spacing);
-    comboModel.setBounds(leftCol.removeFromTop(comboHeight));
-    leftCol.removeFromTop(spacing);
-    comboObjective.setBounds(leftCol.removeFromTop(comboHeight));
-
-    // Right Column: Display Card (top) + Wiring Diagram (bottom)
-    int cardHeight = (rightCol.getHeight() - 16) / 2;
-    deviceDisplayCard.setBounds(rightCol.removeFromTop(cardHeight));
-    rightCol.removeFromTop(16);
+    deviceDisplayCard.setBounds(leftCol);
     wiringDiagram.setBounds(rightCol);
 }
 

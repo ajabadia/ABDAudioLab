@@ -54,6 +54,18 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 # ------------------------------------------------------------------------------
+# Fetch Celemony ARA_SDK (Audio Random Access 2.0 API & Library)
+# ------------------------------------------------------------------------------
+message(STATUS "Fetching Celemony ARA_SDK...")
+FetchContent_Declare(
+    ARA_SDK
+    GIT_REPOSITORY https://github.com/Celemony/ARA_SDK.git
+    GIT_TAG releases/2.2.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(ARA_SDK)
+
+# ------------------------------------------------------------------------------
 # ABDSharedCode (Shared Libraries: AutoUpdater, etc.)
 # ------------------------------------------------------------------------------
 set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
@@ -181,6 +193,7 @@ target_sources(ABDAudioLab
         src/hardware/FskAudioModem.h
         src/hardware/MidiIdentityDetector.h
         src/hardware/MidiIdentityDetector.cpp
+        src/hardware/AudioMidiInterfaceDetector.h
         src/hardware/AudioLabMidiBackend.h
         src/hardware/AudioLabMidiBackend.cpp
         src/hardware/ManualAnalogueController.h
@@ -199,6 +212,16 @@ target_sources(ABDAudioLab
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABVerdictEngine.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/WebView2Bridge/WebView2ResourceProvider.cpp
+        
+        # Plugin Hosting & Software Target (VST3, AU, LV2, ARA)
+        src/core/plugins/PluginHostManager.h
+        src/core/plugins/PluginHostManager.cpp
+        src/core/plugins/PluginHardwareContractAdapter.h
+        src/core/plugins/PluginHardwareContractAdapter.cpp
+        src/gui/plugins/PluginWindowController.h
+        src/gui/plugins/PluginWindowController.cpp
+        src/gui/plugins/PluginScanDirectoriesModal.h
+        src/gui/plugins/PluginScanDirectoriesModal.cpp
         
         # GUI & Interactive Visualizers (SoundID Architecture)
         src/gui/SoundIdTheme.h
@@ -264,9 +287,11 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdSidebarStepper.cpp
         src/gui/soundid/SoundIdHardwareCatalogSelector.h
         src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
-        src/gui/ExportReportPanel.h
-        src/gui/LiveSpectrumAnalyzer.h
         src/gui/ScopeWebFloatingWindow.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/JuceStudioTopologyComponent.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyFloatingWindow.h
         src/gui/MeasurementHealthPanel.h
         src/gui/OperatorCardsContainerComponent.h
         src/gui/OperatorCardsContainerComponent.cpp
@@ -312,6 +337,7 @@ target_include_directories(ABDAudioLab
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+        ${ara_sdk_SOURCE_DIR}
 )
 
 target_compile_definitions(ABDAudioLab
@@ -327,6 +353,10 @@ target_compile_definitions(ABDAudioLab
         JUCE_JACK=0
         JUCE_REPORT_APP_USAGE=0
         JUCE_SILENCE_XCODE_15_LINKER_WARNING=1
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        JUCE_PLUGINHOST_LV2=1
+        JUCE_PLUGINHOST_ARA=1
 )
 
 target_link_libraries(ABDAudioLab
@@ -346,6 +376,7 @@ target_link_libraries(ABDAudioLab
         ABDScope::ABDScopeCore
         ABDShared::AutoUpdater
         ABDShared::HardwareMidiDetect
+        ABDShared::StudioTopologyAssets
 )
 
 # ------------------------------------------------------------------------------
@@ -382,6 +413,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_LoopbackDiagnostics.cpp
     src/tests/test_LnlManifestExport.cpp
     src/tests/test_DeColoringCompensation.cpp
+    src/tests/test_AudioMidiInterfaceDetector.cpp
     src/tests/test_SysexPresetGenerator.cpp
     src/tests/test_JsLutExport.cpp
     src/tests/test_ThermalDriftAnalyzer.cpp
@@ -408,6 +440,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_SoundIdSuiteListRefactor.cpp
     src/tests/test_SoundIdSidebarStepper.cpp
     src/tests/test_SoundIdHardwareCatalogSelector.cpp
+    src/tests/test_PauseResume.cpp
+    src/tests/test_PluginHostManager.cpp
     
     src/audio/LabAudioEngine.cpp
     src/audio/LabAudioReceiver.cpp
@@ -455,6 +489,8 @@ add_executable(ABDAudioLab_Tests
     src/core/HardwareContractRegistry.cpp
     src/core/HardwareManager.cpp
     src/core/SharedHardwareContractAdapter.cpp
+    src/core/plugins/PluginHostManager.cpp
+    src/core/plugins/PluginHardwareContractAdapter.cpp
     src/gui/HardwareControlRenderer.cpp
     src/gui/SoundIdCurvePlotter.cpp
     src/gui/SoundIdMeterStrip.cpp
