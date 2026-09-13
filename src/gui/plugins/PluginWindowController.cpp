@@ -4,37 +4,83 @@
 namespace abdaudiolab::gui
 {
 
+namespace
+{
+class PluginContainerComponent : public juce::Component
+{
+public:
+    PluginContainerComponent(std::unique_ptr<juce::AudioProcessorEditor> editor,
+                             std::function<void()> onOpenKeyboard)
+        : pluginEditor(std::move(editor)),
+          openKeyboardCallback(std::move(onOpenKeyboard))
+    {
+        setOpaque(true);
+        btnKeyboard.setButtonText("Teclado MIDI");
+        btnKeyboard.setTooltip("Abrir Teclado Virtual MIDI para tocar este plugin");
+        btnKeyboard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
+        btnKeyboard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+        btnKeyboard.onClick = [this] {
+            if (openKeyboardCallback) openKeyboardCallback();
+        };
+        addAndMakeVisible(btnKeyboard);
+
+        if (pluginEditor != nullptr)
+            addAndMakeVisible(*pluginEditor);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(SoundIdTheme::bgLight);
+        g.setColour(SoundIdTheme::borderSubtle);
+        g.drawHorizontalLine(27, 0.0f, static_cast<float>(getWidth()));
+    }
+
+    void resized() override
+    {
+        auto r = getLocalBounds();
+        auto topBar = r.removeFromTop(28).reduced(4, 2);
+        btnKeyboard.setBounds(topBar.removeFromRight(100));
+
+        if (pluginEditor != nullptr)
+            pluginEditor->setBounds(r);
+    }
+
+private:
+    std::unique_ptr<juce::AudioProcessorEditor> pluginEditor;
+    juce::TextButton btnKeyboard;
+    std::function<void()> openKeyboardCallback;
+};
+} // namespace
+
 PluginWindowController::PluginWindow::PluginWindow(const juce::String& title,
-                                                  std::unique_ptr<juce::AudioProcessorEditor> editor,
-                                                  std::function<void()> onCloseCallback)
-    : juce::DocumentWindow(title, SoundIdTheme::bgCard, juce::DocumentWindow::closeButton),
-      pluginEditor(std::move(editor)),
+                                                   std::unique_ptr<juce::AudioProcessorEditor> editor,
+                                                   std::function<void()> onCloseCallback,
+                                                   std::function<void()> onOpenKeyboardCallback)
+    : juce::DocumentWindow(title, AppTheme::BackgroundApp, juce::DocumentWindow::closeButton),
       onClose(std::move(onCloseCallback))
 {
     juce::Logger::writeToLog("[PluginWindow] Constructing DocumentWindow for: " + title);
-    setUsingNativeTitleBar(true);
+    setUsingNativeTitleBar(false);
 
     int w = 600;
     int h = 400;
 
-    if (pluginEditor != nullptr)
+    if (editor != nullptr)
     {
-        w = pluginEditor->getWidth();
-        h = pluginEditor->getHeight();
+        w = editor->getWidth();
+        h = editor->getHeight();
         if (w <= 0 || h <= 0)
         {
             w = 600;
             h = 400;
-            pluginEditor->setSize(w, h);
+            editor->setSize(w, h);
         }
-        juce::Logger::writeToLog("[PluginWindow] Setting owned content component with size: "
-            + juce::String(w) + "x" + juce::String(h));
-
-        setContentOwned(pluginEditor.release(), true);
-        setResizable(true, true);
     }
 
-    centreWithSize(w, h);
+    auto container = std::make_unique<PluginContainerComponent>(std::move(editor), std::move(onOpenKeyboardCallback));
+    setContentOwned(container.release(), true);
+    setResizable(true, true);
+    centreWithSize(w, h + 28);
     setVisible(true);
     juce::Logger::writeToLog("[PluginWindow] Window set visible successfully.");
 }
@@ -90,7 +136,11 @@ void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin,
     juce::String title = windowTitle.isNotEmpty() ? windowTitle : plugin->getName();
     activeWindow = std::make_unique<PluginWindow>(title,
                                                   std::unique_ptr<juce::AudioProcessorEditor>(editor),
-                                                  [this] { closePluginWindow(); });
+                                                  [this] { closePluginWindow(); },
+                                                  [this] { if (onOpenKeyboardRequested) onOpenKeyboardRequested(); });
+
+    if (onWindowStateChanged != nullptr)
+        onWindowStateChanged(true);
 }
 
 void PluginWindowController::closePluginWindow()
@@ -100,12 +150,24 @@ void PluginWindowController::closePluginWindow()
         juce::Logger::writeToLog("[PluginWindow] Closing active plugin window.");
         activeWindow.reset();
         juce::Logger::writeToLog("[PluginWindow] Active plugin window reset complete.");
+
+        if (onWindowStateChanged != nullptr)
+            onWindowStateChanged(false);
     }
 }
 
 bool PluginWindowController::isWindowOpen() const noexcept
 {
     return activeWindow != nullptr && activeWindow->isVisible();
+}
+
+void PluginWindowController::updateTheme()
+{
+    if (activeWindow != nullptr)
+    {
+        activeWindow->setBackgroundColour(AppTheme::BackgroundApp);
+        activeWindow->repaint();
+    }
 }
 
 } // namespace abdaudiolab::gui

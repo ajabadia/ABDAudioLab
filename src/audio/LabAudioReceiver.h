@@ -85,6 +85,19 @@ public:
     void setEarlyStoppingEnabled(bool enabled) noexcept { earlyStoppingEnabled.store(enabled, std::memory_order_release); }
     [[nodiscard]] bool isEarlyStoppingEnabled() const noexcept { return earlyStoppingEnabled.load(std::memory_order_acquire); }
 
+    /**
+     * @brief Configures internal plugin/algorithmic latency compensation in samples.
+     * When > 0, capture starts at t=0 and the initial latency samples are trimmed upon retrieval.
+     */
+    void setLatencyCompensationSamples(int samples) noexcept
+    {
+        latencyCompensation.store(std::max(0, samples), std::memory_order_release);
+    }
+    [[nodiscard]] int getLatencyCompensationSamples() const noexcept
+    {
+        return latencyCompensation.load(std::memory_order_relaxed);
+    }
+
 private:
     double sampleRate { 96000.0 };
     std::atomic<ReceiverState> state { ReceiverState::Idle };
@@ -106,6 +119,9 @@ private:
     std::atomic<bool> earlyStopTriggered { false };
     std::atomic<int> consecutiveSilenceSamples { 0 };
     std::atomic<bool> earlyStoppingEnabled { true };
+
+    // Algorithmic / Plugin Latency Compensation (lookahead, oversampling, linear phase)
+    std::atomic<int> latencyCompensation { 0 };
 };
 
 } // namespace abdaudiolab::audio

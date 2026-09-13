@@ -1,36 +1,10 @@
-# ABDAudioLab — Plan de Ejecución Automática
+# Plan de Trabajo: Fase 20.3.C — Segundo Target Externo (Plugin Abierto del Ecosistema VST3)
 
 ## Objetivo
-Implementar los métodos de forwarding de estado de puntos en `SoundIdSuiteList.cpp` para completar la integración de la Fase 14 con `modelManager`.
+Evaluar el pipeline completo de ABDAudioLab contra un sintetizador VST3 de terceros (de código abierto o ejemplo oficial de referencia del VST3 SDK), certificando la honestidad diagnóstica del sistema frente a anomalías reales (semántica ambigua, suavizado no declarado, parámetros inertes, persistencia de fase o estado parcial).
 
-## Archivos a modificar
-- `src/gui/SoundIdSuiteList.cpp`
-
-## Instrucciones específicas
-
-En `src/gui/SoundIdSuiteList.cpp`, añade al final del archivo las siguientes tres funciones públicas delegando en `modelManager`:
-
-```cpp
-void SoundIdSuiteList::setPointStatus(int queueIndex, int pointIndex, PointStatus status)
-{
-    modelManager.setPointStatus(queueIndex, pointIndex, status);
-    layoutRows();
-    rowsContent.repaint();
-}
-
-PointStatus SoundIdSuiteList::getPointStatus(int queueIndex, int pointIndex) const
-{
-    return modelManager.getPointStatus(queueIndex, pointIndex);
-}
-
-void SoundIdSuiteList::resetPointStatuses(int queueIndex)
-{
-    modelManager.resetPointStatuses(queueIndex);
-    layoutRows();
-    rowsContent.repaint();
-}
-```
-
-## Verificación
-El comando de test automático (`cmd /c build.bat`) se ejecutará solo tras guardar los cambios.
-Una vez compila con éxito, Aider realizará el commit automáticamente.
+## Criterios Clave
+1. No forzar un dictamen `Approved`: certificar que `ApprovedWithWarnings` prescribe las adaptaciones operativas adecuadas.
+2. Identificación del bundle y componentes con `PluginIdentity` y hashes canónicos.
+3. Desacoplamiento entre lo que el host descubre y lo que el observador acústico mide.
+4. Generación de los 10 artefactos reproducibles en el arnés CLI.

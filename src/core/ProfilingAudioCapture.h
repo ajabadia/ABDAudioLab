@@ -24,6 +24,12 @@ public:
     void executeSettlingWait(int delayMs, const juce::Thread& callingThread);
 
     /**
+     * @brief Query or configure plugin algorithmic latency compensation on the receiver.
+     */
+    [[nodiscard]] int getLatencyCompensationSamples() const noexcept { return audioReceiver.getLatencyCompensationSamples(); }
+    void setLatencyCompensationSamples(int samples) noexcept { audioReceiver.setLatencyCompensationSamples(samples); }
+
+    /**
      * Captura síncrona para pruebas de estímulo estándar (Farina sweep, seno, etc.)
      */
     bool captureStimulusSynchronous(audio::StimulusType stimulus,

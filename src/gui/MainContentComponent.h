@@ -50,7 +50,7 @@
 #include "gui/controllers/WorkflowNavigationController.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
-#include <StudioTopology/StudioTopologyFloatingWindow.h>
+#include <StudioTopology/StudioTopologyController.h>
 #include "export/CertificationReportExporter.h"
 #include "export/NamDatasetExporter.h"
 #include "config/AutoUpdaterConfig.h"
@@ -59,6 +59,9 @@
 #include "core/plugins/PluginHardwareContractAdapter.h"
 #include "gui/plugins/PluginWindowController.h"
 #include "gui/plugins/PluginScanDirectoriesModal.h"
+#include <MidiKeyboard/MidiKeyboardFloatingWindow.h>
+#include "gui/session/ProfilingSessionController.h"
+#include "gui/soundid/SoundIdGuidedWorkflowContainer.h"
 
 namespace abdaudiolab
 {
@@ -89,6 +92,7 @@ public:
     void updateSplitLayout();
     void toggleScopeWebWindow();
     void toggleStudioTopologyWindow();
+    void toggleVirtualKeyboardWindow();
     void preWarmScopeWindow();
     void preWarmHardwareDetector();
     void performOfflineReanalysis();
@@ -168,7 +172,8 @@ private:
     gui::ExportReportPanel exportReportPanel;
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
-    std::unique_ptr<abd::topology::StudioTopologyFloatingWindow> topologyFloatingWindow;
+    std::unique_ptr<abd::keyboard::MidiKeyboardFloatingWindow> virtualKeyboardWindow;
+    abd::topology::StudioTopologyController topologyController;
     std::unique_ptr<gui::SoundIdSplashWindow> aboutSplashWindow;
 
     gui::SoundIdCurvePlotter curvePlotter;
@@ -195,6 +200,14 @@ private:
     juce::TextButton btnStepBack;
     juce::TextButton btnRepeatStep;
     juce::TextButton confirmManualButton;
+
+    // Guided Workflow Architecture (Phase 16 & 20.7)
+    gui::session::ProfilingSessionController profilingSessionController;
+    std::unique_ptr<gui::soundid::SoundIdGuidedWorkflowContainer> guidedWorkflowContainer;
+    gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };
+    juce::TextButton btnWorkflowModeToggle;
+    void setWorkflowMode(gui::session::UiWorkflowMode mode);
+    void setupGuidedWorkflowInitialData();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };

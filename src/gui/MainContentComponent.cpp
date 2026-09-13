@@ -213,6 +213,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     mainHeader.onExitApp = [this] { confirmAndExit(); };
 
+    // Plugin Direct Monitoring Passthrough wiring (active only while plugin GUI is open and not running test sweep)
+    pluginWindowController.onWindowStateChanged = [this](bool isOpen) {
+        juce::Logger::writeToLog("[MainComponent] Plugin window state changed: " + juce::String(isOpen ? "OPEN (monitoring ON)" : "CLOSED (monitoring OFF)"));
+        audioEngine.setPluginMonitoringEnabled(isOpen);
+    };
+
     // Plugin Scan Directories modal wiring
     mainHeader.onScanPluginDirectories = [this] {
         juce::Logger::writeToLog("[MainComponent] Opening Plugin Scan Directories modal...");
@@ -285,6 +291,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     }
 
     mainHeader.onScopeToggle = [this] { toggleScopeWebWindow(); };
+    mainHeader.onVirtualKeyboardToggle = [this] { toggleVirtualKeyboardWindow(); };
     mainHeader.onConfigureAudioMidi = [this] { openAudioMidiSettings(); };
     mainHeader.onCalibrateClicked = [this] {
         workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
@@ -308,15 +315,23 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         if (scopeWebWindow != nullptr)
             scopeWebWindow->updateTheme();
-        if (topologyFloatingWindow != nullptr)
+
+        if (virtualKeyboardWindow != nullptr)
         {
-            auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
-            topologyFloatingWindow->setTheme(themeStr, gui::AppTheme::BackgroundApp);
+            auto kbdTheme = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
+            virtualKeyboardWindow->setTheme(kbdTheme, gui::AppTheme::BackgroundApp);
+            virtualKeyboardWindow->repaint();
         }
+        
+        pluginWindowController.updateTheme();
+
+        auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
+        topologyController.updateTheme(themeStr, gui::AppTheme::BackgroundApp);
 
         drawer.updateTheme();
         operatorStepModal.updateTheme();
         setupInfoTab.updateTheme();
+        catalogSelector.updateTheme();
         repaint();
     };
     addAndMakeVisible(mainHeader);
@@ -336,7 +351,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         manualPromptLabel.setText("✓ Audio/MIDI connections and telemetry refreshed.", juce::dontSendNotification);
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(3000);
-        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+        if (topologyController.isWindowVisible())
             toggleStudioTopologyWindow();
     };
     addChildComponent(setupInfoTab);
@@ -661,6 +676,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                             // Store the instance and connect to audio engine & dispatcher
                             activePluginInstance = std::move(*sharedInst);
                             audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
+                            audioEngine.setPluginMonitoringEnabled(true);
                             sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
 
                             juce::PluginDescription desc;
@@ -750,6 +766,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         {
             juce::Logger::writeToLog("[MainComponent WARNING] No active plugin or selected description available to show GUI.");
         }
+    };
+    catalogSelector.onOpenKeyboardRequested = [this] {
+        toggleVirtualKeyboardWindow();
+    };
+    pluginWindowController.onOpenKeyboardRequested = [this] {
+        toggleVirtualKeyboardWindow();
     };
 
     // Initialize plugin host cache
@@ -1231,7 +1253,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         manualPromptLabel.setText(juce::String::fromUTF8(u8"✓ Telemetría y conexiones actualizadas."), juce::dontSendNotification);
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(3000);
-        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+        if (topologyController.isWindowVisible())
             toggleStudioTopologyWindow();
     };
     drawer.onNewSessionClicked = [this] {
@@ -1444,6 +1466,22 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         }
     });
 
+    // Inicializar Contenedor del Flujo Guiado SoundID y Toggle de Modo (Fase 16 / 20.7)
+    guidedWorkflowContainer = std::make_unique<gui::soundid::SoundIdGuidedWorkflowContainer>(profilingSessionController);
+    addChildComponent(guidedWorkflowContainer.get());
+
+    btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Cl\u00e1sico (Cambiar a Guiado 3 Pasos)"));
+    btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+    btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
+    btnWorkflowModeToggle.onClick = [this] {
+        setWorkflowMode(currentWorkflowMode == gui::session::UiWorkflowMode::Classic
+                            ? gui::session::UiWorkflowMode::Guided
+                            : gui::session::UiWorkflowMode::Classic);
+    };
+    addAndMakeVisible(btnWorkflowModeToggle);
+
+    setupGuidedWorkflowInitialData();
+
     report("Listo.", 1.0f);
 }
 
@@ -1463,11 +1501,13 @@ MainContentComponent::~MainContentComponent()
         scopeWebWindow = nullptr;
     }
 
-    if (topologyFloatingWindow != nullptr)
+    if (virtualKeyboardWindow != nullptr)
     {
-        topologyFloatingWindow->setVisible(false);
-        topologyFloatingWindow = nullptr;
+        virtualKeyboardWindow->setVisible(false);
+        virtualKeyboardWindow = nullptr;
     }
+
+    topologyController.closeWindow();
 
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     setLookAndFeel(nullptr);
@@ -1485,7 +1525,7 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
         mainHeader.updateAudioMidiStatus();
         updateSetupDrawerInfo();
 
-        if (topologyFloatingWindow != nullptr && topologyFloatingWindow->isVisible())
+        if (topologyController.isWindowVisible())
         {
             toggleStudioTopologyWindow();
         }
@@ -1569,10 +1609,33 @@ void MainContentComponent::resized()
 {
     auto bounds = getLocalBounds().reduced(20);
 
-    // 1. Top Header Area (Single Coordinated Component)
-    mainHeader.setBounds(bounds.removeFromTop(36));
+    // 1. Top Header Area (Single Coordinated Component) + Mode Toggle
+    auto headerRow = bounds.removeFromTop(36);
+    btnWorkflowModeToggle.setBounds(headerRow.removeFromRight(260).withHeight(30).withY(headerRow.getY() + 1));
+    headerRow.removeFromRight(8);
+    mainHeader.setBounds(headerRow);
 
     bounds.removeFromTop(10);
+
+    // En modo guiado, el contenedor ocupa todo el canvas central
+    if (currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
+    {
+        if (guidedWorkflowContainer != nullptr)
+        {
+            guidedWorkflowContainer->setVisible(true);
+            guidedWorkflowContainer->setBounds(bounds);
+        }
+
+        // Slide-in Drawer & Modals fill full window bounds
+        drawer.setBounds(getLocalBounds());
+        aboutModal.setBounds(getLocalBounds());
+        confirmationModal.setBounds(getLocalBounds());
+        abVerificationModal.setBounds(getLocalBounds());
+        return;
+    }
+
+    if (guidedWorkflowContainer != nullptr)
+        guidedWorkflowContainer->setVisible(false);
 
     // 2. Left Collapsible Sidebar Stepper (SoundID Vertical Workflow Rail)
     int sidebarW = sidebarStepper.getDesiredWidth();
@@ -1726,6 +1789,8 @@ void MainContentComponent::toggleScopeWebWindow()
         );
     }
 
+    scopeWebWindow->updateTheme();
+
     if (scopeWebWindow->isVisible())
     {
         scopeWebWindow->toFront(true);
@@ -1738,171 +1803,119 @@ void MainContentComponent::toggleScopeWebWindow()
     }
 }
 
-void MainContentComponent::toggleStudioTopologyWindow()
+void MainContentComponent::toggleVirtualKeyboardWindow()
 {
-    if (topologyFloatingWindow == nullptr)
-    {
-        topologyFloatingWindow = std::make_unique<abd::topology::StudioTopologyFloatingWindow>();
-    }
-
-    // Build dynamic studio topology JSON payload
-    nlohmann::json root;
-
-    // 1. Target Hardware (Center Hero)
-    juce::String hwId = drawer.getSelectedHardwareId();
-    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-    const auto* contract = hardwareManager.findContractById(hwId.toStdString());
-
-    std::string targetImg = "models/generic-digital-keyboard.png";
-    std::string targetName = "No Target Selected";
-    std::string targetCat = "Hardware Device";
-    std::string targetDetails = "Direct Loopback";
-
-    bool targetHasMidi = false;
-    if (contract != nullptr)
-    {
-        targetName = contract->displayName;
-        targetCat = contract->deviceType;
-        auto fnName = drawer.getActiveFunctionDisplayName().trim();
-        if (fnName.isNotEmpty())
-            targetDetails = "Profile: " + fnName.toStdString();
-        else
-            targetDetails = "Profile: Default Factory Setup";
-
-        // Determinar si el hardware bajo prueba posee MIDI
-        if (contract->deviceType != "ANALOGUE_PEDAL" && 
-            contract->deviceType != "MANUAL_EURORACK" && 
-            contract->deviceType != "VIRTUAL_LOOPBACK_ASIO")
-        {
-            if (!contract->midiIdentity.model.empty() || 
-                !contract->midiIdentity.manufacturer.empty() ||
-                !contract->midiIdentity.portNameMatches.empty() ||
-                contract->deviceType == "AUTOMATED_SYSEX" || 
-                contract->deviceType == "AUTOMATED_MIDI_CC")
-            {
-                targetHasMidi = true;
-            }
-        }
-
-        if (!contract->modelImage.empty())
-        {
-            auto f = gui::locateAssetFile(contract->modelImage);
-            if (f.existsAsFile())
-                targetImg = contract->modelImage;
-        }
-        else
-        {
-            std::string catLower = targetCat;
-            std::transform(catLower.begin(), catLower.end(), catLower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-            if (catLower.find("pedal") != std::string::npos || catLower.find("guitar") != std::string::npos)
-                targetImg = "models/generic-guitar-pedal.png";
-            else if (catLower.find("eurorack") != std::string::npos || catLower.find("modular") != std::string::npos)
-                targetImg = "models/generic-eurorack.png";
-            else if (catLower.find("rack") != std::string::npos || catLower.find("studio") != std::string::npos)
-                targetImg = "models/generic-audio-rack.png";
-            else if (catLower.find("anal") != std::string::npos)
-                targetImg = "models/generic-analog-keyboard.png";
-            else if (catLower.find("drum") != std::string::npos)
-                targetImg = "models/generic-drum-machine.png";
-            else if (catLower.find("preamp") != std::string::npos || catLower.find("mic") != std::string::npos)
-                targetImg = "models/generic-mic-preamp.png";
-            else if (catLower.find("desktop") != std::string::npos)
-                targetImg = "models/generic-desktop-module.png";
-            else
-                targetImg = "models/generic-digital-keyboard.png";
-        }
-    }
-
-    root["target"] = {
-        { "name", targetName },
-        { "category", targetCat },
-        { "details", targetDetails },
-        { "image", targetImg },
-        { "hasMidi", targetHasMidi }
-    };
-
-    // 2. Detected Devices & Interfaces
-    root["devices"] = nlohmann::json::array();
-    root["connections"] = nlohmann::json::array();
-
-    auto detectedInterfaces = hardware::AudioMidiInterfaceDetector::detectInterfaces(audioEngine.getDeviceManager());
-    for (size_t i = 0; i < detectedInterfaces.size(); ++i)
-    {
-        const auto& iface = detectedInterfaces[i];
-        std::string devId = "dev_" + std::to_string(i);
-
-        std::string ifaceDetails = "Detected in OS";
-        if (iface.isAudioConnected && iface.isMidiInConnected && iface.isMidiOutConnected)
-            ifaceDetails = "Audio & MIDI I/O Assigned";
-        else if (iface.isAudioConnected)
-            ifaceDetails = "Audio Assigned";
-        else if (iface.isMidiInConnected || iface.isMidiOutConnected)
-            ifaceDetails = "MIDI Assigned";
-
-        nlohmann::json portsJson = nlohmann::json::array();
-        for (const auto& p : iface.ports)
-        {
-            portsJson.push_back({
-                { "id", p.portId.toStdString() },
-                { "name", p.name.toStdString() },
-                { "type", p.type.toStdString() },
-                { "connected", p.isConnected }
-            });
-        }
-
-        bool connectsToTarget = false;
-        if (iface.isAudioConnected) connectsToTarget = true;
-        if (targetHasMidi && (iface.isMidiInConnected || iface.isMidiOutConnected)) connectsToTarget = true;
-
-        root["devices"].push_back({
-            { "id", devId },
-            { "name", iface.displayName.toStdString() },
-            { "details", ifaceDetails },
-            { "image", iface.imageRelPath.toStdString() },
-            { "assigned", connectsToTarget },
-            { "hasAudio", iface.hasAudioHardware },
-            { "hasMidi", iface.hasMidiHardware },
-            { "ports", portsJson }
-        });
-
-        // 3. Cables / Conexiones dirigidas al Target
-        // Conectar a cada puerto activo específico del interface
-        for (const auto& p : iface.ports)
-        {
-            if (!p.isConnected) continue;
-
-            if (p.type == "audioOut")
-            {
-                root["connections"].push_back({ { "type", "audioOut" }, { "from", devId }, { "to", "target" }, { "fromPort", p.portId.toStdString() } });
-            }
-            else if (p.type == "audioIn")
-            {
-                root["connections"].push_back({ { "type", "audioIn" }, { "from", "target" }, { "to", devId }, { "toPort", p.portId.toStdString() } });
-            }
-            else if (targetHasMidi && p.type == "midiOut")
-            {
-                root["connections"].push_back({ { "type", "midiOut" }, { "from", devId }, { "to", "target" }, { "fromPort", p.portId.toStdString() } });
-            }
-            else if (targetHasMidi && p.type == "midiIn")
-            {
-                root["connections"].push_back({ { "type", "midiIn" }, { "from", "target" }, { "to", devId }, { "toPort", p.portId.toStdString() } });
-            }
-        }
-    }
-
     auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
-    topologyFloatingWindow->setTheme(themeStr, gui::AppTheme::BackgroundApp);
-    topologyFloatingWindow->updateTopology(root);
 
-    if (topologyFloatingWindow->isVisible())
+    if (virtualKeyboardWindow == nullptr)
     {
-        topologyFloatingWindow->toFront(true);
+        virtualKeyboardWindow = std::make_unique<abd::keyboard::MidiKeyboardFloatingWindow>(
+            themeStr,
+            [this](const juce::MidiMessage& msg) {
+                audioEngine.postLiveMidiMessage(msg);
+            }
+        );
+        virtualKeyboardWindow->setUsingNativeTitleBar(false);
+    }
+
+    virtualKeyboardWindow->setTheme(themeStr, gui::AppTheme::BackgroundApp);
+
+    // Ensure direct monitoring is enabled so audio flows to speakers
+    audioEngine.setPluginMonitoringEnabled(true);
+
+    if (virtualKeyboardWindow->isVisible())
+    {
+        virtualKeyboardWindow->toFront(true);
     }
     else
     {
-        topologyFloatingWindow->setVisible(true);
-        topologyFloatingWindow->toFront(true);
+        virtualKeyboardWindow->setVisible(true);
+        virtualKeyboardWindow->toFront(true);
     }
+}
+
+void MainContentComponent::toggleStudioTopologyWindow()
+{
+    juce::String hwId = drawer.getSelectedHardwareId();
+    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
+
+    abd::topology::TopologyTargetInfo target;
+
+    if (activePluginInstance != nullptr)
+    {
+        juce::String pluginName = activePluginDescription.name.isNotEmpty() ? activePluginDescription.name : "Active VST3 Plugin";
+        target.name = pluginName;
+        target.category = "VST3 Virtual Instrument";
+        target.details = "Virtual VST3 | Internal Direct Bus (ITB)";
+        target.imageRelPath = "models/generic-digital-keyboard.png";
+        target.hasMidi = true;
+        target.isVirtualPlugin = true;
+    }
+    else
+    {
+        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        if (contract != nullptr)
+        {
+            target.name = contract->displayName;
+            target.category = contract->deviceType;
+            auto fnName = drawer.getActiveFunctionDisplayName().trim();
+            if (fnName.isNotEmpty())
+                target.details = "Profile: " + fnName;
+            else
+                target.details = "Profile: Default Factory Setup";
+
+            if (contract->deviceType != "ANALOGUE_PEDAL" && 
+                contract->deviceType != "MANUAL_EURORACK" && 
+                contract->deviceType != "VIRTUAL_LOOPBACK_ASIO")
+            {
+                if (!contract->midiIdentity.model.empty() || 
+                    !contract->midiIdentity.manufacturer.empty() ||
+                    !contract->midiIdentity.portNameMatches.empty() ||
+                    contract->deviceType == "AUTOMATED_SYSEX" || 
+                    contract->deviceType == "AUTOMATED_MIDI_CC")
+                {
+                    target.hasMidi = true;
+                }
+            }
+
+            if (!contract->modelImage.empty())
+            {
+                auto f = gui::locateAssetFile(contract->modelImage);
+                if (f.existsAsFile())
+                    target.imageRelPath = contract->modelImage;
+            }
+            else
+            {
+                std::string catLower = target.category.toStdString();
+                std::transform(catLower.begin(), catLower.end(), catLower.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                if (catLower.find("pedal") != std::string::npos || catLower.find("guitar") != std::string::npos)
+                    target.imageRelPath = "models/generic-guitar-pedal.png";
+                else if (catLower.find("eurorack") != std::string::npos || catLower.find("modular") != std::string::npos)
+                    target.imageRelPath = "models/generic-eurorack.png";
+                else if (catLower.find("rack") != std::string::npos || catLower.find("studio") != std::string::npos)
+                    target.imageRelPath = "models/generic-audio-rack.png";
+                else if (catLower.find("anal") != std::string::npos)
+                    target.imageRelPath = "models/generic-analog-keyboard.png";
+                else if (catLower.find("drum") != std::string::npos)
+                    target.imageRelPath = "models/generic-drum-machine.png";
+                else if (catLower.find("preamp") != std::string::npos || catLower.find("mic") != std::string::npos)
+                    target.imageRelPath = "models/generic-mic-preamp.png";
+                else if (catLower.find("desktop") != std::string::npos)
+                    target.imageRelPath = "models/generic-desktop-module.png";
+                else
+                    target.imageRelPath = "models/generic-digital-keyboard.png";
+            }
+        }
+    }
+
+    abd::topology::TopologyContext ctx {
+        audioEngine.getDeviceManager(),
+        target,
+        (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light",
+        gui::AppTheme::BackgroundApp
+    };
+
+    topologyController.toggleWindow(ctx);
 }
 
 
@@ -3378,6 +3391,7 @@ void MainContentComponent::loadPluginInstance(const juce::PluginDescription& des
 
                 activePluginInstance = std::move(*sharedInst);
                 audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
+                audioEngine.setPluginMonitoringEnabled(true);
                 sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
 
                 // Generate dynamic HardwareContract and register it
@@ -3436,6 +3450,71 @@ void MainContentComponent::loadPluginInstance(const juce::PluginDescription& des
                 if (onLoaded) onLoaded(true);
             });
         });
+}
+
+void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
+{
+    if (currentWorkflowMode == mode)
+        return;
+
+    currentWorkflowMode = mode;
+    profilingSessionController.setWorkflowMode(mode);
+
+    if (mode == gui::session::UiWorkflowMode::Guided)
+    {
+        btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Guiado (Cambiar a Cl\u00e1sico)"));
+        btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentBlue.withAlpha(0.15f));
+        btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
+
+        // Ocultar superficies clasicas para evitar solapamientos
+        sidebarStepper.setVisible(false);
+        meterStrip.setVisible(false);
+        setupInfoTab.setVisible(false);
+        catalogSelector.setVisible(false);
+        nativeCalibrationPanel.setVisible(false);
+        exportReportPanel.setVisible(false);
+        curvePlotter.setVisible(false);
+        healthPanel.setVisible(false);
+        suiteList.setVisible(false);
+        centerSplitterBar.setVisible(false);
+
+        if (guidedWorkflowContainer != nullptr)
+            guidedWorkflowContainer->setVisible(true);
+    }
+    else
+    {
+        btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Cl\u00e1sico (Cambiar a Guiado 3 Pasos)"));
+        btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+        btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
+
+        if (guidedWorkflowContainer != nullptr)
+            guidedWorkflowContainer->setVisible(false);
+
+        // Restaurar superficies clasicas
+        sidebarStepper.setVisible(true);
+        meterStrip.setVisible(true);
+        centerSplitterBar.setVisible(true);
+        workflowNavController.setStep(sidebarStepper.getCurrentStep());
+    }
+
+    resized();
+}
+
+void MainContentComponent::setupGuidedWorkflowInitialData()
+{
+    gui::session::TargetSelectionState target;
+    target.targetId = "synthetic_fixture_demo";
+    target.targetName = "Sintetizador Virtual de Prueba (Demo Snapshot)";
+    target.manufacturer = "ABDAudioLab";
+    target.version = "1.0.0";
+    target.kind = gui::session::TargetKind::SyntheticFixture;
+    target.isConnected = true;
+    target.isDeterministic = true;
+    target.availableDomainDescription = "Notas MIDI C1-C6, Vel 1-127, Controles de Filtro y Modulación";
+    target.parameterCount = 8;
+
+    profilingSessionController.selectTarget(target);
+    profilingSessionController.setWorkflowMode(currentWorkflowMode);
 }
 
 } // namespace abdaudiolab

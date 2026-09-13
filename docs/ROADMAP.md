@@ -788,9 +788,16 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
     * Diagrama visual de bus interno digital directo con etiqueta *"Internal Direct Bus (Zero Converter Coloration)"*.
   - **Topología de Estudio (`StudioTopologyFloatingWindow`)**:
     * Conexión directa del nodo de plugin al bus del software sin involucrar convertidores de sonido físico.
-* [ ] **5. Calibración y Seguridad**:
-  - Compensación automática de latencia interna del plugin (`getLatencySamples()`).
-  - Auto-Trim digital a -3 dBfs para mantener las referencias de THD+N y matrices dinámicas estándar.
+* [x] **5. Calibración y Seguridad**: (COMPLETADO)
+  - Compensación automática de latencia interna del plugin (`getLatencySamples()`) en `LabAudioReceiver` (ajuste dinámico de longitud de buffer y recorte en lectura), `LabAudioEngine` y `ProfilingAudioCapture`.
+  - Auto-Trim digital a -3 dBFS (`calibratePluginDigitalTrim()`) con inyección de tono de prueba a 0 dBFS y calibración de ganancia normalizada para algoritmos de THD+N y matrices A/B.
+  - Validado al 100% con suite unitaria dedicada `test_PluginCalibrationSafety.cpp`.
+* [ ] **6. Captura Automática y Silenciosa de Miniatura / GUI del Plugin (Offscreen Snapshot)**:
+  - Cuando se escanea o selecciona un plugin virtual (VST3 / AU / LV2) que carece de imagen gráfica o carátula en los assets locales:
+    * Instanciar temporalmente el editor gráfico (`createEditorIfNeeded()`) en segundo plano / offscreen sin abrir ninguna ventana visual al usuario.
+    * Tomar una captura rasterizada de alta fidelidad con `juce::Component::createComponentSnapshotImage()` o pintado directo en un `juce::Image` ARGB.
+    * Escalar y recortar armónicamente (p. ej. relación de aspecto 16:9 o 400×250 px) y persistir en la caché de miniaturas local (`AppData/ABDAudioLab/PluginThumbnails/<plugin_uid>.png`).
+    * Asignar inmediatamente la imagen capturada a la tarjeta del catálogo de hardware, la pill de telemetría superior, el Paso 0 y el visor de topología, eliminando la necesidad de iconos genéricos de fallback.
 
 ---
 
@@ -811,7 +818,13 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
 * [x] **Refresco en Caliente tras Cambios en Audio/MIDI Setup**: (COMPLETADO v2.0.1)
   - Implementado listener en `juce::AudioDeviceManager::ChangeListener` enlazado con `MainContentComponent` y `DrawerSetupTab`.
   - Botón de refresco manual rediseñado de forma elegante y discreta: icono sutil ↻ en la esquina superior derecha de la tarjeta *"CONEXIONES REALES ACTIVAS"*, eliminando el botón tosco de ancho completo inferior.
-  - Sincronización en caliente transmitida también a la ventana flotante de topología (`StudioTopologyFloatingWindow`) si está abierta.
+### 11.3: Teclado Virtual MIDI Responsive & Auto-Adaptativo (`MidiKeyboard` / WebUI)
+* [ ] **1. Auto-cálculo Dinámico de Teclas por Ancho de Ventana**:
+  - En lugar de fijar un número estático de teclas o recortar visualmente la vista al cambiar el tamaño de la ventana:
+    * Medir en tiempo real el ancho del contenedor con `ResizeObserver`.
+    * Definir tamaño mínimo (`minKeyWidth = 22px`) y máximo (`maxKeyWidth = 46px`) para teclas blancas.
+    * Calcular y renderizar exactamente el número de octavas completas que caben ergonómicamente en el espacio disponible.
+    * Centrado automático en la octava de trabajo preferida (C3/C4) con botones de transposición de octava integrados.
 
 ---
 
@@ -879,14 +892,483 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
 
 ---
 
-## 📅 FASE 15: POST-PROCESAMIENTO, ANÁLISIS ARMÓNICO (THD/IMD) Y CERTIFICACIÓN [EN PLANIFICACIÓN]
+## 📅 FASE 15: POST-PROCESAMIENTO, ANÁLISIS ARMÓNICO (THD/IMD) Y CERTIFICACIÓN [EN CURSO v2.1.0]
 
-* [ ] **1. Análisis de No-Linealidad y Distorsión**:
-  - Extracción automática de armónicos (H2, H3, THD vs Frecuencia) a partir del barrido Farina.
-  - Detección de distorsión por intermodulación (IMD SMPTE/DIN).
-* [ ] **2. Exportación de Modelos de Producción**:
-  - Exportación de perfiles NAM (Neural Amp Modeler) y tablas LUT 2D/3D optimizadas con SIMD.
-  - Generación de informe de certificación en PDF y manifiesto JSON del dispositivo perfilado.
+* [/] **1. Análisis de No-Linealidad, Distorsión Armónica e Intermodulación**:
+  - **15.1.A: Extracción Armónica Farina (H2..H5 y THD vs Frecuencia)**:
+    * Deconvolución sincrónica Farina para armónicos $H_2, H_3, H_4, H_5$ con retardos analíticos $\Delta t_n = T \cdot \frac{\ln(n)}{\ln(f_2/f_1)}$.
+    * Cálculo de energías individuales, porcentajes $H_2..H_5\,\%$, $\text{THD}\,\%$ global y curva espectral continua $\text{THD}(f)$.
+  - **15.1.B: Opciones de Visualización Interactiva en Gráfico (`SoundIdCurvePlotter`)**:
+    * Conmutadores/toggles en la leyenda para activar/ocultar selectivamente $H_1$ (fundamental), $H_2$, $H_3$, $H_4$, $H_5$ y la curva continua $\text{THD}(f)$ sin sobrecargar la vista.
+  - **15.1.C: Opciones de Ensayo IMD en Catálogo de Presets (`AutoTestPresetEngine` / `IntermodulationAnalyzer`)**:
+    * Estímulos específicos en `LabStimulusGenerator`: `ImdSmpteDualTone` (60 Hz + 7 kHz, 4:1) e `ImdCcifTwinTone` (19 kHz + 20 kHz, 1:1).
+    * Presets de ensayo dedicados en `DynamicsPresetCatalog` con extracción de bandas laterales $d_2, d_3$ e $\text{IMD}_{\text{total}}\,\%$.
+  - **15.1.D: Control de Auto-Trim Digital (-3 dBFS)**:
+    * Calibración automática a -3 dBFS para plugins virtuales, complementada con selector de modo `[Auto -3 dBFS | Manual]` y lectura de ganancia en dB.
+* [ ] **2. Exportación de Modelos de Producción (NAM, LUTs SIMD & Certificación)**:
+  - **15.2.A: Generador de Datasets y Perfiles NAM (Neural Amp Modeler) y RTNeural** (COMPLETADO en motor):
+    * Algoritmo de alineación de retardo sub-muestra por correlación cruzada en pulsos de sincronismo (`findLatencyOffsetSamples`).
+    * Exportación automática de la terna `input.wav` (24-bit PCM), `target.wav` y `nam_dataset_manifest.json` mediante `NamDatasetExporter`.
+    * Inyección autónoma en `ProfilingSequencer` durante ejecuciones de sesiones de calibración neuronal.
+  - **15.2.B: Tablas LUT 2D/3D con Evaluación Vectorizada SIMD** (COMPLETADO en motor y en producción):
+    * Exportación C++17 `constexpr` alineada a 16 bytes (`alignas(16)`) con empaquetamiento `AbdBatchedPoint` en `LutExporter`.
+    * Evaluación branchless 2D bilineal a 4 voces en registros SSE/AVX (`LutEvaluatorSimd`) y evaluación continua 1D SIMD con FMA (`LutEvaluator1DSimd`).
+    * Integración de producción validada en el oscilador de distorsión de fase de `ABDCZ101`.
+  - **15.2.C: Informe de Certificación Consolidado y Manifiesto JSON** (COMPLETADO en motor):
+    * Generación de informe autónomo en HTML con gráficos vectoriales SVG embebidos de respuesta en frecuencia, mapa de calor 2D de parámetros, SNR y THD (`CertificationReportExporter`).
+    * Serialización del manifiesto de producción `_manifest.json` con metadatos del hardware, cuadrícula y modelo Wiener-Hammerstein LNL (`LutExporter::exportSessionManifest`).
+  - **15.2.D: Panel de Opciones de Exportación en UI (Paso 4: `ExportReportPanel`)** (EN DISEÑO):
+    * **Arquitectura de Divulgación Progresiva (*Progressive Disclosure*) en 3 Niveles**:
+      1. **Modo Directo (90% de los casos)**: Orientado a la acción inmediata sin burocracia técnica:
+         - **Tarjeta Hero de Veredicto**: Responde a *¿Qué resultado he obtenido?* con badge claro (`[VÁLIDO PARA PRODUCCIÓN]`, `[VÁLIDO CON ADVERTENCIAS]`, `[EQUIVALENCIA PRÁCTICA]` o `[MEDICIÓN NO VÁLIDA]`).
+         - **Doble Acción Orientada al Destino**:
+           * `[⚡ Usar Modelo Recomendado (Sintetizador / Plugin VST)]` (baja latencia / mínimo consumo).
+           * `[🎯 Exportar Máxima Fidelidad (Estudio / Master Offline)]` (techo de precisión NAM / red neuronal).
+         - **Insignia de Dominio Validado**: Muestra el *Rango caracterizado* (ej. $-36 \dots -3\text{ dBFS}$, $96\text{ kHz}$) y alerta visual en tiempo real de *«Extrapolación no validada»* si la audición interactiva supera la cota medida.
+      2. **Modo Experto (Bajo Demanda - Botón `[Ver Detalles y Comparar]`)**:
+         - Tabla de candidatos comparados con sus costes normalizados de CPU/RAM (detallando entorno: $96\text{ kHz}$, buffer 256, 1 voz AVX2).
+         - Mapa de calor de residuos tiempo-frecuencia y descomposición tripartita de incertidumbre.
+         - Justificación contextual del veredicto (ej. *«Error dinámico dentro de norma: 96% de los estímulos de validación superan el criterio; leves desviaciones en transitorios < 2 ms»*).
+      3. **Modo Auditoría (Informe y Manifiesto Completo)**:
+         - Generación del informe interactivo HTML/SVG y serialización del `validation_manifest.json` con hashes SHA-256 de todos los binarios, firmware, tomas descartadas y parámetros congelados de la política de decisión.
+    * **Tres Salvaguardas Permanentes de UX**:
+      1. **Banda Superior Global Persistente**: Visible en todos los modos, mostrando estado de medición, dominio validado, modelo recomendado, alertas activas y botón de exportación rápida sin perder el foco operativo.
+      2. **Advertencias Siempre Accionables**: Estructura canónica obligatoria (*Qué ocurrió + Cómo afecta + Qué puedes hacer + Consecuencia de continuar*) con botones directos (ej. `[Volver a rango validado]` vs `[Continuar bajo advertencia]`).
+      3. **Contexto Obligatorio de Rendimiento**: Consumos de CPU y latencia siempre explícitamente contextualizados ($f_s$, buffer size, SIMD, arquitectura y voces).
+    * **Batería de Pruebas de Aceptación UX y Telemetría Instrumental**:
+      - **Telemetría Canónica y Taxonomía de Eventos**: Registro medible de `taskStartedAt`, `taskCompletedAt`, `clickCount`, `openedAdvancedMode`, diferenciando formalmente:
+        * `criticalErrors`: Fallas que bloquean la sesión o corrompen datos.
+        * `recoverableErrors`: Reintentos asistidos o correcciones en caliente.
+        * `informativeWarnings`: Avisos comprendidos (ej. aviso de extrapolación en audición).
+        * `userOverrides`: Decisión consciente del usuario de continuar fuera de dominio.
+        * `assistanceRequired`: Necesidad de consultar documentación externa o soporte.
+      - **Contratos de Aprobación por Perfil**:
+        | Perfil | Criterio Mínimo de Aprobación | Métrica Clave |
+        | :--- | :--- | :--- |
+        | **Productor (Modo Directo)** | Exporta desde modo directo sin abrir experto ni interpretar fórmulas matemáticas. | 1 solo clic desde estado listo, 0 errores críticos. |
+        | **Diseñador DSP (Modo Experto)** | Identifica modelo, justificación física y `runnerUpGap` en el selector multiobjetivo. | Tiempo de localización $< 5\text{ s}$, sin asistencia. |
+        | **Auditor de Calidad** | Reconstruye y verifica el artefacto usando exclusivamente los materiales declarados. | Clasificación de reproducibilidad formal garantizada. |
+      - **Niveles de Declaración de Reproducibilidad en el Informe y Manifiesto**:
+        * `BitwiseReproducible`: Salida idéntica byte a byte (orden de serialización, flags, dependencias y semilla congeladas).
+        * `FunctionallyReproducible`: Salida matemáticamente equivalente dentro de la tolerancia de redondeo en coma flotante.
+        * `TraceableButNonDeterministic`: Trazable pero condicionado por no-determinismo ambiental documentado.
+        * `NotReproducible`: Falla en la reconstrucción (invalida formalmente el informe).
+      - **Flujo de Verificación Independiente del Auditor (CLI Tools)**:
+        * `verify-profile <validation_manifest.json> --artifacts ./artifacts`
+        * `rebuild-profile <validation_manifest.json> --output ./rebuild`
+        * `compare-profile <expected_artifacts> <rebuild_artifacts>`
+    * **Nomenclatura y Destino**: Campo editable para prefijo de archivo y selector `Browse Folder...` con persistencia de la última ruta en configuración.
+    * **Acción Directa PDF**: Botón *"Imprimir / Guardar como PDF"* que dispara el render/impresión directa del informe de validación sin depender exclusivamente de abrir el navegador.
+
+---
+
+## 🧹 FASE 16: REFACTORIZACIÓN Y DESCOMPOSICIÓN DE ARCHIVOS MONOLÍTICOS & SIMPLIFICACIÓN UX [EN EJECUCIÓN]
+
+**Objetivo**: Dividir los archivos de gran tamaño (*God Classes*) identificados en la auditoría técnica y desacoplar la GUI monolítica mediante el patrón *Strangler*, introduciendo contratos de presentación inmutables y un controlador de sesión fino (`ProfilingSessionController`) junto con la simplificación de 3 pasos de `UX_SIMPLIFICATION_PLAN.md`.
+
+* [x] **16.0: Contratos de Dominio de Presentación y Controlador de Sesión Desacoplado** (COMPLETADO):
+  - Creación de contratos inmutables en `src/gui/session/ProfilingSessionContracts.h`:
+    * `ProfilingSessionSnapshot` con versión y secuencia monotónica estricta para inmunidad ante desórdenes asíncronos.
+    * Estados tipados: `TargetSelectionState`, `TargetAuditState`, `ExperimentProgressState`, `ObservationSummaryState`, `ModelEvaluationSummaryState`, `ExportAvailabilityState` y alertas estructuradas `UiAlert` (Causa, Impacto, Acción recomendada, Consecuencia).
+    * Segregación de interfaces: `IProfilingSessionCommands`, `IProfilingSessionEventListener`.
+  - Implementación de `ProfilingSessionController` (`src/gui/session/ProfilingSessionController.h/.cpp`):
+    * Coordinador fino que implementa los comandos de sesión y gestiona una máquina de estados formal (`Idle`, `TargetSelected`, `Auditing`, `ReadyToProfile`, `Profiling`, `Paused`, `Completed`, `Exporting`, `Exported`, `AuditRejected`, `UnsupportedTarget`, `MeasurementInvalid`, `Cancelled`, `Failed`).
+    * Desacoplamiento total del hilo de audio: cero llamadas o strings desde callbacks de tiempo real; despacho seguro a UI.
+    * Bloqueo estricto de targets no auditados o incompatibles, e invalidación automática de resultados al cambiar de target.
+  - Vistas guiadas SoundID del flujo de 3 pasos (`src/gui/soundid/`):
+    * `SoundIdTopHeaderStrip`: Banda superior persistente de contexto operativo con estado, modelo recomendado y telemetría de hardware (SR, Block Size, CPU).
+    * `SoundIdTargetView` (Paso 1): Selección limpia, estado de conexión y avance guiado.
+    * `SoundIdProfilingRunView` (Paso 2): Revisión pre-vuelo, botón gigante de inicio y monitor de telemetría en tiempo real con detección de clipping.
+    * `SoundIdResultsSummaryView` (Paso 3): Métricas físicas interpretables (ESR dB, correlación, dominio validado) y exportación de producción en 1 clic.
+  - Batería de pruebas:
+    * `src/tests/test_ProfilingSessionController.cpp`: 8/8 test cases, 67 aserciones superadas al 100%.
+    * `src/tests/test_SoundIdViews.cpp`: 4/4 test cases, 8 aserciones superadas al 100%.
+    * Suite global estándar (`~[external]`): 187/187 test cases, 144.462 aserciones superadas sin regresiones.
+    * Suite externa Dexed (`[dexed]`): 6/6 test cases, 13.481 aserciones preservadas.
+
+* [ ] **16.1: Descomposición de `MainContentComponent.cpp` (3.060 líneas ➔ < 500 líneas)**:
+  - Enlace de la fachada `ProfilingSessionController` y conmutación gradual de las vistas SoundID (`useNewTargetFlow`, `useNewResultsFlow`).
+  - Extraer la gestión de Layout, splitters y redimensionamiento a `MainContentLayoutController`.
+  - Extraer la gestión de atajos de teclado, menús y comandos a `MainCommandManager`.
+  - Extraer el enlace de eventos reactivos entre componentes a `MainContentEventCoordinator`.
+* [ ] **16.2: Modularización de `ProfilingSequencer.cpp` (1.100 líneas ➔ < 300 líneas)**:
+  - **`SequencerLineCalibrator`**: Extraer la calibración previa de línea, Auto-Trim analógico y digital para plugins (-3 dBFS) y verificación de margen/headroom.
+  - **`SequencerPreScanAnalyzer`**: Extraer el diagnóstico autónomo de naturaleza del hardware (detección de bypass lineal / EQ plana y optimización adaptativa Catmull-Rom 2D).
+  - **`SequencerTestLoopRunner`**: Extraer el bucle de ejecución por lotes de ensayos (manejo de multi-pass, compuertas de nota MIDI, modo `ADAPTIVE_ENVELOPE` y detección de parada temprana).
+  - **`SequencerModulationProbeRunner`**: Extraer la rutina universal de sondas de modulación de 4 puntos y cálculo de deltas en reposo.
+  - **`ProfilingSequencer` (Coordinador orquestador)**: Mantener únicamente el control del hilo de trabajo, la gestión de estados (`pause/resume`, `rerun`, `stepBack/repeat`), checkpoints de sesión y emisión reactiva de progreso a la UI.
+* [ ] **16.3: Desacoplamiento de `SoundIdCurvePlotter.cpp` (641 líneas ➔ < 300 líneas)**:
+  - Extraer el manejo de interacción por ratón, zoom, selección de puntos y tooltips a `PlotterInteractionHandler`.
+  - Aislar el renderizado de la rejilla logarítmica milimétrica en `PlotterGridRenderer`.
+* [ ] **16.4: Modularización del Selector de Hardware (`SoundIdHardwareCatalogSelector.cpp` - 633 líneas)**:
+  - Extraer el renderizado de la caja de hardware ("Hero Card" con logo, modelo, tipo e imagen) a `HardwareHeroCardComponent`.
+  - Separar la barra de filtros y selectores desplegables en `HardwareFilterBarComponent`.
+* [ ] **16.5: Modularización de `DrawerHardwareTab.cpp` (618 líneas)**:
+  - Desacoplar el panel de hotplug MIDI y monitor de puertos de hardware a un subcomponente dedicado.
+* [ ] **16.6: Pulido de `SoundIdSuiteList.cpp` (572 líneas ➔ < 300 líneas)**:
+  - Extraer la lógica de menús contextuales y acciones de fila a `SuiteListActionHandler`.
+
+---
+
+## 🎨 FASE 17: DISEÑO CONCEPTUAL & TOPOLOGÍA VIRTUAL PARA PLUGINS (VST3 / AU / LV2) [EN ESTUDIO]
+
+**Motivación**: En el visor interactivo de conexiones (`StudioTopologyFloatingWindow`), el hardware físico se representa de forma natural mediante cables analógicos (DAC Out / ADC In) conectados a una interfaz de sonido física. Sin embargo, los plugins virtuales (VST3/AU/LV2) operan **100% In-The-Box (ITB)** sin transitar por convertidores ni cables de cobre. Requiere una definición de diseño meditada.
+
+* [ ] **17.1: Definición del Modelo Conceptual (Hardware Analógico vs Software ITB)**:
+  - Analizar cómo diferenciar de forma intuitiva un lazo analógico (DAC ➔ Cable ➔ Hardware ➔ Cable ➔ ADC) frente a un flujo digital interno (Proceso Host ➔ Buffer RAM ➔ Plugin Instance ➔ Buffer RAM).
+  - Determinar el rol de la interfaz de audio: en plugins, la tarjeta de sonido no forma parte del lazo de medición, sino que actúa exclusivamente como monitor opcional de escucha para el operador.
+* [ ] **17.2: Lenguaje Visual y Enrutamiento en `topology.js` / SVG**:
+  - **Tipo de Cable / Conexión**: Evaluar el uso de "Buses Digitales / Tuberías Software" (ej. líneas cian/azul neón punteadas, animación de bits o pistas de circuito interno) en contraposición a las catenarias Bézier analógicas de goma (ámbar/verde).
+  - **Tarjeta de Target Virtual**: Diseñar una tarjeta estilizada para plugins ("Virtual Rack / In-The-Box Unit") con badge `SOFTWARE VST3 / AU`, versión y formato de arquitectura (64-bit), diferenciada de las cajas de sintetizadores físicos.
+  - **Ruteo MIDI Interno para VSTi**: Representar el envío MIDI directo desde el motor interno de ABDAudioLab hacia el instrumento virtual sin pasar por puertos MIDI del sistema operativo (`LoopBe`, `loopMIDI`).
+* [ ] **17.3: Experiencia de Usuario y Transición Fluida**:
+  - Al alternar en el Paso 2 entre Hardware Físico y Plugin Virtual, animar la transición del diagrama para que los cables físicos se desconecten o replieguen y emerja la arquitectura de bus digital interno.
+
+---
+
+## 🪟 FASE 18: MODERNIZACIÓN DE VENTANAS FLOTANTES & BARRAS DE TÍTULO INTEGRADAS (DISEÑO "NON-WINDOWS" & REACTIVO AL TEMA) [COMPLETADA]
+
+**Motivación**: Anteriormente, varias ventanas flotantes utilizaban la barra de título estándar del sistema operativo (Win32/DWM chrome clásico rectangular de Windows), lo que rompía la estética moderna y estilizada de ABDAudioLab. Siguiendo el modelo visual de la ventana modal *"Gestionar Carpetas de Plugins"* (cabecera integrada, tipografía centrada, esquinas redondeadas y botón de cierre discreto con micro-interacciones), se ha unificado el estilo de todas las ventanas flotantes secundarias de la aplicación.
+
+* [x] **18.1: Desactivación de Barra Nativa del SO & LookAndFeel Unificado**:
+  - Configurado `setUsingNativeTitleBar(false)` en todas las ventanas flotantes derivadas de `juce::DocumentWindow`.
+  - Sobrescrito en `SoundIdTheme`:
+    * `getDocumentWindowTitleBarHeight()`: Altura ergonómica normalizada a 28 px.
+    * `drawDocumentWindowTitleBar()`: Pintado de cabecera integrada plano, con línea divisoria inferior de 1 px, centrado exacto del título con tipografía `Inter` en negrita e icono si existe.
+    * Botones vectoriales estilizados de `LookAndFeel_V4` (con botón de cierre interactivo).
+  - Mantenido redimensionamiento fluido y arrastre de ventana nativo de JUCE sin fricción.
+* [x] **18.2: Ventanas Flotantes Modernizadas**:
+  - **1. Ventana del Plugin VST3 / AU (`PluginWindow` en `PluginWindowController`)**: Marco integrado para hospedar la GUI propia del plugin sin cromo de Windows.
+  - **2. Visor ABDScope (`ScopeWebFloatingWindow`)**: Cabecera moderna integrada con el estilo del osciloscopio WebView2.
+  - **3. Detector de Hardware MIDI (`HardwarePickerWindow` en `DrawerHardwareTab`)**: Cabecera unificada con el diseño de tarjeta de detección.
+  - **4. Teclado Virtual MIDI (`MidiKeyboardFloatingWindow`)**: Cabecera estilizada acorde al teclado y controles de octava.
+  - **5. Modales y Diálogos de Confirmación (`PluginScanDirectoriesModal`, etc.)**: Diálogos homogéneos con la misma identidad visual.
+* [x] **18.3: Reactividad Bidireccional con Tema Claro / Oscuro**:
+  - Renderizado dinámico de la barra de título vinculado a `AppTheme::currentMode`:
+    * **Modo Oscuro**: Fondo carbón profundo `#181a1d`, borde inferior `#2d3238`, título en blanco perla `#f8f9fa`.
+    * **Modo Claro**: Fondo gris perla `#e9ecef`, borde inferior `#ced4da`, título en grafito `#212529`.
+  - Sincronización en caliente implementada en `MainContentComponent::mainHeader.onThemeToggled`:
+    * `scopeWebWindow->updateTheme()` con `repaint()`.
+    * `virtualKeyboardWindow->setTheme()` con `repaint()`.
+    * `pluginWindowController.updateTheme()` con `repaint()`.
+    * `drawer.updateTheme()` actualizando `HardwarePickerWindow` en vivo.
+
+---
+
+## 🔬 FASE 19: SISTEMA DE VALIDACIÓN REPRODUCIBLE Y SELECCIÓN INTELIGENTE DE MODELOS (BENCHMARKING MULTIOBJETIVO & REPORTE DE ALCANCE) [PLANIFICADA]
+
+**Objetivo**: Transformar el subsistema de análisis y exportación en un entorno riguroso de **identificación de sistemas y selección multiobjetivo de modelos emulables**. En lugar de asumir que se recuperan componentes físicos o aplicar un umbral binario simple ($R^2 \ge 0.95$), el sistema evalúa múltiples arquitecturas candidatas frente a una batería de validación independiente (*out-of-sample*), ponderando error, coste computacional e incertidumbre, y delimitando explícitamente el dominio de validez del perfil generado.
+
+* [x] **19.1: Fase A — Contrato de Validación, Objeto Unificado `ModelEvaluation` y Semántica de Validez** (COMPLETADA v1.5.0):
+  - **Objeto Común `ModelEvaluation` (Fuente Única de Verdad)**:
+    * Diseñado e implementado el struct canónico C++20 `ModelEvaluation` en `src/synth/ModelEvaluationTypes.h` y su constructor `ModelEvaluationBuilder.h/.cpp` con procedencia inmutable (`sourceAuditReportHash`, `sourceExcitationReportHash`, `sourceHoldoutHash`, `modelArtifactHash`, `canonicalEvaluationHash`), protección estricta de `HoldoutDataset`, espacio tipado de parámetros (`DimensionKind` y `DistancePolicy` con coste por mismatch categórico) y desglose explicable de adquisición (`CandidateAcquisitionBreakdown`). Validado al 100% en `test_ModelEvaluation.cpp` (7/7 tests, 37 aserciones).
+      ```text
+      struct ModelEvaluation {
+          std::string modelId;               // Identificador del candidato (ej. "LNL_WienerHammerstein", "LUT_SIMD_2D")
+          std::string datasetId;             // Hash/ID del lote de calibración asociado
+          DomainBounds domain;               // fs, límites dinámicos de entrada/salida [dBFS], controles, T_warmup
+          AlignmentInfo alignment;           // Offset sub-muestra (fraccionario), retardo absoluto compensado
+          ValidationMetrics metrics;         // ESR, RMS, delta-magnitud por bandas, error de fase y retardo de grupo
+          ResidualDiagnostics diagnostics;   // Autocorrelación, coherencia entrada-residuo, asimetría de ciclo
+          ResourceFootprint resourceCost;    // Consumo CPU % por voz, RAM (bytes), latencia introducida
+          UncertaintyDecomposition uncertainty; // Incertidumbre loopback + deriva hardware + error sistemático
+          std::vector<std::string> warnings; // Avisos de extrapolación, asimetrías o anomalías detectadas
+          SelectionDecision decision;        // Veredicto con doble recomendación, margen y estados formales
+      };
+      ```
+  - **Semántica Formal de Estados de Decisión (`SelectionDecision::Status`)**:
+    * `Accepted`: El modelo supera con solvencia todos los criterios de error, estabilidad y coste de CPU. Seguro para producción.
+    * `AcceptedWithWarnings`: El modelo es aceptado pero presenta limitaciones documentadas (ej. extrapolación leve en extremos o asimetría no crítica).
+    * `Inconclusive`: La diferencia entre los dos mejores candidatos está dentro del margen de incertidumbre de la medición (`runnerUpGap < uncertaintyMargin`). Se presentan ambas opciones advirtiendo de equivalencia práctica.
+    * `Rejected`: El modelo incumple restricciones críticas de estabilidad, distorsión anómala o error fuera de muestra inaceptable.
+    * `InvalidMeasurement`: Medición abortada o descartada según la política de aceptación de la sesión (ej. clipping espurio, jitter excesivo o variación entre repeticiones).
+  - **Política de Aceptación de Medición Configurable (`MeasurementAcceptancePolicy`)**:
+    * El umbral de validez no es una constante fija; se define según el perfil de ensayo y se serializa en el manifiesto:
+      ```text
+      struct MeasurementAcceptancePolicy {
+          double minimumSNR;                // ej. 18 dB para saturador suave; 10 dB para fuzz extremo
+          double clippingThreshold;         // Umbral de detección de recorte parásito
+          double maxSyncJitterSamples;      // Tolerancia de desviación en pulsos SyncPulses3
+          double maxRepeatabilityDeviation; // Discrepancia máxima admisible entre tomas repetidas
+          double minUsableBandHz;           // Ancho de banda de confianza espectral
+          double confidenceLevel;           // Nivel de confianza estadística (ej. 95% o 99%)
+      };
+      ```
+  - **Doble Recomendación en la Decisión (`SelectionDecision`)**:
+    * `bestRawFidelityModelId`: Modelo técnicamente superior en fidelidad pura sin restricción de recursos (ej. `NAM_WaveNet`).
+    * `recommendedTargetModelId`: Modelo óptimo para el destino de producción configurado (ej. `LUT_SIMD_2D` para un sinte polifónico a 16 voces de bajo consumo de CPU).
+    * Registro completo de trazabilidad: `runnerUpModelId`, `runnerUpScore`, `runnerUpGap`, `uncertaintyMargin`, `criteriaPassed`, `criteriaFailed`, `decisionPolicyId`, `policyVersion` y los parámetros efectivos utilizados ($\lambda$, $\mu$ y restricciones).
+  - **Rechazo de Árbitros Únicos y Descomposición Tripartita de la Incertidumbre**:
+    * **Incertidumbre instrumental / loopback**: Piso de ruido y precisión de fase medidos en el Paso 1.
+    * **Variación aleatoria y deriva del hardware**: Repetibilidad registrada entre tomas independientes del mismo punto de control.
+    * **Error sistemático del modelo**: Desviación propia de la estructura matemática elegida.
+    * Guardar repeticiones individuales en el manifiesto, no solo medias agregadas.
+  - **Prevención de Falsa Precisión (Resolución Efectiva de Medición)**:
+    * No informar precisiones irreales (ej. $\pm 0.001\text{ dB}$ si el loopback presenta una incertidumbre de $\pm 0.05\text{ dB}$).
+    * **Metrología de Fase y Retardo**: No informar diferencias inferiores a la incertidumbre efectiva del estimador, registrando en el manifiesto:
+      `phaseDelayEstimator`, `effectiveDelayStdSamples`, `effectivePhaseStdRadians`, `usableBandwidthHz`, `confidenceLevel` y `estimationWindowSamples`.
+    * No declarar mejoras de ESR si el residuo queda sepultado bajo el piso de ruido térmico analógico.
+    * No comparar consumos de CPU en entornos no homogéneos sin normalización de ciclo de reloj.
+  - **Congelación de Condiciones y Reproducibilidad Técnica Extendida**:
+    * Versionado explícito en `validation_manifest.json`: versión exacta de JUCE (8.0.4) y dependencias, conjunto de instrucciones SIMD (AVX2, AVX-512, SSE4.2, NEON), opciones de compilador (`/O2`, `/fp:precise`), checksums SHA-256 de binarios ejecutables, versión del conjunto de estímulos, algoritmo optimizador, semilla aleatoria, $f_s$, tamaño de bloque, ganancias analógicas de etapa y recuento de tomas válidas vs descartadas con el motivo exacto de descarte.
+
+* [ ] **19.2: Fase B — Baseline Determinista y Verificación contra Sistemas Sintéticos**:
+  - Creación de un banco de pruebas de referencia (*Synthetic Ground Truth Fixtures*) con comportamiento matemático conocido:
+    * Módulo 1: *Bypass Lineal Puro* (comprobación de error residual nulo $\text{ESR} \to -\infty\text{ dB}$).
+    * Módulo 2: *Filtro IIR TPT / ZDF* (validación de alineamiento temporal y respuesta de fase/retardo de grupo).
+    * Módulo 3: *Saturador Polinómico Estático* (tanh / soft-clipper cúbico sin memoria para validar la cota superior del modelo LNL).
+    * Módulo 4: *Sistema Dinámico con Memoria y Modulación* (compresor de envolvente o filtro con condensador con histéresis controlada para auditar los límites del modelo LNL frente a modelos dinámicos).
+
+* [ ] **19.3: Fase C — Selector Multiobjetivo de Modelos (Candidate Benchmarking)**:
+  - Ajuste simultáneo de múltiples candidatos arquitectónicos con los mismos datos de calibración:
+    1. **Candidato 1 (LUT Estática)**: Curva 1D de waveshaper / respuesta media.
+    2. **Candidato 2 (LUT Multidimensional SIMD)**: Tablas 2D/3D dependientes de frecuencia y nivel (`LutEvaluatorSimd` / `LutEvaluator1DSimd`).
+    3. **Candidato 3 (Wiener-Hammerstein LNL)**: Filtro lineal $h_1$ + no-linealidad estática $f(u) = u + a u^3$ + filtro $h_2$.
+    4. **Candidato 4 (Modelo Dinámico con Memoria)**: Filtro TPT acoplado a estado no lineal o seguidor de envolvente.
+    5. **Candidato 5 (Dataset Neuronal NAM / RTNeural)**: Exportación de paquete para entrenamiento de red WaveNet / LSTM con memoria temporal profunda.
+  - **Función de Optimización de Selección**:
+    $$\text{Modelo Elegido} = \arg\min_m \left[ E_{\text{validación}}(m) + \lambda C(m) + \mu U(m) \right]$$
+    donde $E_{\text{validación}}$ es el error fuera de muestra, $C(m)$ es el coste de cómputo/memoria, $U(m)$ es la incertidumbre/falta de cobertura, y $\lambda, \mu$ son ponderaciones seleccionables por el usuario (Presets: *"Máximo Rendimiento / Live Performance"* vs *"Máxima Fidelidad / Studio Master"*).
+  - **Evaluación del Margen frente al Segundo Candidato (*Runner-Up Margin*)**:
+    * Si $|Score(m_1) - Score(m_2)| < \sigma_{\text{incertidumbre}}$, la decisión se marca como `Inconclusive` y el sistema informa que ambos modelos son prácticamente equivalentes en fidelidad.
+  - **Diagnóstico del Residuo Estructurado (Autocorrelación y Coherencia)**:
+    * Evaluación de la autocorrelación del residuo $R_{ee}(\tau)$ y coherencia entrada-residuo $\gamma_{xe}^2(f)$.
+    * Residuo plano y poco estructurado $\to$ etiquetado prudente: *«Compatible con un modelo estático dentro de la resolución medida»* (no afirmación física absoluta).
+    * Error creciente fuertemente con el nivel $\to$ compresión / saturación mal capturada por la cuadrícula.
+    * Error concentrado en transitorios con memoria residual $\to$ presencia de memoria interna o estados dinámicos (recomendar NAM/LSTM).
+    * Error no estacionario o variable en el tiempo $\to$ presencia de modulación activa (LFO), deriva térmica o ruido residual de fondo.
+
+* [ ] **19.4: Fase D — Batería de Validación Ciega (*Out-of-Sample Validation Engine*)**:
+  - Generador de estímulos reservados (*Holdout Dataset*) completamente aislados del optimizador de curvas:
+    * Sub-batería 1: Escalas dinámicas de amplitud ($-30, -20, -12, -6, -3\text{ dBFS}$).
+    * Sub-batería 2: Ráfagas de transitorios y silencios para evaluar tiempos de ataque y liberación sin sobreoscilaciones.
+    * Sub-batería 3: Tonos complejos densos y multitonos para audición de batidos no lineales.
+    * Sub-batería 4: Batería representativa de material musical real (acústico y sintético).
+  - Medición del hardware real vs evaluación del modelo digital para cada estímulo reservado.
+  - Estimación de intervalos de confianza estadísticos distinguiendo la variabilidad analógica del error del modelo.
+
+* [ ] **19.5: Fase E — Informe de Validación de Perfil & Alcance (HTML / PDF)**:
+  - Generación de informe transparente de caracterización (reemplazando el concepto de "certificación universal" por **"Informe de Validación y Alcance del Perfil"**):
+    * Declaración explícita del **Dominio de Validez**:
+      > *«Modelo validado para señales mono/estéreo dentro de $f_s = 96\text{ kHz}$, nivel de entrada entre $-36$ y $-3\text{ dBFS}$, controles en posiciones documentadas y $T_{\text{warmup}} \ge 15\text{ min}$. Fuera de este dominio, el resultado se considera extrapolación matemática no validada.»*
+    * Sección dedicada de **Resolución Efectiva de la Medición**: límites reales de precisión según la relación señal-ruido del loopback.
+    * Gráficos interactivos SVG del residuo tiempo-frecuencia (diferencia $y_{\text{real}}(t) - y_{\text{modelo}}(t)$).
+    * Matriz de cobertura experimental, repeticiones individuales registradas y advertencias de extrapolación.
+    * Desglose del coste computacional previsto en instancias de plugin (uso de CPU por voz, latencia).
+
+* [ ] **19.6: Fase F — Exportación Condicional con Metadatos Trazables**:
+  - Bloqueo o advertencia interactiva si ningún modelo candidato alcanza el estado `Accepted` o `AcceptedWithWarnings`.
+  - Inclusión de directivas de preprocesador y metadatos en los headers C++ (`.h`) y archivos JSON advirtiendo de los límites dinámicos certificados para evitar que sintetizadores anfitriones alimenten el modelo con ganancias fuera de norma sin advertencia al desarrollador.
+
+---
+
+## 🎹 FASE 20: PERFILADO EXPERIMENTAL DE SINTETIZADORES DIGITALES Y GENERADORES DE SONIDO CONTROLADOS POR MIDI (DIGITAL SYNTH PROFILING MODE) [EN PROGRESO v2.0.0]
+
+**Objetivo**: Expandir la capacidad de ABDAudioLab más allá de los procesadores con entrada de audio (pedales, preamps, filtros), creando una **modalidad específica de identificación black-box para generadores de sonido autónomos** (sintetizadores digitales hardware por MIDI/SysEx y plugins de instrumentos VST3/AU en memoria). El sistema no asume una entrada de audio, sino que trata al dispositivo como un sistema generativo dinámico:
+$$(\text{Preset/SysEx/Estado}, \text{Parámetros}, \text{Eventos MIDI}, t) \longrightarrow \text{Audio Out}$$
+
+### 🏛️ Arquitectura Desacoplada en Tres Capas
+El profiler opera bajo una estricta separación epistemológica:
+$$\text{Receta Científica} \longrightarrow \text{TargetContract} \longrightarrow \text{ISynthTarget} \longrightarrow \text{Audio Observado}$$
+
+* **Cero Hardcodeo en el Motor General**:
+  El orquestador (`DigitalSynthMvpProfiler`) nunca contiene nombres de dispositivos, marcas, rutas internas ni números CC hardcodeados (prohibido `if (plugin == "X") send CC 74;`). Todo lo específico pertenece al contrato o al adaptador.
+* **Hardware vs. Plugins**:
+  - **Hardware**: Contrato declarativo explícito escrito por nosotros (`HardwareContractRegistry` / `HardwareMidiContract`).
+  - **Plugins VST3/AU**: Contrato descubierto dinámicamente (`PluginContractDiscovery`):
+    * `DiscoveredPluginContract`: Registro fiel e inalterado de lo que el plugin expone (IDs estables, nombres, rangos, buses, latencia declarada).
+    * `NormalizedTargetContract`: Interpretación normalizada que ABDAudioLab utiliza para generar las recetas.
+* **Descubrir no es Comprender (Semántica de Parámetros)**:
+  Los parámetros descubiertos preservan su designación original y se categorizan explícitamente como:
+  `Declared` | `Inferred` | `UserConfirmed` | `Unknown`. Nunca se asume certeza física a partir de una etiqueta ambigua (`Param 37`, `Macro 1`).
+* **Transporte vs. Procesamiento Sample-Accurate**:
+  Diferenciación entre `supportsSampleAccurateParameterTransport` (capacidad del host de inyectar cambios con `sampleOffset` en bloque) y `supportsSampleAccurateParameterProcessing` (capacidad interna del plugin de interpolar por muestra vs cuantizar por bloque).
+* **Detección Rigurosa de Generadores**:
+  La capacidad `generatesAudioWithoutAudioInput` no se basa únicamente en `isSynth()` o `acceptsMidi()`, sino en la evaluación combinada de buses de audio I/O, buses de eventos, clasificación y sonda de render (*render probe*). Si un target no cumple los prerrequisitos de la receta (ej. un plugin de efecto puro), se califica honestamente como `UnsupportedForRecipe` (sin falsos fallos de medición).
+* **Ciclo Real de Restauración de Estado (*State Round-Trip*)**:
+  Verificación determinista: `getState -> hash -> setState en instancia nueva -> getState -> comparar hash -> render de secuencia fija -> comparar hash de audio`. Si el estado no se preserva fielmente, se genera advertencia explícita.
+
+---
+
+### 📋 Módulos y Estado de Ejecución
+
+* [x] **20.1: Vertical Slice 1 (MVP) Experimental, Ejecutable y Falsable** (COMPLETADO)
+  - **Matriz Factorial de 27 Ensayos**: 3 velocidades ($40, 64, 110$) $\times$ 3 duraciones ($50\text{ ms}, 250\text{ ms}, 2\text{ s}$) $\times$ $N = 3$ repeticiones + calibración previa impulsiva.
+  - **Abstracción Polimórfica (`ISynthTarget`)**:
+    * `SyntheticSynthFixture`: Simulador de referencia determinista con inyección de fallos controlados (Jitter bimodal, Clipping, Notas caídas, Insensibilidad a velocidad, Ruido térmico).
+    * `PluginSynthTarget`: Alojamiento de plugins VST3/AU en memoria (`juce::AudioProcessor`) con despacho sub-bloque sample-accurate en `juce::MidiBuffer` y lectura directa en RAM.
+    * `SyntheticSynthTarget`: Adaptador de fixture a la interfaz canónica.
+  - **Metrología Rigurosa y Análisis Acústico**:
+    * Estimador de fundamental y cents (`SynthPitchEstimator`) mediante NSDF (Normalized Square Difference Function) con refinamiento parabólico sub-muestra ($1200 \log_2(f_0 / f_{\text{nom}})$) y umbral de voz (`voicedConfidence`).
+    * Sincronizador temporal (`MidiAudioSynchronizer`) con función de novedad (Half-Wave energy slope), detección adaptativa de onset sobre ruido base y calibración de retardo de transporte.
+    * Analizador de envolvente ADSR (`SynthEnvelopeAnalyzer`) guiado por eventos reales de Note-On y Note-Off, con marcado formal de observabilidad (`NOT_OBSERVABLE_IN_GATE` en compuertas de 50 ms para sustain).
+    * Descomposición formal de incertidumbre con Student-t ($df = 2$, 95% CI) en `SynthObservation.h`.
+  - **Seguridad Criptográfica Determinista**:
+    * Implementación autónoma de SHA-256 (`Sha256.h` según FIPS 180-4) sin dependencias externas. Hashes separados: `rawSysExHash`, `normalizedParameterHash`, `stateHash`, `experimentHash` y `audioSha256Hash`.
+  - **Doble Veredicto Independiente**:
+    * `StateValidation`: `PASSED` | `FAILED`.
+    * `BehaviorValidation`: `PASSED` | `INCONCLUSIVE` | `REJECTED` | `INVALID_MEASUREMENT`.
+  - **Falsabilidad Experimental**:
+    * Invarianza de ataque vs duración (`VERIFIED_ATTACK_INVARIANT` vs `ANOMALY_DURATION_ALTERS_ATTACK`).
+    * Sensibilidad a velocity (`OBSERVED` vs `NOT_OBSERVED_IN_ANCHOR`).
+  - **Corrección de Regresión en Secuenciador**:
+    * Desacoplamiento de `StimulusType::Silence` y `NoiseFloor` en `ProfilingSequencer.cpp` para generadores autónomos.
+  - **Trazabilidad de Política de Análisis (`AnalysisPolicy`) en Manifiesto**:
+    * Cada perfilado registra en sus metadatos: `analysisPolicyId`, `analysisPolicyVersion`, `envelopeDetectorType` (InstantPeakWithExponentialDecay) y `carrierSuppressionMethod`. Esto garantiza que los hiperparámetros del analizador ($\tau = 40\text{ ms}$, umbrales de ataque $97\%$, decaimiento $\text{sustain} + 2\%$ y reposo $4\%$) se preserven y no se confundan con constantes físicas del instrumento.
+  - **Entorno Congelado y Bitwise Reproducibility**:
+    * La reproducibilidad bit a bit se audita congelando: MSVC v14.4x (Release), C++20, SIMD AVX2 (`/arch:AVX2`), JUCE 8.0.4, CMake 4.4.0, subnormales/flush-to-zero (FTZ/DAZ), orden de serialización JSON determinista y hash SHA256 del binario (`F3537A4FD294A741A467D83079F5075ED61DE2499F231913C4865CF7CB073BEA`).
+  - **Delimitación de Alcance de Hosting**:
+    * Se certifica `SyntheticSynthFixture` e `InProcessHostedPluginFixture` en memoria compartida (RAM). La carga dinámica de binarios VST3 externos mediante `AudioPluginFormatManager` y hardware físico se integran en las subfases siguientes.
+
+* [x] **20.2: Registro de Contratos, Descubrimiento Dinámico y Auditoría Previa del Target (`TargetAuditor` & Diagnóstico Metrológico)** (COMPLETADO v2.1.0 Build 215):
+  - **Auditoría Previa de Comportamiento del Target (`TargetAuditor`)**:
+    Implementado en [`src/synth/TargetAuditor.h`](../src/synth/TargetAuditor.h) y [`src/synth/TargetAuditor.cpp`](../src/synth/TargetAuditor.cpp) como diagnóstico obligatorio previo a la fase de excitación de parámetros.
+    * *Jerarquía de Equivalencia Acústica*: Clasificación multinivel entre `ByteIdentical` ($\text{RMSE}=0$), `FunctionallyEquivalent` ($\rho \ge 0.999$, $\text{ESR} \le -60\text{ dB}$, $|\Delta c| < 0.10\text{ cents}$), `StatisticallyEquivalent` y `Divergent`.
+    * *Gobernanza por Política Metrológica (`TargetAuditPolicy`)*: Todos los umbrales acústicos están encapsulados con `auditPolicyId`, `auditPolicyVersion` y `effectivePolicy` serializados en el reporte canónico `TargetAuditReport`.
+    * *Diagnóstico Causal de Persistencia Inter-Notas*: Secuencia cruzada $A \to B$ vs $B \to A$ con ventanas de reposo corta y larga de control. Identificación precisa de la causa en `ResidualCause`: `None`, `OscillatorPhase`, `EnvelopeState`, `FilterState`, `EffectTail` o `VoiceAllocator`, con prescripción de `recommendedSettlingTimeSec`.
+    * *Verificación Tripartita de State Round-Trip*: Desacoplamiento explícito de identidad binaria (`binaryIdentical`, `stateDataHash`), coherencia de parámetros (`parameterIdentical`) y comportamiento acústico reproducido (`behaviorIdentical`). Diagnóstico en `RoundTripFailureCause` (`Unsupported`, `BinaryStateMismatch`, `ParameterMismatch`, `BehavioralMismatch`, `NonDeterministicRender`, `InvalidStateData`, `PluginException`).
+    * *Diagnóstico de Generación Autónoma y Reactividad*: Filtro previo que distingue generadores reales de síntesis ($\Delta\text{RMS} > 12\text{ dB}$ entre compuerta activa y reposo) frente a zumbidos continuos no reactivos a notas (`AudioObservedButNotNoteResponsive` $\to$ `Unsupported`) o plugins de efecto mudos (`SilentOutput` $\to$ `Unsupported`).
+    * *Aprobación Adaptativa con Instrucciones Operativas*: Emisión de `ApprovalStatus` (`Approved`, `ApprovedWithWarnings`, `Rejected`, `Unsupported`) acompañado de `OperationalInstructions` para el motor planificador (`resetBeforeEachTrial`, `recommendedSettlingTimeMs`, `useStatisticalAveraging`, `exactHashComparisonPermitted`).
+  - **Matriz Normativa de Casos de Aceptación Verificada al 100%**:
+    | Caso de Prueba Catch2 | Condición Simulada | Dictamen Emitido | Resultado Suite |
+    | :--- | :--- | :--- | :--- |
+    | **Nominal Determinista** | Oscilador en fase fija, sin jitter, cero ruido | `Deterministic`, `Stateless`, `Approved` | ✅ PASSED |
+    | **Fase Libre + Reset Eficaz** | Oscilador continuo alineado tras `resetState()` | `DeterministicAfterReset`, `ApprovedWithWarnings` | ✅ PASSED |
+    | **Ruido Estocástico sin Semilla** | Generador analógico/aleatorio en la voz | `StochasticUnseeded`, `ApprovedWithWarnings` | ✅ PASSED |
+    | **Cola Residual Inter-Notas** | Cola de efecto activa en reposo corto | `StatefulBehaviorDetected`, `EffectTail` | ✅ PASSED |
+    | **Discrepancia Acústica en Restore** | Binario idéntico pero render divergente | `StateRoundTripWarning`, `BehavioralMismatch` | ✅ PASSED |
+    | **Efecto Mudo sin Generación** | Salida nula ante eventos NoteOn | `SilentOutput` $\to$ `Unsupported` | ✅ PASSED |
+    | **Audio Presente sin Respuesta a Notas** | Zumbido constante continuo | `AudioObservedButNotNoteResponsive` $\to$ `Unsupported` | ✅ PASSED |
+  - Suite de pruebas unitarias Catch2 en [`test_TargetAuditor.cpp`](../src/tests/test_TargetAuditor.cpp) (7/7 test cases, 42/42 aserciones superadas; suite `[synth]` 12/12 test cases, 91 aserciones; suite global 148/148 test cases, 134.540 aserciones verdes).
+
+* [x] **20.3: Motor de Excitación de Parámetros y Familia de Recetas (`ParameterExcitationEngine`)** (COMPLETADA v1.4.0):
+  - **Evolución del Estímulo**:
+    $$\text{Preset/Estado Base} + \text{Eventos MIDI} + \text{Automatización de Parámetros} + \text{Tiempo} \longrightarrow \text{Audio Observado}$$
+  - **Condición Metodológica 1 Cumplida (Separación de Aplicación y Observabilidad)**:
+    * Ciclo de vida y evidencia con 4 estados principales y subestados explícitos:
+      `Requested` $\longrightarrow$ `AcceptedByHost` $\longrightarrow$ `AppliedByTarget` (`ConfirmedByAPI`, `ConfirmedByReadback`, `InferredFromAudio`, `Unconfirmed`) $\longrightarrow$ `ObservedInAudio`.
+    * Regla metrológica estricta de observabilidad: `ObservedInAudio` solo si $\Delta\text{feature} > \text{combinedUncertainty}$, repetible, sin clipping digital y en ventana temporal válida.
+    * Los parámetros aplicados sin alteración acústica en el preset actual se clasifican como `ObservationOutcome::NotObservedInCurrentCondition` (previniendo etiquetados prematuros como "inactivos").
+  - **Condición Metodológica 2 Cumplida (Separación entre Receta y Ejecución)**:
+    * Arquitectura puramente desacoplada:
+      $$\text{IExperimentRecipe} \xrightarrow{\text{genera}} \text{ExperimentPlan} \xrightarrow{\text{ejecuta}} \text{TargetEventDispatcher} \xrightarrow{\text{produce}} \text{TargetExecutionTrace} \xrightarrow{\text{analiza}} \text{AcousticObserver}$$
+    * Las recetas no interactúan con `setValue()`, MIDI ni buffers de transporte; generan planes canónicos con `ObservationWindow`, `SettlingPolicy` y `RandomizationPolicy`.
+  - **Familia Completa de 7 Recetas Científicas Implementada**:
+    * `NoteExcitationRecipe`: Matriz factorial de notas, velocidades y compuertas.
+    * `ParameterStepRecipe`: Barrido por escalones temporales ($0.2, 0.4, 0.6, 0.8, 1.0$) verificando monotonicidad espectral estricta.
+    * `ParameterRampRecipe`: Rampa continua registrando resolución de transporte, resolución observada, detección de suavizado y latencia efectiva (`TransportedSampleAccurate` vs `ProcessedBlockSmoothed`).
+    * `LocalPerturbationRecipe`: Perturbaciones finas $\pm\Delta$ y estimación del Jacobiano por diferencias centrales emparejadas con reporte de varianza del estimador:
+      $$J_{ij} \approx \frac{1}{N} \sum_{r=1}^N \frac{\Phi(y_{r,+}) - \Phi(y_{r,-})}{2\Delta}$$
+    * `PairwiseDifferentialRecipe`: Resta diferencial $\Delta y(t) = y(p + \Delta p) - y(p)$ con clasificación de fiabilidad (`PairedDeterministic`, `PairedAfterReset`, `StatisticalAverage`, `NotReliable`).
+    * `FactorialInteractionRecipe`: Diseño factorial fraccionado para parejas de parámetros.
+    * `PRBSExcitationRecipe`: Secuencia APRBS multinivel configurable (ej. $0.25 \to 0.75 \to 0.40 \to 0.90 \to 0.10$).
+  - **Propagación del Presupuesto de Incertidumbre Metrológica**:
+    `auditUncertainty` (propagado desde `TargetAuditor`) + `excitationUncertainty` (jitter, resolución, suelo de ruido) $\longrightarrow$ `combinedUncertainty`.
+  - **Suite de Pruebas Unitarias Catch2**:
+    * Implementada en [`test_ParameterExcitationEngine.cpp`](../src/tests/test_ParameterExcitationEngine.cpp) (7/7 test cases, 50/50 aserciones superadas).
+    * Suite `[synth]` completa: 19/19 test cases, 141 aserciones verdes.
+    * Suite global del proyecto: 155/155 test cases, 134.590 aserciones superadas sin regresiones.
+
+* [x] **20.3.B: Validación Experimental sobre Plugins VST3 Reales con Escalera de Calibración (`ExternalPluginFixture` & `ReferenceSynth`)** (COMPLETADA v1.5.0):
+  - **Escalera Metrológica de Calibración y Hosting VST3 Real**:
+    $$\text{Fixture Interno} \longrightarrow \text{VST3 Propio en Disco} \longrightarrow \text{VST3 del SDK} \longrightarrow \text{Plugin Abierto} \longrightarrow \text{Plugin Comercial}$$
+  - **Condición Metodológica 1: Canal de Ground Truth Exclusivo para Oráculo de Verificación**:
+    * El sintetizador de referencia (`ReferenceSynth.vst3`) expone ground truth físico (`ReferenceSynthGroundTruth`), pero esa información es estrictamente inaccesible para los componentes de producción: `TargetContractDiscovery`, `TargetAuditor`, `ParameterExcitationEngine`, `AcousticObserver` y la herramienta CLI `ABDAudioLab_Vst3Validation`.
+    * La verificación demuestra que ABDAudioLab infiere propiedades y valida contratos de caja negra sin leer jamás el canal de verdad básica.
+  - **Condición Metodológica 2: No Declarar `isSmoothed` por Introspección**:
+    * `SmoothingEvidence` desacoplado en:
+      $$\text{declaredSmoothing} \quad | \quad \text{observedSmoothing} \quad | \quad \text{smoothingKnown}$$
+    * La introspección host solo audita la presencia de automatización; el suavizado efectivo se reserva como rasgo observado en el dominio acústico.
+  - **Condición Metodológica 3: Preservación del Origen Semántico ("Descubrir no es Comprender")**:
+    * Categorización física honesta con trazabilidad de origen: `category = Filter`, `categoryEvidence = InferredFromName`, `semanticStatus = Inferred`.
+    * Los controles no musicales ni audibles quedan segregados explícitamente como `ParameterRole::TestInfrastructure`.
+  - **Identidad Inmutable y Soporte de Bundles VST3 en Windows**:
+    * Estructura `PluginIdentity` completa: `absolutePath`, `binaryHash`, `pluginUid`, `manufacturer`, `version`, `format`, `architecture`, `bundleHash` y lista de componentes (`relativePath`, `fileSize`, `fileSha256`).
+    * Instanciación aislada bajo modelo explícito `InProcessExternalBinary` mediante `juce::AudioPluginFormatManager`.
+  - **Precisión Temporal Sub-Bloque y Desglose de Latencias**:
+    * Evaluación de offsets MIDI exactos (`0, 1, 32, blockSize/2, blockSize - 2`) garantizando desplazamiento de respuesta estrictamente monótono y sample-accurate.
+    * Desglose explícito en el reporte de validación: `declaredLatencySamples`, `measuredEventToOutputSamples`, `intrinsicAttackSamples` y `effectiveAutomationLatencySamples`.
+  - **Aislamiento de Estado y Round-Trip en 3 Capas**:
+    * Comprobado aislamiento total de memoria y variables de estado entre instancias simultáneas de `ReferenceSynth`.
+    * Round-trip completo: Capa 1 (identidad binaria byte a byte vía SHA-256), Capa 2 (parámetros normalizados aplicados) y Capa 3 (equivalencia acústica `audioBefore` vs `audioAfter`).
+  - **Harness CLI de Validación y Generación de 10 Artefactos Reproducibles**:
+    * Herramienta de consola `ABDAudioLab_Vst3Validation.exe` ejecutada con éxito sobre `build/ReferenceSynth_artefacts/Release/VST3/ReferenceSynth.vst3`.
+    * Generación canónica de los 10 artefactos: `discovered-contract.json`, `audit-report.json`, `experiment-plan.json`, `execution-trace.json`, `audio/`, `validation-report.json`, `environment.json`, `plugin-bundle-manifest.json`, `reproducibility.json` y `manifest.json`.
+  - **Resultados y Verificación**:
+    * Nueva suite en [`test_Vst3Validation.cpp`](../src/tests/test_Vst3Validation.cpp): 6/6 test cases, 9.691 aserciones superadas.
+    * Suite global de ABDAudioLab: 161/161 test cases, 144.281 aserciones superadas al 100% con cero fallos y cero regresiones.
+  - **Delimitación Rigurosa del Alcance**:
+    * ABDAudioLab ha validado experimentalmente su cadena de perfilado sobre un VST3 externo controlado, compilado en disco y cargado mediante hosting real.
+    * Quedan explícitamente fuera de este hito: plugins con múltiples instrumentos dentro del mismo bundle (shells), plugins protegidos o dependientes de licencia, plugins con GUI obligatoria, plugins con estado externo a JUCE/VST3 streams, plugins con aleatoriedad no serializada, latencia variable o que no respetan automatización sub-bloque.
+
+* [x] **20.3.C: Segundo Target Externo — Plugin Abierto del Ecosistema VST3 (`Dexed.vst3`)** (COMPLETADA v1.5.0):
+  - **Objetivo Metrológico**:
+    Someter el pipeline de ABDAudioLab a un sintetizador de terceros independiente del ecosistema abierto (`Dexed.vst3`, arquitectura FM con 6 operadores) para contrastar el motor frente a la diversidad del mundo real sin conocimiento interno previo ni acoplamiento a su código fuente.
+  - **Diseño Desacoplado y Resiliente (`test_DexedValidation.cpp`)**:
+    * Resolución dinámica del bundle con fallback (`DEXED_VST3_PATH`, `C:\Program Files\Common Files\VST3\Dexed.vst3`, AppData).
+    * Manejo condicional de entorno mediante Catch2 `SKIP(...)` bajo tags `[external][dexed]` para no penalizar builds CI donde el plugin no esté instalado.
+    * Configuración flexible de fixture (`DexedFixtureConfig`) para tolerar drift de versión (`expectedMinParameters >= 120`, aviso de drift si cambian hashes sin romper tests si el contrato sigue siendo válido).
+  - **Evaluación Honesta y Resultados Empíricos**:
+    * **Identidad Inmutable**: Bundle hash (`3a8df26e...`), binary hash (`e8b3b00a...`), parameter contract hash (`2a19f6b8...`) y manifiesto de componentes del bundle (`moduleinfo.json`, `Dexed.vst3`, etc.).
+    * **Descubrimiento del Contrato**: Descubiertos ~150 parámetros. Preservación del principio *"Descubrir no es comprender"*: parámetros FM (`ALGORITHM`, `FEEDBACK`, `MonoMode`, envolventes de operador) no forzados erróneamente a `Filter` o `Envelope` estándar.
+    * **Auditoría Honesta y Dictamen Legítimo**:
+      Dictamen `ApprovedWithWarnings` con determinismo `DeterministicAfterReset` debido a la memoria de fase de osciladores libres de la síntesis FM. El motor prescribió correctamente `resetBeforeEachTrial = true` en las instrucciones operativas.
+    * **Excitación y Observación Acústica**:
+      Medición acústica de respuestas transitorias y armónicas ante ráfagas diferenciales y barridos de Cutoff. Generación e integridad del informe y manifiesto del ensayo.
+  - **Resultados de Verificación**:
+    * Suite dedicada `[external][dexed]` en `src/tests/test_DexedValidation.cpp`: 6/6 test cases, 13.481 aserciones superadas al 100%.
+    * Generación exitosa de los 10 artefactos de validación en `artifacts/vst3-validation/`.
+    * Suite global estándar (`~[external]`): 161/161 test cases, 144.281 aserciones superadas sin regresiones.
+
+* [x] **20.4: Planificador Adaptativo, Active Learning y Diseño Óptimo (`AdaptiveExperimentPlanner`)** (COMPLETADO):
+  - **Bucle de Aprendizaje Activo Explicable**:
+    $$\text{CandidateGenerator} \longrightarrow \text{CandidateValidator} \longrightarrow \text{HoldoutGuard} \longrightarrow \text{CostEstimator} \longrightarrow \text{AcquisitionScorer} \longrightarrow \text{BatchSelector} \longrightarrow \text{StoppingPolicy}$$
+  - **Función de Adquisición Multi-Criterio**:
+    $$\alpha(x) = w_u \, U(x) + w_d \, D(x) + w_c \, C(x) - w_k \, K(x)$$
+    * *Incertidumbre Predictiva $U(x)$*: Decae con la proximidad a puntos medidos ponderada por varianza local observada.
+    * *Desacuerdo entre Hipótesis de Modelos $D(x)$*: Cuatro modelos competidores (`StaticCurve`, `LogMapping`, `Quantized`, `Stateful`); $D(x) = \max_{A,B} |y_A(x) - y_B(x)|$.
+    * *Cobertura Espacial Tipada $C(x)$*: Distancia tipada asimétrica (`DistancePolicy`) por tipo de dimensión (`Continuous`, `Discrete`, `Categorical`, `Note`, `Velocity`, `State`).
+    * *Coste Adaptativo de Medición $K(x)$*: Penalización dependiente de instrucciones de auditoría (reset obligatorio, settling time en ms, promediado estadístico y saltos paramétricos bruscos).
+  - **Aislamiento Estructural de Holdout**:
+    * Interfaz pura `IHoldoutProtection`: el planificador sólo consulta `containsCoordinate(...)` y `getHoldoutHash()`; imposibilidad arquitectónica de acceder a señales acústicas o ground truth (`accessForEvaluation` inaccesible).
+    * Colisiones de candidatos con el holdout marcadas explícitamente como `excludedByHoldout = true` con causa documentada.
+  - **Selección Voraz por Lotes con Penalización por Diversidad**:
+    * `batchDiversityPenalty` y `minimumCandidateSeparation` que penalizan dinámicamente candidatos redundantes o hiper-próximos en el mismo lote.
+  - **Trazabilidad y Reproducibilidad Criptográfica**:
+    * Estructura explicable `CandidateAcquisitionBreakdown` con puntuaciones $U, D, C, K$, pesos, `selected`, `selectionReason` y `rejectionReason`.
+    * Metadatos de plan: `plannerPolicyId`, `plannerPolicyVersion`, `randomSeed`, `candidatePoolHash`, `selectedBatchHash`.
+  - **Criterio de Parada Formal (*Stopping Policy*)**:
+    * Distinción estricta entre `Converged` ($\alpha_{\max} < \epsilon$), `BudgetExhausted`, `NoInformativeCandidates`, `TargetUnstable`, `HoldoutProtected` y `UserCancelled`.
+  - **Validación Unitaria**:
+    * `src/tests/test_AdaptiveExperimentPlanner.cpp`: 8/8 test cases, 77 aserciones superadas al 100%.
+    * Suite global estándar (`~[external]`): 176/176 test cases, 144.395 aserciones superadas sin regresiones.
+    * Suite externa Dexed (`[dexed]`): 6/6 test cases, 13.481 aserciones preservadas.
+
+* [ ] **20.5: Análisis de Sensibilidad, Identificabilidad y Descomposición de Incertidumbre (`IdentifiabilityAnalyzer`)**:
+  - **Métricas de Sensibilidad por Parámetro (`ParameterSensitivity`)**:
+    * Sensibilidad local ($\partial \Phi / \partial p$), sensibilidad global, puntuación de monotonicidad, e índice de interacción cruzada.
+    * Clasificación de observabilidad: `Inactive` | `Observable` | `Nonlinear` | `NonMonotonic` | `Interactive` | `Quantized` | `NotIdentifiable`.
+  - **Detección de Simetrías y No-Identificabilidad**:
+    Identificación de parámetros equivalentes o redundantes (ej. osciladores gemelos intercambiables, compensaciones mutuas de ganancia/filtro):
+    `Unique` | `MultipleEquivalentSolutions` | `Underdetermined` (*sin forzar valores inventados en casos subdeterminados*).
+  - **Descomposición Formal de Tres Capas de Incertidumbre**:
+    * *Incertidumbre Aleatoria*: Piso de ruido, jitter de transporte, dispersión térmica ($\sigma$).
+    * *Incertidumbre Paramétrica*: Intervalo de confianza (Student-t, 95% CI) en el valor óptimo del parámetro dentro de la topología elegida.
+    * *Incertidumbre Estructural*: Distinción epistemológica cuando los datos no permiten dirimir si la naturaleza del sistema es lineal, logarítmica, con memoria o no lineal (*«Parámetros bien estimados pero con incertidumbre estructural entre Modelo A y Modelo B»*).
+  - **Prioridad del Modelo Gris (*Gray-Box DSP*) sobre Proxies Neuronales**:
+    Ajuste preferente de ecuaciones analíticas interpretables (frecuencia de corte con ley exponencial, pendientes de filtro en dB/oct, curvas ADSR analíticas). Solo si el residuo temporal y espectral presenta dinámica no explicable estructurada se recurre a un proxy neuronal acotado (con límites explícitos de ganancia, ancho de banda y estabilidad).
+
+* [ ] **20.6: Tres Productos Diferenciados y Ficha de Laboratorio**:
+  - **Producto 1**: Perfil de Controles (cómo parámetros y eventos afectan a rasgos medibles con intervalos de confianza).
+  - **Producto 2**: Modelo de Comportamiento (reproducción black-box en dominio de notas y velocidades certificado).
+  - **Producto 3**: Hipótesis de Arquitectura Interna (grafo C++20 declarado honestamente como inferencia compatible, no como certeza física).
+  - **Producto 4**: Proxy Neuronal (WaveNet / RTNeural) para sintetizadores con algoritmos propietarios inaccesibles.
+
+* [ ] **20.7: Integración en la GUI de ABDAudioLab**:
+  - Selector de Tipo de Target en `SlideInDrawer`: `[Hardware Analógico]` | `[Plugin VST3/AU]` | `[Sintetizador Digital]`.
+  - Visualización del monitor de sesión: preset activo, compuerta en reproducción, trazador de barridos de parámetros, mapa visual de sensibilidad/interacciones y ficha canónica de telemetría.
+
+
 
 
 

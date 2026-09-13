@@ -65,9 +65,9 @@ void PluginScanDirectoriesModal::DirectoryRowComponent::paint(juce::Graphics& g)
     auto bounds = getLocalBounds().toFloat();
 
     if (isSelected)
-        g.setColour(SoundIdTheme::accentBlue.withAlpha(0.12f));
+        g.setColour(SoundIdTheme::accentBlue.withAlpha(0.15f));
     else
-        g.setColour(SoundIdTheme::bgCard);
+        g.setColour(SoundIdTheme::surfaceSubtle);
     g.fillRoundedRectangle(bounds.reduced(1.0f), 4.0f);
 
     g.setColour(SoundIdTheme::borderSubtle);
@@ -182,7 +182,28 @@ PluginScanDirectoriesModal::PluginScanDirectoriesModal()
         rebuildListContent();
     };
 
+    updateTheme();
     setSize(560, 420);
+}
+
+void PluginScanDirectoriesModal::updateTheme()
+{
+    lblTitle.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
+    lblStatus.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
+
+    directoryList.setColour(juce::ListBox::backgroundColourId, SoundIdTheme::bgCard);
+    directoryList.setColour(juce::ListBox::outlineColourId, SoundIdTheme::borderSubtle);
+
+    btnAddFolder.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
+    btnAddFolder.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+
+    btnScanAll.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.25f));
+    btnScanAll.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+
+    btnClose.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnClose.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+    repaint();
 }
 
 juce::File PluginScanDirectoriesModal::getSettingsFile()
@@ -325,6 +346,7 @@ void PluginScanDirectoriesModal::startScan()
 
 void PluginScanDirectoriesModal::showModal(juce::Component* parent)
 {
+    updateTheme();
     loadPersistedDirectories();
 
     juce::DialogWindow::LaunchOptions options;

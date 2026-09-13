@@ -46,6 +46,7 @@ public:
     void setHardwareLocked(bool locked);
     [[nodiscard]] bool isLocked() const noexcept { return isHardwareLocked; }
     void resetSelection();
+    void updateTheme();
 
     // Callbacks
     std::function<void(const juce::String& hwId, const juce::String& funcId)> onSelectionChanged;
@@ -55,6 +56,7 @@ public:
     std::function<void()> onResetOrUnlockRequested;
     std::function<void()> onLoadPluginFromFileRequested;
     std::function<void()> onShowPluginGuiRequested;
+    std::function<void()> onOpenKeyboardRequested;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -77,6 +79,7 @@ private:
     juce::TextButton btnLibreMode { "Unlisted Device (Free Mode)" };
     juce::TextButton btnLoadPlugin;
     juce::TextButton btnShowPluginGui;
+    juce::TextButton btnVirtualKeyboard;
     juce::TextButton btnContinue { "Proceed to Run Session (Step 3) \u2192" };
     juce::TextButton btnUnlock { "Change Hardware / Unlock" };
     juce::Label lblLockedBanner;

@@ -1,3 +1,16 @@
+/**
+ * @file ProfilingSequencer.cpp
+ * @brief Orquestador de sesiones de análisis y perfilado de hardware y plugins.
+ * 
+ * @note TODO [Fase 16.2 - Refactorización de Clases Monolíticas]:
+ * Este archivo ha alcanzado ~1.100 líneas. Planificada su división en submódulos:
+ * - SequencerLineCalibrator (calibración previa, Auto-Trim a -3 dBFS)
+ * - SequencerPreScanAnalyzer (pre-escaneo de bypass lineal y optimización adaptativa)
+ * - SequencerTestLoopRunner (bucle de ejecución por lotes, multi-pass y modulación)
+ * - SequencerModulationProbeRunner (sondas de matriz dispersa)
+ * Ver docs/ROADMAP.md (Fase 16.2) para el desglose detallado.
+ */
+
 #include "ProfilingSequencer.h"
 #include "../math/LabAnalyticEngine.h"
 #include "../math/PreScanSpectrumAnalyzer.h"
@@ -204,8 +217,13 @@ void ProfilingSequencer::run()
     // Run Pre-Roll Calibration Tone to measure line headroom and automatically apply Auto-Trim to -3 dBfs
     if (totalTests > 0)
     {
-        notifyProgress(0.01f, "Calibrando ganancia de entrada (Pre-Roll Auto-Trim -3 dBfs)...", SequencerState::LineCalibration);
-        constexpr float calToneDuration = 0.5f;
+        bool isVirtualPlugin = (audioEngine.getActivePluginInstance() != nullptr);
+        if (isVirtualPlugin)
+            notifyProgress(0.01f, "Calibrando ganancia digital del plugin (Auto-Trim -3.0 dBFS)...", SequencerState::LineCalibration);
+        else
+            notifyProgress(0.01f, "Calibrando ganancia de entrada (Pre-Roll Auto-Trim -3 dBfs)...", SequencerState::LineCalibration);
+
+        float calToneDuration = isVirtualPlugin ? 0.3f : 0.5f;
 
         std::vector<float> calAudio;
         bool ok = audioCapture->captureLineCalibrationSynchronous(calToneDuration, sampleRate, (calToneDuration + 1.5) * 1000.0, *this, calAudio, safetyAborted);
@@ -229,12 +247,25 @@ void ProfilingSequencer::run()
                 // Target headroom: -3.0 dBfs = 10^(-3/20) ~ 0.70794578
                 constexpr float targetHeadroomLinear = 0.70794578f;
                 float calculatedGain = targetHeadroomLinear / maxPeak;
-                calculatedGain = juce::jlimit(0.1f, 10.0f, calculatedGain);
+                calculatedGain = isVirtualPlugin ? juce::jlimit(0.01f, 100.0f, calculatedGain)
+                                                : juce::jlimit(0.1f, 10.0f, calculatedGain);
                 audioEngine.setInputAutoTrim(calculatedGain);
 
                 float gainDb = 20.0f * std::log10(calculatedGain);
-                notifyProgress(0.02f, "Auto-Trim aplicado: In 1 calibrado a -3.0 dBfs (" + juce::String(calculatedGain, 2) + "x / " + (gainDb >= 0.0f ? "+" : "") + juce::String(gainDb, 1) + " dB)", SequencerState::LineCalibration);
-                audioCapture->executeSettlingWait(150, *this);
+                if (isVirtualPlugin)
+                {
+                    int latency = audioEngine.getPluginLatencySamples();
+                    notifyProgress(0.02f, "Auto-Trim Digital (Plugin VST3/AU): Ganancia normalizada a -3.0 dBFS ("
+                        + juce::String(calculatedGain, 2) + "x / " + (gainDb >= 0.0f ? "+" : "") + juce::String(gainDb, 1) + " dB)"
+                        + (latency > 0 ? (" | Latencia: " + juce::String(latency) + " smp") : ""),
+                        SequencerState::LineCalibration);
+                    audioCapture->executeSettlingWait(20, *this);
+                }
+                else
+                {
+                    notifyProgress(0.02f, "Auto-Trim aplicado: In 1 calibrado a -3.0 dBfs (" + juce::String(calculatedGain, 2) + "x / " + (gainDb >= 0.0f ? "+" : "") + juce::String(gainDb, 1) + " dB)", SequencerState::LineCalibration);
+                    audioCapture->executeSettlingWait(150, *this);
+                }
             }
         }
     }
@@ -496,7 +527,8 @@ void ProfilingSequencer::run()
 
             double maxRecSec = (tc.captureMode == "ADAPTIVE_ENVELOPE") ? std::max(tc.stimulusDurationSec + 2.0, 4.0) : (tc.stimulusDurationSec + 0.3);
             int samplesToRecord = static_cast<int>(std::lround(maxRecSec * sampleRate));
-            float triggerThreshold = isMidiTriggered ? 0.0f : 0.005f;
+            bool isVirtualPlugin = (audioEngine.getActivePluginInstance() != nullptr);
+            float triggerThreshold = (isMidiTriggered || isVirtualPlugin) ? 0.0f : 0.005f;
             receiver.armCapture(samplesToRecord, triggerThreshold);
 
             if (isMidiTriggered)
@@ -663,7 +695,7 @@ void ProfilingSequencer::run()
         if (tc.parameterSteps.size() > 1)
             pt.param2Normalized = tc.parameterSteps[1].normalizedValue;
 
-        if (tc.functionalBlockType == "NoiseFloor" || tc.stimulusType == audio::StimulusType::Silence)
+        if (tc.functionalBlockType == "NoiseFloor" || (!tc.isAutonomousSynth && tc.stimulusType == audio::StimulusType::Silence))
         {
             float noiseRms = 0.0f;
             if (!recordedPasses.empty() && !recordedPasses[0].empty())

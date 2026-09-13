@@ -91,6 +91,38 @@ public:
     [[nodiscard]] juce::AudioPluginInstance* getActivePluginInstance() const noexcept { return activePlugin.load(std::memory_order_acquire); }
 
     /**
+     * @brief Gets reported internal latency of active software plugin in samples (getLatencySamples()).
+     * Dynamically queried for sample-accurate latency compensation (zero allocations).
+     */
+    [[nodiscard]] int getPluginLatencySamples() const noexcept
+    {
+        if (auto* plugin = activePlugin.load(std::memory_order_acquire))
+            return plugin->getLatencySamples();
+        return 0;
+    }
+
+    /**
+     * @brief Performs synchronous digital auto-trim calibration targeting -3.0 dBFS for active software plugin.
+     * Generates a 1 kHz reference test tone, routes it through the active plugin,
+     * computes the exact normalization factor and applies setInputAutoTrim(gain).
+     * @param targetHeadroomDbfs Target peak headroom (default -3.0 dBFS = 0.7079458)
+     * @param testDurationSec Duration in seconds for digital probe (default 0.2s)
+     * @return Applied linear gain factor
+     */
+    float calibratePluginDigitalTrim(float targetHeadroomDbfs = -3.0f, double testDurationSec = 0.2);
+
+    /**
+     * @brief Enables or disables direct audio passthrough monitoring for active software plugins.
+     */
+    void setPluginMonitoringEnabled(bool enabled) noexcept { pluginMonitoringEnabled.store(enabled, std::memory_order_release); }
+    [[nodiscard]] bool isPluginMonitoringEnabled() const noexcept { return pluginMonitoringEnabled.load(std::memory_order_acquire); }
+
+    /**
+     * @brief Posts live MIDI messages (from Virtual Keyboard or hardware MIDI) to active plugin in a thread-safe manner.
+     */
+    void postLiveMidiMessage(const juce::MidiMessage& message);
+
+    /**
      * @brief Enables or disables 1 kHz diagnostic reference test tone.
      */
     void enableDiagnosticTestTone(bool enable, float freqHz = 1000.0f, float levelLinear = 0.5f) noexcept
@@ -184,6 +216,12 @@ public:
 
     void performAutoGainTrim(float targetHeadroomDbfs = -3.0f) noexcept
     {
+        if (activePlugin.load(std::memory_order_acquire) != nullptr)
+        {
+            calibratePluginDigitalTrim(targetHeadroomDbfs);
+            return;
+        }
+
         float inPeak = std::max(getInputPeakL(), getInputPeakR());
         if (inPeak > 1e-4f)
         {
@@ -218,7 +256,9 @@ private:
     LabAudioReceiver receiver;
     hardware::MockHardwareController* mockHardware { nullptr };
     std::atomic<juce::AudioPluginInstance*> activePlugin { nullptr };
+    std::atomic<bool> pluginMonitoringEnabled { false };
     juce::MidiBuffer pluginMidiMessages;
+    juce::MidiMessageCollector liveMidiCollector;
 
     // Diagnostic tone state
     std::atomic<bool> diagnosticToneActive { false };

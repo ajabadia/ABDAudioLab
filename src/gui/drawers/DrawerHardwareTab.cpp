@@ -27,7 +27,7 @@ public:
                          DocumentWindow::closeButton),
           resultCallback(std::move(onResult))
     {
-        setUsingNativeTitleBar(true);
+        setUsingNativeTitleBar(false);
         setResizable(true, false);
         setResizeLimits(540, 480, 800, 700);
 

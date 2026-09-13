@@ -97,8 +97,7 @@ struct TestConfiguration
         {
             int s = std::max(1, c.steps);
             totalStates *= s;
-            if (s > 1)
-                formulaParts.add(juce::String(s) + " " + c.name);
+            formulaParts.add(juce::String(s) + " " + c.name);
         }
 
         if (formulaParts.isEmpty())

@@ -39,17 +39,31 @@ void LabAudioReceiver::reset()
 void LabAudioReceiver::armCapture(int numSamplesToRecord, float triggerThresholdLinear)
 {
     reset();
+    int latency = latencyCompensation.load(std::memory_order_relaxed);
+    int actualTarget = numSamplesToRecord + latency;
     int bufSize = ringBufferSize.load(std::memory_order_acquire);
-    targetSamples.store(std::min(numSamplesToRecord, bufSize - 1024), std::memory_order_relaxed);
-    triggerThreshold.store(triggerThresholdLinear, std::memory_order_relaxed);
-    state.store(ReceiverState::WaitingForTrigger, std::memory_order_release);
+    targetSamples.store(std::min(actualTarget, bufSize - 1024), std::memory_order_relaxed);
+
+    if (latency > 0 || triggerThresholdLinear <= 0.0f)
+    {
+        // Digital loopback or latency compensated: start recording immediately at sample 0
+        triggerThreshold.store(0.0f, std::memory_order_relaxed);
+        state.store(ReceiverState::Recording, std::memory_order_release);
+    }
+    else
+    {
+        triggerThreshold.store(triggerThresholdLinear, std::memory_order_relaxed);
+        state.store(ReceiverState::WaitingForTrigger, std::memory_order_release);
+    }
 }
 
 void LabAudioReceiver::armContinuousCapture(int numSamplesToRecord)
 {
     reset();
+    int latency = latencyCompensation.load(std::memory_order_relaxed);
+    int actualTarget = numSamplesToRecord + latency;
     int bufSize = ringBufferSize.load(std::memory_order_acquire);
-    targetSamples.store(std::min(numSamplesToRecord, bufSize - 1024), std::memory_order_relaxed);
+    targetSamples.store(std::min(actualTarget, bufSize - 1024), std::memory_order_relaxed);
     triggerThreshold.store(0.0f, std::memory_order_relaxed); // Start immediately
     state.store(ReceiverState::Recording, std::memory_order_release);
 }
@@ -179,18 +193,64 @@ bool LabAudioReceiver::retrieveRecordedData(std::vector<float>& destination)
         return false;
 
     int totalToRead = recordedCount.load(std::memory_order_relaxed);
-    destination.resize(static_cast<size_t>(totalToRead));
+    int latency = std::max(0, latencyCompensation.load(std::memory_order_relaxed));
 
     int start1, size1, start2, size2;
     fifo.prepareToRead(totalToRead, start1, size1, start2, size2);
 
-    if (size1 > 0)
+    if (totalToRead <= latency)
     {
-        std::copy_n(ringBuffer.data() + start1, size1, destination.data());
+        destination.clear();
+        fifo.finishedRead(size1 + size2);
+        return false;
     }
-    if (size2 > 0)
+
+    int usableSamples = totalToRead - latency;
+    destination.resize(static_cast<size_t>(usableSamples));
+
+    if (latency == 0)
     {
-        std::copy_n(ringBuffer.data() + start2, size2, destination.data() + size1);
+        if (size1 > 0)
+            std::copy_n(ringBuffer.data() + start1, size1, destination.data());
+        if (size2 > 0)
+            std::copy_n(ringBuffer.data() + start2, size2, destination.data() + size1);
+    }
+    else
+    {
+        int destIdx = 0;
+        int skipped = 0;
+
+        if (size1 > 0)
+        {
+            if (size1 <= latency)
+            {
+                skipped += size1;
+            }
+            else
+            {
+                int offset = latency;
+                int toCopy = size1 - offset;
+                std::copy_n(ringBuffer.data() + start1 + offset, toCopy, destination.data() + destIdx);
+                destIdx += toCopy;
+                skipped = latency;
+            }
+        }
+
+        if (size2 > 0)
+        {
+            if (skipped < latency)
+            {
+                int offset = latency - skipped;
+                int toCopy = size2 - offset;
+                std::copy_n(ringBuffer.data() + start2 + offset, toCopy, destination.data() + destIdx);
+                destIdx += toCopy;
+            }
+            else
+            {
+                std::copy_n(ringBuffer.data() + start2, size2, destination.data() + destIdx);
+                destIdx += size2;
+            }
+        }
     }
 
     fifo.finishedRead(size1 + size2);

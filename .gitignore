@@ -23,3 +23,6 @@ Thumbs.db
 assets/brands/
 assets/models/
 contracts/
+artifacts/
+__pycache__/
+*.png

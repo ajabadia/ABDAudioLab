@@ -31,13 +31,29 @@ public:
      */
     [[nodiscard]] bool isWindowOpen() const noexcept;
 
+    /**
+     * @brief Updates active window styling when the application theme changes.
+     */
+    void updateTheme();
+
+    /**
+     * @brief Callback notified when the plugin window is shown (true) or closed (false).
+     */
+    std::function<void(bool isOpen)> onWindowStateChanged;
+
+    /**
+     * @brief Callback notified when the user clicks 'Teclado MIDI' inside the plugin window.
+     */
+    std::function<void()> onOpenKeyboardRequested;
+
 private:
     class PluginWindow : public juce::DocumentWindow
     {
     public:
         PluginWindow(const juce::String& title,
                      std::unique_ptr<juce::AudioProcessorEditor> editor,
-                     std::function<void()> onCloseCallback);
+                     std::function<void()> onCloseCallback,
+                     std::function<void()> onOpenKeyboardCallback);
         ~PluginWindow() override;
 
         void closeButtonPressed() override;

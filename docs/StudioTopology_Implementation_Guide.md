@@ -117,6 +117,19 @@ El llamante debe suministrar un objeto JSON a través de `updateTopology(const n
    - Tipos soportados: `"audioOut"`, `"audioIn"`, `"midiOut"`, `"midiIn"`.
    - Si el target no posee MIDI, el llamante **nunca** debe emitir cables MIDI, aun cuando haya interfaces con puertos MIDI asignados.
 
+### 3.1 Topología para Sintetizadores Autónomos y Plugins VST3 (Fase 20)
+Para instrumentos autónomos que generan su propio sonido sin inyección de audio exterior:
+- **Sintetizador Digital Hardware**:
+  - `target.category`: `"DIGITAL_SYNTH"`
+  - `target.hasAudio`: `true` (genera audio)
+  - `target.hasAudioInput`: `false` (no recibe audio del host)
+  - `target.hasMidi`: `true`
+  - `connections`: Un cable `"midiOut"` (Host $\to$ Target) y cables `"audioIn"` (Target $\to$ Host ADC). Cero cables `"audioOut"` desde la tarjeta hacia el sintetizador.
+- **Plugin VST3/AU en Memoria**:
+  - `target.category`: `"VST3_PLUGIN"`
+  - `target.details`: `"In-Process Hosted Plugin (RAM)"`
+  - Se representa como nodo de procesamiento interno sin cables físicos hacia interfaces de audio externas, destacando el bus de eventos en memoria compartida.
+
 ---
 
 ## 4. Algoritmo de Distribución y Anti-Colisión (`topology.js`)

@@ -280,3 +280,45 @@ Para incorporar un nuevo sintetizador o módulo de hardware al ecosistema:
    - Iniciar ABDAudioLab.
    - Presionar *"Auto-Detect Device (MIDI)"* en la pestaña Hardware.
    - El selector emparejará el contrato, ajustará la botonera de pruebas recomendadas y dejará la cola de ensayos lista para medición.
+
+---
+
+## 5. Integración de Sintetizadores Autónomos para Perfilado (Fase 20)
+
+Para sintetizadores digitales de hardware que generan su propio sonido a partir de eventos MIDI (a diferencia de procesadores de efectos o filtros analógicos que reciben estímulos de audio externos), la integración opera bajo el **Principio de Tres Capas**:
+
+$$\text{Receta Científica} \longrightarrow \text{HardwareMidiContract} \longrightarrow \text{HardwareSynthTarget (ISynthTarget)} \longrightarrow \text{Audio Capturado}$$
+
+### 5.1 Declaración en el Contrato JSON
+El contrato normativo en `ABDSharedAssets/contracts/hardware/<hardware_id>.json` declara las capacidades y políticas de transporte:
+
+```json
+{
+  "id": "roland_juno106",
+  "displayName": "Roland Juno-106",
+  "synthProfiling": {
+    "midiChannelPolicy": "OmniOrFixed",
+    "defaultChannel": 1,
+    "settlingTimeMs": 35.0,
+    "supportsDeterministicReset": true,
+    "resetSequence": [
+      { "type": "AllNotesOff", "channel": 1 },
+      { "type": "ResetAllControllers", "channel": 1 }
+    ],
+    "parameters": [
+      {
+        "id": "vcf_cutoff",
+        "semanticRole": "FilterCutoff",
+        "binding": { "type": "SysEx", "address": "0x0001", "bits": 7 },
+        "range": [0.0, 1.0],
+        "default": 0.5
+      }
+    ]
+  }
+}
+```
+
+### 5.2 Reglas Arquitectónicas de Desacoplamiento
+1. **Cero Hardcodeo en el Profiler**: El motor de perfilado (`DigitalSynthMvpProfiler`) nunca comprueba si el target es "DeepMind", "Juno" o "Casio", ni envía CCs fijos. Toda la semántica se consulta a través del contrato.
+2. **Pacing y Settling Time**: El adaptador de hardware (`HardwareSynthTarget`) aplica obligatoriamente un retardo de asentamiento (`settlingTimeMs`) tras enviar cambios de parámetro o volcados SysEx antes de disparar la nota de ensayo.
+3. **Auditoría Previa**: Todo sintetizador físico debe ser auditado mediante `TargetAuditor` para clasificar su determinismo (`DeterministicAfterReset` vs `Stochastic`), detectando si la fase del oscilador es libre (*free-running*) o reiniciable.

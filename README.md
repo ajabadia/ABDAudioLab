@@ -24,7 +24,8 @@ Automatiza la inyección de estímulos acústicamente calibrados (barridos expon
   * **Cajón de Hardware & Módulos (`SlideInDrawer`)**: Selección de catálogo basada en contratos JSON dinámicos con fichas visuales de hardware y soporte para los 31 submódulos Roland AIRA.
   * **Tira de Vúmetros Estéreo (`SoundIdMeterStrip`)**: Monitorización de nivel RMS/Pico con calibración de ganancia y botón de inicio/parada maestro.
   * **Diálogo de Calibración de Bucle (`LoopbackCalibrationModal`)**: Medición de latencia de ida y vuelta (RTL) y respuesta en frecuencia del interfaz de audio.
-* **Capa de Abstracción de Hardware (`IHardwareController`)**:
+* **Capa de Abstracción de Hardware y Síntesis (`IHardwareController` / `ISynthTarget`)**:
+  * **Digital Synth & VST3 Plugin Profiler (Fase 20)**: Motor de perfilado experimental y metrológico de sintetizadores digitales hardware y plugins VST3/AU mediante arquitectura de tres capas (`Receta -> TargetContract -> ISynthTarget`). Cero hardcodeo de marcas o CCs; descubrimiento dinámico de parámetros y capacidades (`PluginContractDiscovery`) vs contratos declarativos hardware (`HardwareContractRegistry`).
   * **Mock Virtual-Analog DSP**: Modelo interno de filtro resonante de 4 polos con saturación $\tanh$ y ruido térmico simulado para auto-tests y CI/CD.
   * **Roland AIRA Modular (SysEx/CC)**: Soporte completo de tramas `RQ1`/`DT1`, los 31 submódulos internos y matriz de ruteo virtual.
   * **Generic MIDI CC**: Controlador parametrizable para sintetizadores hardware estándar.
@@ -82,6 +83,7 @@ ABDAudioLab/
 │   ├── main.cpp                # Ventana principal, navegación SoundID y secuenciador
 │   ├── audio/                  # Motor de audio, generador y receptor lock-free
 │   ├── core/                   # Secuenciador, sesiones, registro de contratos y serializador .abdlabtest
+│   ├── synth/                  # Motor de perfilado de sintetizadores digitales, contratos y fixtures
 │   ├── gui/                    # Componentes GUI estilo SoundID Reference (Gráficos, Cajones, Vúmetros, Modales)
 │   ├── hardware/               # Controladores de hardware (Mock, SysEx, CC, Manual)
 │   ├── math/                   # Motor analítico, desconvolución Farina, interpolador 2D y calibrador loopback

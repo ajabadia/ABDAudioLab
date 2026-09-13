@@ -7,6 +7,9 @@ namespace abdaudiolab::audio
 
 LabAudioEngine::LabAudioEngine()
 {
+    tempProcessBufferL.assign(16384, 0.0f);
+    tempProcessBufferR.assign(16384, 0.0f);
+
     tapHardwareIn = scopeCollector.registerTap("Hardware In (DUT)", abd::scope::ScopeTapType::StereoAudio, 8192, "hardware_in");
     tapStimulus   = scopeCollector.registerTap("Stimulus Generator", abd::scope::ScopeTapType::StereoAudio, 8192, "stimulus");
     tapDiagTone   = scopeCollector.registerTap("Diagnostic 1kHz", abd::scope::ScopeTapType::StereoAudio, 8192, "diag_tone");
@@ -88,7 +91,19 @@ void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, 
         plugin->prepareToPlay(sr, bs);
         juce::Logger::writeToLog("[AudioEngine] Plugin prepareToPlay completed successfully.");
 
+        int latency = plugin->getLatencySamples();
+        receiver.setLatencyCompensationSamples(latency);
+        if (latency > 0)
+        {
+            juce::Logger::writeToLog("[AudioEngine] Plugin internal latency reported: "
+                + juce::String(latency) + " samples. Latency compensation armed.");
+        }
+
         activePlugin.store(plugin, std::memory_order_release);
+    }
+    else
+    {
+        receiver.setLatencyCompensationSamples(0);
     }
 }
 
@@ -110,6 +125,7 @@ void LabAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 
     generator.prepare(currentSampleRate);
     receiver.prepare(currentSampleRate);
+    liveMidiCollector.reset(currentSampleRate);
     if (mockHardware != nullptr)
         mockHardware->resetDsp(currentSampleRate);
 
@@ -190,6 +206,22 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
     // 4. Input processing, metering, and balanced trim
     float trim = inputTrimGain.load(std::memory_order_relaxed);
     auto [fftSource, inR] = processInputAndMetrics(inputChannelData, numInputChannels, samplesToProcess, trim);
+
+    // 4b. Direct Monitoring Passthrough for active software plugins (audition/manual interaction)
+    if (activePlugin.load(std::memory_order_acquire) != nullptr
+        && pluginMonitoringEnabled.load(std::memory_order_acquire)
+        && !generator.isPlaying())
+    {
+        if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
+            std::copy_n(tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess), outputChannelData[0]);
+        if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
+            std::copy_n(tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess), outputChannelData[1]);
+
+        outputPeakL.store(inputPeakL.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        outputPeakR.store(inputPeakR.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        outputRmsL.store(inputRmsL.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        outputRmsR.store(inputRmsR.load(std::memory_order_relaxed), std::memory_order_relaxed);
+    }
 
     // 5. Live FFT Spectrum Analysis
     if (fftSource != nullptr)
@@ -358,6 +390,14 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
     // If an active software plugin is hosted, route stimulus block directly through its processBlock
     if (auto* plugin = activePlugin.load(std::memory_order_acquire))
     {
+        int currentLat = plugin->getLatencySamples();
+        if (currentLat != receiver.getLatencyCompensationSamples())
+        {
+            receiver.setLatencyCompensationSamples(currentLat);
+        }
+
+        liveMidiCollector.removeNextBlockOfMessages(pluginMidiMessages, samplesToProcess);
+
         float* channels[2] = { tempProcessBufferL.data(), tempProcessBufferR.data() };
         juce::AudioBuffer<float> pluginBuf(channels, 2, samplesToProcess);
         
@@ -572,6 +612,82 @@ void LabAudioEngine::updateTelemetryTaps(const float* inL, const float* inR, int
         }
         tapDiagTone->writeStereo(tempProcessBufferL.data(), tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
     }
+}
+
+void LabAudioEngine::postLiveMidiMessage(const juce::MidiMessage& message)
+{
+    liveMidiCollector.addMessageToQueue(message);
+}
+
+float LabAudioEngine::calibratePluginDigitalTrim(float targetHeadroomDbfs, double testDurationSec)
+{
+    auto* plugin = activePlugin.load(std::memory_order_acquire);
+    if (plugin == nullptr)
+        return 1.0f;
+
+    double sr = currentSampleRate > 0.0 ? currentSampleRate : 48000.0;
+    int totalSamples = static_cast<int>(std::lround(testDurationSec * sr));
+    if (totalSamples <= 0)
+        totalSamples = 2048;
+
+    // Pre-allocate temporary calibration buffers (runs synchronously on non-audio thread)
+    std::vector<float> calBufL(static_cast<size_t>(totalSamples), 0.0f);
+    std::vector<float> calBufR(static_cast<size_t>(totalSamples), 0.0f);
+
+    // Render 1 kHz reference sine test tone at 0 dBFS (peak 1.0)
+    double twoPi = 2.0 * std::numbers::pi;
+    double phaseIncr = (twoPi * 1000.0) / sr;
+    double currentPhase = 0.0;
+    for (int i = 0; i < totalSamples; ++i)
+    {
+        float s = static_cast<float>(std::sin(currentPhase));
+        calBufL[static_cast<size_t>(i)] = s;
+        calBufR[static_cast<size_t>(i)] = s;
+        currentPhase += phaseIncr;
+        if (currentPhase >= twoPi)
+            currentPhase -= twoPi;
+    }
+
+    // Process through plugin in blocks of 512 samples
+    constexpr int blockSize = 512;
+    juce::MidiBuffer emptyMidi;
+    float maxObservedPeak = 0.0f;
+
+    int samplesProcessed = 0;
+    while (samplesProcessed < totalSamples)
+    {
+        int chunk = std::min(blockSize, totalSamples - samplesProcessed);
+        float* channels[2] = { calBufL.data() + samplesProcessed, calBufR.data() + samplesProcessed };
+        juce::AudioBuffer<float> chunkBuf(channels, 2, chunk);
+
+        plugin->processBlock(chunkBuf, emptyMidi);
+
+        for (int i = 0; i < chunk; ++i)
+        {
+            maxObservedPeak = std::max(maxObservedPeak, std::abs(channels[0][i]));
+            maxObservedPeak = std::max(maxObservedPeak, std::abs(channels[1][i]));
+        }
+
+        samplesProcessed += chunk;
+    }
+
+    if (maxObservedPeak > 1e-4f)
+    {
+        float targetLin = std::pow(10.0f, targetHeadroomDbfs / 20.0f); // -3 dBFS -> 0.7079458
+        float calculatedGain = targetLin / maxObservedPeak;
+        calculatedGain = juce::jlimit(0.01f, 100.0f, calculatedGain); // Safe +-40 dB digital trim range
+        setInputAutoTrim(calculatedGain);
+
+        float gainDb = 20.0f * std::log10(calculatedGain);
+        juce::Logger::writeToLog("[AudioEngine] Plugin Digital Auto-Trim: peak="
+            + juce::String(maxObservedPeak, 4) + " -> calibrated gain="
+            + juce::String(calculatedGain, 4) + " (" + (gainDb >= 0.0f ? "+" : "")
+            + juce::String(gainDb, 2) + " dB to " + juce::String(targetHeadroomDbfs, 1) + " dBFS)");
+
+        return calculatedGain;
+    }
+
+    return 1.0f;
 }
 
 } // namespace abdaudiolab::audio

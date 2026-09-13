@@ -68,6 +68,19 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     btnShowPluginGui.setVisible(false);
     addChildComponent(btnShowPluginGui);
 
+    // Virtual Keyboard button (visible only in plugin mode)
+    btnVirtualKeyboard.setButtonText("Teclado Virtual");
+    btnVirtualKeyboard.setTooltip("Abrir teclado virtual interactivo para interpretar este plugin (sin emojis)");
+    btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.2f));
+    btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+    btnVirtualKeyboard.onClick = [this] {
+        juce::Logger::writeToLog("[CatalogSelector] 'Teclado Virtual' button clicked.");
+        if (onOpenKeyboardRequested)
+            onOpenKeyboardRequested();
+    };
+    btnVirtualKeyboard.setVisible(false);
+    addChildComponent(btnVirtualKeyboard);
+
     // Cascading combos
     comboDeviceType.setTextWhenNothingSelected("1. Device Type (Synthesizer, Pedal, Eurorack...)");
     comboDeviceType.onChange = [this] {
@@ -157,6 +170,55 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     btnUnlock.setVisible(false);
     addChildComponent(btnUnlock);
+
+    updateTheme();
+}
+
+void SoundIdHardwareCatalogSelector::updateTheme()
+{
+    // Auto-detect and free mode buttons
+    btnAutoDetect.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnAutoDetect.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+    if (isLibreMode)
+    {
+        btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber.withAlpha(0.25f));
+        btnLibreMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
+    }
+    else
+    {
+        btnLibreMode.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+        btnLibreMode.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    }
+
+    btnLoadPlugin.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
+    btnLoadPlugin.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+
+    btnShowPluginGui.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentPurple.withAlpha(0.2f));
+    btnShowPluginGui.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentPurple);
+
+    btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.2f));
+    btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+
+    btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    lblLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+
+    btnUnlock.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnUnlock.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    for (auto* combo : { &comboDeviceType, &comboBrand, &comboModel, &comboObjective })
+    {
+        combo->setColour(juce::ComboBox::backgroundColourId, SoundIdTheme::bgCard);
+        combo->setColour(juce::ComboBox::textColourId, SoundIdTheme::textPrimary);
+        combo->setColour(juce::ComboBox::outlineColourId, SoundIdTheme::borderSubtle);
+        combo->setColour(juce::ComboBox::arrowColourId, SoundIdTheme::textSecondary);
+    }
+
+    deviceDisplayCard.repaint();
+    wiringDiagram.repaint();
+    repaint();
 }
 
 void SoundIdHardwareCatalogSelector::setContracts(const std::vector<core::HardwareContract>& contracts)
@@ -635,13 +697,17 @@ void SoundIdHardwareCatalogSelector::resized()
 
         if (isPluginMode)
         {
-            int guiW = 180;
+            int kbdW = 150;
+            btnVirtualKeyboard.setBounds(topRow.removeFromRight(kbdW));
+            topRow.removeFromRight(10);
+            int guiW = 170;
             btnShowPluginGui.setBounds(topRow.removeFromRight(guiW));
             topRow.removeFromRight(10);
         }
         else
         {
             btnShowPluginGui.setBounds({});
+            btnVirtualKeyboard.setBounds({});
         }
 
         lblLockedBanner.setBounds(topRow);
@@ -655,16 +721,20 @@ void SoundIdHardwareCatalogSelector::resized()
         {
             btnAutoDetect.setBounds({});
             btnLibreMode.setBounds({});
-            int loadBtnW = juce::jmin(250, topRow.getWidth() / 2 - 6);
+            int loadBtnW = juce::jmin(210, topRow.getWidth() / 3 - 6);
             btnLoadPlugin.setBounds(topRow.removeFromLeft(loadBtnW));
-            topRow.removeFromLeft(12);
-            int guiBtnW = juce::jmin(200, topRow.getWidth());
+            topRow.removeFromLeft(10);
+            int guiBtnW = juce::jmin(170, topRow.getWidth() / 3 - 6);
             btnShowPluginGui.setBounds(topRow.removeFromLeft(guiBtnW));
+            topRow.removeFromLeft(10);
+            int kbdBtnW = juce::jmin(150, topRow.getWidth());
+            btnVirtualKeyboard.setBounds(topRow.removeFromLeft(kbdBtnW));
         }
         else
         {
             btnLoadPlugin.setBounds({});
             btnShowPluginGui.setBounds({});
+            btnVirtualKeyboard.setBounds({});
             int autoBtnW = juce::jmin(250, topRow.getWidth() / 2 - 6);
             btnAutoDetect.setBounds(topRow.removeFromLeft(autoBtnW));
             topRow.removeFromLeft(12);

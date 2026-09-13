@@ -24,14 +24,16 @@ public:
           audioEngine(audioEngineRef),
           onCloseCallback(std::move(onClose))
     {
-        setUsingNativeTitleBar(true);
+        setUsingNativeTitleBar(false);
 
+        const juce::String themeStr = (AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light");
         auto webScope = std::make_unique<abd::scope::JuceWebScopeComponent>(
             audioEngineRef.getScopeCollector(),
             audioEngineRef.getCurrentSampleRate(),
-            30
+            30,
+            themeStr
         );
-        webScope->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+        webScope->setTheme(themeStr.toStdString());
         setContentOwned(webScope.release(), true);
 
         setResizable(true, true);
@@ -52,6 +54,8 @@ public:
 
     void onWindowShown()
     {
+        updateTheme();
+
         for (size_t i = 0; i < audioEngine.getScopeCollector().getTapCount(); ++i)
         {
             if (auto* tap = const_cast<abd::scope::ScopeTap*>(audioEngine.getScopeCollector().getTap(i)))
@@ -60,7 +64,6 @@ public:
         if (auto* ws = dynamic_cast<abd::scope::JuceWebScopeComponent*>(getContentComponent()))
         {
             ws->setSampleRate(audioEngine.getCurrentSampleRate());
-            ws->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
         }
     }
 
@@ -69,7 +72,7 @@ public:
         setBackgroundColour(AppTheme::BackgroundApp);
         if (auto* ws = dynamic_cast<abd::scope::JuceWebScopeComponent*>(getContentComponent()))
         {
-            ws->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+            ws->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light");
         }
         repaint();
     }

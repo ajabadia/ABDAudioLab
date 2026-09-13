@@ -152,38 +152,120 @@ DeconvolutionResult FarinaDeconvolver::deconvolve(const std::vector<float>& reco
                               result.phaseResponseRad, result.groupDelaySamples);
 
     // Calculate THD by measuring energy of harmonic distortion peaks before main linear peak
-    // Farina offset for 2nd and 3rd harmonics: delta_t = T * ln(N) / ln(w2/w1)
+    // Farina offset for harmonics N=2..5: delta_t = T * ln(N) / ln(w2/w1)
     double logRatio = std::log(endFreqHz / startFreqHz);
     double dt2 = sweepDurationSec * std::log(2.0) / logRatio;
     double dt3 = sweepDurationSec * std::log(3.0) / logRatio;
+    double dt4 = sweepDurationSec * std::log(4.0) / logRatio;
+    double dt5 = sweepDurationSec * std::log(5.0) / logRatio;
 
     int sampleOffsetH2 = static_cast<int>(std::lround(dt2 * sampleRate));
     int sampleOffsetH3 = static_cast<int>(std::lround(dt3 * sampleRate));
+    int sampleOffsetH4 = static_cast<int>(std::lround(dt4 * sampleRate));
+    int sampleOffsetH5 = static_cast<int>(std::lround(dt5 * sampleRate));
 
     float linearEnergy = 0.0f;
     for (float v : result.linearIR)
         linearEnergy += v * v;
 
     float harmonicEnergy = 0.0f;
-    auto getEnergyAround = [&](int targetIdx) {
-        float energy = 0.0f;
-        int win = 256;
-        int s = std::max(0, targetIdx - win);
-        int e = std::min(static_cast<int>(result.fullDeconvolvedIR.size()), targetIdx + win);
-        for (int i = s; i < e; ++i)
-            energy += result.fullDeconvolvedIR[static_cast<size_t>(i)] * result.fullDeconvolvedIR[static_cast<size_t>(i)];
-        return energy;
+    float energyH2 = 0.0f;
+    float energyH3 = 0.0f;
+    float energyH4 = 0.0f;
+    float energyH5 = 0.0f;
+
+    auto extractHarmonicWindow = [&](int targetIdx, std::vector<float>& outIR) -> float {
+        outIR.clear();
+        if (targetIdx <= 0) return 0.0f;
+        int win = 512;
+        int s = std::max(0, targetIdx - win / 4);
+        int e = std::min(static_cast<int>(result.fullDeconvolvedIR.size()), s + win);
+        if (s >= e) return 0.0f;
+        outIR.assign(result.fullDeconvolvedIR.begin() + s, result.fullDeconvolvedIR.begin() + e);
+        float eSum = 0.0f;
+        for (float val : outIR)
+            eSum += val * val;
+        return eSum;
     };
 
     if (peakIndex >= static_cast<size_t>(sampleOffsetH2))
-        harmonicEnergy += getEnergyAround(static_cast<int>(peakIndex) - sampleOffsetH2);
+    {
+        energyH2 = extractHarmonicWindow(static_cast<int>(peakIndex) - sampleOffsetH2, result.h2IR);
+        harmonicEnergy += energyH2;
+    }
     if (peakIndex >= static_cast<size_t>(sampleOffsetH3))
-        harmonicEnergy += getEnergyAround(static_cast<int>(peakIndex) - sampleOffsetH3);
+    {
+        energyH3 = extractHarmonicWindow(static_cast<int>(peakIndex) - sampleOffsetH3, result.h3IR);
+        harmonicEnergy += energyH3;
+    }
+    if (peakIndex >= static_cast<size_t>(sampleOffsetH4))
+    {
+        energyH4 = extractHarmonicWindow(static_cast<int>(peakIndex) - sampleOffsetH4, result.h4IR);
+        harmonicEnergy += energyH4;
+    }
+    if (peakIndex >= static_cast<size_t>(sampleOffsetH5))
+    {
+        energyH5 = extractHarmonicWindow(static_cast<int>(peakIndex) - sampleOffsetH5, result.h5IR);
+        harmonicEnergy += energyH5;
+    }
 
     if (linearEnergy > 1e-12f)
+    {
         result.thdPercent = std::sqrt(harmonicEnergy / linearEnergy) * 100.0f;
+        result.h2Percent  = std::sqrt(energyH2 / linearEnergy) * 100.0f;
+        result.h3Percent  = std::sqrt(energyH3 / linearEnergy) * 100.0f;
+        result.h4Percent  = std::sqrt(energyH4 / linearEnergy) * 100.0f;
+        result.h5Percent  = std::sqrt(energyH5 / linearEnergy) * 100.0f;
+    }
     else
+    {
         result.thdPercent = 0.0f;
+        result.h2Percent  = 0.0f;
+        result.h3Percent  = 0.0f;
+        result.h4Percent  = 0.0f;
+        result.h5Percent  = 0.0f;
+    }
+
+    // Compute H2..H5 frequency responses if IRs extracted
+    std::vector<float> hFreqs;
+    float dummyPeakFreq = 0.0f, dummyPeakDb = -120.0f;
+    if (!result.h2IR.empty())
+    {
+        computeFrequencyResponse(result.h2IR, sampleRate, hFreqs, result.h2MagnitudeDb,
+                                 dummyPeakFreq, dummyPeakDb);
+    }
+    if (!result.h3IR.empty())
+    {
+        computeFrequencyResponse(result.h3IR, sampleRate, hFreqs, result.h3MagnitudeDb,
+                                 dummyPeakFreq, dummyPeakDb);
+    }
+    if (!result.h4IR.empty())
+    {
+        computeFrequencyResponse(result.h4IR, sampleRate, hFreqs, result.h4MagnitudeDb,
+                                 dummyPeakFreq, dummyPeakDb);
+    }
+    if (!result.h5IR.empty())
+    {
+        computeFrequencyResponse(result.h5IR, sampleRate, hFreqs, result.h5MagnitudeDb,
+                                 dummyPeakFreq, dummyPeakDb);
+    }
+
+    // Compute THD(f) vs frequency curve across H2..H5
+    const size_t numBins = result.frequenciesHz.size();
+    result.thdVsFreqPercent.resize(numBins, 0.0f);
+    for (size_t k = 0; k < numBins; ++k)
+    {
+        float linMag = std::pow(10.0f, result.frequencyResponseMagnitudeDb[k] / 20.0f);
+        if (linMag > 1e-5f)
+        {
+            float h2Mag = (k < result.h2MagnitudeDb.size()) ? std::pow(10.0f, result.h2MagnitudeDb[k] / 20.0f) : 0.0f;
+            float h3Mag = (k < result.h3MagnitudeDb.size()) ? std::pow(10.0f, result.h3MagnitudeDb[k] / 20.0f) : 0.0f;
+            float h4Mag = (k < result.h4MagnitudeDb.size()) ? std::pow(10.0f, result.h4MagnitudeDb[k] / 20.0f) : 0.0f;
+            float h5Mag = (k < result.h5MagnitudeDb.size()) ? std::pow(10.0f, result.h5MagnitudeDb[k] / 20.0f) : 0.0f;
+            float thd = std::sqrt(h2Mag * h2Mag + h3Mag * h3Mag + h4Mag * h4Mag + h5Mag * h5Mag) / linMag * 100.0f;
+            result.thdVsFreqPercent[k] = std::min(100.0f, thd);
+        }
+    }
 
     return result;
 }

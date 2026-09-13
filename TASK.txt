@@ -1,1 +1,3 @@
-Lee PLAN.md e implementa las funciones setPointStatus, getPointStatus y resetPointStatuses en src/gui/SoundIdSuiteList.cpp delegando en modelManager.
+Fase 20.3.C: Segundo target externo (Plugin abierto del ecosistema VST3).
+Seleccionar y validar un sintetizador VST3 abierto o del VST3 SDK en disco mediante ABDAudioLab_Vst3Validation.
+Asegurar que el harness y auditor reportan honestamente las anomalías reales del plugin sin forzar aprobación.

@@ -171,6 +171,8 @@ target_sources(ABDAudioLab
         src/math/analytics/ModulationAnalytics.cpp
         src/math/FarinaDeconvolver.h
         src/math/FarinaDeconvolver.cpp
+        src/math/IntermodulationAnalyzer.h
+        src/math/IntermodulationAnalyzer.cpp
         src/math/WienerHammersteinFitter.h
         src/math/WienerHammersteinFitter.cpp
         src/math/NoiseFloorTracker.h
@@ -222,7 +224,50 @@ target_sources(ABDAudioLab
         src/gui/plugins/PluginWindowController.cpp
         src/gui/plugins/PluginScanDirectoriesModal.h
         src/gui/plugins/PluginScanDirectoriesModal.cpp
-        
+        # Digital Synth Profiler (Phase 20)
+        src/synth/Sha256.h
+        src/synth/SynthPresetState.h
+        src/synth/MidiExcitationSequence.h
+        src/synth/SynthObservation.h
+        src/synth/ISynthTarget.h
+        src/synth/SyntheticSynthFixture.h
+        src/synth/SyntheticSynthTarget.h
+        src/synth/PluginSynthTarget.h
+        src/synth/SynthPitchEstimator.h
+        src/synth/SynthPitchEstimator.cpp
+        src/synth/SynthEnvelopeAnalyzer.h
+        src/synth/SynthEnvelopeAnalyzer.cpp
+        src/synth/MidiAudioSynchronizer.h
+        src/synth/MidiAudioSynchronizer.cpp
+        src/synth/DigitalSynthMvpProfiler.h
+        src/synth/DigitalSynthMvpProfiler.cpp
+        src/synth/TargetAuditor.h
+        src/synth/TargetAuditor.cpp
+        src/synth/TargetContract.h
+        src/synth/ExperimentPlan.h
+        src/synth/ExperimentRecipe.h
+        src/synth/AcousticObserver.h
+        src/synth/AcousticObserver.cpp
+        src/synth/TargetEventDispatcher.h
+        src/synth/TargetEventDispatcher.cpp
+        src/synth/ParameterExcitationEngine.h
+        src/synth/ParameterExcitationEngine.cpp
+        src/synth/ExternalPluginTypes.h
+        src/synth/TargetContractDiscovery.h
+        src/synth/TargetContractDiscovery.cpp
+        src/synth/ExternalPluginFixture.h
+        src/synth/ExternalPluginFixture.cpp
+        src/synth/ModelEvaluationTypes.h
+        src/synth/ModelEvaluationBuilder.h
+        src/synth/ModelEvaluationBuilder.cpp
+        src/synth/AdaptiveExperimentPlanner.h
+        src/synth/AdaptiveExperimentPlanner.cpp
+
+        # Session Domain Controller & Contracts (Phase 16 / UX Simplification)
+        src/gui/session/ProfilingSessionContracts.h
+        src/gui/session/ProfilingSessionController.h
+        src/gui/session/ProfilingSessionController.cpp
+
         # GUI & Interactive Visualizers (SoundID Architecture)
         src/gui/SoundIdTheme.h
         src/gui/SoundIdCurvePlotter.h
@@ -287,11 +332,25 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdSidebarStepper.cpp
         src/gui/soundid/SoundIdHardwareCatalogSelector.h
         src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
+        src/gui/soundid/SoundIdTopHeaderStrip.h
+        src/gui/soundid/SoundIdTopHeaderStrip.cpp
+        src/gui/soundid/SoundIdTargetView.h
+        src/gui/soundid/SoundIdTargetView.cpp
+        src/gui/soundid/SoundIdProfilingRunView.h
+        src/gui/soundid/SoundIdProfilingRunView.cpp
+        src/gui/soundid/SoundIdResultsSummaryView.h
+        src/gui/soundid/SoundIdResultsSummaryView.cpp
+        src/gui/soundid/SoundIdGuidedWorkflowContainer.h
+        src/gui/soundid/SoundIdGuidedWorkflowContainer.cpp
         src/gui/ScopeWebFloatingWindow.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/JuceStudioTopologyComponent.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyFloatingWindow.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/JuceMidiKeyboardComponent.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardFloatingWindow.h
         src/gui/MeasurementHealthPanel.h
         src/gui/OperatorCardsContainerComponent.h
         src/gui/OperatorCardsContainerComponent.cpp
@@ -302,6 +361,9 @@ target_sources(ABDAudioLab
         src/gui/SessionReportManager.cpp
         src/gui/MainHeaderController.h
         src/gui/MainHeaderController.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/AudioMidiInterfaceDetector.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.cpp
         src/gui/SessionExecutionCoordinator.h
         src/gui/SessionExecutionCoordinator.cpp
         src/gui/controllers/SessionIoController.h
@@ -440,9 +502,40 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_SoundIdSuiteListRefactor.cpp
     src/tests/test_SoundIdSidebarStepper.cpp
     src/tests/test_SoundIdHardwareCatalogSelector.cpp
+    src/tests/test_SoundIdThemeMode.cpp
     src/tests/test_PauseResume.cpp
+    src/tests/test_HarmonicAndImdAnalysis.cpp
     src/tests/test_PluginHostManager.cpp
+    src/tests/test_PluginCalibrationSafety.cpp
+    src/tests/test_DigitalSynthMvpProfiler.cpp
+    src/tests/test_TargetAuditor.cpp
+    src/tests/test_ParameterExcitationEngine.cpp
+    src/tests/test_Vst3Validation.cpp
+    src/tests/test_DexedValidation.cpp
+    src/tests/test_ModelEvaluation.cpp
+    src/tests/test_AdaptiveExperimentPlanner.cpp
+    src/tests/test_ProfilingSessionController.cpp
+    src/tests/test_SoundIdViews.cpp
     
+    src/fixtures/reference_vst3/ReferenceSynthProcessor.cpp
+    src/synth/SynthPitchEstimator.cpp
+    src/synth/SynthEnvelopeAnalyzer.cpp
+    src/synth/MidiAudioSynchronizer.cpp
+    src/synth/DigitalSynthMvpProfiler.cpp
+    src/synth/TargetAuditor.cpp
+    src/synth/AcousticObserver.cpp
+    src/synth/TargetEventDispatcher.cpp
+    src/synth/ParameterExcitationEngine.cpp
+    src/synth/TargetContractDiscovery.cpp
+    src/synth/ExternalPluginFixture.cpp
+    src/synth/ModelEvaluationBuilder.cpp
+    src/synth/AdaptiveExperimentPlanner.cpp
+    src/gui/session/ProfilingSessionController.cpp
+    src/gui/soundid/SoundIdTopHeaderStrip.cpp
+    src/gui/soundid/SoundIdTargetView.cpp
+    src/gui/soundid/SoundIdProfilingRunView.cpp
+    src/gui/soundid/SoundIdResultsSummaryView.cpp
+    src/gui/soundid/SoundIdGuidedWorkflowContainer.cpp
     src/audio/LabAudioEngine.cpp
     src/audio/LabAudioReceiver.cpp
     src/audio/LabStimulusGenerator.cpp
@@ -450,6 +543,7 @@ add_executable(ABDAudioLab_Tests
     src/export/LutExporter.cpp
     src/export/ModulationPresetExporter.cpp
     src/math/FarinaDeconvolver.cpp
+    src/math/IntermodulationAnalyzer.cpp
     src/math/LabAnalyticEngine.cpp
     src/math/analytics/FilterAnalytics.cpp
     src/math/analytics/EnvelopeAnalytics.cpp
@@ -530,6 +624,8 @@ target_compile_definitions(ABDAudioLab_Tests
     PRIVATE
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
 )
 
 target_link_libraries(ABDAudioLab_Tests
@@ -554,3 +650,78 @@ target_link_libraries(ABDAudioLab_Tests
 include(CTest)
 include(Catch)
 catch_discover_tests(ABDAudioLab_Tests)
+
+# ==============================================================================
+# VST3 Validation Targets (Phase 20.3.B)
+# ==============================================================================
+
+juce_add_plugin(ReferenceSynth
+    FORMATS VST3
+    PLUGIN_MANUFACTURER_CODE "ABDS"
+    PLUGIN_CODE "RefS"
+    IS_SYNTH TRUE
+    NEEDS_MIDI_INPUT TRUE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    PRODUCT_NAME "ReferenceSynth"
+)
+
+target_sources(ReferenceSynth PRIVATE
+    src/fixtures/reference_vst3/ReferenceSynthProcessor.h
+    src/fixtures/reference_vst3/ReferenceSynthProcessor.cpp
+    src/fixtures/reference_vst3/ReferenceSynthGroundTruth.h
+)
+
+target_compile_definitions(ReferenceSynth PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_link_libraries(ReferenceSynth PRIVATE
+    juce::juce_audio_processors
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+
+juce_add_console_app(ABDAudioLab_Vst3Validation
+    PRODUCT_NAME "ABDAudioLab_Vst3Validation"
+)
+
+target_sources(ABDAudioLab_Vst3Validation PRIVATE
+    src/apps/Vst3ValidationMain.cpp
+    src/synth/ExternalPluginFixture.h
+    src/synth/ExternalPluginFixture.cpp
+    src/synth/TargetContractDiscovery.h
+    src/synth/TargetContractDiscovery.cpp
+    src/synth/TargetAuditor.cpp
+    src/synth/AcousticObserver.cpp
+    src/synth/TargetEventDispatcher.cpp
+    src/synth/ParameterExcitationEngine.cpp
+    src/synth/SynthPitchEstimator.cpp
+    src/synth/SynthEnvelopeAnalyzer.cpp
+    src/synth/MidiAudioSynchronizer.cpp
+)
+
+target_include_directories(ABDAudioLab_Vst3Validation PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+target_compile_definitions(ABDAudioLab_Vst3Validation PRIVATE
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+)
+
+target_link_libraries(ABDAudioLab_Vst3Validation PRIVATE
+    juce::juce_audio_processors
+    juce::juce_audio_formats
+    juce::juce_audio_utils
+    juce::juce_dsp
+    juce::juce_recommended_config_flags
+    juce::juce_recommended_warning_flags
+)
+

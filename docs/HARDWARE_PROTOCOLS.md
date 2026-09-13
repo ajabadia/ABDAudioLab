@@ -94,3 +94,32 @@ Para transferencia de parches por audio analógico a través del conector `REMOT
 * **Portadoras audibles**: Conmutación continua de fase entre $f_0$ (bit 0) y $f_1$ (bit 1).
 * **Emisión**: Generada directamente en el hilo de audio de JUCE.
 * **Herramientas de análisis**: Repositorio auxiliar `docs/google ia research/alltheFSKs-master/` para demodulación y análisis de espectro en Python.
+
+---
+
+## 5. Protocolo de Control y Excitación de Sintetizadores Digitales (Fase 20)
+
+Para instrumentos autónomos (sintetizadores digitales físicos y plugins VST3/AU), el protocolo de control se estructura mediante eventos de transporte desacoplados de la física del dispositivo:
+
+### 5.1 Secuencias de Excitación MIDI (`MidiExcitationSequence`)
+- **Eventos de Notas**:
+  - `NoteOn`: Nota (0..127), Velocity calibrada (1..127), Canal (1..16), Timestamp sample-accurate (`sampleOffset` dentro del bloque).
+  - `NoteOff`: Despachado tras la compuerta activa (*gate duration* nominal: 50 ms, 250 ms, 2.0 s).
+- **Protocolo de Reseteo Determinista**:
+  - Antes de cada bloque o ensayo con reset:
+    - CC 123 (`AllNotesOff`)
+    - CC 121 (`ResetAllControllers`)
+    - CC 120 (`AllSoundOff`)
+    - Espera de desvanecimiento acústico residual (`postSilenceSec`).
+
+### 5.2 Automatización y Perturbación de Parámetros
+- **Tipos de Binding de Transporte**:
+  - **CC Estándar (7-bit)**: Valores `[0.0, 1.0]` mapeados a `[0..127]`.
+  - **NRPN (14-bit)**: Secuencia de 4 mensajes CC (`CC 99 = MSB`, `CC 98 = LSB`, `CC 6 = Data MSB`, `CC 38 = Data LSB`) con resolución de 16.384 pasos.
+  - **SysEx Directo**: Inyección en el búfer de edición temporal (*Edit Buffer*) con cálculo dinámico de checksum de fabricante.
+- **Trazabilidad de 4 Estados**:
+  Todo cambio de parámetro se registra bajo la cadena de auditoría formal:
+  $$\text{Requested} \longrightarrow \text{AcceptedByHost} \longrightarrow \text{AppliedByTarget} \longrightarrow \text{ObservedInAudio}$$
+- **Pacing de Baud Rate y Settling Time**:
+  - Para hardware conectado vía DIN-5 clásico (31.25 kbaud, ~320 µs/byte), los eventos continuos se espacian para prevenir sobreflujo del buffer UART del microcontrolador.
+  - Se aplica un tiempo de asentamiento (`settlingTimeMs`) declarado en el contrato antes de registrar la respuesta acústica.

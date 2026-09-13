@@ -40,6 +40,9 @@ public:
     /** @brief Shows modal centered on parent, loading persisted directories. */
     void showModal(juce::Component* parent);
 
+    /** @brief Refreshes colors based on active AppTheme. */
+    void updateTheme();
+
     /** @brief Loads persisted scan directories from disk. */
     std::vector<juce::File> loadPersistedDirectories();
 

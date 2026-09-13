@@ -177,10 +177,19 @@ public:
 
         // 2. Standard White / Neutral Card Button
         if (baseColour == AppTheme::SurfaceCard || baseColour == AppTheme::SurfaceSubtle ||
-            baseColour == AppTheme::PillWhiteBg || baseColour == juce::Colours::white)
+            baseColour == AppTheme::SurfaceHover || baseColour == AppTheme::BackgroundApp ||
+            baseColour == AppTheme::PillWhiteBg || baseColour == juce::Colours::white ||
+            baseColour == bgCard || baseColour == bgCardHover || baseColour == surfaceSubtle ||
+            baseColour == bgLight || baseColour == juce::Colour(0xfff1f3f5) || baseColour == juce::Colour(0xffe9ecef) ||
+            baseColour == juce::Colour(0xff24282d) || baseColour == juce::Colour(0xff2c3138))
         {
-            juce::Colour fillCol = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
-                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : baseColour);
+            juce::Colour effectiveBase = (baseColour == AppTheme::SurfaceSubtle || baseColour == surfaceSubtle || baseColour == juce::Colour(0xfff1f3f5) || baseColour == juce::Colour(0xff24282d))
+                                            ? AppTheme::SurfaceSubtle
+                                            : ((baseColour == AppTheme::SurfaceHover || baseColour == bgCardHover || baseColour == juce::Colour(0xffe9ecef) || baseColour == juce::Colour(0xff2c3138))
+                                                ? AppTheme::SurfaceHover
+                                                : AppTheme::SurfaceCard);
+            juce::Colour fillCol = shouldDrawButtonAsDown ? effectiveBase.darker(0.08f)
+                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : effectiveBase);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
@@ -346,6 +355,44 @@ public:
 
         g.setColour(AppTheme::BorderSubtle);
         g.drawVerticalLine(width - 1, 4.0f, static_cast<float>(height - 4));
+    }
+
+    void drawDocumentWindowTitleBar(juce::DocumentWindow& window,
+                                    juce::Graphics& g,
+                                    int w, int h,
+                                    int titleSpaceX, int titleSpaceW,
+                                    const juce::Image* icon,
+                                    bool drawTitleTextOnLeft) override
+    {
+        juce::ignoreUnused(drawTitleTextOnLeft);
+        if (w <= 0 || h <= 0) return;
+
+        const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
+        const juce::Colour bgCol        = isDark ? juce::Colour(0xff181a1d) : juce::Colour(0xffe9ecef);
+        const juce::Colour borderCol    = isDark ? juce::Colour(0xff2d3238) : juce::Colour(0xffced4da);
+        const juce::Colour titleTextCol = isDark ? juce::Colour(0xfff8f9fa) : juce::Colour(0xff212529);
+
+        // Fondo plano moderno integrado
+        g.fillAll(bgCol);
+
+        // Línea divisoria inferior
+        g.setColour(borderCol);
+        g.drawHorizontalLine(h - 1, 0.0f, static_cast<float>(w));
+
+        // Icono si está presente
+        if (icon != nullptr && icon->isValid())
+        {
+            g.drawImageWithin(*icon, 6, (h - 16) / 2, 16, 16,
+                              juce::RectanglePlacement::centred | juce::RectanglePlacement::onlyReduceInSize,
+                              false);
+        }
+
+        // Título centrado con tipografía moderna bold
+        g.setColour(titleTextCol);
+        g.setFont(juce::FontOptions("Inter", std::clamp(static_cast<float>(h) * 0.48f, 11.0f, 13.5f), juce::Font::bold));
+
+        juce::Rectangle<int> textBounds(titleSpaceX, 0, titleSpaceW, h);
+        g.drawText(window.getName(), textBounds, juce::Justification::centred, true);
     }
 };
 

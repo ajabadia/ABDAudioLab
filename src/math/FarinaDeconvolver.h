@@ -28,6 +28,19 @@ struct DeconvolutionResult
     float peakFrequencyHz { 0.0f };                /**< Frequency bin corresponding to maximum peak response. */
     float resonancePeakDb { 0.0f };                /**< Resonance peak magnitude in dB. */
     float thdPercent { 0.0f };                     /**< Total Harmonic Distortion percentage (THD %). */
+    std::vector<float> h2IR;                       /**< 2nd harmonic impulse response. */
+    std::vector<float> h3IR;                       /**< 3rd harmonic impulse response. */
+    std::vector<float> h4IR;                       /**< 4th harmonic impulse response. */
+    std::vector<float> h5IR;                       /**< 5th harmonic impulse response. */
+    std::vector<float> h2MagnitudeDb;              /**< 2nd harmonic magnitude spectrum in dBFS. */
+    std::vector<float> h3MagnitudeDb;              /**< 3rd harmonic magnitude spectrum in dBFS. */
+    std::vector<float> h4MagnitudeDb;              /**< 4th harmonic magnitude spectrum in dBFS. */
+    std::vector<float> h5MagnitudeDb;              /**< 5th harmonic magnitude spectrum in dBFS. */
+    std::vector<float> thdVsFreqPercent;           /**< THD(f) curve across frequency bins in percent. */
+    float h2Percent { 0.0f };                     /**< 2nd harmonic distortion percentage (H2 %). */
+    float h3Percent { 0.0f };                     /**< 3rd harmonic distortion percentage (H3 %). */
+    float h4Percent { 0.0f };                     /**< 4th harmonic distortion percentage (H4 %). */
+    float h5Percent { 0.0f };                     /**< 5th harmonic distortion percentage (H5 %). */
 };
 
 /**

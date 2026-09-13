@@ -3,7 +3,7 @@
 ## Diagnóstico y Principio de Seguridad
 
 > **Lección de la refactorización anterior:** NUNCA se destruye o reescribe código en vivo antes de tener su reemplazo probado y enlazado.  
-> Toda la maquinaria interna (`ProfilingSequencer`, `LabAnalyticEngine`, `HardwareManager`, `LutExporter`, etc.) está blindada por 115 tests pasando al 100%.  
+> Toda la maquinaria interna (`ProfilingSequencer`, `LabAnalyticEngine`, `HardwareManager`, `LutExporter`, `DigitalSynthMvpProfiler`, etc.) está blindada por **141 tests pasando al 100% (134.498 aserciones)**.  
 > Esta transformación es **estrictamente de presentación y flujo de usuario (UX)**: construimos los nuevos componentes al lado de los actuales, los probamos de forma aislada e incremental, y solo los conmutamos en la vista principal cuando están 100% operativos.
 
 ---
@@ -12,9 +12,10 @@
 
 En lugar de demoler `MainContentComponent.cpp`, adoptamos una **estrategia aditiva y reversible**:
 
-1. **Mantener el ejecutable y los tests siempre verdes:** Cada paso termina con compilación en Release y paso de la suite de 115 tests.
+1. **Mantener el ejecutable y los tests siempre verdes:** Cada paso termina con compilación en Release y paso de la suite de 141 tests.
 2. **Creación de componentes atómicos nuevos** bajo `src/gui/soundid/`:
    - `SoundIdSidebarStepper`: Barra vertical colapsable (expandida ~240px / colapsada ~56px) con números/iconos, checks verdes y tooltips flotantes.
+   - `SoundIdHardwareCatalogSelector`: Selector en cascada (`Tipo ➔ Marca ➔ Modelo`) con soporte para hardware analógico, sintetizadores digitales y plugins VST3/AU.
    - `SoundIdHardwareCatalogSelector`: Selector en cascada (`Tipo ➔ Marca ➔ Modelo`) con lectura directa de contratos JSON.
    - `SoundIdActiveProfilingView`: Pantalla de medición inspirada en *SoundID Measure* (indicador visual grande, cuenta atrás de puntos, barra de progreso limpia y tarjetas de perillas manuales).
    - `SoundIdResultsDashboard`: Ficha de resultados final limpia con el botón verde de 1 clic `Export Production Package`.
@@ -100,6 +101,6 @@ En lugar de demoler `MainContentComponent.cpp`, adoptamos una **estrategia aditi
 | Métrica | Condición de Aprobación |
 |---|---|
 | **Compilación** | Cero advertencias críticas en MSVC v144 Release |
-| **Suites CTest** | 115/115 suites pasando (134.221+ aserciones) |
+| **Suites CTest** | 141/141 suites pasando (134.498 aserciones) |
 | **Estabilidad de Audio** | Cero heap allocations en hilo de audio tiempo real |
 | **Ergonomía UI** | Cero modales anidados (efecto matrioshka), cero solapamientos de texto |

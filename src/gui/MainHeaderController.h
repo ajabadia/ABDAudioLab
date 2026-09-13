@@ -67,6 +67,7 @@ public:
     std::function<void()> onScanPluginDirectories;
 
     std::function<void()> onScopeToggle;
+    std::function<void()> onVirtualKeyboardToggle;
     std::function<void()> onConfigureAudioMidi;
     std::function<void()> onCalibrateClicked;
     std::function<void()> onHardwareSelectorClicked;
@@ -78,6 +79,7 @@ private:
     // Header buttons
     juce::TextButton btnFileMenu;
     juce::TextButton btnScope;
+    juce::TextButton btnVirtualKeyboard;
     juce::TextButton btnCalibratePill;
 
     // Custom UI Pills

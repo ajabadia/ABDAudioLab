@@ -32,6 +32,14 @@ MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     btnScope.onClick = [this] { if (onScopeToggle) onScopeToggle(); };
     addAndMakeVisible(btnScope);
 
+    // 2b. Virtual Keyboard Button (NO emojis, clean text)
+    btnVirtualKeyboard.setButtonText("Teclado");
+    btnVirtualKeyboard.setTooltip("Teclado Virtual MIDI - Abrir ventana flotante de teclado interactivo para interpretar plugins.");
+    btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+    btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+    btnVirtualKeyboard.onClick = [this] { if (onVirtualKeyboardToggle) onVirtualKeyboardToggle(); };
+    addAndMakeVisible(btnVirtualKeyboard);
+
     // 3. Audio & MIDI Status Pill
     audioMidiStatusPill = std::make_unique<AudioMidiStatusPill>();
     audioMidiStatusPill->onConfigureClicked = [this] { if (onConfigureAudioMidi) onConfigureAudioMidi(); };
@@ -158,6 +166,9 @@ void MainHeaderController::updateTheme()
     btnScope.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
     btnScope.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
 
+    btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+    btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
+
     if (btnThemeToggle != nullptr) btnThemeToggle->repaint();
     if (btnHardwareSelector != nullptr) btnHardwareSelector->repaint();
     if (audioMidiStatusPill != nullptr) audioMidiStatusPill->repaint();
@@ -177,6 +188,7 @@ void MainHeaderController::showFileMenu()
     menu.addItem(7, "Open Export Folder");
     menu.addSeparator();
     menu.addItem(9, "Scan Plugin Directories...");
+    menu.addItem(10, "Teclado Virtual MIDI...");
     menu.addSeparator();
     menu.addItem(8, "Exit ABDAudioLab");
 
@@ -195,6 +207,7 @@ void MainHeaderController::showFileMenu()
             case 7: if (safeThis->onOpenExportFolder) safeThis->onOpenExportFolder(); break;
             case 8: if (safeThis->onExitApp) safeThis->onExitApp(); break;
             case 9: if (safeThis->onScanPluginDirectories) safeThis->onScanPluginDirectories(); break;
+            case 10: if (safeThis->onVirtualKeyboardToggle) safeThis->onVirtualKeyboardToggle(); break;
             default: break;
         }
     });
@@ -212,10 +225,12 @@ void MainHeaderController::resized()
         topArea.removeFromRight(6);
     }
 
-    // 2. Botones de la izquierda (File y Scope)
+    // 2. Botones de la izquierda (File, Scope y Teclado)
     btnFileMenu.setBounds(topArea.removeFromLeft(64).withHeight(30).withY(topArea.getY() + 1));
     topArea.removeFromLeft(6);
-    btnScope.setBounds(topArea.removeFromLeft(70).withHeight(30).withY(topArea.getY() + 1));
+    btnScope.setBounds(topArea.removeFromLeft(66).withHeight(30).withY(topArea.getY() + 1));
+    topArea.removeFromLeft(6);
+    btnVirtualKeyboard.setBounds(topArea.removeFromLeft(74).withHeight(30).withY(topArea.getY() + 1));
     topArea.removeFromLeft(6);
 
     // Pill de Audio/MIDI con ancho adaptativo

@@ -93,7 +93,7 @@ Se estandariza el uso de dos familias tipográficas incrustadas mediante binario
 - **Selector de Hardware**: Píldora elegante que muestra el dispositivo y módulo activo.
 
 ### 5.2. Zona Central: Gráficos y Conmutador Segmentado
-- **Selector de Vistas**: Conmutador segmentado (*segmented control*) en la cabecera: `[ Curve (μ ± σ) | 2D Heatmap | Spectrum FFT ]`.
+- **Selector de Vistas**: Conmutador segmentado (*segmented control*) en la cabecera: `[ Curve (μ ± σ) | 2D Heatmap | Spectrum FFT | Synth ADSR & Pitch ]`.
 - **Paleta de Calor 2D**: Reemplazo de la rampa violeta/amarilla saturada por una rampa perceptual uniforme tipo **Viridis** (Azul marino profundo -> Verde azulado -> Esmeralda -> Amarillo oro).
 - **Líneas de Grilla**: Grosor `0.5px`, trazo sutil con 20% de opacidad para que la curva de respuesta sea siempre el elemento protagónico.
 
@@ -154,6 +154,17 @@ Se estandariza el uso de dos familias tipográficas incrustadas mediante binario
 - **Sección 4 (Resumen y Botón Hero)**:
   - Tarjeta de estimación en `SurfaceSubtle` con tipografía mono (`ESTIMATED PLAN: 32 points total (~0m 32s)`).
   - Botón de acción principal: `Add to Session Plan` (40 px de altura, radio de 20 px píldora, fondo `AccentActive` o `TextPrimary`).
+
+### 5.8. Vista de Perfilado de Sintetizadores (`Synth ADSR & Pitch Inspector`)
+Para ensayos ejecutados bajo la arquitectura de Fase 20 (`DigitalSynthMvpProfiler`), el área central expone un panel de análisis doble:
+1. **Lienzo Temporal de Envolvente**:
+   - Trazo de la envolvente analítica (verde esmeralda `AccentActive` con área de relleno suave al 15% de opacidad).
+   - Marcadores de línea vertical discontinua de 1 px: `t_onset` (disparo de nota), `t_peak` (pico de ataque), `t_decay_end` (llegada a sostenido), `t_note_off` (cierre de compuerta) y `t_release_end` (corte IEC al 4%).
+   - Badges de observabilidad contextuales (`NOT_OBSERVABLE_IN_GATE` en amarillo ámbar `AccentWarning` para advertir de compuertas cortas sin invención de datos).
+2. **Tarjeta de Afinación y Calidad de Tono**:
+   - Frecuencia fundamental detectada $f_0$ en `Roboto Mono` con sufijo `Hz`.
+   - Desviación de afinación $\Delta_{\text{cents}}$ con indicador de centrado visual (rojo carmesí si supera $\pm 10$ cents, verde si $\le \pm 2$ cents).
+   - Indicador de confianza de tono armónico (`voicedConfidence`: 0% a 100%).
 
 ---
 
