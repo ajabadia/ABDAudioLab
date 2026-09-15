@@ -9,14 +9,14 @@ using namespace abdaudiolab::gui::session;
 namespace
 {
 
-TargetSelectionState makeValidTarget(std::string id = "vst3_dexed_mock")
+TargetSelectionState makeValidTarget(std::string id = "synthetic_fixture_mock")
 {
     TargetSelectionState t;
     t.targetId = std::move(id);
     t.targetName = "Dexed FM Synth";
     t.manufacturer = "Digital Suburban";
     t.version = "1.0.1";
-    t.kind = TargetKind::PluginVST3;
+    t.kind = TargetKind::SyntheticFixture;
     t.isConnected = true;
     t.isDeterministic = true;
     t.availableDomainDescription = "MIDI C1-C6, Vel 1-127, 8 Parameters";
@@ -169,8 +169,10 @@ TEST_CASE("ProfilingSessionController: Target incompatible o no auditado bloquea
     REQUIRE_FALSE(listener.receivedAlerts.empty());
     CHECK(listener.receivedAlerts.back().severity == UiAlert::Severity::Error);
 
-    // 2. Seleccionar target pero sin auditar
-    controller.selectTarget(makeValidTarget());
+    // 2. Seleccionar target pero sin auditar (un plugin externo requiere auditoria previa obligatoria)
+    auto unauditedTarget = makeValidTarget();
+    unauditedTarget.kind = TargetKind::PluginVST3;
+    controller.selectTarget(unauditedTarget);
     CHECK_FALSE(controller.startProfiling());
 
     // 3. Auditar pero con resultado rechazado
@@ -458,4 +460,212 @@ TEST_CASE("ProfilingSessionController: InvalidMeasurementCannotExport", "[gui][s
     CHECK_FALSE(snap.exportOptions.canExportCpp);
     CHECK_FALSE(controller.exportModel("cpp", "out.cpp"));
 }
+
+TEST_CASE("ProfilingSessionController: UserOverridesAndCognitiveMetrics", "[gui][session]")
+{
+    ProfilingSessionController controller;
+    TestSessionListener listener;
+    controller.addListener(&listener);
+
+    controller.selectTarget(makeValidTarget());
+    auto initialSnap = controller.getCurrentSnapshot();
+    CHECK(initialSnap.clickCount == 0);
+    CHECK_FALSE(initialSnap.openedAdvancedMode);
+    CHECK_FALSE(initialSnap.warningsAcknowledged);
+    CHECK_FALSE(initialSnap.userOverrides);
+
+    // 1. Clics de usuario
+    controller.recordUserClick();
+    controller.recordUserClick();
+    CHECK(controller.getCurrentSnapshot().clickCount == 2);
+
+    // 2. Modo avanzado
+    controller.setOpenedAdvancedMode(true);
+    CHECK(controller.getCurrentSnapshot().openedAdvancedMode == true);
+
+    // 3. Reconocimiento de advertencias
+    controller.acknowledgeWarnings();
+    CHECK(controller.getCurrentSnapshot().warningsAcknowledged == true);
+
+    // 4. Overrides de usuario
+    controller.recordUserOverride();
+    auto snapWithOverride = controller.getCurrentSnapshot();
+    CHECK(snapWithOverride.userOverrides == true);
+    CHECK(snapWithOverride.monotonicSequence > initialSnap.monotonicSequence);
+}
+
+TEST_CASE("ProfilingSessionController: ControllerDestroyedWithPendingCallbacksSafelyIgnored", "[gui][session]")
+{
+    auto controller = std::make_unique<ProfilingSessionController>();
+    TestSessionListener listener;
+    controller->addListener(&listener);
+
+    controller->selectTarget(makeValidTarget());
+    controller->requestAudit();
+
+    // Destruir el controlador antes de que se despachen callbacks pendientes en el MessageManager
+    controller.reset();
+
+    // El token de ciclo de vida (aliveToken) evita accesos a memoria destruida
+    SUCCEED("No crash when controller is destroyed with pending callbacks");
+}
+
+TEST_CASE("ProfilingSessionController: Invariantes y proteccion al importar evaluacion desde archivo", "[gui][session][import]")
+{
+    ProfilingSessionController controller;
+    TestSessionListener listener;
+    controller.addListener(&listener);
+
+    controller.selectTarget(makeValidTarget());
+    auto baselineSnap = controller.getCurrentSnapshot();
+    std::string originalSessionId = baselineSnap.sessionId;
+    uint64_t originalGeneration = baselineSnap.controllerGeneration;
+    std::string originalTargetId = baselineSnap.target.targetId;
+
+    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+
+    SECTION("1. Importar evaluacion valida no cambia targetId, sessionId ni controllerGeneration")
+    {
+        juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
+        REQUIRE(approvedFile.existsAsFile());
+
+        bool ok = controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString());
+        CHECK(ok);
+
+        auto snap = controller.getCurrentSnapshot();
+        // Invariantes críticas:
+        CHECK(snap.target.targetId == originalTargetId);
+        CHECK(snap.sessionId == originalSessionId);
+        CHECK(snap.controllerGeneration == originalGeneration);
+        CHECK(snap.sessionStatus == ProfilingSessionStatus::EvaluationLoadedForReview);
+        CHECK(snap.workflowStage == ProfilingWorkflowStage::ReviewResults);
+        CHECK(snap.evaluation.evaluationOrigin == abdaudiolab::synth::EvaluationOrigin::ImportedArtifact);
+        CHECK(snap.evaluation.hashVerified == true);
+        CHECK(snap.exportOptions.canExportCpp == true);
+        CHECK_FALSE(snap.evaluation.sourceFileHash.empty());
+
+        // Exportación segura atómica
+        std::string exportDest = "build/export/TestPackage.cpp";
+        CHECK(controller.exportModel("cpp", exportDest) == true);
+        juce::File exported(exportDest);
+        CHECK(exported.existsAsFile());
+        std::string exportedText = exported.loadFileAsString().toStdString();
+        CHECK(exportedText.find(snap.evaluation.canonicalEvaluationHash) != std::string::npos);
+    }
+
+    SECTION("2. Archivo inexistente -> alerta estructurada y return false")
+    {
+        bool ok = controller.loadEvaluationFromFile("non_existent_path_12345.json");
+        CHECK_FALSE(ok);
+        REQUIRE_FALSE(listener.receivedAlerts.empty());
+        CHECK(listener.receivedAlerts.back().title == "Archivo no encontrado");
+    }
+
+    SECTION("3. JSON sintacticamente invalido -> alerta estructurada y return false")
+    {
+        bool ok = controller.loadEvaluationFromJsonString("{ this is not valid json }");
+        CHECK_FALSE(ok);
+        REQUIRE_FALSE(listener.receivedAlerts.empty());
+        CHECK(listener.receivedAlerts.back().title == "Error de sintaxis JSON");
+    }
+
+    SECTION("4. Protocolo incompatible -> alerta estructurada y return false")
+    {
+        std::string protoMismatch = R"({
+            "evaluationId": "eval_1",
+            "protocolVersion": "9.9.9",
+            "canonicalEvaluationHash": "hash",
+            "model": {}, "metrics": {}, "decision": {}
+        })";
+        bool ok = controller.loadEvaluationFromJsonString(protoMismatch);
+        CHECK_FALSE(ok);
+        REQUIRE_FALSE(listener.receivedAlerts.empty());
+        CHECK(listener.receivedAlerts.back().title == "Protocolo no compatible");
+    }
+
+    SECTION("5. Hash ausente / SchemaMismatch -> alerta estructurada y return false")
+    {
+        std::string brokenSchema = R"({
+            "evaluationId": "eval_1",
+            "protocolVersion": "1.0.0"
+        })";
+        bool ok = controller.loadEvaluationFromJsonString(brokenSchema);
+        CHECK_FALSE(ok);
+        REQUIRE_FALSE(listener.receivedAlerts.empty());
+        CHECK(listener.receivedAlerts.back().title == "Esquema JSON incompatible");
+    }
+
+    SECTION("6. Hash manipulado -> HashMismatch, hashVerified = false, canExport = false")
+    {
+        juce::File tamperedFile = fixturesDir.getChildFile("tampered_hash_mismatch.json");
+        REQUIRE(tamperedFile.existsAsFile());
+
+        bool ok = controller.loadEvaluationFromFile(tamperedFile.getFullPathName().toStdString());
+        CHECK_FALSE(ok); // HashMismatch returns false
+
+        auto snap = controller.getCurrentSnapshot();
+        CHECK(snap.evaluation.hasEvaluation == true);
+        CHECK(snap.evaluation.hashVerified == false);
+        CHECK(snap.evaluation.evaluationLoadStatus == abdaudiolab::synth::EvaluationLoadStatus::HashMismatch);
+        CHECK(snap.exportOptions.canExportCpp == false);
+        CHECK(snap.sessionStatus == ProfilingSessionStatus::EvaluationLoadedForReview);
+
+        // Capa 2: exportModel debe fallar en el controlador
+        CHECK(controller.exportModel("cpp", "build/export/ShouldNotExport.cpp") == false);
+    }
+
+    SECTION("7. Inconclusive y Rejected bloquean exportModel")
+    {
+        juce::File incFile = fixturesDir.getChildFile("inconclusive.json");
+        REQUIRE(incFile.existsAsFile());
+        controller.loadEvaluationFromFile(incFile.getFullPathName().toStdString());
+        CHECK(controller.getCurrentSnapshot().exportOptions.canExportCpp == false);
+        CHECK(controller.exportModel("cpp", "build/export/ShouldNotExport.cpp") == false);
+
+        juce::File rejFile = fixturesDir.getChildFile("rejected.json");
+        REQUIRE(rejFile.existsAsFile());
+        controller.loadEvaluationFromFile(rejFile.getFullPathName().toStdString());
+        CHECK(controller.getCurrentSnapshot().exportOptions.canExportCpp == false);
+        CHECK(controller.exportModel("cpp", "build/export/ShouldNotExport.cpp") == false);
+    }
+
+    SECTION("8. Importar segunda evaluacion reemplaza solo la evaluacion anterior")
+    {
+        juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
+        juce::File dexedFile = fixturesDir.getChildFile("dexed_warnings.json");
+        REQUIRE(approvedFile.existsAsFile());
+        REQUIRE(dexedFile.existsAsFile());
+
+        controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString());
+        auto snap1 = controller.getCurrentSnapshot();
+        CHECK(snap1.evaluation.selectionStatus == abdaudiolab::synth::SelectionStatus::Accepted);
+
+        controller.loadEvaluationFromFile(dexedFile.getFullPathName().toStdString());
+        auto snap2 = controller.getCurrentSnapshot();
+        CHECK(snap2.evaluation.selectionStatus == abdaudiolab::synth::SelectionStatus::AcceptedWithWarnings);
+        CHECK(snap2.sessionId == originalSessionId);
+        CHECK(snap2.controllerGeneration == originalGeneration);
+        CHECK(snap2.target.targetId == originalTargetId);
+    }
+
+    SECTION("9. Cambiar de target invalida la evaluacion importada")
+    {
+        juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
+        controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString());
+        CHECK(controller.getCurrentSnapshot().evaluation.hasEvaluation == true);
+
+        TargetSelectionState newTarget;
+        newTarget.targetId = "different_synth_id";
+        newTarget.targetName = "New Synth Target";
+        controller.selectTarget(newTarget);
+
+        auto snap = controller.getCurrentSnapshot();
+        CHECK(snap.evaluation.hasEvaluation == false);
+        CHECK(snap.controllerGeneration > originalGeneration);
+        CHECK(snap.sessionId != originalSessionId);
+    }
+}
+
+
+
 

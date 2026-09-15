@@ -63,7 +63,8 @@ enum class ProfilingSessionStatus
     ReadyToProfile,      /**< Target auditado y listo para iniciar perfilado adaptativo. */
     Profiling,           /**< Ensayos de excitación y aprendizaje activo en ejecución. */
     Paused,              /**< Sesión pausada temporalmente por el usuario. */
-    Completed,           /**< Ensayos concluidos, modelo sintetizado y evaluado. */
+    Completed,           /**< Ensayos concluidos, modelo sintetizado y evaluado en sesión activa. */
+    EvaluationLoadedForReview, /**< Evaluación importada desde artefacto persistido para revisión / exportación. */
     Exporting,           /**< Exportación de paquete C++20 / JSON / NAM en curso. */
     Exported,            /**< Paquete exportado satisfactoriamente. */
 
@@ -79,21 +80,22 @@ enum class ProfilingSessionStatus
 {
     switch (status)
     {
-        case ProfilingSessionStatus::Idle:               return "Idle";
-        case ProfilingSessionStatus::TargetSelected:     return "TargetSelected";
-        case ProfilingSessionStatus::Auditing:           return "Auditing";
-        case ProfilingSessionStatus::ReadyToProfile:     return "ReadyToProfile";
-        case ProfilingSessionStatus::Profiling:          return "Profiling";
-        case ProfilingSessionStatus::Paused:             return "Paused";
-        case ProfilingSessionStatus::Completed:          return "Completed";
-        case ProfilingSessionStatus::Exporting:          return "Exporting";
-        case ProfilingSessionStatus::Exported:           return "Exported";
-        case ProfilingSessionStatus::AuditRejected:      return "AuditRejected";
-        case ProfilingSessionStatus::UnsupportedTarget:  return "UnsupportedTarget";
-        case ProfilingSessionStatus::MeasurementInvalid: return "MeasurementInvalid";
-        case ProfilingSessionStatus::Cancelled:          return "Cancelled";
-        case ProfilingSessionStatus::Failed:             return "Failed";
-        default:                                         return "Unknown";
+        case ProfilingSessionStatus::Idle:                      return "Idle";
+        case ProfilingSessionStatus::TargetSelected:            return "TargetSelected";
+        case ProfilingSessionStatus::Auditing:                  return "Auditing";
+        case ProfilingSessionStatus::ReadyToProfile:            return "ReadyToProfile";
+        case ProfilingSessionStatus::Profiling:                 return "Profiling";
+        case ProfilingSessionStatus::Paused:                    return "Paused";
+        case ProfilingSessionStatus::Completed:                 return "Completed";
+        case ProfilingSessionStatus::EvaluationLoadedForReview: return "EvaluationLoadedForReview";
+        case ProfilingSessionStatus::Exporting:                 return "Exporting";
+        case ProfilingSessionStatus::Exported:                  return "Exported";
+        case ProfilingSessionStatus::AuditRejected:             return "AuditRejected";
+        case ProfilingSessionStatus::UnsupportedTarget:         return "UnsupportedTarget";
+        case ProfilingSessionStatus::MeasurementInvalid:        return "MeasurementInvalid";
+        case ProfilingSessionStatus::Cancelled:                 return "Cancelled";
+        case ProfilingSessionStatus::Failed:                    return "Failed";
+        default:                                                return "Unknown";
     }
 }
 
@@ -140,6 +142,7 @@ struct TargetSelectionState
     std::string availableDomainDescription; /**< Ej: "Notas MIDI C1-C6, Vel 1-127, 8 controles" */
     int parameterCount { 0 };
     std::vector<std::string> initialWarnings;
+    bool useIsolatedProcess { false }; /**< Si es true, el modo guiado utilizará el worker esclavo aislado (OutOfProcessVst3LifecycleAdapter) */
 };
 
 /**
@@ -206,6 +209,32 @@ struct ModelEvaluationSummaryState
 
     std::vector<std::string> limitingFactors;
     std::vector<std::string> evaluationWarnings;
+
+    // --- Auditoría criptográfica, procedencia y control de dos capas ---
+    std::string evaluationId;
+    std::string protocolVersion { "1.0.0" };
+    std::string canonicalEvaluationHash;
+    synth::EvaluationOrigin evaluationOrigin { synth::EvaluationOrigin::SyntheticDemo };
+    synth::EvaluationLoadStatus evaluationLoadStatus { synth::EvaluationLoadStatus::LoadedAndVerified };
+    bool hashVerified { false };
+    int warningsCount { 0 };
+    std::string sourceTargetIdentity;
+    std::string exportBlockReason;
+    std::string rationale;
+
+    // --- Procedencia física local y binaria (Fase 20.8.2) ---
+    std::string sourceFilePath;
+    std::string sourceFileHash;
+    std::string executionMode;
+    std::string pluginBinarySha256;
+    std::string pluginPath;
+    std::string pluginFormatVersion;
+    std::string vendor;
+    std::string pluginUid;
+    uint64_t fileSizeBytes { 0 };
+    std::string buildConfiguration;
+    std::string osArchitecture;
+    std::string normalizedFingerprint;
 };
 
 /**
@@ -218,6 +247,7 @@ struct ExportAvailabilityState
     bool canExportNam { false };
     bool canExportLut { false };
     std::string lastExportedFilePath;
+    std::string exportBlockReason;
 };
 
 /**
@@ -264,6 +294,7 @@ struct ProfilingSessionSnapshot
     int clickCount { 0 };
     bool openedAdvancedMode { false };
     bool warningsAcknowledged { false };
+    bool userOverrides { false };
     uint64_t taskStartedAtMs { 0 };
     uint64_t taskCompletedAtMs { 0 };
 };
@@ -283,11 +314,15 @@ public:
     virtual bool resumeProfiling() = 0;
     virtual bool cancelProfiling() = 0;
     virtual bool exportModel(const std::string& format, const std::string& destinationPath) = 0;
+    virtual bool loadEvaluationFromFile(const std::string& filePath) = 0;
+    virtual bool loadEvaluationFromJsonString(const std::string& jsonString, const std::string& sourceFilePath = "") = 0;
+    virtual bool loadPredefinedFixture(const std::string& fixtureFileName) = 0;
     virtual void navigateToStage(ProfilingWorkflowStage stage) = 0;
 
     virtual void setWorkflowMode(UiWorkflowMode mode) = 0;
     virtual void acknowledgeWarnings() = 0;
     virtual void recordUserClick() = 0;
+    virtual void recordUserOverride() = 0;
     virtual void setOpenedAdvancedMode(bool opened) = 0;
 };
 

@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "ProfilingSessionContracts.h"
+#include "ProfilingSessionCoordinator.h"
 
 namespace abdaudiolab::gui::session
 {
@@ -16,7 +17,7 @@ namespace abdaudiolab::gui::session
  * Implementa IProfilingSessionCommands y orquesta la máquina de estados publicando snapshots inmutables
  * secuenciados hacia la presentación sin tocar el hilo de audio en tiempo real.
  */
-class ProfilingSessionController : public IProfilingSessionCommands
+class ProfilingSessionController : public IProfilingSessionCommands, public ICoordinatorListener
 {
 public:
     ProfilingSessionController();
@@ -25,6 +26,7 @@ public:
     // Registro de observadores de eventos de presentación
     void addListener(IProfilingSessionEventListener* listener);
     void removeListener(IProfilingSessionEventListener* listener);
+    void removeAllListeners();
 
     // Consulta del snapshot actual
     [[nodiscard]] ProfilingSessionSnapshot getCurrentSnapshot() const;
@@ -37,11 +39,17 @@ public:
     bool resumeProfiling() override;
     bool cancelProfiling() override;
     bool exportModel(const std::string& format, const std::string& destinationPath) override;
+    bool loadEvaluationFromFile(const std::string& filePath) override;
+    bool loadEvaluationFromJsonString(const std::string& jsonString, const std::string& sourceFilePath = "") override;
+    bool loadPredefinedFixture(const std::string& fixtureFileName) override;
     void navigateToStage(ProfilingWorkflowStage stage) override;
+
+    static juce::File getEvaluationsDirectory();
 
     void setWorkflowMode(UiWorkflowMode mode) override;
     void acknowledgeWarnings() override;
     void recordUserClick() override;
+    void recordUserOverride() override;
     void setOpenedAdvancedMode(bool opened) override;
 
     [[nodiscard]] uint64_t getActiveGeneration() const noexcept;
@@ -62,6 +70,8 @@ public:
     void updateObservation(double rmsDb, double peakDb, double pitchHz,
                            bool clipping, bool silence, double snrDb);
 
+    void updateModelEvaluation(const synth::ModelEvaluation& eval);
+
     void updateModelEvaluation(synth::SelectionStatus status,
                                const std::string& bestModelType,
                                double esrDb, double correlation,
@@ -81,18 +91,52 @@ public:
     void completeProfiling();
     void failSession(const std::string& reason);
 
+    [[nodiscard]] ProfilingSessionCoordinator* getCoordinator() noexcept;
+
+    // Implementación de ICoordinatorListener
+    void onCoordinatorSnapshotUpdated(const CoordinatorSnapshot& snapshot) override;
+    void onCoordinatorCompleted(uint64_t runId, uint64_t sessionGeneration, const synth::ModelEvaluation& candidate) override;
+    void onCoordinatorCancelled(uint64_t runId, uint64_t sessionGeneration) override;
+    void onCoordinatorFailed(uint64_t runId, uint64_t sessionGeneration, const std::string& error) override;
+
 private:
-    mutable std::mutex stateMutex_;
+
+    mutable std::recursive_mutex stateMutex_;
     ProfilingSessionSnapshot currentSnapshot_;
+    ModelEvaluationSummaryState previousEvaluation_;
+    ExportAvailabilityState previousExportOptions_;
     std::atomic<uint64_t> sequenceCounter_ { 0 };
 
     std::mutex listenersMutex_;
     std::vector<IProfilingSessionEventListener*> listeners_;
+    std::shared_ptr<std::atomic<bool>> aliveToken_;
+    std::unique_ptr<ProfilingSessionCoordinator> coordinator_;
+
+    struct CallbackContext
+    {
+        std::shared_ptr<std::atomic<bool>> alive;
+        std::string sessionId;
+        uint64_t generation { 0 };
+    };
+
+    [[nodiscard]] CallbackContext createCallbackContextLocked() const
+    {
+        return { aliveToken_, currentSnapshot_.sessionId, currentSnapshot_.controllerGeneration };
+    }
+
+    [[nodiscard]] bool isValidCallbackContext(const CallbackContext& ctx) const
+    {
+        if (!ctx.alive || !ctx.alive->load(std::memory_order_acquire))
+            return false;
+        std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+        return (currentSnapshot_.sessionId == ctx.sessionId &&
+                currentSnapshot_.controllerGeneration == ctx.generation);
+    }
 
     void publishSnapshotLocked();
-    void notifyAlertListeners(const UiAlert& alert);
-    void notifyStageListeners(ProfilingWorkflowStage stage);
-    void notifyStatusListeners(ProfilingSessionStatus status);
+    void notifyAlertListeners(const UiAlert& alert, const CallbackContext& ctx);
+    void notifyStageListeners(ProfilingWorkflowStage stage, const CallbackContext& ctx);
+    void notifyStatusListeners(ProfilingSessionStatus status, const CallbackContext& ctx);
 
     [[nodiscard]] bool canTransitionTo(ProfilingSessionStatus newStatus) const;
     static uint64_t getCurrentTimeMs();

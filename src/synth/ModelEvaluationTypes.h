@@ -43,6 +43,74 @@ enum class SelectionStatus
     }
 }
 
+[[nodiscard]] inline SelectionStatus selectionStatusFromString(const std::string& str)
+{
+    if (str == "Accepted")             return SelectionStatus::Accepted;
+    if (str == "AcceptedWithWarnings") return SelectionStatus::AcceptedWithWarnings;
+    if (str == "Inconclusive")         return SelectionStatus::Inconclusive;
+    if (str == "Rejected")             return SelectionStatus::Rejected;
+    if (str == "InvalidMeasurement")   return SelectionStatus::InvalidMeasurement;
+    return SelectionStatus::Inconclusive;
+}
+
+/**
+ * @brief Estado de carga y verificación criptográfica de un informe de evaluación.
+ */
+enum class EvaluationLoadStatus
+{
+    LoadedAndVerified,   /**< JSON válido, schema íntegro y hash criptográfico coincide exactamente. */
+    LoadedWithWarnings,  /**< Cargado y verificado, pero con advertencias del target o metrología. */
+    HashMismatch,        /**< El hash declarado no coincide con el recálculo SHA-256 canónico. */
+    SchemaMismatch,      /**< Estructura JSON incompleta o con campos obligatorios faltantes. */
+    InvalidJson,         /**< Error sintáctico de parsing JSON. */
+    UnsupportedProtocol  /**< Versión de protocolo incompatible. */
+};
+
+[[nodiscard]] inline std::string evaluationLoadStatusToString(EvaluationLoadStatus status)
+{
+    switch (status)
+    {
+        case EvaluationLoadStatus::LoadedAndVerified:  return "LoadedAndVerified";
+        case EvaluationLoadStatus::LoadedWithWarnings: return "LoadedWithWarnings";
+        case EvaluationLoadStatus::HashMismatch:       return "HashMismatch";
+        case EvaluationLoadStatus::SchemaMismatch:     return "SchemaMismatch";
+        case EvaluationLoadStatus::InvalidJson:        return "InvalidJson";
+        case EvaluationLoadStatus::UnsupportedProtocol:return "UnsupportedProtocol";
+        default:                                       return "Unknown";
+    }
+}
+
+/**
+ * @brief Origen formal del objeto de evaluación de modelos para trazabilidad no ambigua.
+ */
+enum class EvaluationOrigin
+{
+    MeasuredFixture,        /**< Generado directamente por un fixture metrológico de laboratorio. */
+    MeasuredExternalPlugin, /**< Generado a partir de un plugin externo real auditado (ej. Dexed.vst3). */
+    ImportedArtifact,       /**< Importado desde un archivo/artefacto JSON persistido. */
+    SyntheticDemo           /**< Demostración sintética para propósitos de prueba de interfaz. */
+};
+
+[[nodiscard]] inline std::string evaluationOriginToString(EvaluationOrigin origin)
+{
+    switch (origin)
+    {
+        case EvaluationOrigin::MeasuredFixture:        return "MeasuredFixture";
+        case EvaluationOrigin::MeasuredExternalPlugin: return "MeasuredExternalPlugin";
+        case EvaluationOrigin::ImportedArtifact:       return "ImportedArtifact";
+        case EvaluationOrigin::SyntheticDemo:          return "SyntheticDemo";
+        default:                                       return "Unknown";
+    }
+}
+
+[[nodiscard]] inline EvaluationOrigin evaluationOriginFromString(const std::string& str)
+{
+    if (str == "MeasuredFixture")        return EvaluationOrigin::MeasuredFixture;
+    if (str == "MeasuredExternalPlugin") return EvaluationOrigin::MeasuredExternalPlugin;
+    if (str == "ImportedArtifact")       return EvaluationOrigin::ImportedArtifact;
+    return EvaluationOrigin::SyntheticDemo;
+}
+
 /**
  * @brief Causa formal de terminación del planificador adaptativo.
  * BudgetExhausted no equivale a Converged.
@@ -363,7 +431,7 @@ private:
 /**
  * @brief Informe empírico consolidado de una sesión de excitación (Fase 20).
  */
-struct ExcitationExperimentReport
+struct ExcitationSessionReport
 {
     std::string experimentId;
     std::string targetIdentityHash;
@@ -496,7 +564,7 @@ struct ModelEvaluation
 
     ModelArtifactDescriptor evaluatedModel;
     std::shared_ptr<const TargetAuditReport> targetAuditSummary;
-    std::shared_ptr<const ExcitationExperimentReport> excitationSummary;
+    std::shared_ptr<const ExcitationSessionReport> excitationSummary;
 
     // --- Dominios validados ---
     double sampleRate { 96000.0 };
@@ -518,19 +586,25 @@ struct ModelEvaluation
     std::vector<std::string> limitations;
     std::string canonicalEvaluationHash;
 
-    void computeCanonicalHash()
-    {
-        std::string blob = evaluationId + ":" + evaluationProtocolVersion + ":" + evaluationProtocolHash + "\n"
-                         + sourceAuditReportHash + "\n"
-                         + sourceExcitationReportHash + "\n"
-                         + sourceHoldoutHash + "\n"
-                         + modelArtifactHash + "\n"
-                         + selectionStatusToString(decision.status) + "\n"
-                         + std::to_string(metrics.errorToSignalRatioDb) + "\n"
-                         + std::to_string(metrics.rootMeanSquareError) + "\n"
-                         + std::to_string(uncertainty.combinedUncertaintyDb) + "\n";
-        canonicalEvaluationHash = Sha256::computeHex(blob);
-    }
+    // --- Trazabilidad de origen y verificación de integridad ---
+    EvaluationOrigin origin { EvaluationOrigin::SyntheticDemo };
+    EvaluationLoadStatus loadStatus { EvaluationLoadStatus::LoadedAndVerified };
+    std::string sourceTargetIdentity;
+    bool hashVerified { false };
+
+    // --- Procedencia binaria del target (Fase 20.8.2) ---
+    std::string executionMode { "DemoMode" };
+    std::string pluginBinarySha256;
+    std::string pluginPath;
+    std::string pluginFormatVersion;
+    std::string vendor;
+    std::string pluginUid;
+    uint64_t fileSizeBytes { 0 };
+    std::string buildConfiguration;
+    std::string osArchitecture;
+    std::string normalizedFingerprint;
+
+    std::string computeCanonicalHash();
 };
 
 } // namespace abdaudiolab::synth

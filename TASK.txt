@@ -1,3 +1,35 @@
-Fase 20.3.C: Segundo target externo (Plugin abierto del ecosistema VST3).
-Seleccionar y validar un sintetizador VST3 abierto o del VST3 SDK en disco mediante ABDAudioLab_Vst3Validation.
-Asegurar que el harness y auditor reportan honestamente las anomalías reales del plugin sin forzar aprobación.
+[COMPLETADO] Fase 20.7.1: Fixtures Canónicos RFC 8785, Carga Asíncrona en GUI y Exportación Atómica Verificada.
+- 5 fixtures canónicos generados en fixtures/evaluations/ (Approved, Dexed, Tampered, Inconclusive, Rejected).
+- Estado explícito EvaluationLoadedForReview y preservación estricta de target, sessionId y generación.
+- Exportación C++ atómica con verificación previa del canonicalEvaluationHash, revealToUser seguro y commit.
+- Menú "Cargar Evaluación... ▼" con fixtures predefinidos y FileChooser asíncrono con SafePointer.
+- Informe técnico de metrología con distinción estricta de hashes y botón de copia al portapapeles.
+- Stepper con insignias de estado (Target [OK], Medir [Listo], Resultados [Disp.]) y empty state explicativo.
+- Preservación transaccional de evaluaciones previas ante cancelaciones o fallos.
+- Suite de pruebas 100% verde (216/216 tests, 158.123 aserciones).
+
+[COMPLETADO] Fase 20.8.1: Ejecución Interactiva Real End-to-End (SyntheticSynthTarget, Coordinator & DemoMode).
+- Orquestador desacoplado ProfilingSessionCoordinator corriendo en juce::Thread independiente del MessageThread y del hilo de audio.
+- Máquina de estados formal: Idle, Preparing, Running, Paused, Cancelling, Completed, Cancelled, Failed.
+- Contrato de snapshot CoordinatorSnapshot con sessionGeneration, runId monotónico, progress [0.0, 100.0], RMS/Peak Db, F0 y AcousticHealth.
+- Cero asignaciones de memoria y cero llamadas a juce::MessageManager::callAsync desde callbacks de audio o DSP.
+- Parada segura del hilo de trabajo: requestCancel() -> notify() -> stopThread(3000) en destructor, y waitForThreadToExit(timeoutMs) para terminación pasiva.
+- Descarte seguro de callbacks tardíos o con generation/runId obsoleto mediante triple guardia (aliveToken, generación, runId).
+- Preservación transaccional: una sesión cancelada o fallida restaura la evaluación previamente publicada sin sobrescribirla con datos parciales.
+- Commit atómico del candidato sólo tras validación positiva del hash canónico RFC 8785 (Sha256).
+- SoundIdProfilingRunView actualizada sin simulación por timer local; alimentada 100% por telemetría reactiva inmutable del coordinador.
+- Etiqueta visible y prominente: "SyntheticFixture / DemoMode".
+- 16 pruebas unitarias de concurrencia, idempotencia, ciclo de vida y preservación transaccional añadidas en test_ProfilingSessionCoordinator.cpp.
+- Suite de pruebas automatizadas: 232/232 test cases en verde (158.234 aserciones pasadas, 0 fallos).
+
+[COMPLETADO] Fase 20.8.3: Aislamiento Out-Of-Process VST3 por Named Pipes, Nomenclatura Canónica y Cierre Operacional del Modo Guiado MVP.
+- Proceso trabajador independiente ABDAudioLab_PluginWorker.exe comunicado vía Win32 Named Pipes bidireccionales con protocolo binario estructurado.
+- Adaptador OutOfProcessVst3LifecycleAdapter con handshake determinista, heartbeat/ping-pong, timeouts configurables y resiliencia ante caídas de worker.
+- Target de prueba ReferenceSynth.vst3 configurado y validado en Release como synth VST3 estéreo determinista.
+- Nomenclatura canónica de exportación <Target>_<Model>_<UTC timestamp>_<HashPrefix>.h con timestamp UTC (ISO-8601 con T y Z), sanitización estricta de nombres reservados de Windows (CON, AUX, COM1...) y sufijado anti-sobreescritura (_1.h, _2.h).
+- Validación manual de Release completada de extremo a extremo en modo Guiado: 9/9 escenarios PASS registrados en docs/architecture/MVP_RELEASE_VALIDATION.md.
+- Suite de pruebas automatizadas: 35/35 aserciones de nomenclatura y aislamiento en verde, 100% de tests pasando.
+
+[SIGUIENTE HITO] Fase 20.9: Integración de Hosting VST3 Real para Plugins Externos Complejos (Dexed.vst3) y Soporte de Hardware Analógico en vivo.
+
+

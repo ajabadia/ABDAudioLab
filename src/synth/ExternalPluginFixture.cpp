@@ -2,6 +2,7 @@
 #include "Sha256.h"
 #include <algorithm>
 #include <fstream>
+#include <chrono>
 
 namespace abdaudiolab::synth
 {
@@ -131,16 +132,10 @@ bool ExternalPluginFixture::loadPluginFromDisk(const juce::File& pluginFile,
     identity_.version = desc.version.toStdString();
     identity_.pluginUid = desc.createIdentifierString().toStdString();
     identity_.architecture = (sizeof(void*) == 8) ? "x86_64" : "x86";
+    identity_.absolutePath = pluginFile.getFullPathName().toStdString();
 
     juce::String createErr;
-    auto* format = formatManager_.getFormat(0);
-    if (format == nullptr)
-    {
-        errorMessage = "AudioPluginFormatManager has no formats registered.";
-        return false;
-    }
-
-    instance_ = format->createInstanceFromDescription(desc, sampleRate, blockSize, createErr);
+    instance_ = formatManager_.createPluginInstance(desc, sampleRate, blockSize, createErr);
 
     if (instance_ == nullptr)
     {
@@ -224,7 +219,7 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
                                    std::vector<float>& destinationAudio,
                                    int /*repetitionIndex*/)
 {
-    if (instance_ == nullptr)
+    if (instance_ == nullptr || faulted_)
     {
         destinationAudio.clear();
         return;
@@ -289,8 +284,35 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
             }
         }
 
-        // 3. Procesar bloque en el plugin externo real
-        instance_->processBlock(blockBuf, midiBuf);
+        // 3. Procesar bloque en el plugin externo real con watchdog y captura de excepciones
+        auto startBlock = std::chrono::steady_clock::now();
+        try
+        {
+            instance_->processBlock(blockBuf, midiBuf);
+        }
+        catch (const std::exception& e)
+        {
+            faulted_ = true;
+            lastFaultMessage_ = "Exception in VST3 processBlock: " + std::string(e.what());
+            throw;
+        }
+        catch (...)
+        {
+            faulted_ = true;
+            lastFaultMessage_ = "Unknown exception in VST3 processBlock";
+            throw;
+        }
+        auto endBlock = std::chrono::steady_clock::now();
+        double blockDurationMs = std::chrono::duration<double, std::milli>(endBlock - startBlock).count();
+
+        if (watchdogMaxBlockDurationMs_ > 0.0 && blockDurationMs > watchdogMaxBlockDurationMs_)
+        {
+            timedOut_ = true;
+            faulted_ = true;
+            lastFaultMessage_ = "Watchdog timeout in VST3 processBlock: duration " + std::to_string(blockDurationMs)
+                              + " ms exceeded limit " + std::to_string(watchdogMaxBlockDurationMs_) + " ms";
+            throw std::runtime_error(lastFaultMessage_);
+        }
 
         // 4. Copiar canal izquierdo al buffer de captura
         const float* outChannel = blockBuf.getReadPointer(0);

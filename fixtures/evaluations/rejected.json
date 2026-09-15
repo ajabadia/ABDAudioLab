@@ -1,0 +1,37 @@
+{
+  "canonicalEvaluationHash": "c356ba541549feaff15257fc0bcc785c1e0c6792bfa304b9a49f022d78756cc4",
+  "decision": {
+    "rationale": "ESR (-5.318511 dB) exceeds max warning threshold (-24.000000 dB)",
+    "recommendedModelId": "LUT_SIMD_2D",
+    "status": "Rejected"
+  },
+  "diagnostics": {
+    "peakAutocorrelation": 0.9943618239579386,
+    "residualCharacterization": "CorrelatedDynamicResidual"
+  },
+  "evaluationId": "eval_17894566885023818",
+  "evaluationOrigin": "MeasuredFixture",
+  "limitations": [
+    "InsufficientFidelity"
+  ],
+  "metrics": {
+    "esrDb": -5.318510795762814,
+    "peakError": 0.34999656677246094,
+    "rSquared": 0.7061342849524431,
+    "rmse": 0.2454434197231218
+  },
+  "model": {
+    "architecture": "LookupTable2D",
+    "format": "binary_lut",
+    "modelId": "LUT_SIMD_2D"
+  },
+  "protocolVersion": "1.0.0",
+  "provenance": {
+    "modelArtifactHash": "model_hash_987654",
+    "sourceAuditReportHash": "9107f91558395a07964808a718b8c615a1d757ff7474e9cf9623f9460ed3e969",
+    "sourceExcitationReportHash": "70d47e859a4ac94891f0f8f6009a6d1f7d757615936de14e11729e34d3140c00",
+    "sourceHoldoutHash": "42738bf6c98433dd93b2babcde48b7cbf426e59c39b5a905caba5cdaada1e85c"
+  },
+  "sourceTargetIdentity": "SyntheticSynthFixture_Failed",
+  "warnings": []
+}

@@ -61,6 +61,14 @@ public:
     [[nodiscard]] juce::AudioPluginInstance* getPluginInstance() noexcept { return instance_.get(); }
     [[nodiscard]] TargetContract discoverContract() const;
 
+    // --- Watchdog y tolerancia a fallos (Fase 20.8.2) ---
+    void setWatchdogMaxBlockDurationMs(double maxMs) noexcept { watchdogMaxBlockDurationMs_ = maxMs; }
+    [[nodiscard]] double getWatchdogMaxBlockDurationMs() const noexcept { return watchdogMaxBlockDurationMs_; }
+    [[nodiscard]] bool hasTimedOut() const noexcept { return timedOut_; }
+    [[nodiscard]] bool hasFaulted() const noexcept { return faulted_; }
+    [[nodiscard]] const std::string& getLastFaultMessage() const noexcept { return lastFaultMessage_; }
+    void resetFault() noexcept { timedOut_ = false; faulted_ = false; lastFaultMessage_.clear(); }
+
 private:
     void computeBundleManifest(const juce::File& pluginFile);
 
@@ -71,6 +79,11 @@ private:
 
     bool isStateVerified_ { false };
     double lastAppliedTimestampMs_ { 0.0 };
+
+    double watchdogMaxBlockDurationMs_ { 500.0 };
+    bool timedOut_ { false };
+    bool faulted_ { false };
+    std::string lastFaultMessage_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ExternalPluginFixture)
 };

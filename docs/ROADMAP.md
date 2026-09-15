@@ -1368,6 +1368,146 @@ $$\text{Receta Científica} \longrightarrow \text{TargetContract} \longrightarro
   - Selector de Tipo de Target en `SlideInDrawer`: `[Hardware Analógico]` | `[Plugin VST3/AU]` | `[Sintetizador Digital]`.
   - Visualización del monitor de sesión: preset activo, compuerta en reproducción, trazador de barridos de parámetros, mapa visual de sensibilidad/interacciones y ficha canónica de telemetría.
 
+---
+
+### 🛡️ FASE 20.8: Aislamiento Out-of-Process de Plugins y Supervivencia del Host
+
+#### Estado
+
+- [x] **20.8.2: ReferenceSynth.vst3 In-Process**
+  - Cerrada técnica y operativamente.
+  - 241 tests y 158.283 aserciones superadas.
+  - Evidencia Release registrada.
+  - Alcance limitado a `ReferenceSynth.vst3` in-process.
+  - El hosting in-process no proporciona aislamiento frente a crashes.
+
+- [ ] **20.8.3: OutOfProcessPluginLifecycleAdapter**
+  - En curso.
+  - Infraestructura común para modo guiado y modo no guiado.
+
+#### Vertical slices
+
+- [ ] **Slice 1: Canal de control y supervivencia**
+  - `ABDAudioLab_PluginWorker.exe`.
+  - Named Pipe Win32 con ACL restrictiva.
+  - Handshake versionado con nonce y capacidades.
+  - Heartbeat Ping/Pong.
+  - Detección de crash, timeout y terminación del worker.
+  - El host conserva la sesión si el worker falla.
+
+- [ ] **Slice 2: Carga de plugins en el worker**
+  - Reutilización del hosting común.
+  - Consulta remota de metadatos, parámetros y fingerprint.
+  - Sin duplicar reglas metrológicas ni de exportación.
+
+- [ ] **Slice 3: Streaming de audio y eventos**
+  - Memoria compartida con ring buffers preasignados.
+  - Eventos de sincronización.
+  - Timeout por bloque.
+  - Transporte de audio y MIDI sin asignaciones en el camino de tiempo real.
+
+- [ ] **Slice 4: Resiliencia y recuperación**
+  - Watchdog.
+  - Detección de worker muerto o congelado.
+  - Terminación controlada del proceso auxiliar.
+  - Limpieza de handles y memoria compartida.
+  - Restauración transaccional de la evaluación previa.
+  - Exportación bloqueada después de un fallo.
+
+- [ ] **Slice 5: Integración en Modo No Guiado y Desacoplamiento de GUI**
+  - **`RemotePluginInstanceProxy`**: Sustitución progresiva de `juce::AudioPluginInstance` in-process en `audioEngine` y `HardwareDispatcher` por un proxy remoto transparente que delega render y parámetros en el worker vía memoria compartida/IPC.
+  - **Migración arquitectónica de `PluginHostManager`**: Transición de `PluginHostManager` (in-process legacy) a fachada compatible delegada en `PluginDiscoveryService` con escaneo 1 plugin por worker (`scanNextFile` aislado).
+  - **Aislamiento de la GUI nativa**: El host no invoca `createEditorIfNeeded()` directamente; el worker aloja el editor nativo y expone la ventana/HWND de forma supervisada, previniendo cuelgues gráficos (OpenGL/DirectX/multi-DPI).
+  - **Etiquetado visual explícito**: Plugins en modo libre marcados como `LoadedForExploration` / `LegacyInProcess` hasta superar la auditoría del modo guiado.
+
+#### Consumo de la infraestructura
+
+##### Modo guiado
+
+- El `ProfilingSessionCoordinator` envía planes de excitación deterministas.
+- El worker procesa el target.
+- El host principal recibe resultados y telemetría.
+- La validación metrológica, los hashes canónicos y la decisión de exportación permanecen en el host.
+
+##### Modo no guiado
+
+- El usuario carga plugins desde el navegador de laboratorio.
+- Se permiten MIDI en vivo, presets y cambios libres de parámetros.
+- La sesión, los osciloscopios y los análisis permanecen en el host.
+- La GUI nativa del plugin se aloja en el worker cuando el formato y la plataforma lo permitan.
+- Si el worker falla, ABDAudioLab muestra:
+  - `Reiniciar plugin`;
+  - `Descargar plugin`;
+  - detalles del fallo.
+- El fallo del plugin no debe cerrar el host ni borrar la sesión.
+
+##### Multi-formato futuro
+
+- VST3: `VST3LifecycleAdapter`.
+- CLAP: `CLAPLifecycleAdapter`.
+- AU: `AULifecycleAdapter`.
+- Standalone: adaptador específico.
+
+Todos deben utilizar la misma frontera de supervisión y, cuando sea posible, la misma infraestructura IPC. Cada formato conserva sus propios requisitos de lifecycle, audio y GUI.
+
+#### Reglas arquitectónicas
+
+- `ProfilingSessionCoordinator` depende de la interfaz común, no del formato.
+- El worker reutiliza el motor de hosting existente.
+- El worker no decide si una evaluación es exportable.
+- El host valida, publica o rechaza los resultados.
+- El modo libre no se implementará antes de que el worker, el IPC, el streaming y la recuperación estén validados.
+- `In-process` queda reservado para targets propios o pruebas controladas.
+- Plugins de terceros se ejecutan por defecto fuera de proceso.
+
+#### Catálogo Global de Plugins y Escaneo Aislado (`PluginDiscoveryService`)
+
+- **Rutas unificadas y globales**: No existen listas de rutas divergentes entre modo guiado y no guiado. Se mantiene una única configuración de rutas estándar de plataforma (`C:\Program Files\Common Files\VST3`, etc.) y rutas personalizadas.
+- **Escaneo 100% fuera de proceso**: La instanciación exploratoria de plugins desconocidos se delega en el proceso worker esclavo. Si un plugin defectuoso crashea durante el escaneo, solo se marca su ficha como `CrashedDuringScan` sin afectar la estabilidad de ABDAudioLab.
+- **Ciclo de vida y estados en el catálogo**:
+  `Discovered` $\longrightarrow$ `Scanned` $\longrightarrow$ `Usable` / `RequiresAudit` / `Blocked` / `CrashedDuringScan` / `BinaryChanged`.
+- **Detección de alteración binaria (`BinaryChanged`)**: Si el hash SHA-256 del archivo binario cambia respecto al registro del catálogo, cualquier auditoría o dictamen previo queda invalidado automáticamente, exigiendo una re-auditoría completa.
+- **Políticas de acceso según el modo de operación**:
+  * *Modo guiado*: Consume únicamente targets con estado `Usable` o `Approved` del catálogo común; se bloquea la adición de rutas o escaneos durante una medición activa.
+  * *Modo no guiado*: Permite examinar el catálogo, añadir rutas y disparar escaneos en segundo plano fuera de proceso para exploración libre.
+- **Inmutabilidad en la evaluación exportada**: Toda evaluación persiste su propia procedencia inmutable (`pluginFormat`, `pluginPath`, `pluginBinarySha256`, `pluginUid`, `vendor`, `version`, `scanTimestamp`, `executionMode`).
+
+#### Contrato Universal de Target y Manifiesto de Capacidades (`ITargetContract`)
+
+- **Invariante de Diseño ("Sin ramificaciones por plugin")**: El orquestador y el coordinador (`ProfilingSessionCoordinator`) jamás implementan condicionales específicos por nombre de plugin (p. ej. `if (plugin == "Dexed") ...`). Todo target (software sintético, VST3, CLAP, AU o hardware físico) se modela mediante una interfaz común (`ITargetContract`) y declara un manifiesto declarativo de capacidades.
+- **Estructura del Manifiesto / Contrato**:
+  * **Identidad y Procedencia**: `TargetIdentity` (id, formato, fabricante, versión, hash binario SHA-256).
+  * **Capacidades Operativas**: `TargetCapabilities` (buses audio, rango de sample rate, block size, soporte MIDI, soporta GUI nativa).
+  * **Restricciones Metrológicas**: `requiresResetBetweenTrials`, `settlingTimeMs`, `deterministicLevel`, latencia declarada vs medida.
+  * **Política de Ejecución**: `executionPolicy` (`InProcessSynthetic`, `InProcessControlledTest`, `OutOfProcessWorker`, `HardwareSerialMidi`).
+- **Segregación Semántica de Estados según el Modo**:
+  | Estado en Catálogo | Modo Libre (Exploración) | Modo Guiado (Perfilado) | Exportable a JSON / LUT |
+  | :--- | :--- | :--- | :--- |
+  | `Discovered` | ❌ Requiere escaneo | ❌ No disponible | ❌ Bloqueado |
+  | `Scanned` / `LoadedForExploration` | ✅ Permitido | ❌ Exige auditoría previa | ❌ Bloqueado |
+  | `AuditedWithWarnings` | ✅ Permitido | ✅ Permitido con directivas | ✅ Con advertencias |
+  | `AuditedApproved` | ✅ Permitido | ✅ Permitido nominal | ✅ Aprobado |
+  | `BinaryChanged` / `Blocked` | ❌ Bloqueado | ❌ Bloqueado | ❌ Bloqueado |
+
+#### Modelo de Producto Unificado: "Un Solo Producto, Dos Espacios de Trabajo"
+
+- **Diagnóstico y Corrección de Divergencia Histórica**:
+  Se rechaza formalmente la noción de ABDAudioLab como "dos aplicaciones separadas" (Modo Guiado vs Modo No Guiado con identidades, modales o sistemas de audio desconectados). Se adopta una **experiencia de usuario continua** basada en una única sesión, una misma cabecera (`SoundIdTopHeaderStrip`), un único catálogo y un mismo motor esclavo (`PluginWorker`).
+- **Navegación Unificada en 4 Contextos Progresivos**:
+  $$\mathbf{[Target]} \longleftrightarrow \mathbf{[Explorar]} \longleftrightarrow \mathbf{[Medir]} \longleftrightarrow \mathbf{[Resultados]}$$
+  1. **`[Target]`**: Selección o descubrimiento del dispositivo (Hardware Roland/Eurorack, sintético o plugin VST3/CLAP) desde el catálogo común.
+  2. **`[Explorar]` (Laboratorio Libre)**: Espacio continuo e interactivo. Permite tocar el teclado virtual, enrutar MIDI en vivo, cambiar presets y experimentar con el plugin alojado en el worker sin obligatoriedad de auditoría previa.
+  3. **`[Medir]` (Perfilado Guiado)**: Flujo de medición formal. Al pulsar *"Preparar para medición"* desde la vista de exploración, el target pasa por la auditoría de determinismo y ejecuta el plan de excitación acústica sobre el mismo worker ya instanciado.
+  4. **`[Resultados]`**: Inspección visual de curvas, armónicos e intervalos de confianza, con botón de exportación habilitado únicamente si el target posee dictamen metrológico válido (`AuditedApproved` o `AuditedWithWarnings`).
+- **Eliminación de la Deuda Técnica Legacy**:
+  * Prohibición de añadir nuevas pantallas o modales desconectados.
+  * Migración de `pluginWindowController` hacia `RemotePluginWindowController` (el worker aloja el editor nativo y expone la superficie gráfica sin arrastrar al host).
+  * La diferencia entre modos no reside en el código del audio ni en condicionales dispersos, sino en dos políticas de uso declarativas sobre el mismo contrato: `ExplorationPolicy` (libre, interactiva) y `GuidedPolicy` (determinista, metrológica).
+
+
+
+
+
 
 
 

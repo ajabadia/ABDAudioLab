@@ -6,6 +6,7 @@ namespace abdaudiolab::gui::soundid
 
 SoundIdGuidedWorkflowContainer::SoundIdGuidedWorkflowContainer(session::ProfilingSessionController& controller)
     : controller_(controller),
+      topHeaderStrip_(&controller),
       targetView_(controller),
       runView_(controller),
       resultsView_(controller)
@@ -72,7 +73,8 @@ void SoundIdGuidedWorkflowContainer::showStageComponent(session::ProfilingWorkfl
     targetView_.setVisible(stage == session::ProfilingWorkflowStage::TargetSelection);
     runView_.setVisible(stage == session::ProfilingWorkflowStage::ConfigureAndStart ||
                         stage == session::ProfilingWorkflowStage::ProfilingActive);
-    resultsView_.setVisible(stage == session::ProfilingWorkflowStage::ReviewResults);
+    resultsView_.setVisible(stage == session::ProfilingWorkflowStage::ReviewResults ||
+                            stage == session::ProfilingWorkflowStage::AdvancedSettings);
 
     resized();
 }
@@ -91,8 +93,8 @@ void SoundIdGuidedWorkflowContainer::resized()
 {
     auto area = getLocalBounds();
 
-    // Banda superior persistente fija en 36px
-    topHeaderStrip_.setBounds(area.removeFromTop(36));
+    // Banda superior persistente fija en 40px
+    topHeaderStrip_.setBounds(area.removeFromTop(40));
 
     // El lienzo restante lo ocupa la vista activa de la etapa
     if (targetView_.isVisible())

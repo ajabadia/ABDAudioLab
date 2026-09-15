@@ -1,4 +1,5 @@
 #include "ModelEvaluationBuilder.h"
+#include <nlohmann/json.hpp>
 #include <cmath>
 #include <numeric>
 #include <sstream>
@@ -14,7 +15,7 @@ ModelEvaluationBuilder& ModelEvaluationBuilder::withTargetAudit(const TargetAudi
     return *this;
 }
 
-ModelEvaluationBuilder& ModelEvaluationBuilder::withExcitationReport(const ExcitationExperimentReport& excitationReport)
+ModelEvaluationBuilder& ModelEvaluationBuilder::withExcitationReport(const ExcitationSessionReport& excitationReport)
 {
     excitationReport_ = &excitationReport;
     return *this;
@@ -87,7 +88,7 @@ ModelEvaluation ModelEvaluationBuilder::build()
     // 2. Procedencia del Excitation Report
     if (excitationReport_ != nullptr)
     {
-        eval.excitationSummary = std::make_shared<ExcitationExperimentReport>(*excitationReport_);
+        eval.excitationSummary = std::make_shared<ExcitationSessionReport>(*excitationReport_);
         eval.sourceExcitationReportHash = excitationReport_->reportHash.empty()
                                         ? "unhashed_excitation_report"
                                         : excitationReport_->reportHash;
@@ -294,47 +295,242 @@ void ModelEvaluationBuilder::applyDecisionRules(ModelEvaluation& eval)
     }
 }
 
+namespace {
+
+nlohmann::json toCanonicalJsonObject(const ModelEvaluation& eval)
+{
+    nlohmann::json j;
+    nlohmann::json dec;
+    dec["rationale"] = eval.decision.rationale;
+    dec["recommendedModelId"] = eval.decision.recommendedModelId;
+    dec["status"] = selectionStatusToString(eval.decision.status);
+    j["decision"] = dec;
+
+    nlohmann::json diag;
+    diag["peakAutocorrelation"] = eval.diagnostics.peakAutocorrelation;
+    diag["residualCharacterization"] = eval.diagnostics.residualCharacterization;
+    j["diagnostics"] = diag;
+
+    j["evaluationId"] = eval.evaluationId;
+    j["evaluationOrigin"] = evaluationOriginToString(eval.origin);
+
+    nlohmann::json met;
+    met["esrDb"] = eval.metrics.errorToSignalRatioDb;
+    met["peakError"] = eval.metrics.peakError;
+    met["rSquared"] = eval.metrics.rSquaredScore;
+    met["rmse"] = eval.metrics.rootMeanSquareError;
+    j["metrics"] = met;
+
+    nlohmann::json model;
+    model["architecture"] = eval.evaluatedModel.modelArchitecture;
+    model["format"] = eval.evaluatedModel.format;
+    model["modelId"] = eval.evaluatedModel.modelId;
+    j["model"] = model;
+
+    j["protocolVersion"] = eval.evaluationProtocolVersion;
+
+    nlohmann::json prov;
+    prov["modelArtifactHash"] = eval.modelArtifactHash;
+    prov["sourceAuditReportHash"] = eval.sourceAuditReportHash;
+    prov["sourceExcitationReportHash"] = eval.sourceExcitationReportHash;
+    prov["sourceHoldoutHash"] = eval.sourceHoldoutHash;
+
+    if (eval.origin == EvaluationOrigin::MeasuredExternalPlugin || !eval.pluginBinarySha256.empty())
+    {
+        nlohmann::json binProv;
+        binProv["binarySha256"] = eval.pluginBinarySha256;
+        binProv["buildConfiguration"] = eval.buildConfiguration;
+        binProv["executionMode"] = eval.executionMode;
+        binProv["fileSizeBytes"] = eval.fileSizeBytes;
+        binProv["hostBlockSize"] = eval.blockSize;
+        binProv["hostSampleRate"] = eval.sampleRate;
+        binProv["normalizedFingerprint"] = eval.normalizedFingerprint;
+        binProv["osArchitecture"] = eval.osArchitecture;
+        binProv["pluginFormatVersion"] = eval.pluginFormatVersion;
+        binProv["pluginPath"] = eval.pluginPath;
+        binProv["pluginUid"] = eval.pluginUid;
+        binProv["vendor"] = eval.vendor;
+        prov["binaryProvenance"] = binProv;
+    }
+    j["provenance"] = prov;
+
+    j["limitations"] = eval.limitations;
+    j["sourceTargetIdentity"] = eval.sourceTargetIdentity;
+    j["warnings"] = eval.warnings;
+
+    return j;
+}
+
+} // namespace
+
+std::string ModelEvaluationBuilder::computeCanonicalHash(const ModelEvaluation& eval)
+{
+    nlohmann::json j = toCanonicalJsonObject(eval);
+    std::string canonicalJson = j.dump();
+    return Sha256::computeHex(canonicalJson);
+}
+
+std::string ModelEvaluation::computeCanonicalHash()
+{
+    canonicalEvaluationHash = ModelEvaluationBuilder::computeCanonicalHash(*this);
+    hashVerified = true;
+    return canonicalEvaluationHash;
+}
+
 std::string ModelEvaluationBuilder::toJsonString(const ModelEvaluation& eval)
 {
-    std::ostringstream ss;
-    ss << "{\n";
-    ss << "  \"evaluationId\": \"" << eval.evaluationId << "\",\n";
-    ss << "  \"protocolVersion\": \"" << eval.evaluationProtocolVersion << "\",\n";
-    ss << "  \"canonicalEvaluationHash\": \"" << eval.canonicalEvaluationHash << "\",\n";
-    ss << "  \"provenance\": {\n";
-    ss << "    \"sourceAuditReportHash\": \"" << eval.sourceAuditReportHash << "\",\n";
-    ss << "    \"sourceExcitationReportHash\": \"" << eval.sourceExcitationReportHash << "\",\n";
-    ss << "    \"sourceHoldoutHash\": \"" << eval.sourceHoldoutHash << "\",\n";
-    ss << "    \"modelArtifactHash\": \"" << eval.modelArtifactHash << "\"\n";
-    ss << "  },\n";
-    ss << "  \"model\": {\n";
-    ss << "    \"modelId\": \"" << eval.evaluatedModel.modelId << "\",\n";
-    ss << "    \"architecture\": \"" << eval.evaluatedModel.modelArchitecture << "\",\n";
-    ss << "    \"format\": \"" << eval.evaluatedModel.format << "\"\n";
-    ss << "  },\n";
-    ss << "  \"metrics\": {\n";
-    ss << "    \"esrDb\": " << eval.metrics.errorToSignalRatioDb << ",\n";
-    ss << "    \"rmse\": " << eval.metrics.rootMeanSquareError << ",\n";
-    ss << "    \"peakError\": " << eval.metrics.peakError << ",\n";
-    ss << "    \"rSquared\": " << eval.metrics.rSquaredScore << "\n";
-    ss << "  },\n";
-    ss << "  \"diagnostics\": {\n";
-    ss << "    \"peakAutocorrelation\": " << eval.diagnostics.peakAutocorrelation << ",\n";
-    ss << "    \"residualCharacterization\": \"" << eval.diagnostics.residualCharacterization << "\"\n";
-    ss << "  },\n";
-    ss << "  \"decision\": {\n";
-    ss << "    \"status\": \"" << selectionStatusToString(eval.decision.status) << "\",\n";
-    ss << "    \"recommendedModelId\": \"" << eval.decision.recommendedModelId << "\",\n";
-    ss << "    \"rationale\": \"" << eval.decision.rationale << "\"\n";
-    ss << "  },\n";
-    ss << "  \"warnings\": [\n";
-    for (size_t i = 0; i < eval.warnings.size(); ++i)
+    nlohmann::json j = toCanonicalJsonObject(eval);
+    j["canonicalEvaluationHash"] = eval.canonicalEvaluationHash;
+    return j.dump(2);
+}
+
+EvaluationLoadStatus ModelEvaluationBuilder::fromJsonString(const std::string& jsonString,
+                                                            ModelEvaluation& outEval,
+                                                            std::string& outError)
+{
+    nlohmann::json j;
+    try
     {
-        ss << "    \"" << eval.warnings[i] << "\"" << (i + 1 < eval.warnings.size() ? "," : "") << "\n";
+        j = nlohmann::json::parse(jsonString);
     }
-    ss << "  ]\n";
-    ss << "}\n";
-    return ss.str();
+    catch (const std::exception& e)
+    {
+        outError = "Invalid JSON syntax: " + std::string(e.what());
+        outEval.loadStatus = EvaluationLoadStatus::InvalidJson;
+        outEval.hashVerified = false;
+        return EvaluationLoadStatus::InvalidJson;
+    }
+
+    // 1. Validar campos obligatorios del esquema canónico
+    if (!j.contains("evaluationId") || !j.contains("protocolVersion") ||
+        !j.contains("canonicalEvaluationHash") || !j.contains("model") ||
+        !j.contains("metrics") || !j.contains("decision"))
+    {
+        outError = "Schema mismatch: missing mandatory fields in ModelEvaluation JSON";
+        outEval.loadStatus = EvaluationLoadStatus::SchemaMismatch;
+        outEval.hashVerified = false;
+        return EvaluationLoadStatus::SchemaMismatch;
+    }
+
+    // 2. Validar versión de protocolo
+    std::string proto = j["protocolVersion"].is_string() ? j["protocolVersion"].get<std::string>() : "";
+    if (proto != "1.0.0")
+    {
+        outError = "Unsupported protocol version: " + proto;
+        outEval.loadStatus = EvaluationLoadStatus::UnsupportedProtocol;
+        outEval.hashVerified = false;
+        return EvaluationLoadStatus::UnsupportedProtocol;
+    }
+
+    // 3. Extraer hash declarado
+    std::string declaredHash = j["canonicalEvaluationHash"].is_string() ? j["canonicalEvaluationHash"].get<std::string>() : "";
+
+    // 4. Eliminar o excluir el campo hash para serialización canónica
+    j.erase("canonicalEvaluationHash");
+
+    // 5. Serializar canónicamente y recalcular SHA-256 (RFC 8785)
+    std::string canonicalJson = j.dump();
+    std::string recomputedHash = Sha256::computeHex(canonicalJson);
+
+    // 6. Extraer metadatos y contenido a outEval
+    outEval.evaluationId = j.value("evaluationId", "");
+    outEval.evaluationProtocolVersion = proto;
+    outEval.sourceTargetIdentity = j.value("sourceTargetIdentity", "");
+    outEval.origin = evaluationOriginFromString(j.value("evaluationOrigin", "ImportedArtifact"));
+
+    if (j.contains("provenance") && j["provenance"].is_object())
+    {
+        const auto& prov = j["provenance"];
+        outEval.sourceAuditReportHash = prov.value("sourceAuditReportHash", "");
+        outEval.sourceExcitationReportHash = prov.value("sourceExcitationReportHash", "");
+        outEval.sourceHoldoutHash = prov.value("sourceHoldoutHash", "");
+        outEval.modelArtifactHash = prov.value("modelArtifactHash", "");
+
+        if (prov.contains("binaryProvenance") && prov["binaryProvenance"].is_object())
+        {
+            const auto& binProv = prov["binaryProvenance"];
+            outEval.pluginBinarySha256 = binProv.value("binarySha256", "");
+            outEval.buildConfiguration = binProv.value("buildConfiguration", "");
+            outEval.executionMode = binProv.value("executionMode", "");
+            outEval.fileSizeBytes = binProv.value("fileSizeBytes", static_cast<uint64_t>(0));
+            outEval.normalizedFingerprint = binProv.value("normalizedFingerprint", "");
+            outEval.osArchitecture = binProv.value("osArchitecture", "");
+            outEval.pluginFormatVersion = binProv.value("pluginFormatVersion", "");
+            outEval.pluginPath = binProv.value("pluginPath", "");
+            outEval.pluginUid = binProv.value("pluginUid", "");
+            outEval.vendor = binProv.value("vendor", "");
+        }
+    }
+
+    const auto& m = j["model"];
+    outEval.evaluatedModel.modelId = m.value("modelId", "");
+    outEval.evaluatedModel.modelArchitecture = m.value("architecture", "");
+    outEval.evaluatedModel.format = m.value("format", "");
+
+    const auto& met = j["metrics"];
+    outEval.metrics.errorToSignalRatioDb = met.value("esrDb", -120.0);
+    outEval.metrics.rootMeanSquareError = met.value("rmse", 0.0);
+    outEval.metrics.peakError = met.value("peakError", 0.0);
+    outEval.metrics.rSquaredScore = met.value("rSquared", 1.0);
+
+    if (j.contains("diagnostics") && j["diagnostics"].is_object())
+    {
+        const auto& diag = j["diagnostics"];
+        outEval.diagnostics.peakAutocorrelation = diag.value("peakAutocorrelation", 0.0);
+        outEval.diagnostics.residualCharacterization = diag.value("residualCharacterization", "");
+    }
+
+    const auto& dec = j["decision"];
+    outEval.decision.status = selectionStatusFromString(dec.value("status", "Inconclusive"));
+    outEval.decision.recommendedModelId = dec.value("recommendedModelId", "");
+    outEval.decision.rationale = dec.value("rationale", "");
+
+    outEval.warnings.clear();
+    if (j.contains("warnings") && j["warnings"].is_array())
+    {
+        for (const auto& w : j["warnings"])
+        {
+            if (w.is_string())
+                outEval.warnings.push_back(w.get<std::string>());
+        }
+    }
+
+    outEval.limitations.clear();
+    if (j.contains("limitations") && j["limitations"].is_array())
+    {
+        for (const auto& l : j["limitations"])
+        {
+            if (l.is_string())
+                outEval.limitations.push_back(l.get<std::string>());
+        }
+    }
+
+    // 7. Comparar estrictamente contra el declarado
+    if (declaredHash.empty() || declaredHash != recomputedHash)
+    {
+        outEval.canonicalEvaluationHash = declaredHash; // Preservar declarado para auditoría en GUI
+        outEval.loadStatus = EvaluationLoadStatus::HashMismatch;
+        outEval.hashVerified = false;
+        outError = "Cryptographic integrity failure: declared hash '" + declaredHash
+                 + "' does not match recomputed SHA-256 '" + recomputedHash + "'";
+        return EvaluationLoadStatus::HashMismatch;
+    }
+
+    // 8. Hash verificado exitosamente
+    outEval.hashVerified = true;
+    outEval.canonicalEvaluationHash = recomputedHash;
+    if (!outEval.warnings.empty() || !outEval.limitations.empty() ||
+        outEval.decision.status == SelectionStatus::AcceptedWithWarnings ||
+        outEval.decision.status == SelectionStatus::Rejected ||
+        outEval.decision.status == SelectionStatus::Inconclusive)
+    {
+        outEval.loadStatus = EvaluationLoadStatus::LoadedWithWarnings;
+    }
+    else
+    {
+        outEval.loadStatus = EvaluationLoadStatus::LoadedAndVerified;
+    }
+    return outEval.loadStatus;
 }
 
 } // namespace abdaudiolab::synth

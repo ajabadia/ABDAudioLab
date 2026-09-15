@@ -82,6 +82,18 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: 6. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe for portable/isolated execution
+if exist "build\Release\ABDAudioLab_PluginWorker.exe" (
+    if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
+    copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_artefacts\Release\" >nul
+    echo [Info] Synced ABDAudioLab_PluginWorker.exe to artefacts directory.
+)
+if exist "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" (
+    if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
+    xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_artefacts\Release\ReferenceSynth.vst3" >nul
+    echo [Info] Synced ReferenceSynth.vst3 to artefacts directory.
+)
+
 echo ==============================================================================
 echo  Build Successful!
 echo  Executable output: build\ABDAudioLab_artefacts\Release\ABDAudioLab.exe

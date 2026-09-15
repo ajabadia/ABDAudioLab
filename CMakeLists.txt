@@ -230,11 +230,22 @@ target_sources(ABDAudioLab
         src/synth/MidiExcitationSequence.h
         src/synth/SynthObservation.h
         src/synth/ISynthTarget.h
+        src/synth/ISynthTargetLifecycleAdapter.h
+        src/synth/SynthTargetLifecycleAdapters.h
+        src/synth/SynthTargetLifecycleAdapters.cpp
+        src/synth/OutOfProcessVst3LifecycleAdapter.h
+        src/synth/OutOfProcessVst3LifecycleAdapter.cpp
         src/synth/SyntheticSynthFixture.h
         src/synth/SyntheticSynthTarget.h
-        src/synth/PluginSynthTarget.h
         src/synth/SynthPitchEstimator.h
         src/synth/SynthPitchEstimator.cpp
+
+        # IPC & Out-Of-Process Worker (Phase 20.8.3)
+        src/ipc/IpcProtocol.h
+        src/ipc/Win32NamedPipe.h
+        src/ipc/Win32NamedPipe.cpp
+        src/ipc/WorkerProcessHost.h
+        src/ipc/WorkerProcessHost.cpp
         src/synth/SynthEnvelopeAnalyzer.h
         src/synth/SynthEnvelopeAnalyzer.cpp
         src/synth/MidiAudioSynchronizer.h
@@ -265,6 +276,8 @@ target_sources(ABDAudioLab
 
         # Session Domain Controller & Contracts (Phase 16 / UX Simplification)
         src/gui/session/ProfilingSessionContracts.h
+        src/gui/session/ProfilingSessionCoordinator.h
+        src/gui/session/ProfilingSessionCoordinator.cpp
         src/gui/session/ProfilingSessionController.h
         src/gui/session/ProfilingSessionController.cpp
 
@@ -391,6 +404,8 @@ target_sources(ABDAudioLab
         src/export/NamDatasetExporter.cpp
         src/export/ModulationPresetExporter.h
         src/export/ModulationPresetExporter.cpp
+        src/export/ModelExportNaming.h
+        src/export/ModelExportNaming.cpp
         src/config/AutoUpdaterConfig.h
 )
 
@@ -515,6 +530,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ModelEvaluation.cpp
     src/tests/test_AdaptiveExperimentPlanner.cpp
     src/tests/test_ProfilingSessionController.cpp
+    src/tests/test_ProfilingSessionCoordinator.cpp
+    src/tests/test_SynthTargetLifecycleAdapter.cpp
     src/tests/test_SoundIdViews.cpp
     
     src/fixtures/reference_vst3/ReferenceSynthProcessor.cpp
@@ -528,8 +545,10 @@ add_executable(ABDAudioLab_Tests
     src/synth/ParameterExcitationEngine.cpp
     src/synth/TargetContractDiscovery.cpp
     src/synth/ExternalPluginFixture.cpp
+    src/synth/SynthTargetLifecycleAdapters.cpp
     src/synth/ModelEvaluationBuilder.cpp
     src/synth/AdaptiveExperimentPlanner.cpp
+    src/gui/session/ProfilingSessionCoordinator.cpp
     src/gui/session/ProfilingSessionController.cpp
     src/gui/soundid/SoundIdTopHeaderStrip.cpp
     src/gui/soundid/SoundIdTargetView.cpp
@@ -611,6 +630,53 @@ add_executable(ABDAudioLab_Tests
     src/gui/soundid/SoundIdSidebarStepper.cpp
     src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
     src/export/CertificationReportExporter.cpp
+    src/export/ModelExportNaming.cpp
+    src/ipc/Win32NamedPipe.cpp
+    src/ipc/WorkerProcessHost.cpp
+    src/synth/OutOfProcessVst3LifecycleAdapter.cpp
+    src/tests/test_WorkerProcessHost.cpp
+    src/tests/test_OutOfProcessVst3LifecycleAdapter.cpp
+    src/tests/test_ModelExportNaming.cpp
+)
+
+# ------------------------------------------------------------------------------
+# Target: ABDAudioLab_PluginWorker (Isolated Out-of-Process VST3 Worker)
+# ------------------------------------------------------------------------------
+add_executable(ABDAudioLab_PluginWorker
+    src/worker/PluginWorkerMain.cpp
+    src/ipc/Win32NamedPipe.cpp
+    src/synth/ExternalPluginFixture.cpp
+    src/synth/TargetContractDiscovery.cpp
+)
+
+target_include_directories(ABDAudioLab_PluginWorker PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(ABDAudioLab_PluginWorker PRIVATE
+    _CRT_SECURE_NO_WARNINGS
+    NOMINMAX
+    JUCE_PLUGINHOST_VST3=1
+    JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+)
+target_link_libraries(ABDAudioLab_PluginWorker PRIVATE
+    juce::juce_core
+    juce::juce_events
+    juce::juce_data_structures
+    juce::juce_graphics
+    juce::juce_gui_basics
+    juce::juce_audio_basics
+    juce::juce_audio_processors
+    juce::juce_audio_formats
+    nlohmann_json::nlohmann_json
+)
+if(WIN32)
+    target_link_libraries(ABDAudioLab_PluginWorker PRIVATE advapi32)
+endif()
+
+add_custom_command(TARGET ABDAudioLab_PluginWorker POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/ABDAudioLab_artefacts/$<CONFIG>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:ABDAudioLab_PluginWorker>
+        "${CMAKE_BINARY_DIR}/ABDAudioLab_artefacts/$<CONFIG>/$<TARGET_FILE_NAME:ABDAudioLab_PluginWorker>"
+    COMMENT "Copying ABDAudioLab_PluginWorker alongside ABDAudioLab executable"
 )
 
 target_include_directories(ABDAudioLab_Tests

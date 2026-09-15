@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <nlohmann/json.hpp>
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/ModelEvaluationBuilder.h"
 
@@ -54,9 +55,9 @@ TargetAuditReport makeValidAuditReport(ApprovalStatus status = ApprovalStatus::A
 /**
  * @brief Helper para fabricar un ExcitationExperimentReport válido básico.
  */
-ExcitationExperimentReport makeValidExcitationReport()
+ExcitationSessionReport makeValidExcitationReport()
 {
-    ExcitationExperimentReport exp;
+    ExcitationSessionReport exp;
     exp.experimentId = "exp_001";
     exp.targetIdentityHash = "target_hash_123456";
     exp.recipeType = "DifferentialRamp";
@@ -319,3 +320,318 @@ TEST_CASE("ModelEvaluation: Serializacion JSON canonica", "[synth][evaluation]")
     REQUIRE(json.find("\"modelArtifactHash\"") != std::string::npos);
     REQUIRE(json.find("\"status\": \"Accepted\"") != std::string::npos);
 }
+
+TEST_CASE("ModelEvaluation: Deserializacion y verificacion criptografica (LoadedAndVerified)", "[synth][evaluation]")
+{
+    auto audit = makeValidAuditReport();
+    auto exp = makeValidExcitationReport();
+    auto model = makeValidModelArtifact();
+    auto holdout = makeValidHoldoutDataset();
+    MockCandidateEvaluator evaluator(0.0f);
+
+    ModelEvaluation eval = ModelEvaluationBuilder()
+        .withTargetAudit(audit)
+        .withExcitationReport(exp)
+        .withModelArtifact(model)
+        .withHoldoutDataset(&holdout)
+        .withCandidateEvaluator(&evaluator)
+        .build();
+
+    eval.origin = EvaluationOrigin::MeasuredFixture;
+    eval.sourceTargetIdentity = "SyntheticSynthFixture_V1";
+    eval.computeCanonicalHash();
+
+    std::string json = ModelEvaluationBuilder::toJsonString(eval);
+    REQUIRE_FALSE(json.empty());
+
+    ModelEvaluation loaded;
+    std::string err;
+    EvaluationLoadStatus st = ModelEvaluationBuilder::fromJsonString(json, loaded, err);
+
+    REQUIRE(st == EvaluationLoadStatus::LoadedAndVerified);
+    REQUIRE(err.empty());
+    REQUIRE(loaded.hashVerified);
+    REQUIRE(loaded.canonicalEvaluationHash == eval.canonicalEvaluationHash);
+    REQUIRE(loaded.origin == EvaluationOrigin::MeasuredFixture);
+    REQUIRE(loaded.sourceTargetIdentity == "SyntheticSynthFixture_V1");
+    REQUIRE(loaded.decision.status == SelectionStatus::Accepted);
+    REQUIRE(loaded.metrics.errorToSignalRatioDb == eval.metrics.errorToSignalRatioDb);
+}
+
+TEST_CASE("ModelEvaluation: Deteccion de manipulacion de datos -> HashMismatch", "[synth][evaluation]")
+{
+    auto audit = makeValidAuditReport();
+    auto exp = makeValidExcitationReport();
+    auto model = makeValidModelArtifact();
+    auto holdout = makeValidHoldoutDataset();
+    MockCandidateEvaluator evaluator(0.0f);
+
+    ModelEvaluation eval = ModelEvaluationBuilder()
+        .withTargetAudit(audit)
+        .withExcitationReport(exp)
+        .withModelArtifact(model)
+        .withHoldoutDataset(&holdout)
+        .withCandidateEvaluator(&evaluator)
+        .build();
+
+    std::string json = ModelEvaluationBuilder::toJsonString(eval);
+
+    // Manipular sutilmente una métrica física en el JSON sin recalcular el hash
+    nlohmann::json parsed = nlohmann::json::parse(json);
+    parsed["metrics"]["esrDb"] = -10.5; // valor adulterado
+    std::string tamperedJson = parsed.dump(2);
+
+    ModelEvaluation loaded;
+    std::string err;
+    EvaluationLoadStatus st = ModelEvaluationBuilder::fromJsonString(tamperedJson, loaded, err);
+
+    REQUIRE(st == EvaluationLoadStatus::HashMismatch);
+    REQUIRE_FALSE(loaded.hashVerified);
+    REQUIRE(err.find("Cryptographic integrity failure") != std::string::npos);
+}
+
+TEST_CASE("ModelEvaluation: Deteccion de hash manipulado -> HashMismatch", "[synth][evaluation]")
+{
+    auto audit = makeValidAuditReport();
+    auto exp = makeValidExcitationReport();
+    auto model = makeValidModelArtifact();
+    auto holdout = makeValidHoldoutDataset();
+    MockCandidateEvaluator evaluator(0.0f);
+
+    ModelEvaluation eval = ModelEvaluationBuilder()
+        .withTargetAudit(audit)
+        .withExcitationReport(exp)
+        .withModelArtifact(model)
+        .withHoldoutDataset(&holdout)
+        .withCandidateEvaluator(&evaluator)
+        .build();
+
+    std::string json = ModelEvaluationBuilder::toJsonString(eval);
+
+    nlohmann::json parsed = nlohmann::json::parse(json);
+    parsed["canonicalEvaluationHash"] = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    std::string forgedJson = parsed.dump(2);
+
+    ModelEvaluation loaded;
+    std::string err;
+    EvaluationLoadStatus st = ModelEvaluationBuilder::fromJsonString(forgedJson, loaded, err);
+
+    REQUIRE(st == EvaluationLoadStatus::HashMismatch);
+    REQUIRE_FALSE(loaded.hashVerified);
+    REQUIRE(err.find("Cryptographic integrity failure") != std::string::npos);
+}
+
+
+TEST_CASE("ModelEvaluation: SchemaMismatch ante campo obligatorio ausente", "[synth][evaluation]")
+{
+    std::string brokenJson = R"({
+        "evaluationId": "eval_123",
+        "protocolVersion": "1.0.0",
+        "canonicalEvaluationHash": "hash_abc"
+    })";
+
+    ModelEvaluation loaded;
+    std::string err;
+    EvaluationLoadStatus st = ModelEvaluationBuilder::fromJsonString(brokenJson, loaded, err);
+
+    REQUIRE(st == EvaluationLoadStatus::SchemaMismatch);
+    REQUIRE_FALSE(loaded.hashVerified);
+}
+
+TEST_CASE("ModelEvaluation: Protocolo incompatible -> UnsupportedProtocol", "[synth][evaluation]")
+{
+    auto audit = makeValidAuditReport();
+    auto exp = makeValidExcitationReport();
+    auto model = makeValidModelArtifact();
+    auto holdout = makeValidHoldoutDataset();
+    MockCandidateEvaluator evaluator(0.0f);
+
+    ModelEvaluation eval = ModelEvaluationBuilder()
+        .withTargetAudit(audit)
+        .withExcitationReport(exp)
+        .withModelArtifact(model)
+        .withHoldoutDataset(&holdout)
+        .withCandidateEvaluator(&evaluator)
+        .build();
+
+    std::string json = ModelEvaluationBuilder::toJsonString(eval);
+    size_t pos = json.find("\"protocolVersion\": \"1.0.0\"");
+    REQUIRE(pos != std::string::npos);
+    json.replace(pos, 26, "\"protocolVersion\": \"9.9.9\"");
+
+    ModelEvaluation loaded;
+    std::string err;
+    EvaluationLoadStatus st = ModelEvaluationBuilder::fromJsonString(json, loaded, err);
+
+    REQUIRE(st == EvaluationLoadStatus::UnsupportedProtocol);
+    REQUIRE_FALSE(loaded.hashVerified);
+}
+
+TEST_CASE("ModelEvaluation: Generacion canonica de fixtures de evaluacion para validacion manual UX", "[synth][evaluation][fixtures]")
+{
+    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+    if (!fixturesDir.exists())
+        fixturesDir.createDirectory();
+
+    auto audit = makeValidAuditReport();
+    auto exp = makeValidExcitationReport();
+    auto model = makeValidModelArtifact();
+    auto holdout = makeValidHoldoutDataset();
+
+    // 1. fixture_approved.json (Accepted, hashVerified = true, exportable)
+    {
+        MockCandidateEvaluator evaluator(0.0f);
+        ModelEvaluation eval = ModelEvaluationBuilder()
+            .withTargetAudit(audit)
+            .withExcitationReport(exp)
+            .withModelArtifact(model)
+            .withHoldoutDataset(&holdout)
+            .withCandidateEvaluator(&evaluator)
+            .build();
+
+        eval.origin = EvaluationOrigin::MeasuredFixture;
+        eval.sourceTargetIdentity = "SyntheticSynthFixture_V1";
+        eval.computeCanonicalHash();
+
+        std::string jsonStr = ModelEvaluationBuilder::toJsonString(eval);
+        juce::File targetFile = fixturesDir.getChildFile("fixture_approved.json");
+        targetFile.replaceWithText(jsonStr);
+        REQUIRE(targetFile.existsAsFile());
+
+        ModelEvaluation loaded;
+        std::string err;
+        EvaluationLoadStatus status = ModelEvaluationBuilder::fromJsonString(jsonStr, loaded, err);
+        REQUIRE(status == EvaluationLoadStatus::LoadedAndVerified);
+        REQUIRE(loaded.hashVerified);
+        REQUIRE(loaded.decision.status == SelectionStatus::Accepted);
+        REQUIRE(loaded.canonicalEvaluationHash == eval.canonicalEvaluationHash);
+    }
+
+    // 2. dexed_warnings.json (AcceptedWithWarnings, reset y settling, exportable con advertencia)
+    {
+        TargetAuditReport dexedAudit = makeValidAuditReport(ApprovalStatus::ApprovedWithWarnings);
+        dexedAudit.warnings = { "OscillatorFreeRunningPhase", "Requires state reset before each trial", "SettlingTime: 350ms" };
+        dexedAudit.summaryMessage = "Requires state reset before each trial; settling time 350 ms";
+
+        ExcitationSessionReport dexedExp = makeValidExcitationReport();
+        dexedExp.targetIdentityHash = "dexed_vst3_hash_7749";
+
+        ModelArtifactDescriptor dexedModel = makeValidModelArtifact();
+        dexedModel.modelId = "DEXED_FM_MODEL_V1";
+        dexedModel.modelArchitecture = "FrequencyModulationOperatorBank";
+
+        MockCandidateEvaluator evaluator(0.005f); // Pequeña desviación -> ESR ~ -35 dB (AcceptedWithWarnings)
+        ModelEvaluation eval = ModelEvaluationBuilder()
+            .withTargetAudit(dexedAudit)
+            .withExcitationReport(dexedExp)
+            .withModelArtifact(dexedModel)
+            .withHoldoutDataset(&holdout)
+            .withCandidateEvaluator(&evaluator)
+            .build();
+
+        eval.origin = EvaluationOrigin::MeasuredExternalPlugin;
+        eval.sourceTargetIdentity = "Dexed_VST3 (Digital FM Synth)";
+        eval.computeCanonicalHash();
+
+        std::string jsonStr = ModelEvaluationBuilder::toJsonString(eval);
+        juce::File targetFile = fixturesDir.getChildFile("dexed_warnings.json");
+        targetFile.replaceWithText(jsonStr);
+        REQUIRE(targetFile.existsAsFile());
+
+        ModelEvaluation loaded;
+        std::string err;
+        EvaluationLoadStatus status = ModelEvaluationBuilder::fromJsonString(jsonStr, loaded, err);
+        REQUIRE(status == EvaluationLoadStatus::LoadedWithWarnings);
+        REQUIRE(loaded.hashVerified);
+        REQUIRE(loaded.decision.status == SelectionStatus::AcceptedWithWarnings);
+        REQUIRE_FALSE(loaded.warnings.empty());
+    }
+
+    // 3. tampered_hash_mismatch.json (Métrica adulterada post-hash, HashMismatch, export bloqueado)
+    {
+        MockCandidateEvaluator evaluator(0.0f);
+        ModelEvaluation eval = ModelEvaluationBuilder()
+            .withTargetAudit(audit)
+            .withExcitationReport(exp)
+            .withModelArtifact(model)
+            .withHoldoutDataset(&holdout)
+            .withCandidateEvaluator(&evaluator)
+            .build();
+
+        eval.origin = EvaluationOrigin::MeasuredFixture;
+        eval.sourceTargetIdentity = "SyntheticSynthFixture_V1";
+        eval.computeCanonicalHash();
+
+        std::string jsonStr = ModelEvaluationBuilder::toJsonString(eval);
+        nlohmann::json parsed = nlohmann::json::parse(jsonStr);
+        // Modificar métrica física sin recalcular el hash declarado
+        parsed["metrics"]["esrDb"] = -10.5;
+        std::string tamperedStr = parsed.dump(2);
+
+        juce::File targetFile = fixturesDir.getChildFile("tampered_hash_mismatch.json");
+        targetFile.replaceWithText(tamperedStr);
+        REQUIRE(targetFile.existsAsFile());
+
+        ModelEvaluation loaded;
+        std::string err;
+        EvaluationLoadStatus status = ModelEvaluationBuilder::fromJsonString(tamperedStr, loaded, err);
+        REQUIRE(status == EvaluationLoadStatus::HashMismatch);
+        REQUIRE_FALSE(loaded.hashVerified);
+        REQUIRE(err.find("Cryptographic integrity failure") != std::string::npos);
+    }
+
+    // 4. inconclusive.json (Sin holdout, Inconclusive, export bloqueado)
+    {
+        ModelEvaluation eval = ModelEvaluationBuilder()
+            .withTargetAudit(audit)
+            .withExcitationReport(exp)
+            .withModelArtifact(model)
+            .build();
+
+        eval.origin = EvaluationOrigin::MeasuredFixture;
+        eval.sourceTargetIdentity = "SyntheticSynthFixture_Incomplete";
+        eval.computeCanonicalHash();
+
+        std::string jsonStr = ModelEvaluationBuilder::toJsonString(eval);
+        juce::File targetFile = fixturesDir.getChildFile("inconclusive.json");
+        targetFile.replaceWithText(jsonStr);
+        REQUIRE(targetFile.existsAsFile());
+
+        ModelEvaluation loaded;
+        std::string err;
+        EvaluationLoadStatus status = ModelEvaluationBuilder::fromJsonString(jsonStr, loaded, err);
+        REQUIRE(status == EvaluationLoadStatus::LoadedWithWarnings);
+        REQUIRE(loaded.hashVerified);
+        REQUIRE(loaded.decision.status == SelectionStatus::Inconclusive);
+    }
+
+    // 5. rejected.json (Fidelidad insuficiente ESR -14 dB > -24 dB, Rejected, export bloqueado)
+    {
+        MockCandidateEvaluator badEvaluator(0.35f); // Ruido severo
+        ModelEvaluation eval = ModelEvaluationBuilder()
+            .withTargetAudit(audit)
+            .withExcitationReport(exp)
+            .withModelArtifact(model)
+            .withHoldoutDataset(&holdout)
+            .withCandidateEvaluator(&badEvaluator)
+            .build();
+
+        eval.origin = EvaluationOrigin::MeasuredFixture;
+        eval.sourceTargetIdentity = "SyntheticSynthFixture_Failed";
+        eval.computeCanonicalHash();
+
+        std::string jsonStr = ModelEvaluationBuilder::toJsonString(eval);
+        juce::File targetFile = fixturesDir.getChildFile("rejected.json");
+        targetFile.replaceWithText(jsonStr);
+        REQUIRE(targetFile.existsAsFile());
+
+        ModelEvaluation loaded;
+        std::string err;
+        EvaluationLoadStatus status = ModelEvaluationBuilder::fromJsonString(jsonStr, loaded, err);
+        REQUIRE(status == EvaluationLoadStatus::LoadedWithWarnings);
+        REQUIRE(loaded.hashVerified);
+        REQUIRE(loaded.decision.status == SelectionStatus::Rejected);
+        REQUIRE_FALSE(loaded.limitations.empty());
+    }
+}
+

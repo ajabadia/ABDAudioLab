@@ -162,3 +162,30 @@ void audioDeviceIOCallback(...) {
 **Caso real:** `main.cpp` incluía `SessionManager.h` y `HardwareManager.h` pero nunca instanciaba ninguna clase.
 
 **Regla:** Si no usas nada de un header, quita el `#include`. Los headers muertos crean acoplamiento fantasma que dificulta refactoring.
+
+---
+
+## 11. Violaciones ODR (One Definition Rule) y colisión de nombres entre subsistemas
+
+**El problema:** Dos estructuras o clases con el mismo nombre y namespace (`abdaudiolab::synth::ExcitationExperimentReport`), pero con layouts de memoria distintos en headers separados. El compilador compila ambas unidades sin quejarse, pero el linker fusiona o descarta destructores y constructores idénticos de símbolo, provocando llamadas a destructores con offsets desalineados y crashes con `SIGSEGV` al liberar memoria.
+
+**Caso real:** `ParameterExcitationEngine.h` definía `ExcitationExperimentReport` (~500 bytes) y `ModelEvaluationTypes.h` definía otra `ExcitationExperimentReport` (~270 bytes). Al salir del alcance de un test, el destructor de la versión de 500 bytes destruía memoria más allá del final de la estructura de 270 bytes.
+
+**Regla:**
+1. **Nombres inequívocos por dominio**:
+   - `synth::ExcitationExperimentReport` (motor de excitación directo)
+   - `synth::ExcitationSessionReport` (informe consolidado de sesión)
+   - `gui::session::ModelEvaluationSummaryState` (proyección para UI)
+2. **Evitar tipos complejos en headers compartidos** sin namespace explícito de subsistema.
+3. Ante crashes en destructores al salir de un scope, verificar siempre colisiones de nombres de tipos y desalineación de structs entre translation units.
+
+---
+
+## 12. `juce::Thread::stopThread` aborta/cancela el worker en lugar de esperar a su terminación natural
+
+**El problema:** Confundir `stopThread(timeoutMs)` con un join/wait pasivo. En JUCE, `stopThread(timeoutMs)` invoca internamente `signalThreadShouldExit()` y `notify()`, provocando que `threadShouldExit()` devuelva `true`. Si se invoca para esperar a que un worker termine normalmente (por ejemplo, en un test o monitor), se provocará la cancelación involuntaria y prematura de la tarea en curso.
+
+**Regla:**
+- Para **esperar pasivamente** a que un hilo worker concluya su trabajo natural sin abortarlo: invocar `waitForThreadToExit(timeoutMs)`.
+- Para **forzar la cancelación y parada segura** (en destructores o abortos explícitos): invocar `requestCancel()`, `signalThreadShouldExit()`, `notify()` y verificar con `stopThread(timeoutMs)`.
+

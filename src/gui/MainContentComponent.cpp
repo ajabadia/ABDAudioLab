@@ -1694,6 +1694,16 @@ void MainContentComponent::timerCallback()
         mainHeader.updateCalibrationStatus(isCalibrated, calSr, isSkipped);
     }
 
+    if (guidedWorkflowContainer != nullptr && currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
+    {
+        double sr = audioEngine.getCurrentSampleRate();
+        int bs = 256;
+        if (auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice())
+            bs = dev->getCurrentBufferSizeSamples();
+        double cpu = audioEngine.getDeviceManager().getCpuUsage() * 100.0;
+        guidedWorkflowContainer->updateTelemetry(sr, bs, cpu);
+    }
+
     // Slower, smooth and relaxed chevron/split animation
     if (std::abs(targetBottomH - currentBottomH) > 0.5f)
     {
@@ -3466,6 +3476,44 @@ void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
         btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentBlue.withAlpha(0.15f));
         btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
 
+        // Sincronizar target real con el controlador si existe plugin o hardware activo
+        if (activePluginInstance != nullptr)
+        {
+            gui::session::TargetSelectionState target;
+            target.targetId = "plugin_" + activePluginDescription.fileOrIdentifier.toStdString();
+            target.targetName = activePluginDescription.name.toStdString();
+            target.manufacturer = activePluginDescription.manufacturerName.toStdString();
+            target.version = activePluginDescription.version.toStdString();
+            target.kind = gui::session::TargetKind::PluginVST3;
+            target.isConnected = true;
+            target.isDeterministic = true;
+            target.availableDomainDescription = "MIDI C1-C6, Vel 1-127, Automatable Parameters";
+            target.parameterCount = activePluginInstance->getParameters().size();
+            profilingSessionController.selectTarget(target);
+        }
+        else if (mainHeader.hasHardwareSelected())
+        {
+            juce::String hwId = drawer.getSelectedHardwareId();
+            if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
+            const auto* c = hardwareManager.findContractById(hwId.toStdString());
+            if (c != nullptr)
+            {
+                gui::session::TargetSelectionState target;
+                target.targetId = c->id;
+                target.targetName = c->displayName;
+                target.manufacturer = c->manufacturer;
+                target.version = c->schemaVersion;
+                target.kind = (c->deviceType == "MANUAL_EURORACK" || c->deviceType == "ANALOGUE_PEDAL")
+                    ? gui::session::TargetKind::HardwareAnalogue
+                    : gui::session::TargetKind::HardwareDigital;
+                target.isConnected = true;
+                target.isDeterministic = (c->deviceType != "MANUAL_EURORACK" && c->deviceType != "ANALOGUE_PEDAL");
+                target.availableDomainDescription = "MIDI CC / SysEx Profiles";
+                target.parameterCount = static_cast<int>(c->functions.size());
+                profilingSessionController.selectTarget(target);
+            }
+        }
+
         // Ocultar superficies clasicas para evitar solapamientos
         sidebarStepper.setVisible(false);
         meterStrip.setVisible(false);
@@ -3514,6 +3562,19 @@ void MainContentComponent::setupGuidedWorkflowInitialData()
     target.parameterCount = 8;
 
     profilingSessionController.selectTarget(target);
+    profilingSessionController.updateAuditResult(
+        synth::ApprovalStatus::Approved,
+        "100% Determinista (Fixture Digital)",
+        "Reset de fase instantaneo (0 ms)",
+        0.0,
+        false,
+        {},
+        "Target de prueba sintetico precalificado para validacion acustica");
+
+    // Precargar evaluacion de demostracion para que el usuario siempre tenga datos listos
+    profilingSessionController.loadPredefinedFixture("fixture_approved.json");
+    profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::ConfigureAndStart);
+
     profilingSessionController.setWorkflowMode(currentWorkflowMode);
 }
 

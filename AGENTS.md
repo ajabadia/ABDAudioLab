@@ -15,3 +15,6 @@ Este proyecto opera bajo un modelo de trabajo en tándem:
    - Prevención de TOCTOU y seguridad con punteros.
 3. **Lecciones Aprendidas del Proyecto**: [GUIDE_ISSUES_TO_AVOID.md](GUIDE_ISSUES_TO_AVOID.md)
    - Casos reales detectados en auditorías previas y soluciones normativas.
+4. **Flujo Atómico y Foco Exclusivo en MVP**: [.agents/rules/atomic_mvp_workflow.md](.agents/rules/atomic_mvp_workflow.md)
+   - Secuencia de cambio mínimo: hipótesis -> inspección -> cambio -> test específico -> test suite -> decisión.
+   - Prohibición estricta de scope creep. Foco absoluto en la cadena de valor real.

@@ -55,7 +55,7 @@ public:
     /**
      * @brief Asigna el informe del experimento de excitación. (Obligatorio)
      */
-    ModelEvaluationBuilder& withExcitationReport(const ExcitationExperimentReport& excitationReport);
+    ModelEvaluationBuilder& withExcitationReport(const ExcitationSessionReport& excitationReport);
 
     /**
      * @brief Asigna el descriptor del modelo candidato a evaluar. (Obligatorio)
@@ -89,13 +89,28 @@ public:
     [[nodiscard]] ModelEvaluation build();
 
     /**
+     * @brief Computa el hash canónico SHA-256 de una evaluación según el estándar JSON canónico (RFC 8785).
+     * Excluye el campo 'canonicalEvaluationHash' y ordena lexicográficamente las claves.
+     */
+    [[nodiscard]] static std::string computeCanonicalHash(const ModelEvaluation& eval);
+
+    /**
      * @brief Serializa el informe ModelEvaluation en formato JSON canónico.
      */
     [[nodiscard]] static std::string toJsonString(const ModelEvaluation& eval);
 
+    /**
+     * @brief Deserializa y valida criptográficamente un informe ModelEvaluation desde JSON.
+     * Valida el schema, extrae el hash declarado, recalcula el hash SHA-256 canónico y
+     * compara estrictamente contra el declarado, asignando el EvaluationLoadStatus resultante.
+     */
+    [[nodiscard]] static EvaluationLoadStatus fromJsonString(const std::string& jsonString,
+                                                            ModelEvaluation& outEval,
+                                                            std::string& outError);
+
 private:
     const TargetAuditReport* auditReport_ { nullptr };
-    const ExcitationExperimentReport* excitationReport_ { nullptr };
+    const ExcitationSessionReport* excitationReport_ { nullptr };
     const ModelArtifactDescriptor* modelArtifact_ { nullptr };
     const HoldoutDataset* holdoutDataset_ { nullptr };
     IModelCandidateEvaluator* candidateEvaluator_ { nullptr };
