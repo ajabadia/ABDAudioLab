@@ -249,6 +249,16 @@ target_sources(ABDAudioLab
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/adapters/EnvelopeMeasurementAdapter.h
         src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
+        # Measurement GUI (Phase 20.10.1)
+        src/gui/measurement/MeasurementViewModel.h
+        src/gui/measurement/MeasurementViewModelLoader.h
+        src/gui/measurement/MeasurementViewModelLoader.cpp
+        src/gui/measurement/MeasurementTemporalCurveComponent.h
+        src/gui/measurement/MeasurementTemporalCurveComponent.cpp
+        src/gui/measurement/MeasurementAudioPlayerComponent.h
+        src/gui/measurement/MeasurementAudioPlayerComponent.cpp
+        src/gui/measurement/MeasurementViewerPanel.h
+        src/gui/measurement/MeasurementViewerPanel.cpp
         
         # Digital Synth Profiler (Phase 20)
         src/synth/Sha256.h
@@ -559,11 +569,16 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_MeasurementStimulusCapture.cpp
     src/tests/test_MeasurementPersistenceAndReport.cpp
     src/tests/test_DexedEnvelopeMeasurement_T5.cpp
+    src/tests/test_MeasurementViewModelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
     src/measurement/MeasurementStimulusCoordinator.cpp
     src/measurement/MeasurementCaptureCoordinator.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
+    src/gui/measurement/MeasurementViewModelLoader.cpp
+    src/gui/measurement/MeasurementTemporalCurveComponent.cpp
+    src/gui/measurement/MeasurementAudioPlayerComponent.cpp
+    src/gui/measurement/MeasurementViewerPanel.cpp
     src/tests/test_ModelEvaluation.cpp
     src/tests/test_AdaptiveExperimentPlanner.cpp
     src/tests/test_ProfilingSessionController.cpp
