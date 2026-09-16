@@ -237,6 +237,19 @@ target_sources(ABDAudioLab
         src/gui/plugins/PluginWindowController.cpp
         src/gui/plugins/PluginScanDirectoriesModal.h
         src/gui/plugins/PluginScanDirectoriesModal.cpp
+        # Measurement Framework (Phase 20.10)
+        src/measurement/MeasurementContracts.h
+        src/measurement/MeasurementSerialization.h
+        src/measurement/MeasurementSerialization.cpp
+        src/measurement/MeasurementStimulusCoordinator.h
+        src/measurement/MeasurementStimulusCoordinator.cpp
+        src/measurement/MeasurementCaptureCoordinator.h
+        src/measurement/MeasurementCaptureCoordinator.cpp
+        src/measurement/MeasurementContainerExporter.h
+        src/measurement/MeasurementContainerExporter.cpp
+        src/measurement/adapters/EnvelopeMeasurementAdapter.h
+        src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
+        
         # Digital Synth Profiler (Phase 20)
         src/synth/Sha256.h
         src/synth/SynthPresetState.h
@@ -541,6 +554,16 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Vst3Validation.cpp
     src/tests/test_DexedValidation.cpp
     src/tests/test_GuidedPluginLoad_Dexed.cpp
+    src/tests/test_MeasurementContracts.cpp
+    src/tests/test_EnvelopeMeasurementAdapter.cpp
+    src/tests/test_MeasurementStimulusCapture.cpp
+    src/tests/test_MeasurementPersistenceAndReport.cpp
+    src/tests/test_DexedEnvelopeMeasurement_T5.cpp
+    src/measurement/MeasurementSerialization.cpp
+    src/measurement/MeasurementStimulusCoordinator.cpp
+    src/measurement/MeasurementCaptureCoordinator.cpp
+    src/measurement/MeasurementContainerExporter.cpp
+    src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
     src/tests/test_ModelEvaluation.cpp
     src/tests/test_AdaptiveExperimentPlanner.cpp
     src/tests/test_ProfilingSessionController.cpp
