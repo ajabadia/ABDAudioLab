@@ -15,6 +15,7 @@ namespace abdaudiolab::core
 {
     struct ValidationReport;
     struct GuidedParameterEvidence;
+    struct GuidedSessionEvidence;
 }
 
 namespace abdaudiolab::exporting
@@ -41,6 +42,7 @@ public:
      * @param guidedEvidence Optional verified guided parameter differential evidence.
      * @param modelExportStatus Status string for model export ("completed", "notExecuted", "skipped").
      * @param modelExportReason Explanation for model export status.
+     * @param sessionEvidence Optional verified multiparameter guided session evidence.
      * @return true on success, false on write error.
      */
     static bool exportReportToHtml(const std::string& targetPath,
@@ -51,7 +53,8 @@ public:
                                    const std::string& validationErrorMessage = "",
                                    const abdaudiolab::core::GuidedParameterEvidence* guidedEvidence = nullptr,
                                    const std::string& modelExportStatus = "notExecuted",
-                                   const std::string& modelExportReason = "No external-plugin model export was requested");
+                                   const std::string& modelExportReason = "No external-plugin model export was requested",
+                                   const abdaudiolab::core::GuidedSessionEvidence* sessionEvidence = nullptr);
 
     /**
      * @brief Renders an inline SVG vector line chart for log frequency magnitude response (20 Hz - 20 kHz).

@@ -529,12 +529,14 @@ bool ExperimentStorage::saveExperiment(const juce::File& baseDir,
             role = "holdout_definition";
         else if (relPath == "validation/validation_report.json")
             role = "validation_report";
-        else if (relPath == "evidence/guided/baseline.wav")
+        else if (relPath == "evidence/guided/baseline.wav" || (relPath.rfind("evidence/guided/audio/", 0) == 0 && relPath.find("baseline.wav") != std::string::npos))
             role = "guided_baseline_audio";
-        else if (relPath == "evidence/guided/modified.wav")
+        else if (relPath == "evidence/guided/modified.wav" || (relPath.rfind("evidence/guided/audio/", 0) == 0 && relPath.find("modified.wav") != std::string::npos))
             role = "guided_modified_audio";
-        else if (relPath == "evidence/guided/difference.wav")
+        else if (relPath == "evidence/guided/difference.wav" || (relPath.rfind("evidence/guided/audio/", 0) == 0 && relPath.find("difference.wav") != std::string::npos))
             role = "guided_differential_audio";
+        else if (relPath == "evidence/guided/session.json")
+            role = "guided_session_report";
         else if (relPath == "evidence/guided/parameter-test-cutoff.json" || (relPath.rfind("evidence/guided/", 0) == 0 && file.hasFileExtension(".json")))
             role = "guided_parameter_differential_report";
         else if (relPath == "reports/certification_report.html" || file.hasFileExtension(".html"))

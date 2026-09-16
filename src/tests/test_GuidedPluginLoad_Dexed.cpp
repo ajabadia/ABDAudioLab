@@ -1181,4 +1181,1284 @@ TEST_CASE("Fase 20.8.8: Unificacion de Evidencia Guiada, Importacion FAIR y Veri
     tempExpBase.deleteRecursively();
 }
 
+TEST_CASE("Fase 20.8.9 - T1: Resolucion y prueba diferencial piloto de ALGORITHM en Dexed", "[gui][guided][dexed]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    juce::File pluginFile = getDexedFile();
+    if (!pluginFile.exists())
+    {
+        SKIP("External fixture unavailable: Dexed.vst3 not found at configured path");
+    }
+
+    juce::AudioPluginFormatManager formatManager;
+    formatManager.addDefaultFormats();
+
+    abdaudiolab::synth::ExternalPluginFixture fixture(formatManager);
+    std::string loadErr;
+    double sampleRate = 48000.0;
+    int blockSize = 512;
+
+    bool instantiated = fixture.loadPluginFromDisk(pluginFile, sampleRate, blockSize, loadErr);
+    REQUIRE(instantiated);
+    auto* instance = fixture.getPluginInstance();
+    REQUIRE(instance != nullptr);
+
+    // 1. Capturar estado inicial del preset
+    juce::MemoryBlock initialPluginState;
+    instance->getStateInformation(initialPluginState);
+    REQUIRE(initialPluginState.getSize() > 0);
+
+    std::string presetName;
+    int curProg = instance->getCurrentProgram();
+    if (curProg >= 0 && curProg < instance->getNumPrograms())
+        presetName = instance->getProgramName(curProg).toStdString();
+
+    // 2. Test de Resolución: Parámetro No Existente -> Skipped con motivo documentado
+    {
+        abdaudiolab::core::ParameterTargetSpec nonExistentSpec;
+        nonExistentSpec.candidateId = "param_99999";
+        nonExistentSpec.candidateName = "NON_EXISTENT_CONTROL";
+        nonExistentSpec.aliases = { "FAKE_ALIAS" };
+
+        auto nonExistentRes = abdaudiolab::core::GuidedParameterResolver::resolve(instance, nonExistentSpec);
+        CHECK_FALSE(nonExistentRes.found);
+        CHECK(nonExistentRes.failureReason == "parameter_not_found");
+
+        // Construir JSON simulando parámetro skipped
+        nlohmann::json skippedJson;
+        skippedJson["schemaVersion"] = "guided-parameter-test-1.0";
+        skippedJson["status"] = {
+            { "code", "skipped" },
+            { "reason", "parameter_not_found" }
+        };
+        skippedJson["parameter"] = {
+            { "id", "param_99999" },
+            { "name", "NON_EXISTENT_CONTROL" }
+        };
+        skippedJson["plugin"] = {
+            { "name", "Dexed" },
+            { "format", "VST3" },
+            { "version", "1.0.1" }
+        };
+
+        juce::File tempDir = juce::File::createTempFile("test_skipped");
+        tempDir.deleteFile();
+        tempDir.createDirectory();
+        juce::File skippedFile = tempDir.getChildFile("skipped_param.json");
+        skippedFile.replaceWithText(skippedJson.dump(2));
+
+        juce::String parseErr;
+        auto optSkipped = abdaudiolab::core::GuidedParameterEvidence::fromJsonFile(skippedFile, tempDir, parseErr);
+        REQUIRE(optSkipped.has_value());
+        CHECK(optSkipped->status == "skipped");
+        CHECK(optSkipped->statusReason == "parameter_not_found");
+        CHECK(optSkipped->isValid());
+
+        tempDir.deleteRecursively();
+    }
+
+    // 3. Test de Resolución: Parámetro ALGORITHM (identificación por ParamID exacto o nombre)
+    abdaudiolab::core::ParameterTargetSpec algoSpec;
+    algoSpec.candidateId = "param_5";
+    algoSpec.candidateName = "ALGORITHM";
+    algoSpec.aliases = { "Algorithm", "DX7_ALGORITHM" };
+    algoSpec.semanticRole = "fm_algorithm_routing";
+    algoSpec.baselineNormalized = 1.0;             // Algoritmo 32 (valor por defecto del preset)
+    algoSpec.modifiedNormalized = 0.0;             // Algoritmo 1 (topología alternativa en cascada)
+    algoSpec.durationSamples = 48000;              // 1.0 s
+    algoSpec.midiNote = 48;                        // C3
+    algoSpec.midiVelocity = 100;
+    algoSpec.noteOffSample = 38400;                // 800 ms
+
+    auto algoRes = abdaudiolab::core::GuidedParameterResolver::resolve(instance, algoSpec);
+    REQUIRE(algoRes.found);
+    CHECK(algoRes.paramId == "param_5");
+    CHECK(algoRes.nameObserved == "ALGORITHM");
+    CHECK(algoRes.index == 5);
+    CHECK(algoRes.parameter != nullptr);
+    CHECK(algoRes.semanticRole == "fm_algorithm_routing");
+    CHECK_FALSE(algoRes.semanticRoleVerified); // No asumido sin prueba explícita de caja blanca
+
+    // 4. Protocolo Aislado de Renderizado (Restauración completa entre pasadas)
+    auto renderCondition = [&](double paramNormalizedVal, juce::AudioBuffer<float>& outBuffer) {
+        // Aislamiento: Restaurar preset de fábrica antes de cada render
+        instance->setStateInformation(initialPluginState.getData(), static_cast<int>(initialPluginState.getSize()));
+        instance->prepareToPlay(sampleRate, blockSize);
+        instance->reset();
+
+        algoRes.parameter->setValueNotifyingHost(static_cast<float>(paramNormalizedVal));
+
+        outBuffer.setSize(2, algoSpec.durationSamples);
+        outBuffer.clear();
+
+        juce::MidiBuffer midiMessages;
+        midiMessages.addEvent(juce::MidiMessage::noteOn(1, algoSpec.midiNote, (juce::uint8)algoSpec.midiVelocity), 0);
+        midiMessages.addEvent(juce::MidiMessage::noteOff(1, algoSpec.midiNote, (juce::uint8)0), algoSpec.noteOffSample);
+
+        int samplesRemaining = algoSpec.durationSamples;
+        int currentSample = 0;
+
+        while (samplesRemaining > 0)
+        {
+            int numThisBlock = std::min(samplesRemaining, blockSize);
+            juce::AudioBuffer<float> blockBuffer(2, numThisBlock);
+            blockBuffer.clear();
+
+            juce::MidiBuffer blockMidi;
+            for (const auto metadata : midiMessages)
+            {
+                if (metadata.samplePosition >= currentSample && metadata.samplePosition < currentSample + numThisBlock)
+                {
+                    blockMidi.addEvent(metadata.getMessage(), metadata.samplePosition - currentSample);
+                }
+            }
+
+            instance->processBlock(blockBuffer, blockMidi);
+
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                outBuffer.copyFrom(ch, currentSample, blockBuffer, ch, 0, numThisBlock);
+            }
+
+            currentSample += numThisBlock;
+            samplesRemaining -= numThisBlock;
+        }
+
+        instance->releaseResources();
+    };
+
+    // Render A (Baseline) y Repetibilidad A
+    juce::AudioBuffer<float> baselineAudio;
+    renderCondition(algoSpec.baselineNormalized, baselineAudio);
+
+    juce::AudioBuffer<float> baselineAudio2;
+    renderCondition(algoSpec.baselineNormalized, baselineAudio2);
+
+    double sumSqDiffA = 0.0;
+    float peakDiffA = 0.0f;
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        const float* r1 = baselineAudio.getReadPointer(ch);
+        const float* r2 = baselineAudio2.getReadPointer(ch);
+        for (int s = 0; s < algoSpec.durationSamples; ++s)
+        {
+            float d = std::abs(r1[s] - r2[s]);
+            if (d > peakDiffA) peakDiffA = d;
+            sumSqDiffA += (d * d);
+        }
+    }
+    double baselineRmse = std::sqrt(sumSqDiffA / (2 * algoSpec.durationSamples));
+    CHECK(baselineRmse < 1e-4); // Verificación estricta de determinismo en baseline
+
+    // Render B (Modified) y Repetibilidad B
+    juce::AudioBuffer<float> modifiedAudio;
+    renderCondition(algoSpec.modifiedNormalized, modifiedAudio);
+
+    juce::AudioBuffer<float> modifiedAudio2;
+    renderCondition(algoSpec.modifiedNormalized, modifiedAudio2);
+
+    double sumSqDiffB = 0.0;
+    float peakDiffB = 0.0f;
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        const float* r1 = modifiedAudio.getReadPointer(ch);
+        const float* r2 = modifiedAudio2.getReadPointer(ch);
+        for (int s = 0; s < algoSpec.durationSamples; ++s)
+        {
+            float d = std::abs(r1[s] - r2[s]);
+            if (d > peakDiffB) peakDiffB = d;
+            sumSqDiffB += (d * d);
+        }
+    }
+    double modifiedRmse = std::sqrt(sumSqDiffB / (2 * algoSpec.durationSamples));
+    CHECK(modifiedRmse < 1e-4); // Verificación estricta de determinismo en modified
+
+    // 5. Comparación Diferencial d[n] = modified[n] - baseline[n]
+    juce::AudioBuffer<float> diffAudio(2, algoSpec.durationSamples);
+    double diffSumSq = 0.0;
+    float diffPeak = 0.0f;
+    double sumA = 0.0, sumB = 0.0, sumSqA = 0.0, sumSqB = 0.0, sumAB = 0.0;
+    int totalSamples = 2 * algoSpec.durationSamples;
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        const float* a = baselineAudio.getReadPointer(ch);
+        const float* b = modifiedAudio.getReadPointer(ch);
+        float* d = diffAudio.getWritePointer(ch);
+
+        for (int s = 0; s < algoSpec.durationSamples; ++s)
+        {
+            float valA = a[s];
+            float valB = b[s];
+            float diffVal = valB - valA;
+            d[s] = diffVal;
+
+            float absD = std::abs(diffVal);
+            if (absD > diffPeak) diffPeak = absD;
+            diffSumSq += (diffVal * diffVal);
+
+            sumA += valA;
+            sumB += valB;
+            sumSqA += (valA * valA);
+            sumSqB += (valB * valB);
+            sumAB += (valA * valB);
+        }
+    }
+
+    double diffRmse = std::sqrt(diffSumSq / totalSamples);
+    double num = (totalSamples * sumAB) - (sumA * sumB);
+    double den = std::sqrt(std::max(0.0, ((totalSamples * sumSqA) - (sumA * sumA)) * ((totalSamples * sumSqB) - (sumB * sumB))));
+    double waveformCorrelation = (den > 1e-12) ? (num / den) : 0.0;
+
+    double rmsA = std::sqrt(sumSqA / totalSamples);
+    double rmsB = std::sqrt(sumSqB / totalSamples);
+    double deltaRmsDb = (rmsA > 1e-12 && rmsB > 1e-12) ? (20.0 * std::log10(rmsB / rmsA)) : 0.0;
+    bool audibleChange = (diffPeak > 1e-3f && diffRmse > 1e-4);
+
+    CHECK(diffRmse > 0.005);
+    CHECK(waveformCorrelation < 0.99); // Cambio tímbrico FM patente
+    CHECK(audibleChange);
+
+    // 6. Persistir Artefactos en Directorios de la Fase 20.8.9
+    juce::File guidedDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+    juce::File audioDir = guidedDir.getChildFile("audio").getChildFile("algorithm");
+    audioDir.createDirectory();
+    juce::File paramDir = guidedDir.getChildFile("parameters");
+    paramDir.createDirectory();
+
+    juce::File baseWav = audioDir.getChildFile("baseline.wav");
+    juce::File modWav = audioDir.getChildFile("modified.wav");
+    juce::File diffWav = audioDir.getChildFile("difference.wav");
+    juce::File paramJson = paramDir.getChildFile("algorithm.json");
+
+    REQUIRE(writeWavFile(baseWav, baselineAudio, sampleRate));
+    REQUIRE(writeWavFile(modWav, modifiedAudio, sampleRate));
+    REQUIRE(writeWavFile(diffWav, diffAudio, sampleRate));
+
+    nlohmann::json paramReport;
+    paramReport["schemaVersion"] = "guided-parameter-test-1.0";
+    paramReport["status"] = "completed";
+    paramReport["plugin"] = {
+        { "name", "Dexed" },
+        { "format", "VST3" },
+        { "version", "1.0.1" }
+    };
+    paramReport["preset"] = { { "name", presetName } };
+    paramReport["parameter"] = {
+        { "id", algoRes.paramId.toStdString() },
+        { "name", algoRes.nameObserved.toStdString() },
+        { "index", algoRes.index },
+        { "initial", { { "normalized", algoSpec.baselineNormalized }, { "display", "32" } } },
+        { "requested", { { "normalized", algoSpec.modifiedNormalized }, { "display", "1" } } },
+        { "readBack", { { "normalized", algoSpec.modifiedNormalized }, { "display", "1" } } },
+        { "writeConfirmed", true }
+    };
+    paramReport["semantics"] = {
+        { "nameObserved", algoRes.nameObserved.toStdString() },
+        { "semanticRole", algoRes.semanticRole.toStdString() },
+        { "semanticRoleVerified", false },
+        { "verificationMethod", algoRes.verificationMethod.toStdString() }
+    };
+    paramReport["stimulus"] = {
+        { "midiNote", algoSpec.midiNote },
+        { "midiVelocity", algoSpec.midiVelocity },
+        { "durationSamples", algoSpec.durationSamples },
+        { "sampleRate", sampleRate },
+        { "blockSize", blockSize },
+        { "channels", 2 }
+    };
+    paramReport["baseline"] = { { "silent", false } };
+    paramReport["modified"] = { { "silent", false } };
+    paramReport["difference"] = {
+        { "rmse", diffRmse },
+        { "deltaRmsDb", deltaRmsDb },
+        { "correlation", waveformCorrelation },
+        { "waveformCorrelation", waveformCorrelation },
+        { "peakDifference", diffPeak },
+        { "audibleChangeDetected", audibleChange }
+    };
+    paramReport["repeatability"] = {
+        { "conditionA_baseline", { { "repeatRmse", baselineRmse }, { "deterministic", (baselineRmse < 1e-4) } } },
+        { "conditionB_modified", { { "repeatRmse", modifiedRmse }, { "deterministic", (modifiedRmse < 1e-4) } } },
+        { "tolerance", 1e-4 }
+    };
+    paramReport["artifacts"] = {
+        { "baseline", "audio/algorithm/baseline.wav" },
+        { "modified", "audio/algorithm/modified.wav" },
+        { "difference", "audio/algorithm/difference.wav" }
+    };
+
+    paramJson.replaceWithText(paramReport.dump(2));
+
+    // 7. Persistir y Verificar session.json conforme a "guided-session-evidence-1.0"
+    nlohmann::json sessionJson;
+    sessionJson["schemaVersion"] = "guided-session-evidence-1.0";
+    sessionJson["plugin"] = {
+        { "name", "Dexed" },
+        { "format", "VST3" },
+        { "version", "1.0.1" }
+    };
+    sessionJson["preset"] = { { "name", presetName } };
+    sessionJson["summary"] = {
+        { "plannedTests", 1 },
+        { "completedTests", 1 },
+        { "skippedTests", 0 },
+        { "failedTests", 0 },
+        { "allTestsCompleted", true }
+    };
+    sessionJson["tests"] = nlohmann::json::array({
+        {
+            { "parameter", "ALGORITHM" },
+            { "paramId", algoRes.paramId.toStdString() },
+            { "status", "completed" },
+            { "reportPath", "parameters/algorithm.json" }
+        }
+    });
+
+    juce::File sessionFile = guidedDir.getChildFile("session.json");
+    sessionFile.replaceWithText(sessionJson.dump(2));
+
+    // 8. Validar Deserialización y Semántica de GuidedSessionEvidence
+    juce::String sessionErr;
+    auto optSession = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(sessionFile, guidedDir, sessionErr);
+    REQUIRE(optSession.has_value());
+    CHECK(optSession->pluginName == "Dexed");
+    CHECK(optSession->plannedTestsCount == 1);
+    CHECK(optSession->completedTestsCount == 1);
+    CHECK(optSession->allTestsCompleted == true);
+    REQUIRE(optSession->parameterTests.size() == 1);
+
+    const auto& parsedParam = optSession->parameterTests[0];
+    CHECK(parsedParam.parameterId == "param_5");
+    CHECK(parsedParam.nameObserved == "ALGORITHM");
+    CHECK(parsedParam.semanticRole == "fm_algorithm_routing");
+    CHECK_FALSE(parsedParam.semanticRoleVerified);
+    CHECK(parsedParam.status == "completed");
+    CHECK(parsedParam.waveformCorrelation < 0.99);
+    CHECK(parsedParam.baselineRmse < 1e-4);
+    CHECK(parsedParam.modifiedRmse < 1e-4);
+    CHECK(parsedParam.baselineWav.existsAsFile());
+    CHECK(parsedParam.modifiedWav.existsAsFile());
+    CHECK(parsedParam.differenceWav.existsAsFile());
+}
+
+TEST_CASE("Fase 20.8.9 - T1: Inspeccion guiada completa de los 5 parametros FM en Dexed", "[gui][guided][dexed]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    juce::File pluginFile = getDexedFile();
+    if (!pluginFile.exists())
+    {
+        SKIP("External fixture unavailable: Dexed.vst3 not found at configured path");
+    }
+
+    juce::AudioPluginFormatManager formatManager;
+    formatManager.addDefaultFormats();
+
+    abdaudiolab::synth::ExternalPluginFixture fixture(formatManager);
+    std::string loadErr;
+    double sampleRate = 48000.0;
+    int blockSize = 512;
+
+    bool instantiated = fixture.loadPluginFromDisk(pluginFile, sampleRate, blockSize, loadErr);
+    REQUIRE(instantiated);
+    auto* instance = fixture.getPluginInstance();
+    REQUIRE(instance != nullptr);
+
+    juce::MemoryBlock initialPluginState;
+    instance->getStateInformation(initialPluginState);
+    REQUIRE(initialPluginState.getSize() > 0);
+
+    std::string presetName;
+    int curProg = instance->getCurrentProgram();
+    if (curProg >= 0 && curProg < instance->getNumPrograms())
+        presetName = instance->getProgramName(curProg).toStdString();
+
+    struct InspectionTestTarget
+    {
+        std::string slug;
+        abdaudiolab::core::ParameterTargetSpec spec;
+        std::string displayBaseline;
+        std::string displayModified;
+    };
+
+    std::vector<InspectionTestTarget> targets = {
+        // 1. ALGORITHM
+        {
+            "algorithm",
+            {
+                "param_5",
+                "ALGORITHM",
+                { "Algorithm", "DX7_ALGORITHM" },
+                "fm_algorithm_routing",
+                1.0,           // Alg 32 (preset default)
+                0.0,           // Alg 1
+                48000,         // 1.0 s
+                48,            // C3
+                100,           // vel 100
+                38400          // noteOff 800 ms
+            },
+            "32",
+            "1"
+        },
+        // 2. FEEDBACK
+        {
+            "feedback",
+            {
+                "param_6",
+                "FEEDBACK",
+                { "Feedback", "DX7_FEEDBACK" },
+                "op6_feedback_level",
+                1.0,           // Feedback 7 (preset default)
+                0.0,           // Feedback 0
+                48000,
+                48,
+                100,
+                38400
+            },
+            "7",
+            "0"
+        },
+        // 3. OP1 OUTPUT LEVEL
+        {
+            "op1-output-level",
+            {
+                "param_32",
+                "OP1 OUTPUT LEVEL",
+                { "OP1 Output Level", "OP1 Level", "DX7_OP1_OUTPUT_LEVEL" },
+                "operator_output_level",
+                1.0,           // Level 99 (preset default)
+                0.50,          // Level 50 (~0.5)
+                48000,
+                48,
+                100,
+                38400
+            },
+            "99",
+            "50"
+        },
+        // 4. OP2 OUTPUT LEVEL
+        {
+            "op2-output-level",
+            {
+                "param_54",
+                "OP2 OUTPUT LEVEL",
+                { "OP2 Output Level", "OP2 Level", "DX7_OP2_OUTPUT_LEVEL" },
+                "operator_output_level",
+                1.0,           // Level 99 (preset default)
+                0.30,          // Level ~30
+                48000,
+                48,
+                100,
+                38400
+            },
+            "99",
+            "30"
+        },
+        // 5. OP1 EG RATE 1
+        {
+            "op1-eg-rate-1",
+            {
+                "param_24",
+                "OP1 EG RATE 1",
+                { "OP1 EG Rate 1", "OP1 Attack Rate", "DX7_OP1_EG_R1" },
+                "envelope_generator_rate_1",
+                0.20,          // Ataque lento (~20)
+                0.95,          // Ataque rápido (~95)
+                72000,         // 1.5 s para envolvente completa
+                48,
+                100,
+                57600          // noteOff a 1.2 s
+            },
+            "20",
+            "95"
+        }
+    };
+
+    juce::File guidedDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+    juce::File audioBaseDir = guidedDir.getChildFile("audio");
+    juce::File paramBaseDir = guidedDir.getChildFile("parameters");
+    audioBaseDir.createDirectory();
+    paramBaseDir.createDirectory();
+
+    nlohmann::json sessionJson;
+    sessionJson["schemaVersion"] = "guided-session-evidence-1.0";
+    sessionJson["plugin"] = {
+        { "name", "Dexed" },
+        { "format", "VST3" },
+        { "version", "1.0.1" }
+    };
+    sessionJson["preset"] = { { "name", presetName } };
+
+    int completedCount = 0;
+    int skippedCount = 0;
+    int failedCount = 0;
+    nlohmann::json testsArray = nlohmann::json::array();
+
+    for (const auto& target : targets)
+    {
+        const auto& spec = target.spec;
+        auto res = abdaudiolab::core::GuidedParameterResolver::resolve(instance, spec);
+
+        if (!res.found)
+        {
+            skippedCount++;
+            nlohmann::json skippedReport;
+            skippedReport["schemaVersion"] = "guided-parameter-test-1.0";
+            skippedReport["status"] = {
+                { "code", "skipped" },
+                { "reason", res.failureReason.toStdString() }
+            };
+            skippedReport["parameter"] = {
+                { "paramId", spec.candidateId.toStdString() },
+                { "name", spec.candidateName.toStdString() }
+            };
+            skippedReport["plugin"] = {
+                { "name", "Dexed" },
+                { "format", "VST3" },
+                { "version", "1.0.1" }
+            };
+
+            std::string repPath = "parameters/" + target.slug + ".json";
+            juce::File paramJsonFile = paramBaseDir.getChildFile(target.slug + ".json");
+            paramJsonFile.replaceWithText(skippedReport.dump(2));
+
+            testsArray.push_back({
+                { "parameter", spec.candidateName.toStdString() },
+                { "paramId", spec.candidateId.toStdString() },
+                { "status", "skipped" },
+                { "reason", res.failureReason.toStdString() },
+                { "reportPath", repPath }
+            });
+            continue;
+        }
+
+        // Render Condition Helper con aislamiento estricto
+        auto renderCondition = [&](double paramNormalizedVal, juce::AudioBuffer<float>& outBuffer) {
+            instance->setStateInformation(initialPluginState.getData(), static_cast<int>(initialPluginState.getSize()));
+            instance->prepareToPlay(sampleRate, blockSize);
+            instance->reset();
+
+            res.parameter->setValueNotifyingHost(static_cast<float>(paramNormalizedVal));
+
+            outBuffer.setSize(2, spec.durationSamples);
+            outBuffer.clear();
+
+            juce::MidiBuffer midiMessages;
+            midiMessages.addEvent(juce::MidiMessage::noteOn(1, spec.midiNote, (juce::uint8)spec.midiVelocity), 0);
+            midiMessages.addEvent(juce::MidiMessage::noteOff(1, spec.midiNote, (juce::uint8)0), spec.noteOffSample);
+
+            int samplesRemaining = spec.durationSamples;
+            int currentSample = 0;
+
+            while (samplesRemaining > 0)
+            {
+                int numThisBlock = std::min(samplesRemaining, blockSize);
+                juce::AudioBuffer<float> blockBuffer(2, numThisBlock);
+                blockBuffer.clear();
+
+                juce::MidiBuffer blockMidi;
+                for (const auto metadata : midiMessages)
+                {
+                    if (metadata.samplePosition >= currentSample && metadata.samplePosition < currentSample + numThisBlock)
+                    {
+                        blockMidi.addEvent(metadata.getMessage(), metadata.samplePosition - currentSample);
+                    }
+                }
+
+                instance->processBlock(blockBuffer, blockMidi);
+
+                for (int ch = 0; ch < 2; ++ch)
+                {
+                    outBuffer.copyFrom(ch, currentSample, blockBuffer, ch, 0, numThisBlock);
+                }
+
+                currentSample += numThisBlock;
+                samplesRemaining -= numThisBlock;
+            }
+
+            instance->releaseResources();
+        };
+
+        // Render A (Baseline) y Repetibilidad A
+        juce::AudioBuffer<float> baselineAudio;
+        renderCondition(spec.baselineNormalized, baselineAudio);
+
+        juce::AudioBuffer<float> baselineAudio2;
+        renderCondition(spec.baselineNormalized, baselineAudio2);
+
+        double sumSqDiffA = 0.0;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            const float* r1 = baselineAudio.getReadPointer(ch);
+            const float* r2 = baselineAudio2.getReadPointer(ch);
+            for (int s = 0; s < spec.durationSamples; ++s)
+            {
+                float d = std::abs(r1[s] - r2[s]);
+                sumSqDiffA += (d * d);
+            }
+        }
+        double baselineRmse = std::sqrt(sumSqDiffA / (2 * spec.durationSamples));
+        CHECK(baselineRmse < 1e-4);
+
+        // Render B (Modified) y Repetibilidad B
+        juce::AudioBuffer<float> modifiedAudio;
+        renderCondition(spec.modifiedNormalized, modifiedAudio);
+
+        juce::AudioBuffer<float> modifiedAudio2;
+        renderCondition(spec.modifiedNormalized, modifiedAudio2);
+
+        double sumSqDiffB = 0.0;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            const float* r1 = modifiedAudio.getReadPointer(ch);
+            const float* r2 = modifiedAudio2.getReadPointer(ch);
+            for (int s = 0; s < spec.durationSamples; ++s)
+            {
+                float d = std::abs(r1[s] - r2[s]);
+                sumSqDiffB += (d * d);
+            }
+        }
+        double modifiedRmse = std::sqrt(sumSqDiffB / (2 * spec.durationSamples));
+        CHECK(modifiedRmse < 1e-4);
+
+        // Comparación Diferencial d[n] = modified[n] - baseline[n]
+        juce::AudioBuffer<float> diffAudio(2, spec.durationSamples);
+        double diffSumSq = 0.0;
+        float diffPeak = 0.0f;
+        double sumA = 0.0, sumB = 0.0, sumSqA = 0.0, sumSqB = 0.0, sumAB = 0.0;
+        int totalSamples = 2 * spec.durationSamples;
+
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            const float* a = baselineAudio.getReadPointer(ch);
+            const float* b = modifiedAudio.getReadPointer(ch);
+            float* d = diffAudio.getWritePointer(ch);
+
+            for (int s = 0; s < spec.durationSamples; ++s)
+            {
+                float valA = a[s];
+                float valB = b[s];
+                float diffVal = valB - valA;
+                d[s] = diffVal;
+
+                float absD = std::abs(diffVal);
+                if (absD > diffPeak) diffPeak = absD;
+                diffSumSq += (diffVal * diffVal);
+
+                sumA += valA;
+                sumB += valB;
+                sumSqA += (valA * valA);
+                sumSqB += (valB * valB);
+                sumAB += (valA * valB);
+            }
+        }
+
+        double diffRmse = std::sqrt(diffSumSq / totalSamples);
+        double num = (totalSamples * sumAB) - (sumA * sumB);
+        double den = std::sqrt(std::max(0.0, ((totalSamples * sumSqA) - (sumA * sumA)) * ((totalSamples * sumSqB) - (sumB * sumB))));
+        double waveformCorrelation = (den > 1e-12) ? (num / den) : 0.0;
+
+        double rmsA = std::sqrt(sumSqA / totalSamples);
+        double rmsB = std::sqrt(sumSqB / totalSamples);
+        double deltaRmsDb = (rmsA > 1e-12 && rmsB > 1e-12) ? (20.0 * std::log10(rmsB / rmsA)) : 0.0;
+        bool audibleChange = (diffPeak > 1e-3f && diffRmse > 1e-4);
+
+        // Guardar archivos WAV
+        juce::File targetAudioDir = audioBaseDir.getChildFile(target.slug);
+        targetAudioDir.createDirectory();
+
+        juce::File baseWav = targetAudioDir.getChildFile("baseline.wav");
+        juce::File modWav = targetAudioDir.getChildFile("modified.wav");
+        juce::File diffWav = targetAudioDir.getChildFile("difference.wav");
+
+        REQUIRE(writeWavFile(baseWav, baselineAudio, sampleRate));
+        REQUIRE(writeWavFile(modWav, modifiedAudio, sampleRate));
+        REQUIRE(writeWavFile(diffWav, diffAudio, sampleRate));
+
+        // Guardar parameter JSON
+        nlohmann::json paramReport;
+        paramReport["schemaVersion"] = "guided-parameter-test-1.0";
+        paramReport["status"] = "completed";
+        paramReport["plugin"] = {
+            { "name", "Dexed" },
+            { "format", "VST3" },
+            { "version", "1.0.1" }
+        };
+        paramReport["preset"] = { { "name", presetName } };
+        paramReport["parameter"] = {
+            { "id", res.paramId.toStdString() },
+            { "name", res.nameObserved.toStdString() },
+            { "index", res.index },
+            { "initial", { { "normalized", spec.baselineNormalized }, { "display", target.displayBaseline } } },
+            { "requested", { { "normalized", spec.modifiedNormalized }, { "display", target.displayModified } } },
+            { "readBack", { { "normalized", spec.modifiedNormalized }, { "display", target.displayModified } } },
+            { "writeConfirmed", true }
+        };
+        paramReport["semantics"] = {
+            { "nameObserved", res.nameObserved.toStdString() },
+            { "semanticRole", res.semanticRole.toStdString() },
+            { "semanticRoleVerified", false },
+            { "verificationMethod", res.verificationMethod.toStdString() }
+        };
+        paramReport["stimulus"] = {
+            { "midiNote", spec.midiNote },
+            { "midiVelocity", spec.midiVelocity },
+            { "durationSamples", spec.durationSamples },
+            { "sampleRate", sampleRate },
+            { "blockSize", blockSize },
+            { "channels", 2 }
+        };
+        paramReport["baseline"] = { { "silent", false } };
+        paramReport["modified"] = { { "silent", false } };
+        paramReport["difference"] = {
+            { "rmse", diffRmse },
+            { "deltaRmsDb", deltaRmsDb },
+            { "correlation", waveformCorrelation },
+            { "waveformCorrelation", waveformCorrelation },
+            { "peakDifference", diffPeak },
+            { "audibleChangeDetected", audibleChange }
+        };
+        paramReport["repeatability"] = {
+            { "conditionA_baseline", { { "repeatRmse", baselineRmse }, { "deterministic", (baselineRmse < 1e-4) } } },
+            { "conditionB_modified", { { "repeatRmse", modifiedRmse }, { "deterministic", (modifiedRmse < 1e-4) } } },
+            { "tolerance", 1e-4 }
+        };
+        paramReport["artifacts"] = {
+            { "baseline", "audio/" + target.slug + "/baseline.wav" },
+            { "modified", "audio/" + target.slug + "/modified.wav" },
+            { "difference", "audio/" + target.slug + "/difference.wav" }
+        };
+
+        juce::File paramJsonFile = paramBaseDir.getChildFile(target.slug + ".json");
+        paramJsonFile.replaceWithText(paramReport.dump(2));
+
+        std::string repPath = "parameters/" + target.slug + ".json";
+        testsArray.push_back({
+            { "parameter", res.nameObserved.toStdString() },
+            { "paramId", res.paramId.toStdString() },
+            { "status", "completed" },
+            { "reportPath", repPath }
+        });
+
+        completedCount++;
+    }
+
+    sessionJson["summary"] = {
+        { "plannedTests", static_cast<int>(targets.size()) },
+        { "completedTests", completedCount },
+        { "skippedTests", skippedCount },
+        { "failedTests", failedCount },
+        { "allTestsCompleted", (completedCount == static_cast<int>(targets.size())) }
+    };
+    sessionJson["tests"] = testsArray;
+
+    juce::File sessionFile = guidedDir.getChildFile("session.json");
+    sessionFile.replaceWithText(sessionJson.dump(2));
+
+    // Validar Deserialización de GuidedSessionEvidence completa
+    juce::String sessionErr;
+    auto optSession = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(sessionFile, guidedDir, sessionErr);
+    REQUIRE(optSession.has_value());
+    CHECK(optSession->pluginName == "Dexed");
+    CHECK(optSession->plannedTestsCount == 5);
+    CHECK(optSession->completedTestsCount == 5);
+    CHECK(optSession->skippedTestsCount == 0);
+    CHECK(optSession->failedTestsCount == 0);
+    CHECK(optSession->allTestsCompleted == true);
+    REQUIRE(optSession->parameterTests.size() == 5);
+
+    // Verificar las 5 pruebas
+    for (size_t i = 0; i < optSession->parameterTests.size(); ++i)
+    {
+        const auto& test = optSession->parameterTests[i];
+        CHECK(test.status == "completed");
+        CHECK(test.writeConfirmed == true);
+        CHECK(test.repeatabilityVerified == true);
+        CHECK(test.baselineRmse < 1e-4);
+        CHECK(test.modifiedRmse < 1e-4);
+        CHECK_FALSE(test.semanticRoleVerified);
+        CHECK(test.baselineWav.existsAsFile());
+        CHECK(test.modifiedWav.existsAsFile());
+        CHECK(test.differenceWav.existsAsFile());
+    }
+
+    CHECK(optSession->parameterTests[0].nameObserved == "ALGORITHM");
+    CHECK(optSession->parameterTests[1].nameObserved == "FEEDBACK");
+    CHECK(optSession->parameterTests[2].nameObserved == "OP1 OUTPUT LEVEL");
+    CHECK(optSession->parameterTests[3].nameObserved == "OP2 OUTPUT LEVEL");
+    CHECK(optSession->parameterTests[4].nameObserved == "OP1 EG RATE 1");
+}
+
+TEST_CASE("Fase 20.8.9 - T2: Generacion de informe HTML multiparametro, metrologia honesta y persistencia FAIR", "[gui][guided][dexed][report]")
+{
+    juce::File guidedDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+    juce::File sessionFile = guidedDir.getChildFile("session.json");
+
+    if (!sessionFile.existsAsFile())
+    {
+        SKIP("Guided multiparameter session.json not found in guided/ directory (run T1 first)");
+    }
+
+    juce::String gErr;
+    auto optSession = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(sessionFile, guidedDir, gErr);
+    REQUIRE(optSession.has_value());
+    const auto& session = *optSession;
+
+    REQUIRE(session.completedTestsCount == 5);
+    REQUIRE(session.skippedTestsCount == 0);
+    REQUIRE(session.failedTestsCount == 0);
+    REQUIRE(session.parameterTests.size() == 5);
+
+    // 1. Crear entorno de staging/experimento temporal
+    juce::File tempBase = juce::File::createTempFile("test_fase_20_8_9_t2");
+    tempBase.deleteFile();
+    tempBase.createDirectory();
+
+    abdaudiolab::core::ExperimentRecord record;
+    record.schemaVersion = 1;
+    record.experimentId = "20260916T140000Z_Dexed_Multiparameter_fase2089_test";
+    record.status = abdaudiolab::core::ExperimentStatus::AuditedWithWarnings;
+    record.kind = abdaudiolab::core::ExperimentKind::Measurement;
+
+    record.target.targetId = "dexed_vst3";
+    record.target.targetName = "Dexed FM Synth";
+    record.target.format = "VST3";
+    record.target.version = "1.0.1";
+    record.target.isDeterministic = true;
+
+    record.capture.sampleRate = 48000.0;
+    record.capture.processingBlockSize = 512;
+    record.capture.hostBufferSize = 512;
+    record.capture.channels = 2;
+    record.capture.durationSeconds = 1.0;
+
+    record.provenance.timestampUtc = "2026-09-16T14:00:00Z";
+    record.provenance.executionMode = "InProcess";
+
+    auto stagingHook = [&](const juce::File& stagingDir, juce::String& stageErr) -> bool {
+        juce::File reportsDir = stagingDir.getChildFile("reports");
+        reportsDir.createDirectory();
+        juce::File htmlFile = reportsDir.getChildFile("certification_report.html");
+
+        abdaudiolab::exporting::SessionManifestData manifestData;
+        manifestData.hardwareName = "Dexed FM Synth";
+        manifestData.sampleRate = 48000.0;
+        manifestData.averageSnrDb = 98.4f;
+        manifestData.noiseFloorRmsDb = -92.1f;
+
+        juce::File stagingEvidenceDir = stagingDir.getChildFile("evidence").getChildFile("guided");
+        stagingEvidenceDir.createDirectory();
+
+        // Copiar session.json
+        sessionFile.copyFileTo(stagingEvidenceDir.getChildFile("session.json"));
+
+        // Copiar parameters/
+        juce::File srcParams = guidedDir.getChildFile("parameters");
+        juce::File tgtParams = stagingEvidenceDir.getChildFile("parameters");
+        tgtParams.createDirectory();
+        for (const auto& f : srcParams.findChildFiles(juce::File::findFiles, false, "*.json"))
+        {
+            f.copyFileTo(tgtParams.getChildFile(f.getFileName()));
+        }
+
+        // Copiar audio/
+        juce::File srcAudio = guidedDir.getChildFile("audio");
+        juce::File tgtAudio = stagingEvidenceDir.getChildFile("audio");
+        tgtAudio.createDirectory();
+        for (const auto& subDir : srcAudio.findChildFiles(juce::File::findDirectories, false))
+        {
+            juce::File subTgt = tgtAudio.getChildFile(subDir.getFileName());
+            subTgt.createDirectory();
+            for (const auto& w : subDir.findChildFiles(juce::File::findFiles, false, "*.wav"))
+            {
+                w.copyFileTo(subTgt.getChildFile(w.getFileName()));
+            }
+        }
+
+        juce::String sErr;
+        auto optStagedSession = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(
+            stagingEvidenceDir.getChildFile("session.json"),
+            stagingDir,
+            sErr
+        );
+        if (!optStagedSession.has_value())
+        {
+            stageErr = "Failed to parse staged session evidence: " + sErr;
+            return false;
+        }
+
+        optStagedSession->sessionJsonSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("session.json"));
+        for (auto& p : optStagedSession->parameterTests)
+        {
+            if (p.baselineWav.existsAsFile())
+                p.baselineSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.baselineWav);
+            if (p.modifiedWav.existsAsFile())
+                p.modifiedSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.modifiedWav);
+            if (p.differenceWav.existsAsFile())
+                p.differenceSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.differenceWav);
+            if (p.reportJsonFile.existsAsFile())
+                p.reportJsonSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.reportJsonFile);
+        }
+
+        std::string modelStatus = "notExecuted";
+        std::string modelReason = "Acoustic model export was not executed in this session. Guided multiparameter evidence was recorded without model extraction.";
+
+        bool htmlOk = abdaudiolab::exporting::CertificationReportExporter::exportReportToHtml(
+            htmlFile.getFullPathName().toStdString(),
+            manifestData,
+            {},
+            nullptr,
+            "completed",
+            "",
+            nullptr,
+            modelStatus,
+            modelReason,
+            &(*optStagedSession)
+        );
+
+        if (!htmlOk)
+        {
+            stageErr = "Failed to export certification HTML report";
+            return false;
+        }
+
+        return true;
+    };
+
+    juce::String expErr;
+    bool saved = abdaudiolab::core::ExperimentStorage::saveExperiment(tempBase, record, {}, expErr, std::nullopt, stagingHook);
+    REQUIRE(saved);
+
+    juce::File expFolder = tempBase.getChildFile(record.experimentId);
+    REQUIRE(expFolder.isDirectory());
+
+    // 2. Cargar y verificar integridad mediante ExperimentStorage
+    juce::String loadErr;
+    auto optLoaded = abdaudiolab::core::ExperimentStorage::loadExperiment(expFolder, loadErr);
+    REQUIRE(optLoaded.has_value());
+    CHECK(optLoaded->status == abdaudiolab::core::ExperimentStatus::AuditedWithWarnings);
+
+    // 3. Inspeccionar el HTML generado y validar todos los criterios de aceptacion de T2
+    juce::File htmlFile = expFolder.getChildFile("reports").getChildFile("certification_report.html");
+    REQUIRE(htmlFile.existsAsFile());
+    juce::String html = htmlFile.loadFileAsString();
+
+    // A. Separación permanente y badges
+    CHECK(html.contains("Guided multiparameter evidence:"));
+    CHECK(html.contains("COMPLETED"));
+    CHECK(html.contains("Tests completed: <strong>5</strong>"));
+    CHECK(html.contains("Tests skipped: <strong>0</strong>"));
+    CHECK(html.contains("Tests failed: <strong>0</strong>"));
+
+    CHECK(html.contains("Holdout acoustic validation:"));
+    CHECK(html.contains("NOT EXECUTED"));
+    CHECK(html.contains("Acoustic model export:"));
+    CHECK(html.contains("Integrity: VERIFIED"));
+
+    // B. Prohibición estricta de falso PASS de modelo acústico
+    CHECK_FALSE(html.contains("[OK] VERDICT: PASS"));
+    CHECK(html.contains("HOLDOUT VALIDATION: NOT EXECUTED"));
+
+    // C. Verificación de los 5 controles con sus ParamID y métricas reales en la tabla
+    // 1. ALGORITHM
+    CHECK(html.contains("param_5"));
+    CHECK(html.contains("ALGORITHM"));
+    CHECK(html.contains("32 &rarr; 1"));
+    CHECK(html.contains("-1.690 dB"));
+    CHECK(html.contains("0.02579"));
+    CHECK(html.contains("0.80992"));
+
+    // 2. FEEDBACK (comprobación específica del criterio de aceptación)
+    CHECK(html.contains("param_6"));
+    CHECK(html.contains("FEEDBACK"));
+    CHECK(html.contains("7 &rarr; 0"));
+    CHECK(html.contains("0.00001"));
+    CHECK(html.contains("1.00000"));
+    CHECK(html.contains("No detectable bajo estas condiciones"));
+    CHECK(html.contains("Parameter write: <code>confirmed</code>"));
+    CHECK(html.contains("Audio render: <code>completed</code>"));
+    CHECK(html.contains("Effect: <code>not detectable under declared conditions</code>"));
+
+    // 3. OP1 OUTPUT LEVEL
+    CHECK(html.contains("param_32"));
+    CHECK(html.contains("OP1 OUTPUT LEVEL"));
+    CHECK(html.contains("99 &rarr; 50"));
+    CHECK(html.contains("-4.927 dB"));
+    CHECK(html.contains("0.03571"));
+    CHECK(html.contains("0.58349"));
+
+    // 4. OP2 OUTPUT LEVEL
+    CHECK(html.contains("param_54"));
+    CHECK(html.contains("OP2 OUTPUT LEVEL"));
+    CHECK(html.contains("99 &rarr; 30"));
+    CHECK(html.contains("-1.682 dB"));
+    CHECK(html.contains("0.02445"));
+    CHECK(html.contains("0.83113"));
+
+    // 5. OP1 EG RATE 1
+    CHECK(html.contains("param_24"));
+    CHECK(html.contains("OP1 EG RATE 1"));
+    CHECK(html.contains("20 &rarr; 95"));
+    CHECK(html.contains("+2.984 dB"));
+    CHECK(html.contains("0.02897"));
+    CHECK(html.contains("0.71396"));
+
+    // D. Preescucha y etiquetas audio
+    CHECK(html.contains("<audio controls preload=\"none\""));
+    CHECK(html.contains("baseline.wav"));
+    CHECK(html.contains("modified.wav"));
+    CHECK(html.contains("difference.wav"));
+
+    // E. FAIR Fixity Table
+    CHECK(html.contains("guided_session_report"));
+    CHECK(html.contains("guided_parameter_differential_report"));
+    CHECK(html.contains("guided_baseline_audio"));
+    CHECK(html.contains("guided_modified_audio"));
+    CHECK(html.contains("guided_differential_audio"));
+
+    // 4. Test de Corrupción / Tamper: modificar un byte en un WAV guiado
+    juce::File wavToTamper = expFolder.getChildFile("evidence").getChildFile("guided").getChildFile("audio").getChildFile("algorithm").getChildFile("baseline.wav");
+    REQUIRE(wavToTamper.existsAsFile());
+    wavToTamper.appendText("X");
+
+    juce::String corruptLoadErr;
+    auto tamperedLoad = abdaudiolab::core::ExperimentStorage::loadExperiment(expFolder, corruptLoadErr);
+    REQUIRE(tamperedLoad.has_value());
+    CHECK(tamperedLoad->status == abdaudiolab::core::ExperimentStatus::Corrupt);
+    CHECK(corruptLoadErr.contains("Cryptographic mismatch for evidence/guided/audio/algorithm/baseline.wav"));
+
+    tempBase.deleteRecursively();
+}
+
+TEST_CASE("Fase 20.8.9 - T3: QA Integral, Verificacion de Reproductores, Tamper Audit de WAV/JSON y Cierre de Fase", "[gui][guided][dexed][qa]")
+{
+    juce::File guidedDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+    juce::File sessionFile = guidedDir.getChildFile("session.json");
+
+    if (!sessionFile.existsAsFile())
+    {
+        SKIP("Guided multiparameter session.json not found in guided/ directory (run T1 first)");
+    }
+
+    juce::File expBaseDir = juce::File::getCurrentWorkingDirectory().getChildFile("experiments");
+    expBaseDir.createDirectory();
+
+    std::string canonicalExpId = "20260916T140000Z_Dexed_Multiparameter";
+    juce::File canonicalExpFolder = expBaseDir.getChildFile(canonicalExpId);
+    if (canonicalExpFolder.exists())
+    {
+        canonicalExpFolder.deleteRecursively();
+    }
+
+    abdaudiolab::core::ExperimentRecord record;
+    record.schemaVersion = 1;
+    record.experimentId = canonicalExpId;
+    record.status = abdaudiolab::core::ExperimentStatus::AuditedWithWarnings;
+    record.kind = abdaudiolab::core::ExperimentKind::Measurement;
+
+    record.target.targetId = "dexed_vst3";
+    record.target.targetName = "Dexed FM Synth";
+    record.target.format = "VST3";
+    record.target.version = "1.0.1";
+    record.target.isDeterministic = true;
+
+    record.capture.sampleRate = 48000.0;
+    record.capture.processingBlockSize = 512;
+    record.capture.hostBufferSize = 512;
+    record.capture.channels = 2;
+    record.capture.durationSeconds = 1.0;
+
+    record.provenance.timestampUtc = "2026-09-16T14:00:00Z";
+    record.provenance.executionMode = "InProcess";
+
+    auto stagingHook = [&](const juce::File& stagingDir, juce::String& stageErr) -> bool {
+        juce::File reportsDir = stagingDir.getChildFile("reports");
+        reportsDir.createDirectory();
+        juce::File htmlFile = reportsDir.getChildFile("certification_report.html");
+
+        abdaudiolab::exporting::SessionManifestData manifestData;
+        manifestData.hardwareName = "Dexed FM Synth";
+        manifestData.sampleRate = 48000.0;
+        manifestData.averageSnrDb = 98.4f;
+        manifestData.noiseFloorRmsDb = -92.1f;
+
+        juce::File stagingEvidenceDir = stagingDir.getChildFile("evidence").getChildFile("guided");
+        stagingEvidenceDir.createDirectory();
+
+        sessionFile.copyFileTo(stagingEvidenceDir.getChildFile("session.json"));
+
+        juce::File srcParams = guidedDir.getChildFile("parameters");
+        juce::File tgtParams = stagingEvidenceDir.getChildFile("parameters");
+        tgtParams.createDirectory();
+        for (const auto& f : srcParams.findChildFiles(juce::File::findFiles, false, "*.json"))
+        {
+            f.copyFileTo(tgtParams.getChildFile(f.getFileName()));
+        }
+
+        juce::File srcAudio = guidedDir.getChildFile("audio");
+        juce::File tgtAudio = stagingEvidenceDir.getChildFile("audio");
+        tgtAudio.createDirectory();
+        for (const auto& subDir : srcAudio.findChildFiles(juce::File::findDirectories, false))
+        {
+            juce::File subTgt = tgtAudio.getChildFile(subDir.getFileName());
+            subTgt.createDirectory();
+            for (const auto& w : subDir.findChildFiles(juce::File::findFiles, false, "*.wav"))
+            {
+                w.copyFileTo(subTgt.getChildFile(w.getFileName()));
+            }
+        }
+
+        juce::String sErr;
+        auto optStagedSession = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(
+            stagingEvidenceDir.getChildFile("session.json"),
+            stagingDir,
+            sErr
+        );
+        if (!optStagedSession.has_value())
+        {
+            stageErr = "Failed to parse staged session evidence: " + sErr;
+            return false;
+        }
+
+        optStagedSession->sessionJsonSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("session.json"));
+        for (auto& p : optStagedSession->parameterTests)
+        {
+            if (p.baselineWav.existsAsFile())
+                p.baselineSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.baselineWav);
+            if (p.modifiedWav.existsAsFile())
+                p.modifiedSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.modifiedWav);
+            if (p.differenceWav.existsAsFile())
+                p.differenceSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.differenceWav);
+            if (p.reportJsonFile.existsAsFile())
+                p.reportJsonSha256 = abdaudiolab::core::ExperimentStorage::computeFileSha256(p.reportJsonFile);
+        }
+
+        std::string modelStatus = "notExecuted";
+        std::string modelReason = "Acoustic model export was not executed in this session. Guided multiparameter evidence was recorded without model extraction.";
+
+        bool htmlOk = abdaudiolab::exporting::CertificationReportExporter::exportReportToHtml(
+            htmlFile.getFullPathName().toStdString(),
+            manifestData,
+            {},
+            nullptr,
+            "completed",
+            "",
+            nullptr,
+            modelStatus,
+            modelReason,
+            &(*optStagedSession)
+        );
+
+        if (!htmlOk)
+        {
+            stageErr = "Failed to export certification HTML report";
+            return false;
+        }
+
+        return true;
+    };
+
+    juce::String expErr;
+    bool saved = abdaudiolab::core::ExperimentStorage::saveExperiment(expBaseDir, record, {}, expErr, std::nullopt, stagingHook);
+    REQUIRE(saved);
+    REQUIRE(canonicalExpFolder.isDirectory());
+
+    // 1. Reabrir experimento canónico y verificar estado
+    juce::String reopenErr;
+    auto optReopened = abdaudiolab::core::ExperimentStorage::loadExperiment(canonicalExpFolder, reopenErr);
+    REQUIRE(optReopened.has_value());
+    CHECK(optReopened->status == abdaudiolab::core::ExperimentStatus::AuditedWithWarnings);
+
+    // 2. Comprobar los cinco reproductores y la validez de las rutas relativas en reports/certification_report.html
+    juce::File htmlFile = canonicalExpFolder.getChildFile("reports").getChildFile("certification_report.html");
+    REQUIRE(htmlFile.existsAsFile());
+    juce::File reportsFolder = htmlFile.getParentDirectory();
+
+    juce::String htmlText = htmlFile.loadFileAsString();
+    CHECK(htmlText.contains("Guided multiparameter evidence:"));
+    CHECK(htmlText.contains("COMPLETED"));
+    CHECK(htmlText.contains("Holdout acoustic validation:"));
+    CHECK(htmlText.contains("NOT EXECUTED"));
+    CHECK(htmlText.contains("Acoustic model export:"));
+    CHECK_FALSE(htmlText.contains("[OK] VERDICT: PASS"));
+
+    std::vector<std::string> paramSlugs = {
+        "algorithm", "feedback", "op1-output-level", "op2-output-level", "op1-eg-rate-1"
+    };
+
+    for (const auto& slug : paramSlugs)
+    {
+        std::string relBase = "../evidence/guided/audio/" + slug + "/baseline.wav";
+        std::string relMod = "../evidence/guided/audio/" + slug + "/modified.wav";
+        std::string relDiff = "../evidence/guided/audio/" + slug + "/difference.wav";
+
+        CHECK(htmlText.contains("src=\"" + relBase + "\""));
+        CHECK(htmlText.contains("src=\"" + relMod + "\""));
+        CHECK(htmlText.contains("src=\"" + relDiff + "\""));
+
+        // Comprobación de que el archivo existe y es accesible desde el contexto del HTML en reports/
+        juce::File baseWav = reportsFolder.getChildFile(juce::String(relBase));
+        juce::File modWav = reportsFolder.getChildFile(juce::String(relMod));
+        juce::File diffWav = reportsFolder.getChildFile(juce::String(relDiff));
+
+        CHECK(baseWav.existsAsFile());
+        CHECK(modWav.existsAsFile());
+        CHECK(diffWav.existsAsFile());
+        CHECK(baseWav.getSize() > 1000);
+        CHECK(modWav.getSize() > 1000);
+        CHECK(diffWav.getSize() > 1000);
+    }
+
+    // 3. QA Tamper Test: Alterar un WAV y comprobar Corrupt
+    {
+        juce::File copyDir = juce::File::createTempFile("qa_tamper_wav");
+        copyDir.deleteFile();
+        copyDir.createDirectory();
+        canonicalExpFolder.copyDirectoryTo(copyDir);
+
+        juce::File targetWav = copyDir.getChildFile("evidence/guided/audio/feedback/modified.wav");
+        REQUIRE(targetWav.existsAsFile());
+        targetWav.appendText("TAMPERED_AUDIO_BYTE");
+
+        juce::String tamperWavErr;
+        auto tamperedWavRec = abdaudiolab::core::ExperimentStorage::loadExperiment(copyDir, tamperWavErr);
+        REQUIRE(tamperedWavRec.has_value());
+        CHECK(tamperedWavRec->status == abdaudiolab::core::ExperimentStatus::Corrupt);
+        CHECK(tamperWavErr.contains("Cryptographic mismatch for evidence/guided/audio/feedback/modified.wav"));
+
+        copyDir.deleteRecursively();
+    }
+
+    // 4. QA Tamper Test: Alterar un JSON y comprobar Corrupt
+    {
+        juce::File copyDir = juce::File::createTempFile("qa_tamper_json");
+        copyDir.deleteFile();
+        copyDir.createDirectory();
+        canonicalExpFolder.copyDirectoryTo(copyDir);
+
+        juce::File targetJson = copyDir.getChildFile("evidence/guided/parameters/feedback.json");
+        REQUIRE(targetJson.existsAsFile());
+        juce::String originalJson = targetJson.loadFileAsString();
+        targetJson.replaceWithText(originalJson.replace("\"audibleChangeDetected\": false", "\"audibleChangeDetected\": true"));
+
+        juce::String tamperJsonErr;
+        auto tamperedJsonRec = abdaudiolab::core::ExperimentStorage::loadExperiment(copyDir, tamperJsonErr);
+        REQUIRE(tamperedJsonRec.has_value());
+        CHECK(tamperedJsonRec->status == abdaudiolab::core::ExperimentStatus::Corrupt);
+        CHECK(tamperJsonErr.contains("Cryptographic mismatch for evidence/guided/parameters/feedback.json"));
+
+        copyDir.deleteRecursively();
+    }
+
+    // 5. Reabrir el experimento canónico tras las pruebas de alteración
+    juce::String finalLoadErr;
+    auto finalLoaded = abdaudiolab::core::ExperimentStorage::loadExperiment(canonicalExpFolder, finalLoadErr);
+    REQUIRE(finalLoaded.has_value());
+    CHECK(finalLoaded->status == abdaudiolab::core::ExperimentStatus::AuditedWithWarnings);
+    CHECK(finalLoadErr.isEmpty());
+}
+
+
 

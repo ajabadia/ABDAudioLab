@@ -605,32 +605,95 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
 
         // 1. Comprobar si existe evidencia guiada en guided/ o evidence/guided/
         std::optional<abdaudiolab::core::GuidedParameterEvidence> optGuidedEvidence;
+        std::optional<abdaudiolab::core::GuidedSessionEvidence> optSessionEvidence;
         juce::File guidedSrcDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
-        juce::File guidedSrcJson = guidedSrcDir.getChildFile("parameter-test-cutoff.json");
         juce::File stagingEvidenceDir = stagingDir.getChildFile("evidence").getChildFile("guided");
 
-        if (currentSnapshot_.workflowMode == UiWorkflowMode::Guided && guidedSrcJson.existsAsFile())
+        if (currentSnapshot_.workflowMode == UiWorkflowMode::Guided)
         {
-            stagingEvidenceDir.createDirectory();
-            guidedSrcJson.copyFileTo(stagingEvidenceDir.getChildFile("parameter-test-cutoff.json"));
-
-            juce::File srcBaseWav = guidedSrcDir.getChildFile("baseline.wav");
-            juce::File srcModWav = guidedSrcDir.getChildFile("modified.wav");
-            juce::File srcDiffWav = guidedSrcDir.getChildFile("difference.wav");
-
-            if (srcBaseWav.existsAsFile()) srcBaseWav.copyFileTo(stagingEvidenceDir.getChildFile("baseline.wav"));
-            if (srcModWav.existsAsFile()) srcModWav.copyFileTo(stagingEvidenceDir.getChildFile("modified.wav"));
-            if (srcDiffWav.existsAsFile()) srcDiffWav.copyFileTo(stagingEvidenceDir.getChildFile("difference.wav"));
-
-            juce::File stagingJson = stagingEvidenceDir.getChildFile("parameter-test-cutoff.json");
-            juce::String gErr;
-            optGuidedEvidence = abdaudiolab::core::GuidedParameterEvidence::fromJsonFile(stagingJson, stagingDir, gErr);
-            if (optGuidedEvidence.has_value())
+            juce::File guidedSessionJson = guidedSrcDir.getChildFile("session.json");
+            if (guidedSessionJson.existsAsFile())
             {
-                optGuidedEvidence->baselineSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("baseline.wav"));
-                optGuidedEvidence->modifiedSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("modified.wav"));
-                optGuidedEvidence->differenceSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("difference.wav"));
-                optGuidedEvidence->reportJsonSha256 = core::ExperimentStorage::computeFileSha256(stagingJson);
+                stagingEvidenceDir.createDirectory();
+                guidedSessionJson.copyFileTo(stagingEvidenceDir.getChildFile("session.json"));
+
+                juce::File srcParamsDir = guidedSrcDir.getChildFile("parameters");
+                if (srcParamsDir.isDirectory())
+                {
+                    juce::File stagingParamsDir = stagingEvidenceDir.getChildFile("parameters");
+                    stagingParamsDir.createDirectory();
+                    for (const auto& f : srcParamsDir.findChildFiles(juce::File::findFiles, false, "*.json"))
+                    {
+                        f.copyFileTo(stagingParamsDir.getChildFile(f.getFileName()));
+                    }
+                }
+
+                juce::File srcAudioDir = guidedSrcDir.getChildFile("audio");
+                if (srcAudioDir.isDirectory())
+                {
+                    juce::File stagingAudioDir = stagingEvidenceDir.getChildFile("audio");
+                    stagingAudioDir.createDirectory();
+                    for (const auto& subDir : srcAudioDir.findChildFiles(juce::File::findDirectories, false))
+                    {
+                        juce::File tgtSubDir = stagingAudioDir.getChildFile(subDir.getFileName());
+                        tgtSubDir.createDirectory();
+                        for (const auto& wav : subDir.findChildFiles(juce::File::findFiles, false, "*.wav"))
+                        {
+                            wav.copyFileTo(tgtSubDir.getChildFile(wav.getFileName()));
+                        }
+                    }
+                }
+
+                juce::String sErr;
+                optSessionEvidence = abdaudiolab::core::GuidedSessionEvidence::fromJsonFile(
+                    stagingEvidenceDir.getChildFile("session.json"),
+                    stagingDir,
+                    sErr
+                );
+
+                if (optSessionEvidence.has_value())
+                {
+                    optSessionEvidence->sessionJsonSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("session.json"));
+                    for (auto& p : optSessionEvidence->parameterTests)
+                    {
+                        if (p.baselineWav.existsAsFile())
+                            p.baselineSha256 = core::ExperimentStorage::computeFileSha256(p.baselineWav);
+                        if (p.modifiedWav.existsAsFile())
+                            p.modifiedSha256 = core::ExperimentStorage::computeFileSha256(p.modifiedWav);
+                        if (p.differenceWav.existsAsFile())
+                            p.differenceSha256 = core::ExperimentStorage::computeFileSha256(p.differenceWav);
+                        if (p.reportJsonFile.existsAsFile())
+                            p.reportJsonSha256 = core::ExperimentStorage::computeFileSha256(p.reportJsonFile);
+                    }
+                }
+            }
+            else
+            {
+                juce::File guidedSrcJson = guidedSrcDir.getChildFile("parameter-test-cutoff.json");
+                if (guidedSrcJson.existsAsFile())
+                {
+                    stagingEvidenceDir.createDirectory();
+                    guidedSrcJson.copyFileTo(stagingEvidenceDir.getChildFile("parameter-test-cutoff.json"));
+
+                    juce::File srcBaseWav = guidedSrcDir.getChildFile("baseline.wav");
+                    juce::File srcModWav = guidedSrcDir.getChildFile("modified.wav");
+                    juce::File srcDiffWav = guidedSrcDir.getChildFile("difference.wav");
+
+                    if (srcBaseWav.existsAsFile()) srcBaseWav.copyFileTo(stagingEvidenceDir.getChildFile("baseline.wav"));
+                    if (srcModWav.existsAsFile()) srcModWav.copyFileTo(stagingEvidenceDir.getChildFile("modified.wav"));
+                    if (srcDiffWav.existsAsFile()) srcDiffWav.copyFileTo(stagingEvidenceDir.getChildFile("difference.wav"));
+
+                    juce::File stagingJson = stagingEvidenceDir.getChildFile("parameter-test-cutoff.json");
+                    juce::String gErr;
+                    optGuidedEvidence = abdaudiolab::core::GuidedParameterEvidence::fromJsonFile(stagingJson, stagingDir, gErr);
+                    if (optGuidedEvidence.has_value())
+                    {
+                        optGuidedEvidence->baselineSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("baseline.wav"));
+                        optGuidedEvidence->modifiedSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("modified.wav"));
+                        optGuidedEvidence->differenceSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("difference.wav"));
+                        optGuidedEvidence->reportJsonSha256 = core::ExperimentStorage::computeFileSha256(stagingJson);
+                    }
+                }
             }
         }
 
@@ -693,7 +756,8 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
             valErrMsg,
             optGuidedEvidence.has_value() ? &(*optGuidedEvidence) : nullptr,
             modelExportStatus,
-            modelExportReason
+            modelExportReason,
+            optSessionEvidence.has_value() ? &(*optSessionEvidence) : nullptr
         );
 
         if (!htmlOk)

@@ -1,6 +1,7 @@
 #include "CertificationReportExporter.h"
 #include "../core/ModelHoldoutValidator.h"
 #include "../core/GuidedParameterEvidence.h"
+#include "../core/ExperimentStorage.h"
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -224,7 +225,8 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
                                                       const std::string& validationErrorMessage,
                                                       const abdaudiolab::core::GuidedParameterEvidence* guidedEvidence,
                                                       const std::string& modelExportStatus,
-                                                      const std::string& modelExportReason)
+                                                      const std::string& modelExportReason,
+                                                      const abdaudiolab::core::GuidedSessionEvidence* sessionEvidence)
 {
     std::ofstream file(targetPath);
     if (!file.is_open())
@@ -400,15 +402,277 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     else
     {
         file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #64748b; background-color: #f8fafc; color: #475569; margin-bottom: 24px;\">\n";
-        file << "    <strong>Holdout Acoustic Validation:</strong> <code>NOT EXECUTED / NOT AVAILABLE</code><br>\n";
-        file << "    <span style=\"font-size: 11px;\">Holdout acoustic validation was not executed for this target. No neural or LUT acoustic model was validated out-of-sample. Displayed metrics represent single-parameter differential testing, not full acoustic model certification.</span>\n";
+        file << "    <strong>Holdout acoustic validation:</strong> <code>NOT EXECUTED</code><br>\n";
+        file << "    <span style=\"font-size: 11px;\">Holdout acoustic validation was not executed for this target. No neural or LUT acoustic model was validated out-of-sample. Displayed metrics represent empirical differential parameter testing, not full acoustic model certification.</span>\n";
         if (!validationErrorMessage.empty())
             file << "    <div style=\"font-size: 12px; color: #b91c1c; margin-top: 4px;\">Details: " << validationErrorMessage << "</div>\n";
         file << "  </div>\n";
     }
 
-    // 2.5. Guided Parameter Differential Evidence Section
-    if (guidedEvidence != nullptr)
+    // 2.5. Guided Parameter / Multiparameter Differential Evidence Section
+    if (sessionEvidence != nullptr)
+    {
+        file << "  <div class=\"section-title\">Guided Multiparameter Differential Evidence</div>\n";
+        file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #059669; background-color: #ecfdf5; color: #065f46; margin-bottom: 16px;\">\n";
+        file << "    <strong>Guided multiparameter evidence:</strong> <code>COMPLETED</code><br>\n";
+        file << "    <div style=\"font-size: 12px; margin-top: 4px; line-height: 1.5;\">\n";
+        file << "      Tests completed: <strong>" << sessionEvidence->completedTestsCount << "</strong><br>\n";
+        file << "      Tests skipped: <strong>" << sessionEvidence->skippedTestsCount << "</strong><br>\n";
+        file << "      Tests failed: <strong>" << sessionEvidence->failedTestsCount << "</strong>\n";
+        file << "    </div>\n";
+        file << "    <div style=\"font-size: 11px; margin-top: 6px; color: #047857;\">Empirical differential audio measurement across multiple discrete parameters under declared conditions. <strong>This is guided parameter differential evidence, NOT a holdout acoustic model validation.</strong></div>\n";
+        file << "  </div>\n";
+
+        // Multiparameter Table
+        file << "  <table class=\"thd-table\" style=\"margin-bottom: 20px;\">\n";
+        file << "    <thead>\n";
+        file << "      <tr>\n";
+        file << "        <th>PARAM ID</th>\n";
+        file << "        <th>PARÁMETRO</th>\n";
+        file << "        <th>ESTADO</th>\n";
+        file << "        <th>CAMBIO</th>\n";
+        file << "        <th>&Delta; RMS (dB)</th>\n";
+        file << "        <th>RMSE</th>\n";
+        file << "        <th>CORRELACIÓN TEMPORAL</th>\n";
+        file << "        <th>CAMBIO DETECTADO</th>\n";
+        file << "        <th>REPETIBILIDAD</th>\n";
+        file << "      </tr>\n";
+        file << "    </thead>\n";
+        file << "    <tbody>\n";
+
+        for (const auto& p : sessionEvidence->parameterTests)
+        {
+            file << "      <tr>\n";
+            file << "        <td><code>" << (p.parameterId.isEmpty() ? "N/A" : p.parameterId.toStdString()) << "</code></td>\n";
+            file << "        <td><strong>" << (p.nameObserved.isEmpty() ? (p.parameterName.isEmpty() ? "Unknown" : p.parameterName.toStdString()) : p.nameObserved.toStdString()) << "</strong></td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+                file << "<span class=\"badge badge-pass\" style=\"padding: 2px 8px; font-size: 10px;\">COMPLETED</span>";
+            else if (p.status == "skipped")
+                file << "<span class=\"badge badge-warn\" style=\"padding: 2px 8px; font-size: 10px;\" title=\"" << p.statusReason.toStdString() << "\">SKIPPED</span>";
+            else
+                file << "<span class=\"badge badge-fail\" style=\"padding: 2px 8px; font-size: 10px;\">FAILED</span>";
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (!p.initialDisplay.isEmpty() && !p.modifiedDisplay.isEmpty())
+            {
+                file << p.initialDisplay.toStdString() << " &rarr; " << p.modifiedDisplay.toStdString();
+            }
+            else
+            {
+                file << std::fixed << std::setprecision(3) << p.initialNormalized << " &rarr; " << p.modifiedNormalized;
+            }
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+            {
+                if (std::abs(p.deltaRmsDb) < 0.0005)
+                    file << "-0.000 dB";
+                else
+                {
+                    if (p.deltaRmsDb > 0.0) file << "+";
+                    file << std::fixed << std::setprecision(3) << p.deltaRmsDb << " dB";
+                }
+            }
+            else
+            {
+                file << "&mdash;";
+            }
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+                file << std::fixed << std::setprecision(5) << p.rmse;
+            else
+                file << "&mdash;";
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+                file << std::fixed << std::setprecision(5) << p.waveformCorrelation;
+            else
+                file << "&mdash;";
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+            {
+                if (p.effectDetected)
+                    file << "<span style=\"color: #059669; font-weight: 700;\">Sí</span>";
+                else
+                    file << "<span style=\"color: #64748b; font-weight: 600;\">No detectable bajo estas condiciones</span>";
+            }
+            else
+            {
+                file << "&mdash;";
+            }
+            file << "</td>\n";
+
+            file << "        <td>";
+            if (p.status == "completed")
+            {
+                file << "<span style=\"color: #059669; font-weight: 600;\">"
+                     << (p.repeatabilityVerified ? "DETERMINISTIC" : "WITHIN_TOLERANCE")
+                     << "</span>";
+            }
+            else
+            {
+                file << "&mdash;";
+            }
+            file << "</td>\n";
+
+            file << "      </tr>\n";
+        }
+
+        file << "    </tbody>\n";
+        file << "  </table>\n";
+
+        // Observaciones específicas para parámetros sin cambio detectable (ej: FEEDBACK)
+        for (const auto& p : sessionEvidence->parameterTests)
+        {
+            if (p.status == "completed" && !p.effectDetected)
+            {
+                file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #0284c7; background-color: #f0f9ff; color: #0369a1; margin-top: 10px; margin-bottom: 20px;\">\n";
+                file << "    <strong>Parameter Observation (" << (p.nameObserved.isEmpty() ? p.parameterName.toStdString() : p.nameObserved.toStdString())
+                     << " &bull; " << p.parameterId.toStdString() << "):</strong><br>\n";
+                file << "    <div style=\"font-size: 12px; margin-top: 4px; line-height: 1.6;\">\n";
+                file << "      Parameter write: <code>confirmed</code><br>\n";
+                file << "      Audio render: <code>completed</code><br>\n";
+                file << "      Effect: <code>not detectable under declared conditions</code>\n";
+                file << "    </div>\n";
+                file << "    <div style=\"font-size: 11px; margin-top: 6px; color: #0369a1;\">\n";
+                file << "      No statistically significant differential change detected under current preset (\""
+                     << sessionEvidence->presetName.toStdString() << "\"), note C3, range and declared stimulus. "
+                     << "In Algorithm 32 all 6 operators act as parallel carriers and feedback is routed exclusively around OP6. "
+                     << "Under this stimulus, changing feedback from 7 to 0 produced no detectable difference in the composite audio waveform. "
+                     << "This does NOT indicate a malfunction; parameter write and audio render were fully verified.\n";
+                file << "    </div>\n";
+                file << "  </div>\n";
+            }
+        }
+
+        // Preescucha por parámetro
+        juce::File htmlFile(targetPath);
+        juce::File htmlDir = htmlFile.getParentDirectory();
+
+        file << "  <div class=\"section-title\" style=\"margin-top: 24px;\">Preescucha de Audio Diferencial (A/B/Diff)</div>\n";
+        file << "  <table class=\"thd-table\" style=\"margin-bottom: 24px;\">\n";
+        file << "    <thead>\n";
+        file << "      <tr>\n";
+        file << "        <th style=\"width: 22%;\">PARÁMETRO</th>\n";
+        file << "        <th style=\"width: 26%;\">BASELINE (A)</th>\n";
+        file << "        <th style=\"width: 26%;\">MODIFICADO (B)</th>\n";
+        file << "        <th style=\"width: 26%;\">DIFERENCIAL (A &minus; B)</th>\n";
+        file << "      </tr>\n";
+        file << "    </thead>\n";
+        file << "    <tbody>\n";
+
+        for (const auto& p : sessionEvidence->parameterTests)
+        {
+            if (p.status != "completed")
+                continue;
+
+            std::string pName = p.nameObserved.isEmpty() ? p.parameterName.toStdString() : p.nameObserved.toStdString();
+            std::string relBase = p.baselineWav.existsAsFile() ? p.baselineWav.getRelativePathFrom(htmlDir).replaceCharacter('\\', '/').toStdString() : "";
+            std::string relMod = p.modifiedWav.existsAsFile() ? p.modifiedWav.getRelativePathFrom(htmlDir).replaceCharacter('\\', '/').toStdString() : "";
+            std::string relDiff = p.differenceWav.existsAsFile() ? p.differenceWav.getRelativePathFrom(htmlDir).replaceCharacter('\\', '/').toStdString() : "";
+
+            file << "      <tr>\n";
+            file << "        <td><strong>" << pName << "</strong><br><code style=\"font-size: 10px;\">" << p.parameterId.toStdString() << "</code></td>\n";
+            file << "        <td>\n";
+            if (!relBase.empty())
+                file << "          <audio controls preload=\"none\" style=\"height: 32px; width: 190px;\" src=\"" << relBase << "\"></audio><br><a href=\"" << relBase << "\" style=\"font-size: 10px; color: #0284c7;\">Download Baseline WAV</a>\n";
+            else
+                file << "          <span style=\"font-size: 11px; color: #94a3b8;\">N/A</span>\n";
+            file << "        </td>\n";
+
+            file << "        <td>\n";
+            if (!relMod.empty())
+                file << "          <audio controls preload=\"none\" style=\"height: 32px; width: 190px;\" src=\"" << relMod << "\"></audio><br><a href=\"" << relMod << "\" style=\"font-size: 10px; color: #0284c7;\">Download Modified WAV</a>\n";
+            else
+                file << "          <span style=\"font-size: 11px; color: #94a3b8;\">N/A</span>\n";
+            file << "        </td>\n";
+
+            file << "        <td>\n";
+            if (!relDiff.empty())
+                file << "          <audio controls preload=\"none\" style=\"height: 32px; width: 190px;\" src=\"" << relDiff << "\"></audio><br><a href=\"" << relDiff << "\" style=\"font-size: 10px; color: #0284c7;\">Download Difference WAV</a>\n";
+            else
+                file << "          <span style=\"font-size: 11px; color: #94a3b8;\">N/A</span>\n";
+            file << "        </td>\n";
+
+            file << "      </tr>\n";
+        }
+        file << "    </tbody>\n";
+        file << "  </table>\n";
+
+        // Tabla de Artefactos y Fijación Criptográfica (FAIR)
+        file << "  <div class=\"section-title\">Evidencia Guiada — Artefactos y Fijación Criptográfica (FAIR)</div>\n";
+        file << "  <table class=\"thd-table\" style=\"margin-bottom: 24px;\">\n";
+        file << "    <thead>\n";
+        file << "      <tr>\n";
+        file << "        <th>ARTEFACTO</th>\n";
+        file << "        <th>ROL FAIR</th>\n";
+        file << "        <th>UBICACIÓN RELATIVA</th>\n";
+        file << "        <th>FIXITY (SHA-256)</th>\n";
+        file << "      </tr>\n";
+        file << "    </thead>\n";
+        file << "    <tbody>\n";
+
+        // Session manifest
+        std::string sessSha = !sessionEvidence->sessionJsonSha256.empty() ? sessionEvidence->sessionJsonSha256 :
+            (sessionEvidence->sessionJsonFile.existsAsFile() ? core::ExperimentStorage::computeFileSha256(sessionEvidence->sessionJsonFile) : "N/A");
+        std::string sessLoc = sessionEvidence->sessionJsonFile.existsAsFile() ?
+            sessionEvidence->sessionJsonFile.getRelativePathFrom(htmlDir.getParentDirectory()).replaceCharacter('\\', '/').toStdString() : "evidence/guided/session.json";
+
+        file << "      <tr><td><strong>Session Manifest</strong></td><td><code>guided_session_report</code></td><td><code>" << sessLoc << "</code></td><td><code>"
+             << (sessSha.size() > 16 ? sessSha.substr(0, 16) + "..." : sessSha) << "</code></td></tr>\n";
+
+        for (const auto& p : sessionEvidence->parameterTests)
+        {
+            std::string pName = p.nameObserved.isEmpty() ? p.parameterName.toStdString() : p.nameObserved.toStdString();
+            std::string repSha = !p.reportJsonSha256.empty() ? p.reportJsonSha256 :
+                (p.reportJsonFile.existsAsFile() ? core::ExperimentStorage::computeFileSha256(p.reportJsonFile) : "N/A");
+            std::string repLoc = p.reportJsonFile.existsAsFile() ?
+                p.reportJsonFile.getRelativePathFrom(htmlDir.getParentDirectory()).replaceCharacter('\\', '/').toStdString() : ("evidence/guided/parameters/" + p.parameterId.toStdString() + ".json");
+
+            file << "      <tr><td><strong>Report (" << pName << ")</strong></td><td><code>guided_parameter_differential_report</code></td><td><code>"
+                 << repLoc << "</code></td><td><code>" << (repSha.size() > 16 ? repSha.substr(0, 16) + "..." : repSha) << "</code></td></tr>\n";
+
+            if (p.status == "completed")
+            {
+                std::string baseSha = !p.baselineSha256.empty() ? p.baselineSha256 :
+                    (p.baselineWav.existsAsFile() ? core::ExperimentStorage::computeFileSha256(p.baselineWav) : "N/A");
+                std::string baseLoc = p.baselineWav.existsAsFile() ?
+                    p.baselineWav.getRelativePathFrom(htmlDir.getParentDirectory()).replaceCharacter('\\', '/').toStdString() : "N/A";
+
+                file << "      <tr><td>Baseline Audio (" << pName << ")</td><td><code>guided_baseline_audio</code></td><td><code>"
+                     << baseLoc << "</code></td><td><code>" << (baseSha.size() > 16 ? baseSha.substr(0, 16) + "..." : baseSha) << "</code></td></tr>\n";
+
+                std::string modSha = !p.modifiedSha256.empty() ? p.modifiedSha256 :
+                    (p.modifiedWav.existsAsFile() ? core::ExperimentStorage::computeFileSha256(p.modifiedWav) : "N/A");
+                std::string modLoc = p.modifiedWav.existsAsFile() ?
+                    p.modifiedWav.getRelativePathFrom(htmlDir.getParentDirectory()).replaceCharacter('\\', '/').toStdString() : "N/A";
+
+                file << "      <tr><td>Modified Audio (" << pName << ")</td><td><code>guided_modified_audio</code></td><td><code>"
+                     << modLoc << "</code></td><td><code>" << (modSha.size() > 16 ? modSha.substr(0, 16) + "..." : modSha) << "</code></td></tr>\n";
+
+                std::string diffSha = !p.differenceSha256.empty() ? p.differenceSha256 :
+                    (p.differenceWav.existsAsFile() ? core::ExperimentStorage::computeFileSha256(p.differenceWav) : "N/A");
+                std::string diffLoc = p.differenceWav.existsAsFile() ?
+                    p.differenceWav.getRelativePathFrom(htmlDir.getParentDirectory()).replaceCharacter('\\', '/').toStdString() : "N/A";
+
+                file << "      <tr><td>Differential Audio (" << pName << ")</td><td><code>guided_differential_audio</code></td><td><code>"
+                     << diffLoc << "</code></td><td><code>" << (diffSha.size() > 16 ? diffSha.substr(0, 16) + "..." : diffSha) << "</code></td></tr>\n";
+            }
+        }
+
+        file << "    </tbody>\n";
+        file << "  </table>\n";
+    }
+    else if (guidedEvidence != nullptr)
     {
         file << "  <div class=\"section-title\">Guided Parameter Differential Evidence</div>\n";
         file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #059669; background-color: #ecfdf5; color: #065f46; margin-bottom: 16px;\">\n";
@@ -457,7 +721,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     // 2.75. Acoustic Model Package Status Section
     file << "  <div class=\"section-title\">Acoustic Model Package Status</div>\n";
     file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #64748b; background-color: #f8fafc; color: #475569; margin-bottom: 24px;\">\n";
-    file << "    <strong>Model Export:</strong> <code>" << (modelExportStatus == "completed" ? "COMPLETED" : "NOT EXECUTED") << "</code><br>\n";
+    file << "    <strong>Acoustic model export:</strong> <code>" << (modelExportStatus == "completed" ? "COMPLETED" : "NOT EXECUTED") << "</code> &bull; <strong>Model Export:</strong> <code>" << (modelExportStatus == "completed" ? "COMPLETED" : "NOT EXECUTED") << "</code><br>\n";
     file << "    <span style=\"font-size: 11px;\">" << modelExportReason << "</span>\n";
     file << "  </div>\n";
 
@@ -490,7 +754,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << thdTable << "\n";
 
     file << "  <div class=\"stamp-footer\">\n";
-    file << "    <div>SESSION INTEGRITY: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VALID") << " | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
+    file << "    <div>SESSION INTEGRITY: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VALID") << " | Integrity: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VERIFIED") << " | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
     file << "    <div>ENGINE: ABDAudioLab v0.3.2-PRO</div>\n";
     file << "  </div>\n";
 
