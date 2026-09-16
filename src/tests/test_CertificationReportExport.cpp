@@ -192,6 +192,30 @@ TEST_CASE("CertificationReportExporter: Holdout validation HTML and status badge
         CHECK(content.contains("NOT EXECUTED"));
     }
 
+    SECTION("Scenario 6: Metrological Guardian - Synthetic placeholder without holdout is rejected")
+    {
+        abdaudiolab::core::ValidationReport dummyVal;
+        dummyVal.verdict = "PASS_WITH_LIMITATIONS";
+        dummyVal.postAlignment.esrDb = -120.0f;
+        dummyVal.postAlignment.rmse = 0.0f;
+        dummyVal.postAlignment.correlationPeak = 1.0f;
+
+        juce::File htmlFile = tempDir.getChildFile("report_guardian.html");
+        bool ok = abdaudiolab::exporting::CertificationReportExporter::exportReportToHtml(
+            htmlFile.getFullPathName().toStdString(),
+            manifest,
+            {}, // 0 measurement points
+            &dummyVal,
+            "completed"
+        );
+
+        REQUIRE(ok);
+        juce::String content = htmlFile.loadFileAsString();
+        CHECK(content.contains("NOT EXECUTED"));
+        CHECK_FALSE(content.contains("PASS_WITH_LIMITATIONS"));
+        CHECK_FALSE(content.contains("-120.0 dB"));
+    }
+
     tempDir.deleteRecursively();
 }
 

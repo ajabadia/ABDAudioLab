@@ -9,6 +9,7 @@
 #include "../../core/LabDataDirectories.h"
 #include "../../core/ValidationUiSummary.h"
 #include "../../core/ModelHoldoutValidator.h"
+#include "../../core/GuidedParameterEvidence.h"
 #include "../../export/CertificationReportExporter.h"
 #include "../../export/LutExporter.h"
 #include "../../export/ModelExportNaming.h"
@@ -602,10 +603,42 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
 
         std::vector<exporting::MeasuredPoint> exportPoints;
 
-        // Comprobar si existe validación previa o generar reporte
+        // 1. Comprobar si existe evidencia guiada en guided/ o evidence/guided/
+        std::optional<abdaudiolab::core::GuidedParameterEvidence> optGuidedEvidence;
+        juce::File guidedSrcDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+        juce::File guidedSrcJson = guidedSrcDir.getChildFile("parameter-test-cutoff.json");
+        juce::File stagingEvidenceDir = stagingDir.getChildFile("evidence").getChildFile("guided");
+
+        if (currentSnapshot_.workflowMode == UiWorkflowMode::Guided && guidedSrcJson.existsAsFile())
+        {
+            stagingEvidenceDir.createDirectory();
+            guidedSrcJson.copyFileTo(stagingEvidenceDir.getChildFile("parameter-test-cutoff.json"));
+
+            juce::File srcBaseWav = guidedSrcDir.getChildFile("baseline.wav");
+            juce::File srcModWav = guidedSrcDir.getChildFile("modified.wav");
+            juce::File srcDiffWav = guidedSrcDir.getChildFile("difference.wav");
+
+            if (srcBaseWav.existsAsFile()) srcBaseWav.copyFileTo(stagingEvidenceDir.getChildFile("baseline.wav"));
+            if (srcModWav.existsAsFile()) srcModWav.copyFileTo(stagingEvidenceDir.getChildFile("modified.wav"));
+            if (srcDiffWav.existsAsFile()) srcDiffWav.copyFileTo(stagingEvidenceDir.getChildFile("difference.wav"));
+
+            juce::File stagingJson = stagingEvidenceDir.getChildFile("parameter-test-cutoff.json");
+            juce::String gErr;
+            optGuidedEvidence = abdaudiolab::core::GuidedParameterEvidence::fromJsonFile(stagingJson, stagingDir, gErr);
+            if (optGuidedEvidence.has_value())
+            {
+                optGuidedEvidence->baselineSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("baseline.wav"));
+                optGuidedEvidence->modifiedSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("modified.wav"));
+                optGuidedEvidence->differenceSha256 = core::ExperimentStorage::computeFileSha256(stagingEvidenceDir.getChildFile("difference.wav"));
+                optGuidedEvidence->reportJsonSha256 = core::ExperimentStorage::computeFileSha256(stagingJson);
+            }
+        }
+
+        // 2. Comprobar si existe validación holdout out-of-sample real
         juce::File valReportFile = stagingDir.getChildFile("validation").getChildFile("validation_report.json");
         std::unique_ptr<abdaudiolab::core::ValidationReport> valRep;
         std::string valStatus = "notExecuted";
+        std::string valErrMsg = "Holdout validation was not executed for this target.";
 
         if (valReportFile.existsAsFile())
         {
@@ -642,31 +675,25 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
                     valRep->postAlignment.correlationPeak = rj["postAlignment"].value("correlationPeak", 0.0f);
                 }
                 valStatus = rj.value("status", "completed");
+                valErrMsg = "";
             }
             catch (...) {}
         }
-        else if (currentSnapshot_.evaluation.hasEvaluation)
-        {
-            valRep = std::make_unique<abdaudiolab::core::ValidationReport>();
-            valRep->verdict = (currentSnapshot_.evaluation.selectionStatus == synth::SelectionStatus::Accepted)
-                ? "PASS"
-                : (currentSnapshot_.evaluation.selectionStatus == synth::SelectionStatus::AcceptedWithWarnings ? "PASS_WITH_LIMITATIONS" : "FAIL");
-            valRep->verdictPolicy = "audio-ab-v1";
-            valRep->reasonCode = (currentSnapshot_.evaluation.selectionStatus == synth::SelectionStatus::Accepted)
-                ? "WITHIN_TOLERANCE"
-                : (currentSnapshot_.evaluation.selectionStatus == synth::SelectionStatus::AcceptedWithWarnings ? "MARGINAL_TOLERANCE" : "EXCEEDS_TOLERANCE");
-            valRep->postAlignment.esrDb = static_cast<float>(currentSnapshot_.evaluation.validationEsrDb);
-            valRep->postAlignment.correlationPeak = static_cast<float>(currentSnapshot_.evaluation.validationCorrelation);
-            valRep->sampleOffset = 0;
-            valStatus = "completed";
-        }
+        // Nota Metrológica: Eliminada síntesis artificial de valRep cuando valReportFile no existe.
+
+        std::string modelExportStatus = "notExecuted";
+        std::string modelExportReason = "No external-plugin model export was requested. ModelPackage.h represents target identity metadata, not a trained neural or LUT acoustic model.";
 
         bool htmlOk = exporting::CertificationReportExporter::exportReportToHtml(
             htmlFile.getFullPathName().toStdString(),
             manifestData,
             exportPoints,
             valRep.get(),
-            valStatus
+            valStatus,
+            valErrMsg,
+            optGuidedEvidence.has_value() ? &(*optGuidedEvidence) : nullptr,
+            modelExportStatus,
+            modelExportReason
         );
 
         if (!htmlOk)

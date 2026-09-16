@@ -540,6 +540,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ParameterExcitationEngine.cpp
     src/tests/test_Vst3Validation.cpp
     src/tests/test_DexedValidation.cpp
+    src/tests/test_GuidedPluginLoad_Dexed.cpp
     src/tests/test_ModelEvaluation.cpp
     src/tests/test_AdaptiveExperimentPlanner.cpp
     src/tests/test_ProfilingSessionController.cpp

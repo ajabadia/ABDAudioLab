@@ -14,6 +14,7 @@
 namespace abdaudiolab::core
 {
     struct ValidationReport;
+    struct GuidedParameterEvidence;
 }
 
 namespace abdaudiolab::exporting
@@ -37,6 +38,9 @@ public:
      * @param validation Optional holdout validation report data. If null, marked as "notExecuted".
      * @param validationStatus Status string ("completed", "error", "corrupt", "notExecuted").
      * @param validationErrorMessage Diagnostic error message if status is error or corrupt.
+     * @param guidedEvidence Optional verified guided parameter differential evidence.
+     * @param modelExportStatus Status string for model export ("completed", "notExecuted", "skipped").
+     * @param modelExportReason Explanation for model export status.
      * @return true on success, false on write error.
      */
     static bool exportReportToHtml(const std::string& targetPath,
@@ -44,7 +48,10 @@ public:
                                    const std::vector<MeasuredPoint>& points,
                                    const abdaudiolab::core::ValidationReport* validation = nullptr,
                                    const std::string& validationStatus = "completed",
-                                   const std::string& validationErrorMessage = "");
+                                   const std::string& validationErrorMessage = "",
+                                   const abdaudiolab::core::GuidedParameterEvidence* guidedEvidence = nullptr,
+                                   const std::string& modelExportStatus = "notExecuted",
+                                   const std::string& modelExportReason = "No external-plugin model export was requested");
 
     /**
      * @brief Renders an inline SVG vector line chart for log frequency magnitude response (20 Hz - 20 kHz).

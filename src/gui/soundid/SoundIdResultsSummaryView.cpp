@@ -597,12 +597,14 @@ void SoundIdResultsSummaryView::openHtmlReport()
     valRep.postAlignment.esrDb = static_cast<float>(lastSnapshot_.validationSummary.esrDb);
     valRep.postAlignment.correlationPeak = static_cast<float>(lastSnapshot_.validationSummary.correlation);
 
+    bool hasHoldout = (lastSnapshot_.validationSummary.status == core::ValidationUiSummary::Status::completed);
+
     bool ok = exporting::CertificationReportExporter::exportReportToHtml(
         tempReport.getFullPathName().toStdString(),
         m,
         pts,
-        &valRep,
-        valRep.status
+        hasHoldout ? &valRep : nullptr,
+        core::ValidationUiSummary::statusToString(lastSnapshot_.validationSummary.status).toLowerCase().toStdString()
     );
 
     if (ok && tempReport.existsAsFile())

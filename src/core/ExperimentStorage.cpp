@@ -529,6 +529,14 @@ bool ExperimentStorage::saveExperiment(const juce::File& baseDir,
             role = "holdout_definition";
         else if (relPath == "validation/validation_report.json")
             role = "validation_report";
+        else if (relPath == "evidence/guided/baseline.wav")
+            role = "guided_baseline_audio";
+        else if (relPath == "evidence/guided/modified.wav")
+            role = "guided_modified_audio";
+        else if (relPath == "evidence/guided/difference.wav")
+            role = "guided_differential_audio";
+        else if (relPath == "evidence/guided/parameter-test-cutoff.json" || (relPath.rfind("evidence/guided/", 0) == 0 && file.hasFileExtension(".json")))
+            role = "guided_parameter_differential_report";
         else if (relPath == "reports/certification_report.html" || file.hasFileExtension(".html"))
             role = "audit_report_html";
         else if (file.hasFileExtension(".wav"))

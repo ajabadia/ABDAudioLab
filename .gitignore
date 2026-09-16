@@ -14,6 +14,7 @@ captures/
 fixtures/exports/*_20*.h
 exports/
 experiments/
+guided/
 
 # OS and IDE files
 .DS_Store
