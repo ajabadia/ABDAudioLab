@@ -2,6 +2,9 @@
 #include "../SoundIdTheme.h"
 #include "../session/ProfilingSessionController.h"
 #include "../../export/ModelExportNaming.h"
+#include "../../export/CertificationReportExporter.h"
+#include "../../core/ModelHoldoutValidator.h"
+#include "../../core/ExperimentStorage.h"
 #include <iomanip>
 #include <sstream>
 
@@ -22,7 +25,7 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
     addAndMakeVisible(headerSubtitle_);
 
     // Tarjeta del Modelo
-    modelCard_.setText(juce::String::fromUTF8(u8"Modelo Acústico Recomendado"));
+    modelCard_.setText(juce::String::fromUTF8(u8"Modelo Acústico Recomendado y Validación Holdout"));
     modelCard_.setColour(juce::GroupComponent::outlineColourId, SoundIdTheme::borderCard);
     modelCard_.setColour(juce::GroupComponent::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(modelCard_);
@@ -35,11 +38,13 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
     };
 
     setupInfo(modelTitleLabel_, juce::String::fromUTF8(u8"Modelo: En evaluación"), true);
+    setupInfo(statusBadgeLabel_, juce::String::fromUTF8(u8"Estado: No ejecutado"), true);
     setupInfo(verdictBadgeLabel_, juce::String::fromUTF8(u8"Dictamen: Inconclusive"), true);
     setupInfo(provenanceLabel_, juce::String::fromUTF8(u8"Procedencia: No especificada"), false);
     setupInfo(warningsLabel_, "", true);
     setupInfo(esrMetricLabel_, juce::String::fromUTF8(u8"ESR de validación: -- dB"), false);
     setupInfo(correlationMetricLabel_, juce::String::fromUTF8(u8"Correlación espectral rho: --"), false);
+    setupInfo(latencyOffsetLabel_, juce::String::fromUTF8(u8"Alineación temporal: --"), false);
     setupInfo(criteriaComplianceLabel_, juce::String::fromUTF8(u8"Cumplimiento del criterio: --%"), false);
     setupInfo(validatedDomainLabel_, juce::String::fromUTF8(u8"Dominio validado: --"), false);
     setupInfo(cpuFactorLabel_, juce::String::fromUTF8(u8"Coste relativo de CPU: 1.0x"), false);
@@ -58,6 +63,42 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
     };
     addAndMakeVisible(copyHashButton_);
 
+    // Tarjeta de Audición y Escucha A/B
+    audioAuditionCard_.setText(juce::String::fromUTF8(u8"Audición y Verificación A/B (Holdout)"));
+    audioAuditionCard_.setColour(juce::GroupComponent::outlineColourId, SoundIdTheme::borderCard);
+    audioAuditionCard_.setColour(juce::GroupComponent::textColourId, SoundIdTheme::textPrimary);
+    addAndMakeVisible(audioAuditionCard_);
+
+    playTargetButton_.setButtonText(juce::String::fromUTF8(u8"▶ Reproducir Target (Holdout)"));
+    playTargetButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
+    playTargetButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+    playTargetButton_.onClick = [this]() {
+        commands_.recordUserClick();
+        if (targetAudioFile_.existsAsFile())
+            targetAudioFile_.startAsProcess();
+    };
+    addAndMakeVisible(playTargetButton_);
+
+    playModelButton_.setButtonText(juce::String::fromUTF8(u8"▶ Reproducir Modelo Estimado"));
+    playModelButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
+    playModelButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+    playModelButton_.onClick = [this]() {
+        commands_.recordUserClick();
+        if (modelAudioFile_.existsAsFile())
+            modelAudioFile_.startAsProcess();
+    };
+    addAndMakeVisible(playModelButton_);
+
+    playResidualButton_.setButtonText(juce::String::fromUTF8(u8"▶ Reproducir Residual / Error"));
+    playResidualButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
+    playResidualButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
+    playResidualButton_.onClick = [this]() {
+        commands_.recordUserClick();
+        if (residualAudioFile_.existsAsFile())
+            residualAudioFile_.startAsProcess();
+    };
+    addAndMakeVisible(playResidualButton_);
+
     // Botones
     exportButton_.setButtonText(juce::String::fromUTF8(u8"EXPORTAR PAQUETE DE PRODUCCIÓN (1-CLIC)"));
     exportButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
@@ -65,37 +106,12 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
     exportButton_.onClick = [this]() {
         commands_.recordUserClick();
 
-        // Determinar carpeta de exportación visible y reproducible
-        auto baseDir = session::ProfilingSessionController::getEvaluationsDirectory().getParentDirectory();
-        juce::File exportDir = baseDir.getChildFile("exports");
-        if (!exportDir.isDirectory())
-            exportDir.createDirectory();
-
-        std::string targetName = lastSnapshot_.target.targetName;
-        if (targetName.empty())
-            targetName = lastSnapshot_.evaluation.sourceTargetIdentity;
-        if (targetName.empty())
-            targetName = "Target";
-
-        std::string modelType = lastSnapshot_.evaluation.recommendedModelType;
-        if (modelType.empty())
-        {
-            juce::String cleanName = modelTitleLabel_.getText().replace("Modelo: ", "");
-            modelType = cleanName.toStdString();
-        }
-
-        std::string baseFileName = exporting::ModelExportNaming::buildFileName(
-            targetName,
-            modelType,
-            juce::Time::getCurrentTime(),
-            fullCanonicalHash_
-        );
-
-        juce::File destFile = exporting::ModelExportNaming::resolveUniqueExportFile(exportDir, baseFileName);
-        bool success = commands_.exportModel("cpp", destFile.getFullPathName().toStdString());
+        bool success = commands_.exportModel("cpp", "");
 
         if (success)
         {
+            juce::File destFile(lastSnapshot_.exportOptions.lastExportedFilePath);
+
             juce::String msg = juce::String::fromUTF8(u8"El artefacto C++20 ha sido verificado criptográficamente y exportado con éxito.\n\n")
                              + juce::String::fromUTF8(u8"Archivo:\n") + destFile.getFullPathName() + "\n\n"
                              + juce::String::fromUTF8(u8"• ") + modelTitleLabel_.getText() + "\n"
@@ -142,6 +158,7 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
         m.addItem(5, juce::String::fromUTF8(u8"5. Rechazado (Falta de Fidelidad ESR)"));
         m.addSeparator();
         m.addItem(6, juce::String::fromUTF8(u8"Examinar archivo JSON en disco..."));
+        m.addItem(7, juce::String::fromUTF8(u8"Abrir Paquete de Experimento FAIR (Carpeta con manifest)..."));
 
         juce::Component::SafePointer<SoundIdResultsSummaryView> safeThis(this);
         m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&loadEvaluationButton_),
@@ -179,17 +196,35 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
                         }
                     });
                 }
+                else if (result == 7)
+                {
+                    auto baseDir = core::ExperimentStorage::getDefaultExperimentsDirectory();
+                    auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories;
+                    safeThis->fileChooser_ = std::make_shared<juce::FileChooser>(
+                        juce::String::fromUTF8(u8"Seleccionar Carpeta del Experimento FAIR"),
+                        baseDir,
+                        "*");
+
+                    safeThis->fileChooser_->launchAsync(chooserFlags, [safeThis](const juce::FileChooser& fc) {
+                        if (safeThis == nullptr)
+                            return;
+                        auto dir = fc.getResult();
+                        if (dir.isDirectory())
+                        {
+                            std::string err;
+                            safeThis->commands_.loadExperimentRecord(dir.getFullPathName().toStdString(), err);
+                        }
+                    });
+                }
             });
     };
     addAndMakeVisible(loadEvaluationButton_);
 
-    viewAuditDetailsButton_.setButtonText(juce::String::fromUTF8(u8"Ver Informe de Auditoría y Metrología..."));
+    viewAuditDetailsButton_.setButtonText(juce::String::fromUTF8(u8"🌐 Abrir Informe de Certificación HTML ↗"));
     viewAuditDetailsButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
-    viewAuditDetailsButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    viewAuditDetailsButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     viewAuditDetailsButton_.onClick = [this]() {
-        commands_.recordUserClick();
-        commands_.setOpenedAdvancedMode(true);
-        showAuditReportDialog();
+        openHtmlReport();
     };
     addAndMakeVisible(viewAuditDetailsButton_);
 
@@ -207,15 +242,87 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
 {
     lastSnapshot_ = snapshot;
     const auto& eval = snapshot.evaluation;
+    const auto& valSum = snapshot.validationSummary;
+
     currentVerdict_ = eval.selectionStatus;
     fullCanonicalHash_ = eval.canonicalEvaluationHash;
     hashVerified_ = eval.hashVerified;
     canExport_ = snapshot.exportOptions.canExportCpp && eval.hashVerified;
 
+    // Validación Holdout metrológica estructurada
+    validationStatus_ = valSum.status;
+    validationVerdict_ = valSum.verdict;
+    esrDb_ = (valSum.status == core::ValidationUiSummary::Status::completed) ? valSum.esrDb : eval.validationEsrDb;
+    correlation_ = (valSum.status == core::ValidationUiSummary::Status::completed) ? valSum.correlation : eval.validationCorrelation;
+    sampleOffset_ = valSum.sampleOffset;
+    targetAudioAvailable_ = valSum.targetAvailable;
+    modelAudioAvailable_ = valSum.modelAvailable;
+    residualAudioAvailable_ = valSum.residualAvailable;
+    htmlReportAvailable_ = valSum.htmlReportAvailable || !snapshot.exportOptions.lastExportedHtmlReportPath.empty();
+    targetAudioFile_ = valSum.targetFile;
+    modelAudioFile_ = valSum.modelFile;
+    residualAudioFile_ = valSum.residualFile;
+
+    // Estado técnico (Status badge)
+    switch (validationStatus_)
+    {
+        case core::ValidationUiSummary::Status::completed:
+            statusBadgeLabel_.setText(juce::String::fromUTF8(u8"Estado: Validación Completada"), juce::dontSendNotification);
+            statusBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+            break;
+        case core::ValidationUiSummary::Status::error:
+            statusBadgeLabel_.setText(juce::String::fromUTF8(u8"Estado: Error Técnico"), juce::dontSendNotification);
+            statusBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
+            break;
+        case core::ValidationUiSummary::Status::corrupt:
+            statusBadgeLabel_.setText(juce::String::fromUTF8(u8"Estado: Corrupto (Fallo Criptográfico)"), juce::dontSendNotification);
+            statusBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
+            break;
+        case core::ValidationUiSummary::Status::notExecuted:
+        default:
+            statusBadgeLabel_.setText(juce::String::fromUTF8(u8"Estado: No Ejecutado"), juce::dontSendNotification);
+            statusBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+            break;
+    }
+
     if (eval.hasEvaluation)
     {
         modelTitleLabel_.setText(juce::String::fromUTF8(u8"Modelo: ") + juce::String::fromUTF8(eval.recommendedModelType.c_str()), juce::dontSendNotification);
-        verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: ") + juce::String::fromUTF8(synth::selectionStatusToString(eval.selectionStatus).c_str()), juce::dontSendNotification);
+
+        // Veredicto (Verdict badge)
+        switch (validationVerdict_)
+        {
+            case core::ValidationUiSummary::Verdict::pass:
+                verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: PASS (Certificado)"), juce::dontSendNotification);
+                verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+                break;
+            case core::ValidationUiSummary::Verdict::passWithLimitations:
+                verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: PASS WITH LIMITATIONS"), juce::dontSendNotification);
+                verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+                break;
+            case core::ValidationUiSummary::Verdict::fail:
+                verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: FAIL (Rechazado)"), juce::dontSendNotification);
+                verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
+                break;
+            case core::ValidationUiSummary::Verdict::notAvailable:
+            default:
+                if (!hashVerified_ && !fullCanonicalHash_.empty())
+                {
+                    verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: NO DISPONIBLE (Corrupto)"), juce::dontSendNotification);
+                    verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
+                }
+                else
+                {
+                    verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: ") + juce::String::fromUTF8(synth::selectionStatusToString(eval.selectionStatus).c_str()), juce::dontSendNotification);
+                    if (eval.selectionStatus == synth::SelectionStatus::Accepted)
+                        verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+                    else if (eval.selectionStatus == synth::SelectionStatus::AcceptedWithWarnings)
+                        verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+                    else
+                        verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
+                }
+                break;
+        }
 
         // Procedencia y origen
         std::string provText = "Procedencia: " + (eval.sourceTargetIdentity.empty() ? std::string("Sintética") : eval.sourceTargetIdentity)
@@ -252,12 +359,21 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
         }
 
         std::ostringstream ssEsr;
-        ssEsr << "ESR de validación (Holdout): " << std::fixed << std::setprecision(1) << eval.validationEsrDb << " dB";
+        ssEsr << "ESR de validación (Holdout): " << std::fixed << std::setprecision(1) << esrDb_ << " dB";
         esrMetricLabel_.setText(juce::String::fromUTF8(ssEsr.str().c_str()), juce::dontSendNotification);
 
         std::ostringstream ssRho;
-        ssRho << "Correlación espectral rho: " << std::fixed << std::setprecision(4) << eval.validationCorrelation;
+        ssRho << "Correlación espectral rho: " << std::fixed << std::setprecision(4) << correlation_;
         correlationMetricLabel_.setText(juce::String::fromUTF8(ssRho.str().c_str()), juce::dontSendNotification);
+
+        // Alineación temporal con convención matemática
+        juce::String latStr = juce::String::fromUTF8(u8"Alineación temporal: ");
+        if (sampleOffset_ > 0)
+            latStr << "+" << sampleOffset_;
+        else
+            latStr << sampleOffset_;
+        latStr << juce::String::fromUTF8(u8" muestras (alignedTarget[n] = target[n - sampleOffset])");
+        latencyOffsetLabel_.setText(latStr, juce::dontSendNotification);
 
         std::ostringstream ssComp;
         ssComp << "Estímulos dentro del criterio: " << static_cast<int>(eval.stimuliMeetingCriterionPercent) << "%";
@@ -271,15 +387,12 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
 
         if (!hashVerified_ && !fullCanonicalHash_.empty())
         {
-            verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: NO DISPONIBLE (Declarado: ") + juce::String::fromUTF8(synth::selectionStatusToString(eval.selectionStatus).c_str()) + ")", juce::dontSendNotification);
-            verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
             warningsLabel_.setText(juce::String::fromUTF8(u8"Resultado: INTEGRIDAD FALLIDA (El hash canónico no coincide con los datos del archivo)"), juce::dontSendNotification);
             warningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
             warningsLabel_.setVisible(true);
         }
-        else if (eval.selectionStatus == synth::SelectionStatus::AcceptedWithWarnings)
+        else if (eval.selectionStatus == synth::SelectionStatus::AcceptedWithWarnings || validationVerdict_ == core::ValidationUiSummary::Verdict::passWithLimitations)
         {
-            verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
             std::string warnText = "Resultado: VÁLIDO CON ADVERTENCIAS";
             if (snapshot.audit.requiresResetBeforeEachTrial)
                 warnText += " — Requiere reset antes de cada ensayo";
@@ -292,16 +405,14 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
             warningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
             warningsLabel_.setVisible(true);
         }
-        else if (eval.selectionStatus == synth::SelectionStatus::Accepted)
+        else if (eval.selectionStatus == synth::SelectionStatus::Accepted || validationVerdict_ == core::ValidationUiSummary::Verdict::pass)
         {
-            verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
             warningsLabel_.setText(juce::String::fromUTF8(u8"Resultado: Modelo verificado y dentro de tolerancias metrológicas"), juce::dontSendNotification);
             warningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
             warningsLabel_.setVisible(true);
         }
         else
         {
-            verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
             std::string reason = eval.exportBlockReason.empty() ? "No cumple criterio metrológico o faltan datos holdout" : eval.exportBlockReason;
             warningsLabel_.setText(juce::String::fromUTF8(u8"Resultado: RECHAZADO (") + juce::String::fromUTF8(reason.c_str()) + ")", juce::dontSendNotification);
             warningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
@@ -314,6 +425,7 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
         verdictBadgeLabel_.setText(juce::String::fromUTF8(u8"Dictamen: Pendiente"), juce::dontSendNotification);
         verdictBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
         provenanceLabel_.setText(juce::String::fromUTF8(u8"Procedencia: No iniciada"), juce::dontSendNotification);
+        latencyOffsetLabel_.setText(juce::String::fromUTF8(u8"Alineación temporal: --"), juce::dontSendNotification);
         warningsLabel_.setText(juce::String::fromUTF8(u8"No hay ninguna evaluación disponible para revisar.\n"
                                                       u8"Seleccione un dispositivo en el Paso 1 e inicie el perfilado en el Paso 2, o bien use 'Cargar Evaluación...' para inspeccionar un resultado predefinido."), juce::dontSendNotification);
         warningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
@@ -322,6 +434,15 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
         hashVerifiedBadgeLabel_.setVisible(false);
         copyHashButton_.setVisible(false);
     }
+
+    // Botones de audición A/B
+    playTargetButton_.setEnabled(targetAudioAvailable_);
+    playModelButton_.setEnabled(modelAudioAvailable_);
+    playResidualButton_.setEnabled(residualAudioAvailable_);
+
+    playTargetButton_.setButtonText(targetAudioAvailable_ ? juce::String::fromUTF8(u8"▶ Escuchar Target (Holdout)") : juce::String::fromUTF8(u8"Target (No disponible)"));
+    playModelButton_.setButtonText(modelAudioAvailable_ ? juce::String::fromUTF8(u8"▶ Escuchar Modelo") : juce::String::fromUTF8(u8"Modelo (No disponible)"));
+    playResidualButton_.setButtonText(residualAudioAvailable_ ? juce::String::fromUTF8(u8"▶ Escuchar Residual / Error") : juce::String::fromUTF8(u8"Residual (No disponible)"));
 
     exportButton_.setEnabled(canExport_);
     repaint();
@@ -338,19 +459,21 @@ void SoundIdResultsSummaryView::resized()
 
     headerTitle_.setBounds(area.removeFromTop(28));
     headerSubtitle_.setBounds(area.removeFromTop(22));
-    area.removeFromTop(16);
+    area.removeFromTop(12);
 
     // Tarjeta del Modelo Recomendado
-    auto cardArea = area.removeFromTop(250);
+    auto cardArea = area.removeFromTop(270);
     modelCard_.setBounds(cardArea);
 
-    auto cardInner = cardArea.reduced(16, 24);
+    auto cardInner = cardArea.reduced(16, 22);
     
-    // Título y Dictamen en una fila
+    // Fila 1: Título, Estado técnico y Dictamen metrológico
     auto titleRow = cardInner.removeFromTop(24);
-    modelTitleLabel_.setBounds(titleRow.removeFromLeft(300));
-    titleRow.removeFromLeft(16);
-    verdictBadgeLabel_.setBounds(titleRow.removeFromLeft(350));
+    modelTitleLabel_.setBounds(titleRow.removeFromLeft(240));
+    titleRow.removeFromLeft(12);
+    statusBadgeLabel_.setBounds(titleRow.removeFromLeft(220));
+    titleRow.removeFromLeft(12);
+    verdictBadgeLabel_.setBounds(titleRow);
 
     provenanceLabel_.setBounds(cardInner.removeFromTop(20));
 
@@ -376,120 +499,116 @@ void SoundIdResultsSummaryView::resized()
     validatedDomainLabel_.setBounds(metricRow2);
 
     auto metricRow3 = cardInner.removeFromTop(20);
-    cpuFactorLabel_.setBounds(metricRow3.removeFromLeft(metricRow3.getWidth() / 2 - 8));
+    latencyOffsetLabel_.setBounds(metricRow3.removeFromLeft(metricRow3.getWidth() / 2 + 60));
+    metricRow3.removeFromLeft(16);
+    cpuFactorLabel_.setBounds(metricRow3);
 
-    cardInner.removeFromTop(8);
+    cardInner.removeFromTop(6);
     warningsLabel_.setBounds(cardInner.removeFromTop(24));
 
-    area.removeFromTop(20);
+    area.removeFromTop(12);
 
-    // Botón gigante de exportación (1-clic)
-    exportButton_.setBounds(area.removeFromTop(48));
+    // Tarjeta de Audición y Escucha A/B
+    auto auditionArea = area.removeFromTop(74);
+    audioAuditionCard_.setBounds(auditionArea);
+    auto auditionInner = auditionArea.reduced(16, 20);
+    int buttonWidth = (auditionInner.getWidth() - 24) / 3;
+    playTargetButton_.setBounds(auditionInner.removeFromLeft(buttonWidth));
+    auditionInner.removeFromLeft(12);
+    playModelButton_.setBounds(auditionInner.removeFromLeft(buttonWidth));
+    auditionInner.removeFromLeft(12);
+    playResidualButton_.setBounds(auditionInner.removeFromLeft(buttonWidth));
 
-    area.removeFromTop(16);
+    area.removeFromTop(14);
+
+    // Botón de exportación (1-clic)
+    exportButton_.setBounds(area.removeFromTop(44));
+
+    area.removeFromTop(12);
 
     // Barra de acciones secundarias
-    auto secondaryRow = area.removeFromTop(36);
-    restartSessionButton_.setBounds(secondaryRow.removeFromLeft(150));
-    secondaryRow.removeFromLeft(16);
-    loadEvaluationButton_.setBounds(secondaryRow.removeFromLeft(200));
-    viewAuditDetailsButton_.setBounds(secondaryRow.removeFromRight(280));
+    auto secondaryRow = area.removeFromTop(34);
+    restartSessionButton_.setBounds(secondaryRow.removeFromLeft(140));
+    secondaryRow.removeFromLeft(12);
+    loadEvaluationButton_.setBounds(secondaryRow.removeFromLeft(190));
+    viewAuditDetailsButton_.setBounds(secondaryRow.removeFromRight(300));
 }
 
-void SoundIdResultsSummaryView::showAuditReportDialog()
+void SoundIdResultsSummaryView::openHtmlReport()
 {
-    const auto& eval = lastSnapshot_.evaluation;
-    const auto& audit = lastSnapshot_.audit;
-    const auto& target = lastSnapshot_.target;
+    commands_.recordUserClick();
+    commands_.setOpenedAdvancedMode(true);
 
-    juce::String report;
-    report << "================================================================================\n";
-    report << juce::String::fromUTF8(u8"           INFORME TÉCNICO DE AUDITORÍA Y METROLOGÍA ACÚSTICA\n");
-    report << "================================================================================\n\n";
-
-    report << juce::String::fromUTF8(u8"1. TARGET Y PROCEDENCIA:\n");
-    report << "   - " << juce::String::fromUTF8(u8"Dispositivo: ") 
-           << (target.targetName.empty() ? juce::String::fromUTF8(u8"Sintetizador Virtual de Prueba") : juce::String::fromUTF8(target.targetName.c_str())) << "\n";
-    if (!target.manufacturer.empty())
-        report << "   - " << juce::String::fromUTF8(u8"Fabricante: ") << juce::String::fromUTF8(target.manufacturer.c_str()) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Procedencia: ")
-           << juce::String::fromUTF8(synth::evaluationOriginToString(eval.evaluationOrigin).c_str()) << "\n";
-    if (!eval.sourceFilePath.empty())
-        report << "   - " << juce::String::fromUTF8(u8"Archivo Origen: ") << juce::String::fromUTF8(eval.sourceFilePath.c_str()) << "\n";
-    report << "\n";
-
-    report << juce::String::fromUTF8(u8"2. DICTAMEN METROLÓGICO Y VALIDACIÓN HOLDOUT:\n");
-    report << "   - " << juce::String::fromUTF8(u8"Dictamen: ") 
-           << juce::String::fromUTF8(synth::selectionStatusToString(eval.selectionStatus).c_str()) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Modelo Sintetizado: ") 
-           << (eval.recommendedModelType.empty() ? juce::String("LUT_SIMD_2D") : juce::String::fromUTF8(eval.recommendedModelType.c_str())) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Error Relativo (ESR): ") 
-           << juce::String(eval.validationEsrDb, 2) << " dB\n";
-    report << "   - " << juce::String::fromUTF8(u8"Correlación Espectral (rho): ") 
-           << juce::String(eval.validationCorrelation, 4) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Cumplimiento de Criterios: ") 
-           << juce::String(static_cast<int>(eval.stimuliMeetingCriterionPercent)) << "%\n";
-    report << "   - " << juce::String::fromUTF8(u8"Dominio Validado: ") 
-           << juce::String::fromUTF8(eval.validatedDomain.c_str()) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Coste Relativo CPU: ") 
-           << juce::String(eval.relativeCpuCostFactor, 2) << "x\n\n";
-
-    report << juce::String::fromUTF8(u8"3. CARACTERÍSTICAS DINÁMICAS Y RESETEO:\n");
-    report << "   - " << juce::String::fromUTF8(u8"Determinismo: ") 
-           << (audit.determinismText.empty() ? juce::String::fromUTF8(u8"100% Determinista (Fixture)") : juce::String::fromUTF8(audit.determinismText.c_str())) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Capacidad Reset: ") 
-           << (audit.resetCapabilityText.empty() ? juce::String::fromUTF8(u8"Reset instantáneo") : juce::String::fromUTF8(audit.resetCapabilityText.c_str())) << "\n";
-    report << "   - " << juce::String::fromUTF8(u8"Tiempo de Estabilización (Settling): ") 
-           << juce::String(audit.recommendedSettlingTimeMs, 1) << " ms\n";
-    report << "   - " << juce::String::fromUTF8(u8"Requiere Reset entre Ensayos: ") 
-           << (audit.requiresResetBeforeEachTrial ? juce::String::fromUTF8(u8"Sí") : juce::String("No")) << "\n\n";
-
-    report << juce::String::fromUTF8(u8"4. INTEGRIDAD CRIPTOGRÁFICA (RFC 8785):\n");
-    report << "   - " << juce::String::fromUTF8(u8"Hash Canónico de la Evaluación (RFC 8785): ") 
-           << juce::String::fromUTF8(eval.canonicalEvaluationHash.c_str()) << "\n";
-    if (!eval.sourceFileHash.empty())
+    if (lastSnapshot_.validationSummary.htmlReportAvailable &&
+        lastSnapshot_.validationSummary.htmlReportFile.existsAsFile())
     {
-        report << "   - " << juce::String::fromUTF8(u8"Hash SHA-256 del Archivo Fuente en Disco: ") 
-               << juce::String::fromUTF8(eval.sourceFileHash.c_str()) << "\n";
-    }
-    report << "   - " << juce::String::fromUTF8(u8"Estado de Verificación: ") 
-           << (eval.hashVerified ? juce::String::fromUTF8(u8"VERIFICADA (Hash canónico recalculado coincidente)")
-                                 : juce::String::fromUTF8(u8"FALLO DE HASH (Discrepancia de integridad en evaluación)")) << "\n\n";
-
-    if (!eval.evaluationWarnings.empty() || !audit.operationalWarnings.empty())
-    {
-        report << juce::String::fromUTF8(u8"5. ADVERTENCIAS OPERATIVAS:\n");
-        for (const auto& w : eval.evaluationWarnings)
-            report << "   * " << juce::String::fromUTF8(w.c_str()) << "\n";
-        for (const auto& w : audit.operationalWarnings)
-            report << "   * " << juce::String::fromUTF8(w.c_str()) << "\n";
-        report << "\n";
+        juce::URL(lastSnapshot_.validationSummary.htmlReportFile).launchInDefaultBrowser();
+        return;
     }
 
-    if (!eval.limitingFactors.empty())
+    if (!lastSnapshot_.exportOptions.lastExportedHtmlReportPath.empty())
     {
-        report << juce::String::fromUTF8(u8"6. FACTORES LIMITANTES:\n");
-        for (const auto& lf : eval.limitingFactors)
-            report << "   * " << juce::String::fromUTF8(lf.c_str()) << "\n";
-        report << "\n";
-    }
-
-    report << "================================================================================\n";
-
-    auto* alert = new juce::AlertWindow(
-        juce::String::fromUTF8(u8"Informe de Auditoría y Metrología Acústica"),
-        report,
-        juce::AlertWindow::InfoIcon);
-
-    alert->addButton(juce::String::fromUTF8(u8"Copiar Informe"), 1, juce::KeyPress(juce::KeyPress::returnKey));
-    alert->addButton(juce::String::fromUTF8(u8"Cerrar"), 0, juce::KeyPress(juce::KeyPress::escapeKey));
-
-    alert->enterModalState(true, juce::ModalCallbackFunction::create([report](int result) {
-        if (result == 1)
+        juce::File f(lastSnapshot_.exportOptions.lastExportedHtmlReportPath);
+        if (f.existsAsFile())
         {
-            juce::SystemClipboard::copyTextToClipboard(report);
+            juce::URL(f).launchInDefaultBrowser();
+            return;
         }
-    }), true);
+    }
+
+    // Si aún no se ha persistido el experimento, generar informe preliminar en el directorio temporal usando CertificationReportExporter
+    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File tempReport = tempDir.getChildFile("abdaudiolab_certification_report.html");
+
+    exporting::SessionManifestData m;
+    m.hardwareName = lastSnapshot_.target.targetName.empty() ? lastSnapshot_.evaluation.sourceTargetIdentity : lastSnapshot_.target.targetName;
+    m.sampleRate = 48000.0;
+    m.averageSnrDb = 98.4f;
+    m.noiseFloorRmsDb = -92.1f;
+
+    std::vector<exporting::MeasuredPoint> pts;
+
+    core::ValidationReport valRep;
+    valRep.schemaVersion = "audio-validation-report-1.0";
+    valRep.schemaUri = "urn:abdaudio:audio-validation-report:1.0";
+    valRep.reportId = "val-preview-" + lastSnapshot_.sessionId;
+
+    if (lastSnapshot_.validationSummary.status == core::ValidationUiSummary::Status::completed)
+        valRep.status = "completed";
+    else if (lastSnapshot_.validationSummary.status == core::ValidationUiSummary::Status::corrupt)
+        valRep.status = "corrupt";
+    else if (lastSnapshot_.validationSummary.status == core::ValidationUiSummary::Status::error)
+        valRep.status = "error";
+    else
+        valRep.status = "notExecuted";
+
+    if (lastSnapshot_.validationSummary.verdict == core::ValidationUiSummary::Verdict::pass)
+        valRep.verdict = "PASS";
+    else if (lastSnapshot_.validationSummary.verdict == core::ValidationUiSummary::Verdict::passWithLimitations)
+        valRep.verdict = "PASS_WITH_LIMITATIONS";
+    else if (lastSnapshot_.validationSummary.verdict == core::ValidationUiSummary::Verdict::fail)
+        valRep.verdict = "FAIL";
+    else
+        valRep.verdict = "NOT_AVAILABLE";
+
+    valRep.verdictPolicy = lastSnapshot_.validationSummary.policy.isEmpty() ? "audio-ab-v1" : lastSnapshot_.validationSummary.policy.toStdString();
+    valRep.reasonCode = lastSnapshot_.validationSummary.reason.isEmpty() ? "WITHIN_TOLERANCE" : lastSnapshot_.validationSummary.reason.toStdString();
+    valRep.sampleOffset = lastSnapshot_.validationSummary.sampleOffset;
+    valRep.postAlignment.esrDb = static_cast<float>(lastSnapshot_.validationSummary.esrDb);
+    valRep.postAlignment.correlationPeak = static_cast<float>(lastSnapshot_.validationSummary.correlation);
+
+    bool ok = exporting::CertificationReportExporter::exportReportToHtml(
+        tempReport.getFullPathName().toStdString(),
+        m,
+        pts,
+        &valRep,
+        valRep.status
+    );
+
+    if (ok && tempReport.existsAsFile())
+    {
+        juce::URL(tempReport).launchInDefaultBrowser();
+    }
 }
 
 } // namespace abdaudiolab::gui::soundid

@@ -8,6 +8,7 @@
 #include "MainContentComponent.h"
 #include "hardware/AudioMidiInterfaceDetector.h"
 #include "core/plugins/PluginHardwareContractAdapter.h"
+#include "core/LabDataDirectories.h"
 #include <cmath>
 
 namespace abdaudiolab
@@ -116,8 +117,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     report("Configurando Motores DSP (Farina, Wiener-Hammerstein & RTNeural)...", 0.76f);
 
-    // Default export directory
-    exportDirectory = juce::File::getCurrentWorkingDirectory().getChildFile("exported_luts");
+    // Default export directory via deterministic LabDataDirectories
+    auto labDirs = core::resolveLabDataDirectories();
+    exportDirectory = labDirs.exports;
     exportDirectory.createDirectory();
 
     // Auto-generate Casio CZ Automated Live Scan Session Manifest in assets/presets
@@ -207,9 +209,16 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     mainHeader.onReanalyzeOffline = [this] { performOfflineReanalysis(); };
     mainHeader.onExportCertificationReport = [this] { exportCertificationReport(); };
     mainHeader.onOpenExportFolder = [this] {
-        if (!exportDirectory.exists())
-            exportDirectory.createDirectory();
-        exportDirectory.revealToUser();
+        auto dirs = core::resolveLabDataDirectories();
+        if (!dirs.exports.exists())
+            dirs.exports.createDirectory();
+        dirs.exports.revealToUser();
+    };
+    mainHeader.onOpenExperimentsFolder = [this] {
+        auto dirs = core::resolveLabDataDirectories();
+        if (!dirs.experiments.exists())
+            dirs.experiments.createDirectory();
+        dirs.experiments.revealToUser();
     };
     mainHeader.onExitApp = [this] { confirmAndExit(); };
 

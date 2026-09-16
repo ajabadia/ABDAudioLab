@@ -182,6 +182,70 @@ TEST_CASE("SoundIdResultsSummaryView: Deshabilitación estricta de exportación 
     CHECK(resView.isExportEnabled() == false);
 }
 
+TEST_CASE("SoundIdResultsSummaryView: Holdout validation, metrology metrics and audition controls (Phase 20.8.6 T2)", "[gui][soundid]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+    ProfilingSessionController controller;
+    soundid::SoundIdResultsSummaryView resView(controller);
+    resView.setSize(900, 700);
+
+    ProfilingSessionSnapshot snap;
+    snap.workflowMode = UiWorkflowMode::Guided;
+    snap.workflowStage = ProfilingWorkflowStage::ReviewResults;
+    snap.evaluation.hasEvaluation = true;
+    snap.evaluation.recommendedModelType = "AnalogLutFilterModule";
+    snap.evaluation.selectionStatus = synth::SelectionStatus::Accepted;
+    snap.evaluation.canonicalEvaluationHash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    snap.evaluation.hashVerified = true;
+    snap.exportOptions.canExportCpp = true;
+
+    // Poblar ValidationUiSummary tipado
+    snap.validationSummary.status = core::ValidationUiSummary::Status::completed;
+    snap.validationSummary.verdict = core::ValidationUiSummary::Verdict::pass;
+    snap.validationSummary.policy = "audio-ab-v1";
+    snap.validationSummary.reason = "WITHIN_TOLERANCE";
+    snap.validationSummary.esrDb = -38.5;
+    snap.validationSummary.correlation = 0.9980;
+    snap.validationSummary.sampleOffset = 42;
+    snap.validationSummary.integrityVerified = true;
+    snap.validationSummary.targetAvailable = true;
+    snap.validationSummary.modelAvailable = true;
+    snap.validationSummary.residualAvailable = true;
+    snap.validationSummary.htmlReportAvailable = true;
+
+    resView.updateFromSnapshot(snap);
+
+    CHECK(resView.getValidationStatus() == core::ValidationUiSummary::Status::completed);
+    CHECK(resView.getValidationVerdict() == core::ValidationUiSummary::Verdict::pass);
+    CHECK(resView.getEsrDb() == Catch::Approx(-38.5));
+    CHECK(resView.getCorrelation() == Catch::Approx(0.9980));
+    CHECK(resView.getSampleOffset() == 42);
+    CHECK(resView.isTargetAudioAvailable() == true);
+    CHECK(resView.isModelAudioAvailable() == true);
+    CHECK(resView.isResidualAudioAvailable() == true);
+    CHECK(resView.isHtmlReportAvailable() == true);
+    CHECK(resView.isExportEnabled() == true);
+
+    // Caso de advertencias metrológicas
+    snap.validationSummary.verdict = core::ValidationUiSummary::Verdict::passWithLimitations;
+    snap.validationSummary.reason = "RESIDUAL_ELEVATED";
+    snap.validationSummary.esrDb = -22.1;
+    resView.updateFromSnapshot(snap);
+    CHECK(resView.getValidationVerdict() == core::ValidationUiSummary::Verdict::passWithLimitations);
+    CHECK(resView.getEsrDb() == Catch::Approx(-22.1));
+
+    // Caso de fallo / corrupto
+    snap.validationSummary.status = core::ValidationUiSummary::Status::corrupt;
+    snap.validationSummary.verdict = core::ValidationUiSummary::Verdict::notAvailable;
+    snap.validationSummary.integrityVerified = false;
+    snap.evaluation.hashVerified = false;
+    snap.exportOptions.canExportCpp = false;
+    resView.updateFromSnapshot(snap);
+    CHECK(resView.getValidationStatus() == core::ValidationUiSummary::Status::corrupt);
+    CHECK(resView.getValidationVerdict() == core::ValidationUiSummary::Verdict::notAvailable);
+    CHECK(resView.isExportEnabled() == false);
+}
+
 namespace
 {
 class LocalMockEvaluator : public synth::IModelCandidateEvaluator

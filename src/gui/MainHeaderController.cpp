@@ -186,6 +186,7 @@ void MainHeaderController::showFileMenu()
     menu.addSeparator();
     menu.addItem(6, "Export Certification Report (PDF/HTML)...");
     menu.addItem(7, "Open Export Folder");
+    menu.addItem(11, "Open Experiments Folder");
     menu.addSeparator();
     menu.addItem(9, "Scan Plugin Directories...");
     menu.addItem(10, "Teclado Virtual MIDI...");
@@ -208,6 +209,7 @@ void MainHeaderController::showFileMenu()
             case 8: if (safeThis->onExitApp) safeThis->onExitApp(); break;
             case 9: if (safeThis->onScanPluginDirectories) safeThis->onScanPluginDirectories(); break;
             case 10: if (safeThis->onVirtualKeyboardToggle) safeThis->onVirtualKeyboardToggle(); break;
+            case 11: if (safeThis->onOpenExperimentsFolder) safeThis->onOpenExperimentsFolder(); break;
             default: break;
         }
     });

@@ -151,13 +151,101 @@ Operational closure:      COMPLETE
 
 ---
 
-## Commit de Cierre
+## Infraestructura de Datos y Almacenamiento FAIR (Fase 20.8.4)
 
-Tras completar el registro, ejecutar:
+### 1. Servicio Determinista de Rutas (`LabDataDirectories`)
+- **Estructura unificada**:
+  ```text
+  DataRoot/
+  ├── experiments/  (fuente de verdad autocontenida de experimentos FAIR)
+  └── exports/      (copias de conveniencia para producción C++20)
+  ```
+- **Prioridad estricta**:
+  1. `ExplicitOverride` (`setExplicitDataRootOverride`).
+  2. `EnvironmentVariable` (`ABDAUDIOLAB_DATA_ROOT`).
+  3. `WorkspaceMarker` (`ABDAudioLab.workspace`).
+  4. `UserDocumentsFallback` (`%USERPROFILE%/Documents/ABDAudioLab` o `~/Documents/ABDAudioLab`).
+- **Higiene de sondas**: La sonda activa `.probe_write_*.tmp` se crea, escribe, cierra y elimina durante la verificación de permisos, sin dejar nunca residuos ni indexarse en el manifiesto.
 
-```powershell
-git add -A
-git commit -m "feat(phase20.8.3): MVP E2E guided mode with isolated worker IPC — operational closure"
+### 2. Garantía de Atomicidad Intra-Volumen
+- El contenedor temporal `.tmp_<rand>` se crea directamente dentro del directorio `experiments/` (`DataRoot/experiments/`).
+- Al estar en el mismo sistema de archivos y volumen, la operación final de commit (`tempDir.moveFileTo(finalDir)`) opera como un renombramiento atómico intra-volumen (`MoveFile` de Win32).
+- Si el commit o la verificación de igualdad de hashes falla, el sistema limpia la carpeta temporal y la copia de conveniencia en `exports/`, evitando estados inconsistentes o artefactos huérfanos.
+
+### 3. Autocontención e Inmutabilidad
+- El código C++20 representativo se embebe en `models/ModelPackage.h` dentro del experimento, indexado con rol `embedded_model` y su SHA-256 en `manifest.json`.
+- La reapertura de experimentos nunca depende de `exports/`.
+- Re-exportaciones sucesivas versionan automáticamente como revisiones hijas (`Exp_rev2`, `Exp_rev3`) enlazadas mediante `parentExperimentId`, respetando la inmutabilidad de la revisión original.
+
+---
+
+## Runtime Ejecutable y Validación Holdout A/B (Fase 20.8.5)
+
+### 1. Runtime Ejecutable Empírico (`GeneratedAcousticModel`)
+- **Unificación arquitectural**: Ejecución directa de la tabla `AbdBatchedPoint` perfilada mediante `dsp::AnalogLutFilterModule` (`LutEvaluatorSimd`), compartiendo el mismo motor DSP que la audición en tiempo real del modo clásico.
+- **Invariante Zero-Heap en Tiempo Real**: Preasignación estricta de buffers scratch durante `prepare(sampleRate, maxBlockSize, channels)`. Cero asignaciones de memoria (`noexcept`) en `processBlock()`, `reset()` ni cambios dinámicos de parámetros.
+- **Soporte In-Place y Límites**: Soporte seguro de buffers coincidentes `input == output`, hasta 8 canales SIMD y clamping dentro del dominio acústico declarado (`ModelDomainLimitations`).
+
+### 2. Secuencia Holdout Out-of-Sample (`HoldoutSequence`)
+- **Separación estricta y anti-fuga**: Coordenadas intermedias ($p_1, p_2 \in \{0.0714, 0.2143, 0.3571, \dots\}$) excluyentes de los puntos de entrenamiento en rejilla ($k/7$).
+- **Auditoría Anti-Leakage multidimensional**: Método `hasDataLeakage(trainingPoints, tolerance)` que comprueba colisiones exactas, margen de cuantización por eje y límites $[0.0, 1.0]$.
+- **Fixity Criptográfica**: `sequenceDefinitionHash` (SHA-256 de waypoints y coordenadas) y `holdoutPlanHash` (SHA-256 canónico vinculando el plan con `trainingPlanHash` y el dominio del modelo).
+
+### 3. Validador A/B y Persistencia FAIR (`ModelHoldoutValidator`)
+- **Renderizado simétrico**: Estímulo multiharmónico determinista procesado a través de Target y de `GeneratedAcousticModel`.
+- **Metrología Dual**: Registro explícito de métricas pre-alineamiento y post-alineamiento por correlación cruzada.
+- **Alineamiento y Residual**: Detección de retardo `sampleOffset` y cálculo del residual alineado:
+  $$r[n] = y_{\text{target}}[n - \text{sampleOffset}] - y_{\text{model}}[n]$$
+- **Métrica y Política Versionada**: ESR en dB ($\text{ESR}_{\text{dB}} = 10 \log_{10}(\sum |r|^2 / \sum |y_{\text{tgt}}|^2)$) bajo política `"audio-ab-v1"`:
+  - `PASS`: $\text{ESR} \le -28.0\text{ dB}$, $\rho \ge 0.98$, $|\text{offset}| \le 256$ muestras (`WITHIN_TOLERANCE`).
+  - `PASS_WITH_LIMITATIONS`: $\text{ESR} \le -18.0\text{ dB}$, $\rho \ge 0.92$, $|\text{offset}| \le 1024$ muestras (`MARGINAL_TOLERANCE`).
+  - `FAIL`: fuera de límites (`EXCEEDS_TOLERANCE`).
+- **Contenedor FAIR `validation/`**:
+  - `target.wav`, `model.wav`, `residual.wav` (PCM IEEE Float 32-bit con metadatos técnicos completos).
+  - `holdout_manifest.json` y `validation_report.json`.
+  - Indexación atómica en `manifest.json` con fixity SHA-256 e integridad verificada con `ExperimentStorage::loadExperiment`.
+
+### 4. Estado de Certificación Técnica
+```text
+Suite de pruebas completa: 280 tests / 158.659 assertions / 0 failures
+Slice: Runtime Ejecutable y Validación Holdout A/B
+Estado: COMPLETADO Y AUDITADO
+Regresiones: 0
 ```
+
+---
+
+## Unificación de Certificación, Presentación y Reproducción (Fase 20.8.6)
+
+### 1. Generador Único de Informes (`CertificationReportExporter`)
+- **Fuente única de verdad**: Unificación metrológica estricta. Todo informe se genera a través de `CertificationReportExporter::exportReportToHtml()`, compartiendo el mismo código y formato offline tanto en el flujo guiado (SoundID) como en el modo clásico.
+- **Sección Holdout A/B**: Incorpora métricas pre y post-alineación temporal con convención matemática estricta ($\text{alignedTarget}[n] = \text{target}[n - \text{sampleOffset}]$), insignias de estado y veredicto con alto contraste WCAG AA (> 4.5:1), y tabla de artefactos FAIR con fixity SHA-256.
+- **Lanzamiento nativo en navegador**: Sustitución del modal ASCII por apertura directa en el navegador por defecto del sistema (`juce::URL(reportFile).launchInDefaultBrowser()`).
+
+### 2. Modelo Tipado y Desacoplado para la UI (`ValidationUiSummary`)
+- **Desacoplamiento total**: La interfaz gráfica nunca lee JSON crudo ni recalcula ESR, correlación espectral $\rho$ ni latencia.
+- **Separación de estado técnico y veredicto**:
+  - `Status`: `completed`, `error`, `corrupt`, `notExecuted`.
+  - `Verdict`: `pass`, `passWithLimitations`, `fail`, `notAvailable`.
+- **Verificación criptográfica de 9 pasos**: Valida existencia del manifiesto, integridad bit a bit mediante `loadExperiment`, indexación y coincidencia SHA-256 de `validation_report.json` y `reports/certification_report.html`, y protección de límites de rutas relativas (path traversal).
+
+### 3. Publicación Transaccional con Staging (`StagingHook`)
+- **Staging previo a commit**: Renderizado de `reports/certification_report.html` y artefactos de validación dentro de un directorio de preparación temporal (`stagingDir`).
+- **Garantía cero artefactos parciales**: Si la validación o generación del HTML falla en el hook, el directorio de staging se purga y el experimento no se publica.
+- **Indexación canónica FAIR**: El informe se indexa en `manifest.json` con rol `audit_report_html` y SHA-256 verificado.
+
+### 4. Audición y Escucha A/B en la UI (`SoundIdResultsSummaryView`)
+- **Controles A/B**: Botones de escucha para Target (Holdout), Modelo y Residual / Error.
+- **Invariante Zero-Heap en Tiempo Real**: Ejecución de audio de preescucha fuera del hilo de tiempo real, sin bloquear ni alterar el motor de audio de baja latencia.
+
+### 5. Estado de Certificación Técnica
+```text
+Suite de pruebas completa: 285 tests / 158.747 assertions / 0 failures
+Slice: Unificación de Certificación, Presentación y Reproducción (Fase 20.8.6)
+Estado: COMPLETADO Y AUDITADO
+Regresiones: 0
+```
+
+
 
 

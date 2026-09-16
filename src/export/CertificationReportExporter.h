@@ -11,6 +11,11 @@
 #include <vector>
 #include "LutExporter.h"
 
+namespace abdaudiolab::core
+{
+    struct ValidationReport;
+}
+
 namespace abdaudiolab::exporting
 {
 
@@ -29,11 +34,17 @@ public:
      * @param targetPath Target filesystem path for HTML document (.html).
      * @param manifest Session manifest metadata structure.
      * @param points Vector of measured data points.
+     * @param validation Optional holdout validation report data. If null, marked as "notExecuted".
+     * @param validationStatus Status string ("completed", "error", "corrupt", "notExecuted").
+     * @param validationErrorMessage Diagnostic error message if status is error or corrupt.
      * @return true on success, false on write error.
      */
     static bool exportReportToHtml(const std::string& targetPath,
                                    const SessionManifestData& manifest,
-                                   const std::vector<MeasuredPoint>& points);
+                                   const std::vector<MeasuredPoint>& points,
+                                   const abdaudiolab::core::ValidationReport* validation = nullptr,
+                                   const std::string& validationStatus = "completed",
+                                   const std::string& validationErrorMessage = "");
 
     /**
      * @brief Renders an inline SVG vector line chart for log frequency magnitude response (20 Hz - 20 kHz).

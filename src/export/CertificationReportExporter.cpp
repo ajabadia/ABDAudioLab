@@ -1,4 +1,5 @@
 #include "CertificationReportExporter.h"
+#include "../core/ModelHoldoutValidator.h"
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -216,7 +217,10 @@ static uint32_t computeReportCrc32(const std::vector<MeasuredPoint>& points)
 
 bool CertificationReportExporter::exportReportToHtml(const std::string& targetPath,
                                                       const SessionManifestData& manifest,
-                                                      const std::vector<MeasuredPoint>& points)
+                                                      const std::vector<MeasuredPoint>& points,
+                                                      const abdaudiolab::core::ValidationReport* validation,
+                                                      const std::string& validationStatus,
+                                                      const std::string& validationErrorMessage)
 {
     std::ofstream file(targetPath);
     if (!file.is_open())
@@ -237,6 +241,49 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     std::string thdTable = generateThdTableHtml(points);
     uint32_t crc = computeReportCrc32(points);
 
+    // Determine Holdout status and verdict labels & styling
+    std::string statusBadgeClass = "badge-neutral";
+    std::string statusBadgeText = "[i] HOLDOUT VALIDATION: NOT EXECUTED";
+    std::string verdictStr = "NOT_AVAILABLE";
+    std::string policyStr = "audio-ab-v1";
+
+    if (validationStatus == "error")
+    {
+        statusBadgeClass = "badge-error";
+        statusBadgeText = "[!] TECHNICAL ERROR: " + (validationErrorMessage.empty() ? "Validation execution failed" : validationErrorMessage);
+    }
+    else if (validationStatus == "corrupt")
+    {
+        statusBadgeClass = "badge-corrupt";
+        statusBadgeText = "[!] CORRUPT: Cryptographic mismatch / tampering detected";
+    }
+    else if (validation != nullptr)
+    {
+        verdictStr = validation->verdict;
+        policyStr = validation->verdictPolicy.empty() ? "audio-ab-v1" : validation->verdictPolicy;
+
+        if (verdictStr == "PASS")
+        {
+            statusBadgeClass = "badge-pass";
+            statusBadgeText = "[OK] VERDICT: PASS (" + policyStr + ")";
+        }
+        else if (verdictStr == "PASS_WITH_LIMITATIONS")
+        {
+            statusBadgeClass = "badge-warn";
+            statusBadgeText = "[!] VERDICT: PASS WITH LIMITATIONS (" + policyStr + ")";
+        }
+        else if (verdictStr == "FAIL")
+        {
+            statusBadgeClass = "badge-fail";
+            statusBadgeText = "[X] VERDICT: FAIL (" + policyStr + ")";
+        }
+        else
+        {
+            statusBadgeClass = "badge-neutral";
+            statusBadgeText = "[?] VERDICT: " + verdictStr;
+        }
+    }
+
     file << "<!DOCTYPE html>\n";
     file << "<html lang=\"en\">\n<head>\n";
     file << "<meta charset=\"UTF-8\">\n";
@@ -246,7 +293,13 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "  .container { max-width: 900px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }\n";
     file << "  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }\n";
     file << "  .brand { font-size: 20px; font-weight: 800; color: #1a1d20; letter-spacing: 0.5px; }\n";
-    file << "  .badge { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; }\n";
+    file << "  .badge { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.25px; }\n";
+    file << "  .badge-pass { background: #ecfdf5; color: #065f46; border: 1.5px solid #059669; }\n";
+    file << "  .badge-warn { background: #fffbeb; color: #92400e; border: 1.5px solid #d97706; }\n";
+    file << "  .badge-fail { background: #fef2f2; color: #991b1b; border: 1.5px solid #dc2626; }\n";
+    file << "  .badge-error { background: #fff7ed; color: #9a3412; border: 1.5px solid #ea580c; }\n";
+    file << "  .badge-corrupt { background: #fdf2f8; color: #831843; border: 1.5px solid #db2777; }\n";
+    file << "  .badge-neutral { background: #f1f5f9; color: #334155; border: 1.5px solid #94a3b8; }\n";
     file << "  .section-title { font-size: 13px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.75px; margin-top: 28px; margin-bottom: 14px; }\n";
     file << "  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }\n";
     file << "  .metric-card { background-color: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; text-align: center; }\n";
@@ -258,6 +311,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "  .thd-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }\n";
     file << "  .thd-val { color: #d97706; font-weight: 600; }\n";
     file << "  .snr-val { color: #059669; font-weight: 600; }\n";
+    file << "  .sign-convention-box { background-color: #f1f5f9; border-left: 4px solid #0284c7; padding: 10px 14px; font-size: 12px; margin-bottom: 16px; font-family: 'Consolas', monospace; color: #1e293b; }\n";
     file << "  .stamp-footer { margin-top: 32px; padding-top: 16px; border-top: 1px dashed #cbd5e1; font-family: 'Consolas', monospace; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }\n";
     file << "  @media print {\n";
     file << "    body { background-color: #ffffff; color: #000000; padding: 0; }\n";
@@ -266,7 +320,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "</style>\n";
     file << "<script>\n";
     file << "  window.onload = function() {\n";
-    file << "    window.print();\n";
+    file << "    // Printable on demand\n";
     file << "  };\n";
     file << "</script>\n";
     file << "</head>\n<body>\n";
@@ -275,11 +329,12 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "  <div class=\"header\">\n";
     file << "    <div>\n";
     file << "      <div class=\"brand\">ABDAUDIOLAB CERTIFICATION REPORT</div>\n";
-    file << "      <div style=\"font-size: 13px; color: #64748b; margin-top: 4px;\">Target Hardware: <strong>" << (manifest.hardwareName.empty() ? "Analog Hardware Profile" : manifest.hardwareName) << "</strong></div>\n";
+    file << "      <div style=\"font-size: 13px; color: #64748b; margin-top: 4px;\">Target: <strong>" << (manifest.hardwareName.empty() ? "Empirical Target" : manifest.hardwareName) << "</strong></div>\n";
     file << "    </div>\n";
-    file << "    <div class=\"badge\">CERTIFIED PASSED</div>\n";
+    file << "    <div class=\"badge " << statusBadgeClass << "\">" << statusBadgeText << "</div>\n";
     file << "  </div>\n";
 
+    // 1. Core measurement metrics
     file << "  <div class=\"metrics-grid\">\n";
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">SAMPLE RATE</div><div class=\"metric-val\">" << static_cast<int>(manifest.sampleRate) << " Hz</div></div>\n";
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">TOTAL POINTS</div><div class=\"metric-val\">" << points.size() << "</div></div>\n";
@@ -287,6 +342,56 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">NOISE FLOOR</div><div class=\"metric-val\">" << std::fixed << std::setprecision(1) << manifest.noiseFloorRmsDb << " dBFS</div></div>\n";
     file << "  </div>\n";
 
+    // 2. Out-of-sample Holdout Validation Section (audio-ab-v1)
+    file << "  <div class=\"section-title\">Holdout A/B Validation & Latency Alignment (audio-ab-v1)</div>\n";
+    if (validation != nullptr && validationStatus == "completed")
+    {
+        file << "  <div class=\"sign-convention-box\"><strong>Latency Alignment Sign Convention:</strong> <code>alignedTarget[n] = target[n - sampleOffset]</code> (Offset: " << validation->sampleOffset << " samples)</div>\n";
+
+        file << "  <div class=\"metrics-grid\">\n";
+        file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">POST-ALIGN ESR</div><div class=\"metric-val\" style=\"color: " << (validation->verdict == "PASS" ? "#00a86b" : (validation->verdict == "PASS_WITH_LIMITATIONS" ? "#d97706" : "#ef4444")) << ";\">" << std::fixed << std::setprecision(1) << validation->postAlignment.esrDb << " dB</div></div>\n";
+        file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">CORRELATION &rho;</div><div class=\"metric-val\">" << std::fixed << std::setprecision(4) << validation->postAlignment.correlationPeak << "</div></div>\n";
+        file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">SAMPLE OFFSET</div><div class=\"metric-val\">" << validation->sampleOffset << " smp</div></div>\n";
+        file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">CRITERION REASON</div><div class=\"metric-val\" style=\"font-size: 14px; margin-top: 8px;\">" << validation->reasonCode << "</div></div>\n";
+        file << "  </div>\n";
+
+        file << "  <table class=\"thd-table\" style=\"margin-bottom: 24px;\">\n";
+        file << "    <thead><tr><th>METRIC STAGE</th><th>RMSE</th><th>RMS DELTA (dB)</th><th>SPECTRAL DELTA (dB)</th><th>PEAK ERROR</th><th>ESR (dB)</th></tr></thead>\n";
+        file << "    <tbody>\n";
+        file << "      <tr><td><strong>Pre-Alignment</strong></td>";
+        file << "<td>" << std::fixed << std::setprecision(5) << validation->preAlignment.rmse << "</td>";
+        file << "<td>" << std::fixed << std::setprecision(2) << validation->preAlignment.rmsDeltaDb << " dB</td>";
+        file << "<td>" << std::fixed << std::setprecision(2) << validation->preAlignment.spectralDeltaDb << " dB</td>";
+        file << "<td>" << std::fixed << std::setprecision(4) << validation->preAlignment.peakAbsoluteError << "</td>";
+        file << "<td>" << std::fixed << std::setprecision(1) << validation->preAlignment.esrDb << " dB</td></tr>\n";
+
+        file << "      <tr><td><strong>Post-Alignment</strong></td>";
+        file << "<td>" << std::fixed << std::setprecision(5) << validation->postAlignment.rmse << "</td>";
+        file << "<td>" << std::fixed << std::setprecision(2) << validation->postAlignment.rmsDeltaDb << " dB</td>";
+        file << "<td>" << std::fixed << std::setprecision(2) << validation->postAlignment.spectralDeltaDb << " dB</td>";
+        file << "<td>" << std::fixed << std::setprecision(4) << validation->postAlignment.peakAbsoluteError << "</td>";
+        file << "<td><strong>" << std::fixed << std::setprecision(1) << validation->postAlignment.esrDb << " dB</strong></td></tr>\n";
+        file << "    </tbody>\n";
+        file << "  </table>\n";
+
+        file << "  <div style=\"font-size: 11px; color: #64748b; margin-bottom: 20px;\">\n";
+        file << "    <strong>FAIR Validation Artifacts:</strong><br>\n";
+        file << "    &bull; <code>validation/target.wav</code> (SHA-256: " << (validation->targetWavSha256.empty() ? "N/A" : validation->targetWavSha256.substr(0, 16) + "...") << ")<br>\n";
+        file << "    &bull; <code>validation/model.wav</code> (SHA-256: " << (validation->modelWavSha256.empty() ? "N/A" : validation->modelWavSha256.substr(0, 16) + "...") << ")<br>\n";
+        file << "    &bull; <code>validation/residual.wav</code> (SHA-256: " << (validation->residualWavSha256.empty() ? "N/A" : validation->residualWavSha256.substr(0, 16) + "...") << ")<br>\n";
+        file << "    &bull; <code>validation/holdout_manifest.json</code> (SHA-256: " << (validation->holdoutManifestSha256.empty() ? "N/A" : validation->holdoutManifestSha256.substr(0, 16) + "...") << ")\n";
+        file << "  </div>\n";
+    }
+    else
+    {
+        file << "  <div class=\"metric-card\" style=\"text-align: left; padding: 14px; margin-bottom: 24px;\">\n";
+        file << "    <div style=\"font-weight: 600; color: #475569;\">Status: " << statusBadgeText << "</div>\n";
+        if (!validationErrorMessage.empty())
+            file << "    <div style=\"font-size: 12px; color: #b91c1c; margin-top: 4px;\">Details: " << validationErrorMessage << "</div>\n";
+        file << "  </div>\n";
+    }
+
+    // 3. Hardware Controls Specification
     if (!points.empty() && !points[0].controlSteps.empty())
     {
         file << "  <div class=\"section-title\">Hardware Controls Specification</div>\n";
@@ -304,6 +409,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
         file << "  </table>\n";
     }
 
+    // 4. Response curves and logs
     file << "  <div class=\"section-title\">Frequency Response Magnitude</div>\n";
     file << "  <div class=\"chart-box\">" << freqSvg << "</div>\n";
 
@@ -314,7 +420,7 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << thdTable << "\n";
 
     file << "  <div class=\"stamp-footer\">\n";
-    file << "    <div>SESSION INTEGRITY: VALID | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
+    file << "    <div>SESSION INTEGRITY: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VALID") << " | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
     file << "    <div>ENGINE: ABDAudioLab v0.3.2-PRO</div>\n";
     file << "  </div>\n";
 

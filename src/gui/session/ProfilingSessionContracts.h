@@ -8,6 +8,7 @@
 
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/TargetContract.h"
+#include "../../core/ValidationUiSummary.h"
 
 namespace abdaudiolab::gui::session
 {
@@ -247,6 +248,8 @@ struct ExportAvailabilityState
     bool canExportNam { false };
     bool canExportLut { false };
     std::string lastExportedFilePath;
+    std::string lastExportedExperimentFolderPath;
+    std::string lastExportedHtmlReportPath;
     std::string exportBlockReason;
 };
 
@@ -287,6 +290,7 @@ struct ProfilingSessionSnapshot
     ObservationSummaryState observation;
     ModelEvaluationSummaryState evaluation;
     ExportAvailabilityState exportOptions;
+    abdaudiolab::core::ValidationUiSummary validationSummary;
 
     std::vector<UiAlert> activeAlerts;
 
@@ -314,6 +318,8 @@ public:
     virtual bool resumeProfiling() = 0;
     virtual bool cancelProfiling() = 0;
     virtual bool exportModel(const std::string& format, const std::string& destinationPath) = 0;
+    virtual bool saveExperimentRecord(const std::string& destinationBaseDir, std::string& outCreatedFolder, std::string& outError) = 0;
+    virtual bool loadExperimentRecord(const std::string& experimentFolderPath, std::string& outError) = 0;
     virtual bool loadEvaluationFromFile(const std::string& filePath) = 0;
     virtual bool loadEvaluationFromJsonString(const std::string& jsonString, const std::string& sourceFilePath = "") = 0;
     virtual bool loadPredefinedFixture(const std::string& fixtureFileName) = 0;

@@ -8,6 +8,7 @@
 
 #include "ProfilingSessionContracts.h"
 #include "ProfilingSessionCoordinator.h"
+#include "../../core/ExperimentRecord.h"
 
 namespace abdaudiolab::gui::session
 {
@@ -39,10 +40,14 @@ public:
     bool resumeProfiling() override;
     bool cancelProfiling() override;
     bool exportModel(const std::string& format, const std::string& destinationPath) override;
+    bool saveExperimentRecord(const std::string& destinationBaseDir, std::string& outCreatedFolder, std::string& outError) override;
+    bool loadExperimentRecord(const std::string& experimentFolderPath, std::string& outError) override;
     bool loadEvaluationFromFile(const std::string& filePath) override;
     bool loadEvaluationFromJsonString(const std::string& jsonString, const std::string& sourceFilePath = "") override;
     bool loadPredefinedFixture(const std::string& fixtureFileName) override;
     void navigateToStage(ProfilingWorkflowStage stage) override;
+
+    [[nodiscard]] core::ExperimentRecord buildCurrentExperimentRecord() const;
 
     static juce::File getEvaluationsDirectory();
 

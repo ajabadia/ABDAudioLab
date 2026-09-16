@@ -126,11 +126,17 @@ TEST_CASE("ProfilingSessionController: Ciclo de vida completo y transiciones vá
     CHECK(snap.workflowStage == ProfilingWorkflowStage::ReviewResults);
     CHECK(snap.exportOptions.canExportCpp == true);
 
-    // 8. Exportar modelo
+    // 8. Exportar modelo primera vez
     CHECK(controller.exportModel("cpp", "build/export/Model.cpp") == true);
     snap = controller.getCurrentSnapshot();
     CHECK(snap.sessionStatus == ProfilingSessionStatus::Exported);
     CHECK(snap.exportOptions.lastExportedFilePath == "build/export/Model.cpp");
+
+    // 9. Re-exportar modelo inmediatamente (estado Exported permite re-exportacion)
+    CHECK(controller.exportModel("cpp", "build/export/Model_1.cpp") == true);
+    snap = controller.getCurrentSnapshot();
+    CHECK(snap.sessionStatus == ProfilingSessionStatus::Exported);
+    CHECK(snap.exportOptions.lastExportedFilePath == "build/export/Model_1.cpp");
 }
 
 TEST_CASE("ProfilingSessionController: Protección contra snapshots antiguos desordenados", "[gui][session]")
@@ -664,7 +670,38 @@ TEST_CASE("ProfilingSessionController: Invariantes y proteccion al importar eval
         CHECK(snap.controllerGeneration > originalGeneration);
         CHECK(snap.sessionId != originalSessionId);
     }
+
+    SECTION("10. saveExperimentRecord y loadExperimentRecord de extremo a extremo")
+    {
+        juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
+        controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString());
+        REQUIRE(controller.getCurrentSnapshot().evaluation.hasEvaluation == true);
+
+        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
+            .getChildFile("ABDAudioLab_CtrlExp_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+        tempDir.createDirectory();
+
+        std::string expFolder;
+        std::string expErr;
+        bool ok = controller.saveExperimentRecord(tempDir.getFullPathName().toStdString(), expFolder, expErr);
+        REQUIRE(ok);
+        REQUIRE(!expFolder.empty());
+
+        // Ahora creamos un segundo controller limpio y cargamos el experimento
+        ProfilingSessionController controller2;
+        std::string loadErr;
+        bool loadOk = controller2.loadExperimentRecord(expFolder, loadErr);
+        REQUIRE(loadOk);
+        auto snap2 = controller2.getCurrentSnapshot();
+        CHECK(snap2.evaluation.hasEvaluation == true);
+        CHECK(snap2.evaluation.hashVerified == true);
+        CHECK(snap2.evaluation.canonicalEvaluationHash == controller.getCurrentSnapshot().evaluation.canonicalEvaluationHash);
+        CHECK(snap2.exportOptions.canExportCpp == true);
+
+        tempDir.deleteRecursively();
+    }
 }
+
 
 
 

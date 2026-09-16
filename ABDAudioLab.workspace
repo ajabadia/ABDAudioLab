@@ -1,0 +1,5 @@
+# ABDAudioLab Workspace Marker
+# This file identifies the root of the ABDAudioLab development workspace
+# for deterministic resolution of LabDataDirectories (experiments/ and exports/).
+workspaceName=ABDAudioLab
+version=1.0.0

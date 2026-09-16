@@ -63,6 +63,7 @@ public:
     std::function<void()> onReanalyzeOffline;
     std::function<void()> onExportCertificationReport;
     std::function<void()> onOpenExportFolder;
+    std::function<void()> onOpenExperimentsFolder;
     std::function<void()> onExitApp;
     std::function<void()> onScanPluginDirectories;
 

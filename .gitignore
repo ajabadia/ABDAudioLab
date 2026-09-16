@@ -11,6 +11,9 @@ CMakeSettings.json
 exported_luts/
 captures/
 *.wav
+fixtures/exports/*_20*.h
+exports/
+experiments/
 
 # OS and IDE files
 .DS_Store

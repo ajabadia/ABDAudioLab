@@ -131,6 +131,19 @@ target_sources(ABDAudioLab
         src/core/HardwareContractRegistry.cpp
         src/core/SessionSerializer.h
         src/core/SessionSerializer.cpp
+        src/core/ExperimentRecord.h
+        src/core/ExperimentStorage.h
+        src/core/ExperimentStorage.cpp
+        src/core/LabDataDirectories.h
+        src/core/LabDataDirectories.cpp
+        src/core/GeneratedAcousticModel.h
+        src/core/GeneratedAcousticModel.cpp
+        src/core/HoldoutSequence.h
+        src/core/HoldoutSequence.cpp
+        src/core/ModelHoldoutValidator.h
+        src/core/ModelHoldoutValidator.cpp
+        src/core/ValidationUiSummary.h
+        src/core/ValidationUiSummary.cpp
         src/core/SessionManager.h
         src/core/SessionManager.cpp
         src/core/HardwareManager.h
@@ -634,9 +647,21 @@ add_executable(ABDAudioLab_Tests
     src/ipc/Win32NamedPipe.cpp
     src/ipc/WorkerProcessHost.cpp
     src/synth/OutOfProcessVst3LifecycleAdapter.cpp
+    src/core/ExperimentStorage.cpp
+    src/core/LabDataDirectories.cpp
+    src/core/GeneratedAcousticModel.cpp
+    src/core/HoldoutSequence.cpp
+    src/core/ModelHoldoutValidator.cpp
+    src/core/ValidationUiSummary.cpp
     src/tests/test_WorkerProcessHost.cpp
     src/tests/test_OutOfProcessVst3LifecycleAdapter.cpp
     src/tests/test_ModelExportNaming.cpp
+    src/tests/test_ExperimentStorage.cpp
+    src/tests/test_LabDataDirectories.cpp
+    src/tests/test_GeneratedAcousticModel.cpp
+    src/tests/test_HoldoutSequence.cpp
+    src/tests/test_ModelHoldoutValidation.cpp
+    src/tests/test_CertificationReportExport.cpp
 )
 
 # ------------------------------------------------------------------------------
