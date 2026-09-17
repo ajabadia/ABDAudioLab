@@ -58,6 +58,15 @@
   * [COMPLETADO] T5.4: Integración UI en MeasurementViewModelLoader (soporte dexed_reference.wav y verificación criptográfica anti-tampering).
   * [COMPLETADO] T5.5: Suite de pruebas unitarias y E2E en test_Phase20_11_VerticalDexedAndFair_T5.cpp con 10 escenarios específicos. Certificación: 371/371 tests verdes (223.406 aserciones, 0 fallos).
 
+[COMPLETADO] Fase 20.11.1: Visualización Interactiva de Contenedores LNL y Comparación Multivariante.
+- [COMPLETADO] T20.11.1-1: Modelo de sesión MeasurementComparisonSession, estados de contenedor (Pending, Loading, Verified, Corrupt, Rejected, Failed), inmutabilidad post-verificación y validación de integridad en segundo plano.
+- [COMPLETADO] T20.11.1-2: Lista y panel de control de contenedores MeasurementContainerListPanel con filtros por dominio, insignias de estado y selección de visibilidad/audio.
+- [COMPLETADO] T20.11.1-3: Comparador gráfico de curvas de dinámica MeasurementDynamicsComparisonComponent con validación de compatibilidad metrológica, codificación accesible (patrón de línea, marcadores, contraste >= 4.5:1) y leyendas persistentes.
+- [COMPLETADO] T20.11.1-4: Tarjeta de equivalencia de estado por pares MeasurementStateEquivalenceCard (A <-> B: BitExact, SemanticallyEquivalent, NotEquivalent, NotComparable) con trazabilidad de hashes y estímulos.
+- [COMPLETADO] T20.11.1-5: Reproductor de audio verificado con bloqueo absoluto de contenedores corruptos, parada limpia en conmutación y provenance en tiempo real.
+- [COMPLETADO] T20.11.1-6: Generador de informe comparativo HTML MeasurementComparisonReportGenerator con SVG multi-serie, métricas consolidadas, lista de exclusiones justificadas y pares de equivalencia.
+- [COMPLETADO] T20.11.1-7: Panel interactivo principal MeasurementComparisonPanel y suite de pruebas Catch2 dedicada en test_Phase20_11_1_InteractiveViewerComparison.cpp (56/56 aserciones en verde, 0 fallos).
+
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
 - T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).

@@ -257,6 +257,8 @@ target_sources(ABDAudioLab
         src/measurement/MeasurementSvgGenerator.cpp
         src/measurement/MeasurementReportGenerator.h
         src/measurement/MeasurementReportGenerator.cpp
+        src/measurement/MeasurementComparisonReportGenerator.h
+        src/measurement/MeasurementComparisonReportGenerator.cpp
         src/measurement/adapters/EnvelopeMeasurementAdapter.h
         src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
         src/measurement/adapters/FilterMeasurementAdapter.h
@@ -265,7 +267,7 @@ target_sources(ABDAudioLab
         src/measurement/adapters/DynamicsMeasurementAdapter.cpp
         src/measurement/adapters/ModulationMeasurementAdapter.h
         src/measurement/adapters/ModulationMeasurementAdapter.cpp
-        # Measurement GUI (Phase 20.10.1)
+        # Measurement GUI (Phase 20.10.1 & Phase 20.11.1)
         src/gui/measurement/MeasurementViewModel.h
         src/gui/measurement/MeasurementViewModelLoader.h
         src/gui/measurement/MeasurementViewModelLoader.cpp
@@ -277,6 +279,16 @@ target_sources(ABDAudioLab
         src/gui/measurement/MeasurementAudioPlayerComponent.cpp
         src/gui/measurement/MeasurementViewerPanel.h
         src/gui/measurement/MeasurementViewerPanel.cpp
+        src/gui/measurement/MeasurementComparisonSession.h
+        src/gui/measurement/MeasurementComparisonSession.cpp
+        src/gui/measurement/MeasurementContainerListPanel.h
+        src/gui/measurement/MeasurementContainerListPanel.cpp
+        src/gui/measurement/MeasurementDynamicsComparisonComponent.h
+        src/gui/measurement/MeasurementDynamicsComparisonComponent.cpp
+        src/gui/measurement/MeasurementStateEquivalenceCard.h
+        src/gui/measurement/MeasurementStateEquivalenceCard.cpp
+        src/gui/measurement/MeasurementComparisonPanel.h
+        src/gui/measurement/MeasurementComparisonPanel.cpp
         
         # Digital Synth Profiler (Phase 20)
         src/synth/Sha256.h
@@ -601,6 +613,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_FilterMeasurementPersistenceAndReport.cpp
     src/tests/test_DexedEnvelopeMeasurement_T5.cpp
     src/tests/test_Phase20_11_VerticalDexedAndFair_T5.cpp
+    src/tests/test_Phase20_11_1_InteractiveViewerComparison.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -612,6 +625,7 @@ add_executable(ABDAudioLab_Tests
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp
+    src/measurement/MeasurementComparisonReportGenerator.cpp
     src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
     src/measurement/adapters/FilterMeasurementAdapter.cpp
     src/measurement/adapters/DynamicsMeasurementAdapter.cpp
@@ -621,6 +635,11 @@ add_executable(ABDAudioLab_Tests
     src/gui/measurement/MeasurementFrequencyCurveComponent.cpp
     src/gui/measurement/MeasurementAudioPlayerComponent.cpp
     src/gui/measurement/MeasurementViewerPanel.cpp
+    src/gui/measurement/MeasurementComparisonSession.cpp
+    src/gui/measurement/MeasurementContainerListPanel.cpp
+    src/gui/measurement/MeasurementDynamicsComparisonComponent.cpp
+    src/gui/measurement/MeasurementStateEquivalenceCard.cpp
+    src/gui/measurement/MeasurementComparisonPanel.cpp
     src/tests/test_ModelEvaluation.cpp
     src/tests/test_AdaptiveExperimentPlanner.cpp
     src/tests/test_ProfilingSessionController.cpp
