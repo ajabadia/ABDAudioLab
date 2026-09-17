@@ -68,6 +68,8 @@ std::string MeasurementReportGenerator::generateFilterReportHtml(const Measureme
       << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
       << "      <span class=\"badge " << (isDirect ? "badge-observed" : "badge-unreliable") << "\">"
       << (isDirect ? "DIRECT TRANSFER FUNCTION [H(&omega;)]" : "SYNTHESIZED SPECTRAL RESPONSE [PROXY]") << "</span>\n"
+      << "      <span class=\"badge\" style=\"background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca;\">DOMAIN: "
+      << measurementExecutionDomainToString(result.executionDomain) << "</span>\n"
       << "      <span class=\"badge\" style=\"background: #334155; color: #f8fafc;\">Topology: "
       << (result.filterTopology.empty() ? spec.filterTopology : result.filterTopology) << "</span>\n"
       << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
@@ -294,7 +296,11 @@ std::string MeasurementReportGenerator::generateReportHtml(const MeasurementSpec
       << "      <h1>Envelope measurement: " << statusLabel << "</h1>\n"
       << "      <div class=\"subtitle\">Target: <strong>" << result.dut.name << "</strong> (" << result.dut.format << ") | ID: <code>" << spec.measurementId << "</code></div>\n"
       << "    </div>\n"
-      << "    <div><span class=\"badge " << badgeClass << "\">" << statusLabel << "</span></div>\n"
+      << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
+      << "      <span class=\"badge\" style=\"background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca;\">DOMAIN: "
+      << measurementExecutionDomainToString(result.executionDomain) << "</span>\n"
+      << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
+      << "    </div>\n"
       << "  </div>\n";
 
     // Diagnostic reason alert (if not clean completed or has note)
@@ -419,6 +425,8 @@ std::string MeasurementReportGenerator::generateDynamicsReportHtml(const Measure
       << "    </div>\n"
       << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
       << "      <span class=\"badge badge-observed\">DYNAMIC: MIDI_VELOCITY</span>\n"
+      << "      <span class=\"badge\" style=\"background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca;\">DOMAIN: "
+      << measurementExecutionDomainToString(result.executionDomain) << "</span>\n"
       << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
       << "    </div>\n"
       << "  </div>\n";
@@ -585,6 +593,8 @@ std::string MeasurementReportGenerator::generateModulationReportHtml(const Measu
       << "    </div>\n"
       << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
       << "      <span class=\"badge badge-observed\">MODULATION: " << dest << "</span>\n"
+      << "      <span class=\"badge\" style=\"background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca;\">DOMAIN: "
+      << measurementExecutionDomainToString(result.executionDomain) << "</span>\n"
       << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
       << "    </div>\n"
       << "  </div>\n";

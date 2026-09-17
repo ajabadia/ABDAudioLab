@@ -61,6 +61,18 @@ public:
     [[nodiscard]] juce::AudioPluginInstance* getPluginInstance() noexcept { return instance_.get(); }
     [[nodiscard]] TargetContract discoverContract() const;
 
+    /**
+     * @brief Realiza introspección formal de la fábrica, clases/CID, buses y catálogo completo de parámetros.
+     */
+    static bool inspectPluginModule(juce::AudioPluginFormatManager& formatManager,
+                                    const juce::File& pluginFile,
+                                    const std::string& targetUid,
+                                    InspectedPluginModule& outModule,
+                                    std::string& outError);
+
+    // --- Telemetría de Render (Fase 20.11 T2.4) ---
+    [[nodiscard]] const RenderExecutionTelemetry& getLastRenderTelemetry() const noexcept { return lastTelemetry_; }
+
     // --- Watchdog y tolerancia a fallos (Fase 20.8.2) ---
     void setWatchdogMaxBlockDurationMs(double maxMs) noexcept { watchdogMaxBlockDurationMs_ = maxMs; }
     [[nodiscard]] double getWatchdogMaxBlockDurationMs() const noexcept { return watchdogMaxBlockDurationMs_; }
@@ -76,6 +88,7 @@ private:
     std::unique_ptr<juce::AudioPluginInstance> instance_;
     PluginIdentity identity_;
     ProcessingSpec spec_ { 96000.0, 512, 2 };
+    RenderExecutionTelemetry lastTelemetry_;
 
     bool isStateVerified_ { false };
     double lastAppliedTimestampMs_ { 0.0 };

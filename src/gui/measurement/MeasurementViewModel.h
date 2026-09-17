@@ -45,6 +45,13 @@ struct MeasurementViewModel
 
     juce::String filterTopology;
     juce::String measurementDomain;
+
+    // Phase 20.11 Domain Segregation & Provenance
+    abdaudiolab::measurement::MeasurementExecutionDomain executionDomain { abdaudiolab::measurement::MeasurementExecutionDomain::Vst3OfflineDigital };
+    juce::String executionDomainText { "Vst3OfflineDigital" };
+    std::optional<abdaudiolab::measurement::PluginIdentity> pluginIdentity;
+    std::optional<abdaudiolab::measurement::AnalogChainCalibrationRecord> analogCalibration;
+
     std::optional<abdaudiolab::measurement::SlopeFitMetadata> slopeFit;
 
     std::optional<abdaudiolab::measurement::DynamicResponseResult> dynamicsResult;

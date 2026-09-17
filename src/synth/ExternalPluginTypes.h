@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <chrono>
+#include "Sha256.h"
+#include "measurement/MeasurementContracts.h"
 
 namespace abdaudiolab::synth
 {
@@ -113,4 +116,126 @@ struct LatencyBreakdown
     double effectiveAutomationLatencySamples { 0.0 };/**< Retardo efectivo observado en cambios de control. */
 };
 
+/**
+ * @brief Descriptor individual de parámetro descubierto e introspeccionado.
+ */
+struct InspectedParameterInfo
+{
+    std::string id;
+    std::string title;
+    std::string unit;
+    float normalizedValue { 0.0f };
+    float plainValue { 0.0f };
+    int stepCount { 0 };
+    bool isDiscrete { false };
+    bool isAutomatable { true };
+    bool isMetaParameter { false };
+};
+
+/**
+ * @brief Descriptor de bus de audio o MIDI expuesto por el componente.
+ */
+struct InspectedBusInfo
+{
+    std::string name;
+    bool isInput { false };
+    int defaultChannelCount { 0 };
+};
+
+/**
+ * @brief Registro de introspección formal de módulo y fábrica de plugins VST3.
+ */
+struct InspectedPluginModule
+{
+    std::string canonicalPath;
+    std::string binarySha256;
+    std::string vendor;
+    std::string version;
+    std::string architecture;
+    std::vector<std::string> componentUids;
+    std::vector<std::string> componentNames;
+    std::string selectedUid;
+    std::vector<InspectedBusInfo> buses;
+    std::vector<InspectedParameterInfo> parameters;
+    int parameterCount { 0 };
+};
+
+/**
+ * @brief Telemetría de ejecución de render por bloques en hosting VST3 (Fase 20.11 T2.4).
+ */
+struct RenderExecutionTelemetry
+{
+    int64_t totalSamplesRendered { 0 };
+    int blocksProcessed { 0 };
+    int underruns { 0 };
+    int overruns { 0 };
+    double pluginLatencySamples { 0.0 };
+    double hostLatencySamples { 0.0 };
+    double totalRenderTimeMs { 0.0 };
+    bool bitExactDeterministic { true };
+};
+
+/**
+ * @brief Nivel de equivalencia metrológica entre volcados de estado binario (Fase 20.11 T2.3).
+ */
+enum class StateEquivalence
+{
+    BitExact,               /**< Byte a byte idéntico, mismo hash SHA-256 canónico. */
+    SemanticallyEquivalent, /**< Parámetros y controladores restaurados de forma idéntica, pero representación binaria reordenada o con relleno normalizado. */
+    NotEquivalent           /**< Discrepancia acústica o paramétrica medible. */
+};
+
+inline const char* stateEquivalenceToString(StateEquivalence eq) noexcept
+{
+    switch (eq)
+    {
+        case StateEquivalence::BitExact: return "bit_exact";
+        case StateEquivalence::SemanticallyEquivalent: return "semantically_equivalent";
+        case StateEquivalence::NotEquivalent: return "not_equivalent";
+    }
+    return "unknown";
+}
+
+/**
+ * @brief Fixture mínimo de preset/estado binario controlado para pruebas y metrología reproducible (Fase 20.11 T2.3).
+ */
+struct ControlledPresetFixture
+{
+    std::string name;
+    std::string version { "1.0.0" };
+    std::vector<uint8_t> presetBytes;
+    std::string sha256;
+    int nominalMidiNote { 60 };
+    int nominalMidiVelocity { 100 };
+    abdaudiolab::measurement::MeasurementExecutionDomain targetDomain {
+        abdaudiolab::measurement::MeasurementExecutionDomain::Vst3OfflineDigital
+    };
+
+    [[nodiscard]] bool verifyFixity() const
+    {
+        if (presetBytes.empty())
+            return false;
+        return sha256 == Sha256::computeHex(presetBytes.data(), presetBytes.size());
+    }
+
+    static ControlledPresetFixture create(const std::string& presetName,
+                                          const std::vector<uint8_t>& data,
+                                          int note = 60,
+                                          int velocity = 100,
+                                          abdaudiolab::measurement::MeasurementExecutionDomain domain =
+                                              abdaudiolab::measurement::MeasurementExecutionDomain::Vst3OfflineDigital)
+    {
+        ControlledPresetFixture fixture;
+        fixture.name = presetName;
+        fixture.version = "1.0.0";
+        fixture.presetBytes = data;
+        fixture.sha256 = Sha256::computeHex(data.data(), data.size());
+        fixture.nominalMidiNote = note;
+        fixture.nominalMidiVelocity = velocity;
+        fixture.targetDomain = domain;
+        return fixture;
+    }
+};
+
 } // namespace abdaudiolab::synth
+

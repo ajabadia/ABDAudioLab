@@ -81,9 +81,11 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
         return false;
     }
 
+    std::string manifestDomain;
     try
     {
         auto manifestJson = nlohmann::json::parse(manifestFile.loadFileAsString().toStdString());
+        manifestDomain = manifestJson.value("executionDomain", "");
         if (manifestJson.contains("artifacts") && manifestJson["artifacts"].is_array())
         {
             for (const auto& a : manifestJson["artifacts"])
@@ -126,6 +128,13 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.dutFormat = result.dut.format;
     outModel.measurementStatus = result.status;
     outModel.diagnosticReason = result.reason;
+
+    // Phase 20.11 Domain Segregation & Provenance
+    outModel.executionDomain = result.executionDomain;
+    outModel.executionDomainText = juce::String(abdaudiolab::measurement::measurementExecutionDomainToString(result.executionDomain));
+    outModel.pluginIdentity = result.pluginIdentity;
+    outModel.analogCalibration = result.analogCalibration;
+
     outModel.sampleRateHz = result.execution.sampleRateHz;
     outModel.blockSize = result.execution.blockSize;
     outModel.latencySamples = result.execution.latencySamples;
@@ -140,7 +149,7 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.dynamicsResult = result.dynamicResult;
     outModel.modulationResult = result.modulationResult;
 
-    // 3. Read specs/measurement_spec.json for additional execution context if available
+    // 3. Read specs/measurement_spec.json for additional execution context and domain consistency check
     if (specFile.existsAsFile())
     {
         std::string specJson = specFile.loadFileAsString().toStdString();
@@ -148,6 +157,16 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
         std::string specErr;
         if (abdaudiolab::measurement::MeasurementSerialization::deserializeSpec(specJson, spec, specErr))
         {
+            if (!abdaudiolab::measurement::isDomainConsistent(spec, result, manifestDomain))
+            {
+                outError = "Metrological domain inconsistency detected: Spec is " +
+                           juce::String(abdaudiolab::measurement::measurementExecutionDomainToString(spec.executionDomain)) +
+                           ", Result is " +
+                           juce::String(abdaudiolab::measurement::measurementExecutionDomainToString(result.executionDomain)) +
+                           (manifestDomain.empty() ? "" : (", Manifest is " + juce::String(manifestDomain)));
+                return false;
+            }
+
             if (outModel.sampleRateHz <= 0.0)
                 outModel.sampleRateHz = spec.execution.sampleRateHz;
             if (outModel.blockSize <= 0)

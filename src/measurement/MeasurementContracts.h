@@ -21,6 +21,74 @@ namespace abdaudiolab::measurement
 {
 
 /**
+ * @brief Formal measurement execution domain classification for strict metrological segregation.
+ */
+enum class MeasurementExecutionDomain
+{
+    Vst3OfflineDigital,
+    Vst3Realtime,
+    DigitalHardwareRoundtrip,
+    CombinedDutAndChain
+};
+
+[[nodiscard]] inline std::string measurementExecutionDomainToString(MeasurementExecutionDomain domain)
+{
+    switch (domain)
+    {
+        case MeasurementExecutionDomain::Vst3OfflineDigital:        return "Vst3OfflineDigital";
+        case MeasurementExecutionDomain::Vst3Realtime:              return "Vst3Realtime";
+        case MeasurementExecutionDomain::DigitalHardwareRoundtrip:  return "DigitalHardwareRoundtrip";
+        case MeasurementExecutionDomain::CombinedDutAndChain:       return "CombinedDutAndChain";
+        default:                                                    return "Vst3OfflineDigital";
+    }
+}
+
+[[nodiscard]] inline MeasurementExecutionDomain measurementExecutionDomainFromString(const std::string& str)
+{
+    if (str == "Vst3Realtime")             return MeasurementExecutionDomain::Vst3Realtime;
+    if (str == "DigitalHardwareRoundtrip") return MeasurementExecutionDomain::DigitalHardwareRoundtrip;
+    if (str == "CombinedDutAndChain")      return MeasurementExecutionDomain::CombinedDutAndChain;
+    return MeasurementExecutionDomain::Vst3OfflineDigital;
+}
+
+/**
+ * @brief VST3 or external audio plugin cryptographic and binary provenance identity.
+ */
+struct PluginIdentity
+{
+    juce::String canonicalPath;
+    juce::String binarySha256;
+    juce::String vendor;
+    juce::String version;
+    juce::String uid;
+    juce::String architecture;
+};
+
+/**
+ * @brief Metrological record and calibration evidence for physical analogue hardware loopback/chain.
+ */
+struct AnalogChainCalibrationRecord
+{
+    juce::String calibrationId;
+    double sampleRateHz { 0.0 };
+    int blockSize { 0 };
+    double roundTripLatencySamples { 0.0 };
+    double snrDb { 0.0 };
+    double peakDbfs { 0.0 };
+    double dcOffsetDb { 0.0 };
+    juce::String status { "not_measured" }; /**< "pass", "fail", "not_measured" */
+
+    // Configurable metrological acceptance thresholds (criteria, not universal laws)
+    double snrDbMin { 18.0 };
+    double peakDbfsMax { -0.5 };
+    double dcOffsetDbMax { -60.0 };
+
+    // Latency breakdown
+    double estimatedHostLatencySamples { 0.0 };
+    double estimatedHardwareLatencySamples { 0.0 };
+};
+
+/**
  * @brief Device Under Test (DUT) classification for appropriate stimulus routing.
  */
 enum class DeviceUnderTest
@@ -535,6 +603,11 @@ struct MeasurementSpec
     double measurementWindowStartMs { 0.0 };
     double measurementWindowEndMs { 0.0 };
 
+    // Phase 20.11 Domain Segregation & Provenance
+    MeasurementExecutionDomain executionDomain { MeasurementExecutionDomain::Vst3OfflineDigital };
+    std::optional<PluginIdentity> pluginIdentity { std::nullopt };
+    std::optional<AnalogChainCalibrationRecord> analogCalibration { std::nullopt };
+
     ExecutionMetadata execution;
     StimulusSpec stimulus;
     AnalysisSpec analysis;
@@ -553,6 +626,17 @@ struct MeasurementResult
     std::string measurementDomain { "directTransferFunction" }; /**< "directTransferFunction" or "synthesizedSpectralResponse" */
     std::string filterTopology { "unknown" };
     std::string modulationDestination { "unknown" };
+
+    // Phase 20.11 Domain Segregation & Provenance
+    MeasurementExecutionDomain executionDomain { MeasurementExecutionDomain::Vst3OfflineDigital };
+    std::optional<PluginIdentity> pluginIdentity { std::nullopt };
+    std::optional<AnalogChainCalibrationRecord> analogCalibration { std::nullopt };
+
+    // Realtime & Clock Telemetry (for Vst3Realtime)
+    int64_t underruns { 0 };
+    int64_t overruns { 0 };
+    double pluginLatencySamples { 0.0 };
+    double hostLatencySamples { 0.0 };
 
     MeasurementStatus status { MeasurementStatus::failed };
     std::string reason;
@@ -580,5 +664,42 @@ struct MeasurementResult
 
     bool integrityVerified { false };
 };
+
+/**
+ * @brief Validates strict metrological domain consistency across Spec, Result and optional Manifest.
+ * 
+ * Prevents combined hardware measurements from being loaded as pure offline digital,
+ * or vice versa, enforcing reproducible boundaries between acoustic/hardware and digital domains.
+ */
+[[nodiscard]] inline bool isDomainConsistent(
+    const MeasurementSpec& spec,
+    const MeasurementResult& result,
+    const std::string& manifestDomain = "")
+{
+    if (spec.executionDomain != result.executionDomain)
+        return false;
+
+    if (!manifestDomain.empty() &&
+        manifestDomain != measurementExecutionDomainToString(spec.executionDomain))
+    {
+        return false;
+    }
+
+    if (spec.executionDomain == MeasurementExecutionDomain::CombinedDutAndChain ||
+        spec.executionDomain == MeasurementExecutionDomain::DigitalHardwareRoundtrip)
+    {
+        if (result.status == MeasurementStatus::completed && !result.analogCalibration.has_value())
+            return false;
+    }
+    else if (spec.executionDomain == MeasurementExecutionDomain::Vst3OfflineDigital ||
+             spec.executionDomain == MeasurementExecutionDomain::Vst3Realtime)
+    {
+        // En dominios puramente digitales se prohíbe atribuir calibración de canal analógico
+        if (result.analogCalibration.has_value())
+            return false;
+    }
+
+    return true;
+}
 
 } // namespace abdaudiolab::measurement

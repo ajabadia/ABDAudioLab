@@ -224,6 +224,83 @@ static DiscontinuityObservation jsonToDiscontinuity(const nlohmann::json& j)
     return d;
 }
 
+static ordered_json pluginIdentityToJson(const PluginIdentity& p)
+{
+    ordered_json j;
+    j["canonicalPath"] = p.canonicalPath.toStdString();
+    j["binarySha256"] = p.binarySha256.toStdString();
+    j["vendor"] = p.vendor.toStdString();
+    j["version"] = p.version.toStdString();
+    j["uid"] = p.uid.toStdString();
+    j["architecture"] = p.architecture.toStdString();
+    return j;
+}
+
+static PluginIdentity jsonToPluginIdentity(const nlohmann::json& j)
+{
+    PluginIdentity p;
+    p.canonicalPath = juce::String(j.value("canonicalPath", ""));
+    p.binarySha256 = juce::String(j.value("binarySha256", ""));
+    p.vendor = juce::String(j.value("vendor", ""));
+    p.version = juce::String(j.value("version", ""));
+    p.uid = juce::String(j.value("uid", ""));
+    p.architecture = juce::String(j.value("architecture", ""));
+    return p;
+}
+
+static ordered_json analogCalibrationToJson(const AnalogChainCalibrationRecord& c)
+{
+    ordered_json j;
+    j["calibrationId"] = c.calibrationId.toStdString();
+    j["sampleRateHz"] = c.sampleRateHz;
+    j["blockSize"] = c.blockSize;
+    j["roundTripLatencySamples"] = c.roundTripLatencySamples;
+    j["snrDb"] = c.snrDb;
+    j["peakDbfs"] = c.peakDbfs;
+    j["dcOffsetDb"] = c.dcOffsetDb;
+    j["status"] = c.status.toStdString();
+
+    ordered_json th;
+    th["snrDbMin"] = c.snrDbMin;
+    th["peakDbfsMax"] = c.peakDbfsMax;
+    th["dcOffsetDbMax"] = c.dcOffsetDbMax;
+    j["thresholds"] = th;
+
+    ordered_json lat;
+    lat["estimatedHostLatencySamples"] = c.estimatedHostLatencySamples;
+    lat["estimatedHardwareLatencySamples"] = c.estimatedHardwareLatencySamples;
+    j["latencyBreakdown"] = lat;
+    return j;
+}
+
+static AnalogChainCalibrationRecord jsonToAnalogCalibration(const nlohmann::json& j)
+{
+    AnalogChainCalibrationRecord c;
+    c.calibrationId = juce::String(j.value("calibrationId", ""));
+    c.sampleRateHz = j.value("sampleRateHz", 0.0);
+    c.blockSize = j.value("blockSize", 0);
+    c.roundTripLatencySamples = j.value("roundTripLatencySamples", 0.0);
+    c.snrDb = j.value("snrDb", 0.0);
+    c.peakDbfs = j.value("peakDbfs", 0.0);
+    c.dcOffsetDb = j.value("dcOffsetDb", 0.0);
+    c.status = juce::String(j.value("status", "not_measured"));
+
+    if (j.contains("thresholds") && j["thresholds"].is_object())
+    {
+        const auto& th = j["thresholds"];
+        c.snrDbMin = th.value("snrDbMin", 18.0);
+        c.peakDbfsMax = th.value("peakDbfsMax", -0.5);
+        c.dcOffsetDbMax = th.value("dcOffsetDbMax", -60.0);
+    }
+    if (j.contains("latencyBreakdown") && j["latencyBreakdown"].is_object())
+    {
+        const auto& lat = j["latencyBreakdown"];
+        c.estimatedHostLatencySamples = lat.value("estimatedHostLatencySamples", 0.0);
+        c.estimatedHardwareLatencySamples = lat.value("estimatedHardwareLatencySamples", 0.0);
+    }
+    return c;
+}
+
 static ordered_json spectralAnalysisToJson(const SpectralAnalysisMetadata& s)
 {
     ordered_json j;
@@ -489,6 +566,13 @@ std::string MeasurementSerialization::serializeSpec(const MeasurementSpec& spec,
     j["measurementWindowStartMs"] = spec.measurementWindowStartMs;
     j["measurementWindowEndMs"] = spec.measurementWindowEndMs;
 
+    // Phase 20.11 Domain Segregation & Provenance
+    j["executionDomain"] = measurementExecutionDomainToString(spec.executionDomain);
+    if (spec.pluginIdentity.has_value())
+        j["pluginIdentity"] = pluginIdentityToJson(*spec.pluginIdentity);
+    if (spec.analogCalibration.has_value())
+        j["analogCalibration"] = analogCalibrationToJson(*spec.analogCalibration);
+
     ordered_json exec;
     exec["sampleRateHz"] = spec.execution.sampleRateHz;
     exec["blockSize"] = spec.execution.blockSize;
@@ -550,6 +634,17 @@ bool MeasurementSerialization::deserializeSpec(const std::string& jsonStr,
             outSpec.velocityGrid = j["velocityGrid"].get<std::vector<int>>();
         outSpec.measurementWindowStartMs = j.value("measurementWindowStartMs", 0.0);
         outSpec.measurementWindowEndMs = j.value("measurementWindowEndMs", 0.0);
+
+        outSpec.executionDomain = measurementExecutionDomainFromString(j.value("executionDomain", "Vst3OfflineDigital"));
+        if (j.contains("pluginIdentity") && j["pluginIdentity"].is_object())
+            outSpec.pluginIdentity = jsonToPluginIdentity(j["pluginIdentity"]);
+        else
+            outSpec.pluginIdentity = std::nullopt;
+
+        if (j.contains("analogCalibration") && j["analogCalibration"].is_object())
+            outSpec.analogCalibration = jsonToAnalogCalibration(j["analogCalibration"]);
+        else
+            outSpec.analogCalibration = std::nullopt;
 
         if (j.contains("execution") && j["execution"].is_object())
         {
@@ -614,6 +709,18 @@ std::string MeasurementSerialization::serializeResult(const MeasurementResult& r
     j["presetStateHash"] = result.presetStateHash;
     j["measurementWindowStartMs"] = result.measurementWindowStartMs;
     j["measurementWindowEndMs"] = result.measurementWindowEndMs;
+
+    // Phase 20.11 Domain Segregation & Provenance
+    j["executionDomain"] = measurementExecutionDomainToString(result.executionDomain);
+    if (result.pluginIdentity.has_value())
+        j["pluginIdentity"] = pluginIdentityToJson(*result.pluginIdentity);
+    if (result.analogCalibration.has_value())
+        j["analogCalibration"] = analogCalibrationToJson(*result.analogCalibration);
+
+    j["underruns"] = result.underruns;
+    j["overruns"] = result.overruns;
+    j["pluginLatencySamples"] = result.pluginLatencySamples;
+    j["hostLatencySamples"] = result.hostLatencySamples;
 
     ordered_json dut;
     dut["name"] = result.dut.name;
@@ -723,6 +830,22 @@ bool MeasurementSerialization::deserializeResult(const std::string& jsonStr,
         outResult.modulationDestination = j.value("modulationDestination", "unknown");
         outResult.status = measurementStatusFromString(j.value("status", "failed"));
         outResult.reason = j.value("reason", "");
+
+        outResult.executionDomain = measurementExecutionDomainFromString(j.value("executionDomain", "Vst3OfflineDigital"));
+        if (j.contains("pluginIdentity") && j["pluginIdentity"].is_object())
+            outResult.pluginIdentity = jsonToPluginIdentity(j["pluginIdentity"]);
+        else
+            outResult.pluginIdentity = std::nullopt;
+
+        if (j.contains("analogCalibration") && j["analogCalibration"].is_object())
+            outResult.analogCalibration = jsonToAnalogCalibration(j["analogCalibration"]);
+        else
+            outResult.analogCalibration = std::nullopt;
+
+        outResult.underruns = j.value("underruns", int64_t(0));
+        outResult.overruns = j.value("overruns", int64_t(0));
+        outResult.pluginLatencySamples = j.value("pluginLatencySamples", 0.0);
+        outResult.hostLatencySamples = j.value("hostLatencySamples", 0.0);
 
         outResult.presetStateHash = j.value("presetStateHash", "");
         outResult.measurementWindowStartMs = j.value("measurementWindowStartMs", 0.0);

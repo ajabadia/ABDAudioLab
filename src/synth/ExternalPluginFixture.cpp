@@ -225,6 +225,14 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
         return;
     }
 
+    auto startTotal = std::chrono::steady_clock::now();
+    lastTelemetry_ = RenderExecutionTelemetry{};
+    lastTelemetry_.pluginLatencySamples = (instance_ != nullptr) ? static_cast<double>(instance_->getLatencySamples()) : 0.0;
+    lastTelemetry_.hostLatencySamples = 0.0;
+    lastTelemetry_.underruns = 0;
+    lastTelemetry_.overruns = 0;
+    lastTelemetry_.bitExactDeterministic = true;
+
     int totalSamples = static_cast<int>(std::lround(sequence.totalDurationSec * spec_.sampleRate));
     destinationAudio.assign(static_cast<size_t>(totalSamples), 0.0f);
 
@@ -234,6 +242,7 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
     int samplesRendered = 0;
     while (samplesRendered < totalSamples)
     {
+        lastTelemetry_.blocksProcessed++;
         int currentBlockSize = std::min(spec_.blockSize, totalSamples - samplesRendered);
         blockBuf.setSize(spec_.numChannels, currentBlockSize, false, false, true);
         blockBuf.clear();
@@ -323,6 +332,10 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
 
         samplesRendered += currentBlockSize;
     }
+
+    auto endTotal = std::chrono::steady_clock::now();
+    lastTelemetry_.totalSamplesRendered = samplesRendered;
+    lastTelemetry_.totalRenderTimeMs = std::chrono::duration<double, std::milli>(endTotal - startTotal).count();
 }
 
 TargetTimingInfo ExternalPluginFixture::timingInfo() const
@@ -381,6 +394,159 @@ TargetContract ExternalPluginFixture::discoverContract() const
     contract.targetVersion = identity_.version;
     contract.computeHash();
     return contract;
+}
+
+bool ExternalPluginFixture::inspectPluginModule(juce::AudioPluginFormatManager& formatManager,
+                                                const juce::File& pluginFile,
+                                                const std::string& targetUid,
+                                                InspectedPluginModule& outModule,
+                                                std::string& outError)
+{
+    if (!pluginFile.exists())
+    {
+        outError = "Plugin file does not exist: " + pluginFile.getFullPathName().toStdString();
+        return false;
+    }
+
+    outModule = InspectedPluginModule{};
+    outModule.canonicalPath = pluginFile.getFullPathName().toStdString();
+    outModule.architecture = (sizeof(void*) == 8) ? "x86_64" : "x86";
+
+    // Calcular hash binario del archivo o bundle
+    if (pluginFile.existsAsFile())
+    {
+        juce::MemoryBlock mb;
+        if (pluginFile.loadFileAsData(mb))
+            outModule.binarySha256 = Sha256::computeHex(static_cast<const uint8_t*>(mb.getData()), mb.getSize());
+    }
+    else if (pluginFile.isDirectory())
+    {
+        juce::Array<juce::File> files;
+        pluginFile.findChildFiles(files, juce::File::findFiles, true);
+        for (const auto& f : files)
+        {
+            if (f.getFileExtension().equalsIgnoreCase(".vst3") || f.getFileExtension().equalsIgnoreCase(".dll"))
+            {
+                juce::MemoryBlock mb;
+                if (f.loadFileAsData(mb))
+                {
+                    outModule.binarySha256 = Sha256::computeHex(static_cast<const uint8_t*>(mb.getData()), mb.getSize());
+                    break;
+                }
+            }
+        }
+    }
+
+    // Enumerar tipos de la fábrica
+    juce::OwnedArray<juce::PluginDescription> types;
+    for (int i = 0; i < formatManager.getNumFormats(); ++i)
+    {
+        auto* format = formatManager.getFormat(i);
+        if (format != nullptr && format->fileMightContainThisPluginType(pluginFile.getFullPathName()))
+        {
+            format->findAllTypesForFile(types, pluginFile.getFullPathName());
+            if (types.size() > 0)
+                break;
+        }
+    }
+
+    if (types.isEmpty())
+    {
+        outError = "No compatible plugin types found in factory: " + pluginFile.getFullPathName().toStdString();
+        return false;
+    }
+
+    for (auto* desc : types)
+    {
+        if (desc != nullptr)
+        {
+            outModule.componentUids.push_back(desc->createIdentifierString().toStdString());
+            outModule.componentNames.push_back(desc->name.toStdString());
+            if (outModule.vendor.empty())
+                outModule.vendor = desc->manufacturerName.toStdString();
+            if (outModule.version.empty())
+                outModule.version = desc->version.toStdString();
+        }
+    }
+
+    // Seleccionar componente por UID o el primero disponible
+    const juce::PluginDescription* selectedDesc = types[0];
+    if (!targetUid.empty())
+    {
+        for (auto* desc : types)
+        {
+            if (desc != nullptr && (desc->createIdentifierString().toStdString() == targetUid || desc->name.toStdString() == targetUid))
+            {
+                selectedDesc = desc;
+                break;
+            }
+        }
+    }
+    outModule.selectedUid = selectedDesc->createIdentifierString().toStdString();
+
+    // Instanciación controlada para enumerar buses y parámetros
+    juce::String createErr;
+    auto instance = formatManager.createPluginInstance(*selectedDesc, 48000.0, 512, createErr);
+    if (instance == nullptr)
+    {
+        outError = "Failed to instantiate plugin component: " + createErr.toStdString();
+        return false;
+    }
+
+    // Enumerar buses
+    for (int i = 0; i < instance->getBusCount(true); ++i)
+    {
+        if (auto* bus = instance->getBus(true, i))
+        {
+            InspectedBusInfo b;
+            b.name = bus->getName().toStdString();
+            b.isInput = true;
+            b.defaultChannelCount = bus->getDefaultLayout().size();
+            outModule.buses.push_back(b);
+        }
+    }
+    for (int i = 0; i < instance->getBusCount(false); ++i)
+    {
+        if (auto* bus = instance->getBus(false, i))
+        {
+            InspectedBusInfo b;
+            b.name = bus->getName().toStdString();
+            b.isInput = false;
+            b.defaultChannelCount = bus->getDefaultLayout().size();
+            outModule.buses.push_back(b);
+        }
+    }
+
+    // Enumerar y validar catálogo de parámetros
+    auto params = instance->getParameters();
+    outModule.parameters.reserve(static_cast<size_t>(params.size()));
+
+    for (int i = 0; i < params.size(); ++i)
+    {
+        auto* p = params[i];
+        if (p == nullptr) continue;
+
+        InspectedParameterInfo paramInfo;
+        if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*>(p))
+            paramInfo.id = withId->paramID.toStdString();
+        else
+            paramInfo.id = "param_" + std::to_string(p->getParameterIndex());
+
+        paramInfo.title = p->getName(128).toStdString();
+        paramInfo.unit = p->getLabel().toStdString();
+        paramInfo.normalizedValue = p->getValue();
+        paramInfo.plainValue = p->getDefaultValue();
+        paramInfo.stepCount = p->getNumSteps();
+        paramInfo.isDiscrete = p->isDiscrete();
+        paramInfo.isAutomatable = p->isAutomatable();
+        paramInfo.isMetaParameter = p->isMetaParameter();
+
+        outModule.parameters.push_back(paramInfo);
+    }
+    outModule.parameterCount = static_cast<int>(outModule.parameters.size());
+
+    // Cierre determinista al salir de ámbito
+    return true;
 }
 
 } // namespace abdaudiolab::synth

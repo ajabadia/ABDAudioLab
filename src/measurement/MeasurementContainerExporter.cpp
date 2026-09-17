@@ -178,6 +178,28 @@ void writeManifestJson(const juce::File& containerDir,
     manifestJson["experimentKind"] = "Measurement";
     manifestJson["targetName"] = spec.parameterName.empty() ? spec.measurementId : spec.parameterName;
     manifestJson["operatorMode"] = "AUTOMATIC_PLUGIN";
+    manifestJson["executionDomain"] = measurementExecutionDomainToString(spec.executionDomain);
+
+    if (spec.pluginIdentity.has_value())
+    {
+        ordered_json p;
+        p["canonicalPath"] = spec.pluginIdentity->canonicalPath.toStdString();
+        p["binarySha256"] = spec.pluginIdentity->binarySha256.toStdString();
+        p["vendor"] = spec.pluginIdentity->vendor.toStdString();
+        p["version"] = spec.pluginIdentity->version.toStdString();
+        p["uid"] = spec.pluginIdentity->uid.toStdString();
+        p["architecture"] = spec.pluginIdentity->architecture.toStdString();
+        manifestJson["pluginIdentity"] = p;
+    }
+    if (spec.analogCalibration.has_value())
+    {
+        ordered_json c;
+        c["calibrationId"] = spec.analogCalibration->calibrationId.toStdString();
+        c["status"] = spec.analogCalibration->status.toStdString();
+        c["roundTripLatencySamples"] = spec.analogCalibration->roundTripLatencySamples;
+        c["snrDb"] = spec.analogCalibration->snrDb;
+        manifestJson["analogCalibration"] = c;
+    }
 
     ordered_json artsArray = ordered_json::array();
     for (const auto& art : artifacts)

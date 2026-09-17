@@ -39,4 +39,10 @@
 - Carga reactiva en MeasurementViewModelLoader y visor MeasurementViewerPanel.
 - Suite de pruebas completa: 347/347 test cases pasados, 160.025 aserciones superadas con 0 fallos.
 
-[SIGUIENTE HITO] Fase 20.11: Integración de Hosting VST3 Real (Dexed.vst3) y Soporte de Hardware Analógico en vivo.
+[EN PROGRESO] Fase 20.11: Integración de Hosting VST3 Real (Dexed.vst3) y Soporte de Hardware Analógico en vivo.
+- [COMPLETADO] T1: Contratos Metrológicos y Segregación de 4 Dominios (Vst3OfflineDigital, Vst3Realtime, DigitalHardwareRoundtrip, CombinedDutAndChain), PluginIdentity, AnalogChainCalibrationRecord y función isDomainConsistent(...) en contratos, serialización RFC 8785, manifest.json y reportes HTML.
+- [COMPLETADO] T2.1 & T2.2: Host VST3 in-process resiliente en ExternalPluginFixture, introspección formal de factory por Class IDs/CID, enumeración de buses y catálogo reproducible de parámetros sin conteo rígido (parameterCount > 0 verificado contra Dexed.vst3 real).
+- [COMPLETADO] T2.3 & T2.4: Fixture controlado ControlledPresetFixture con fixity SHA-256, round-trip determinista de estado binario (getState/setState) y render offline bloque a bloque en Vst3OfflineDigital con verificación estricta de reproducibilidad idéntica bit a bit y telemetría de reloj (underruns/overruns = 0).
+- [PENDIENTE] T3: Automatización y Captura (SysEx + MIDI con hash canónico de estímulo).
+- [PENDIENTE] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
+- [PENDIENTE] T5: Prueba Vertical de Integración y Exportación FAIR.

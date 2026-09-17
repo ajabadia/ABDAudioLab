@@ -576,6 +576,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Vst3Validation.cpp
     src/tests/test_DexedValidation.cpp
     src/tests/test_GuidedPluginLoad_Dexed.cpp
+    src/tests/test_Vst3DexedRealHosting_T2.cpp
     src/tests/test_MeasurementContracts.cpp
     src/tests/test_DynamicsAndModulationContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
