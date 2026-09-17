@@ -619,6 +619,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_1_InteractiveViewerComparison.cpp
     src/tests/test_Phase20_11_2_SessionRobustnessAndA11y.cpp
     src/tests/test_Phase20_11_3_DigitalExpansion.cpp
+    src/tests/test_Phase20_11_4_AdvancedDigitalCampaigns.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp

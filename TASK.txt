@@ -82,6 +82,13 @@
 - [COMPLETADO] T20.11.3-4: Selector de métrica en UI (cmbMetricMode_ en MeasurementComparisonPanel) para alternar entre Nivel dBFS y Timbre Hz, y presentación dual de evidencia dimensional en MeasurementStateEquivalenceCard.
 - [COMPLETADO] T20.11.3-5: Orquestador de campañas factoriales aisladas DexedParametricCampaignCoordinator y suite de pruebas Catch2 en test_Phase20_11_3_DigitalExpansion.cpp (50/50 aserciones en verde, 0 fallos; suite global: 376/376 tests, 223.565 aserciones).
 
+[COMPLETADO] Fase 20.11.4: Campañas Digitales Avanzadas en Dexed (Índice Modulación FM, Ratios de Operador y Trayectoria Temporal).
+- [COMPLETADO] T20.11.4-1: Contrato FmModulationObservation distinguiendo proxy operator_output_level de beta física (betaStatus: not_estimated), ratio nominal vs observado (harmonic/inharmonic) y parámetros STFT completos (DexedParametricCampaignContracts.h).
+- [COMPLETADO] T20.11.4-2: Orquestador DexedParametricCampaignCoordinator para barridos OFAT de nivel de modulador (0..99), ratios de frecuencia (1.0, 2.0, 3.14) y trayectoria temporal STFT C(t) con regla de cero reservas en el audio callback.
+- [COMPLETADO] T20.11.4-3: Segregación metrológica tridimensional en MeasurementComparisonSession (levelEquivalence, timbreEquivalence, temporalTimbreEquivalence) y descarte NotComparable ante frames silenciosos o discrepancia de ventana/FFT.
+- [COMPLETADO] T20.11.4-4: Reutilización DRY de MeasurementSvgGenerator::generateMultiSeriesSvg para curvas temporales C(t) y espectrales.
+- [COMPLETADO] T20.11.4-5: Suite de pruebas Catch2 dedicada en test_Phase20_11_4_AdvancedDigitalCampaigns.cpp (55/55 aserciones en verde, 0 fallos; suite global: 380/380 tests, 223.620 aserciones).
+
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
 - T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).

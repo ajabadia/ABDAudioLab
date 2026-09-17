@@ -88,21 +88,151 @@ struct ParametricRecord
  */
 enum class ParametricCampaignType
 {
-    FactorialAlgorithm,     /**< Campaign A: Algorithm 1 vs 32, Feedback = 0 held constant */
-    FactorialFeedback,      /**< Campaign B: Feedback 0 vs 7, Algorithm = 1 held constant */
-    FactorialCrossed        /**< Full factorial grid: Algorithm in {1, 32} x Feedback in {0, 7} */
+    FactorialAlgorithm,             /**< Campaign A: Algorithm 1 vs 32, Feedback = 0 held constant */
+    FactorialFeedback,              /**< Campaign B: Feedback 0 vs 7, Algorithm = 1 held constant */
+    FactorialCrossed,               /**< Full factorial grid: Algorithm in {1, 32} x Feedback in {0, 7} */
+    FmModulationIndex,              /**< Campaign C: Modulator output level 0..99 with constant carrier and ratio */
+    FmFrequencyRatio,               /**< Campaign D: Frequency ratios (1.0 vs 2.0 vs 3.14) with constant level */
+    FmTemporalCentroidTrajectory    /**< Campaign E: Time-varying spectral centroid C(t) across note envelope */
 };
 
 [[nodiscard]] inline std::string parametricCampaignTypeToString(ParametricCampaignType type)
 {
     switch (type)
     {
-        case ParametricCampaignType::FactorialAlgorithm: return "factorial_algorithm";
-        case ParametricCampaignType::FactorialFeedback:  return "factorial_feedback";
-        case ParametricCampaignType::FactorialCrossed:   return "factorial_crossed";
+        case ParametricCampaignType::FactorialAlgorithm:          return "factorial_algorithm";
+        case ParametricCampaignType::FactorialFeedback:           return "factorial_feedback";
+        case ParametricCampaignType::FactorialCrossed:            return "factorial_crossed";
+        case ParametricCampaignType::FmModulationIndex:           return "fm_modulation_index";
+        case ParametricCampaignType::FmFrequencyRatio:            return "fm_frequency_ratio";
+        case ParametricCampaignType::FmTemporalCentroidTrajectory: return "fm_temporal_centroid_trajectory";
     }
     return "unknown";
 }
+
+/**
+ * @brief STFT temporal analysis parameters for dynamic spectral characterization.
+ */
+struct StftAnalysisParameters
+{
+    int fftSize { 2048 };
+    int hopSize { 512 };
+    std::string windowFunction { "hann" };
+    int windowLengthSamples { 2048 };
+    double sampleRateHz { 48000.0 };
+    double silenceFloorDbfs { -80.0 };
+
+    [[nodiscard]] nlohmann::json toJson() const
+    {
+        return nlohmann::json{
+            { "fftSize", fftSize },
+            { "hopSize", hopSize },
+            { "windowFunction", windowFunction },
+            { "windowLengthSamples", windowLengthSamples },
+            { "sampleRateHz", sampleRateHz },
+            { "silenceFloorDbfs", silenceFloorDbfs }
+        };
+    }
+};
+
+/**
+ * @brief Single discrete STFT frame in the temporal trajectory of spectral centroid C(t).
+ */
+struct FmTemporalCentroidFrame
+{
+    int frameIndex { 0 };
+    double measurementWindowStartMs { 0.0 };
+    double measurementWindowEndMs { 0.0 };
+    double rmsDbfs { -96.0 };
+    double silenceFloorDbfs { -80.0 };
+    std::optional<double> spectralCentroidHz { std::nullopt }; /**< Absent on silence/unreliable */
+    std::string status { "observed" };                         /**< "observed", "unreliable", "silent" */
+
+    [[nodiscard]] nlohmann::json toJson() const
+    {
+        nlohmann::json j{
+            { "frameIndex", frameIndex },
+            { "measurementWindowStartMs", measurementWindowStartMs },
+            { "measurementWindowEndMs", measurementWindowEndMs },
+            { "rmsDbfs", rmsDbfs },
+            { "silenceFloorDbfs", silenceFloorDbfs },
+            { "status", status }
+        };
+        if (spectralCentroidHz.has_value())
+            j["spectralCentroidHz"] = *spectralCentroidHz;
+        else
+            j["spectralCentroidHz"] = nullptr;
+        return j;
+    }
+};
+
+/**
+ * @brief Formal metrological observation of FM operator modulation, separating control proxies from physical beta.
+ */
+struct FmModulationObservation
+{
+    int operatorIndex { 2 };                    /**< Modulator operator index (e.g. OP2) */
+    int requestedOutputLevel { 0 };             /**< DX7 integer level 0..99 */
+    int effectiveOutputLevel { 0 };             /**< Verified plugin quantized level */
+    std::string depthProxy { "operator_output_level" };
+
+    double estimatedBeta { 0.0 };               /**< Physical modulation index beta = Delta f / f_m */
+    std::string betaStatus { "not_estimated" }; /**< "not_estimated" or "estimated" */
+    std::string betaMethod;                     /**< Declared estimation algorithm if applicable */
+
+    double carrierRatioRequested { 1.0 };
+    double carrierRatioEffective { 1.0 };
+    double modulatorRatioRequested { 1.0 };
+    double modulatorRatioEffective { 1.0 };
+
+    double carrierFrequencyHz { 0.0 };
+    double modulatorFrequencyHz { 0.0 };
+    double observedRatio { 0.0 };
+    std::string ratioClass { "not_observable" }; /**< "harmonic", "inharmonic", "not_observable" */
+
+    double observedSidebandSpread { 0.0 };
+    double observedCarrierSuppressionDb { 0.0 };
+
+    MeasurementCurve sidebandCurve;
+    MeasurementCurve centroidCurve;
+    MeasurementCurve temporalCentroidCurve;     /**< C(t) trajectory across note frames */
+    std::vector<FmTemporalCentroidFrame> temporalFrames;
+    StftAnalysisParameters stftParameters;
+
+    std::string stateSha256;
+    std::string stimulusSha256;
+
+    [[nodiscard]] nlohmann::json toJson() const
+    {
+        nlohmann::json tf = nlohmann::json::array();
+        for (const auto& f : temporalFrames)
+            tf.push_back(f.toJson());
+
+        return nlohmann::json{
+            { "operatorIndex", operatorIndex },
+            { "requestedOutputLevel", requestedOutputLevel },
+            { "effectiveOutputLevel", effectiveOutputLevel },
+            { "depthProxy", depthProxy },
+            { "estimatedBeta", estimatedBeta },
+            { "betaStatus", betaStatus },
+            { "betaMethod", betaMethod },
+            { "carrierRatioRequested", carrierRatioRequested },
+            { "carrierRatioEffective", carrierRatioEffective },
+            { "modulatorRatioRequested", modulatorRatioRequested },
+            { "modulatorRatioEffective", modulatorRatioEffective },
+            { "carrierFrequencyHz", carrierFrequencyHz },
+            { "modulatorFrequencyHz", modulatorFrequencyHz },
+            { "observedRatio", observedRatio },
+            { "ratioClass", ratioClass },
+            { "observedSidebandSpread", observedSidebandSpread },
+            { "observedCarrierSuppressionDb", observedCarrierSuppressionDb },
+            { "stftParameters", stftParameters.toJson() },
+            { "temporalFrames", tf },
+            { "stateSha256", stateSha256 },
+            { "stimulusSha256", stimulusSha256 }
+        };
+    }
+};
 
 /**
  * @brief Specification for a single variant in a parametric sweep campaign.

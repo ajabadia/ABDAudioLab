@@ -229,11 +229,13 @@ struct PairwiseComparisonResult
     juce::String stimulusSha256A;
     juce::String stimulusSha256B;
 
-    // Phase 20.11.3: Independent Level & Timbre Dimensions
+    // Phase 20.11.3 & 20.11.4: Independent Level, Timbre & Temporal Timbre Dimensions
     PairwiseStateEquivalence levelEquivalence { PairwiseStateEquivalence::NotComparable };
     PairwiseStateEquivalence timbreEquivalence { PairwiseStateEquivalence::NotComparable };
+    PairwiseStateEquivalence temporalTimbreEquivalence { PairwiseStateEquivalence::NotComparable };
     double maxAudioDelta { 0.0 };
     double maxTimbreDeltaHz { 0.0 };
+    double maxTemporalTimbreDeltaHz { 0.0 };
 
     // Strict Timbre Metrological Basis
     std::string timbreMetric { "spectralCentroidHz" };
@@ -241,6 +243,7 @@ struct PairwiseComparisonResult
     double windowEndMs { 0.0 };
     double sampleRateHz { 48000.0 };
     int fftSize { 2048 };
+    int stftHopSize { 512 };
     std::string windowFunction { "Hann" };
 
     juce::String normalizationVersion;

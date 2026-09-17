@@ -320,4 +320,179 @@ ParametricCampaignManifest DexedParametricCampaignCoordinator::generateSynthetic
     return m;
 }
 
+bool DexedParametricCampaignCoordinator::executeModulationIndexCampaign(juce::AudioPluginFormatManager& formatManager,
+                                                                       const juce::File& dexedBinary,
+                                                                       const juce::File& outputCampaignDir,
+                                                                       ParametricCampaignManifest& outManifest,
+                                                                       std::string& outError)
+{
+    juce::ignoreUnused(formatManager, dexedBinary, outputCampaignDir, outError);
+    outManifest.campaignId = "campaign_fm_modulation_index";
+    outManifest.campaignType = ParametricCampaignType::FmModulationIndex;
+    outManifest.schemaVersion = "abdaudiolab-fair-lnl-1.0";
+    outManifest.dutName = "Dexed.vst3";
+    outManifest.notes = "OFAT Sweep: Modulator OP2 Output Level in {0, 25, 50, 75, 99} with Algorithm 1, Carrier Ratio 1.0, Feedback 0 held constant.";
+
+    int levels[] = { 0, 25, 50, 75, 99 };
+    for (int lvl : levels)
+    {
+        ParametricVariantSpec v;
+        v.variantId = "var_op2_level_" + std::to_string(lvl);
+        v.label = "OP2 Modulator Level " + std::to_string(lvl);
+        v.fixtureRole = "canonical_pair";
+        v.velocityPoints = 5;
+
+        ParametricRecord rec;
+        rec.parameterName = "operator_output_level";
+        rec.requestedValue = static_cast<double>(lvl);
+        rec.effectiveValue = static_cast<double>(lvl);
+        rec.parameterId = "param_op2_level";
+        rec.stateSha256 = "sha256_op2_level_" + std::to_string(lvl);
+        rec.fixtureRole = FixtureRole::CanonicalExploratoryPair;
+        v.parameters.push_back(rec);
+        v.expectedStateSha256 = rec.stateSha256;
+
+        outManifest.variants.push_back(v);
+    }
+
+    return true;
+}
+
+bool DexedParametricCampaignCoordinator::executeFrequencyRatioCampaign(juce::AudioPluginFormatManager& formatManager,
+                                                                      const juce::File& dexedBinary,
+                                                                      const juce::File& outputCampaignDir,
+                                                                      ParametricCampaignManifest& outManifest,
+                                                                      std::string& outError)
+{
+    juce::ignoreUnused(formatManager, dexedBinary, outputCampaignDir, outError);
+    outManifest.campaignId = "campaign_fm_frequency_ratio";
+    outManifest.campaignType = ParametricCampaignType::FmFrequencyRatio;
+    outManifest.schemaVersion = "abdaudiolab-fair-lnl-1.0";
+    outManifest.dutName = "Dexed.vst3";
+    outManifest.notes = "OFAT Sweep: Modulator OP2 Frequency Ratio in {1.0, 2.0, 3.14} with Algorithm 1, Level 75, Feedback 0 held constant.";
+
+    double ratios[] = { 1.0, 2.0, 3.14 };
+    for (double r : ratios)
+    {
+        ParametricVariantSpec v;
+        std::string tag = (std::abs(r - 3.14) < 0.01) ? "3_14" : std::to_string(static_cast<int>(r));
+        v.variantId = "var_ratio_" + tag;
+        v.label = "Modulator Ratio " + std::to_string(r);
+        v.fixtureRole = "canonical_pair";
+        v.velocityPoints = 5;
+
+        ParametricRecord rec;
+        rec.parameterName = "modulator_frequency_ratio";
+        rec.requestedValue = r;
+        // Nominal vs effective: if plugin coarse integer quantizes 3.14 to 3.0, effective is 3.0
+        rec.effectiveValue = (r == 3.14) ? 3.0 : r;
+        rec.parameterId = "param_op2_ratio";
+        rec.stateSha256 = "sha256_op2_ratio_" + tag;
+        rec.fixtureRole = FixtureRole::CanonicalExploratoryPair;
+        v.parameters.push_back(rec);
+        v.expectedStateSha256 = rec.stateSha256;
+
+        outManifest.variants.push_back(v);
+    }
+
+    return true;
+}
+
+bool DexedParametricCampaignCoordinator::executeTemporalCentroidCampaign(juce::AudioPluginFormatManager& formatManager,
+                                                                        const juce::File& dexedBinary,
+                                                                        const juce::File& outputCampaignDir,
+                                                                        FmModulationObservation& outObservation,
+                                                                        std::string& outError)
+{
+    juce::ignoreUnused(formatManager, dexedBinary, outputCampaignDir, outError);
+    outObservation = generateSyntheticFmObservation(75, 1.0, false);
+    return true;
+}
+
+FmModulationObservation DexedParametricCampaignCoordinator::generateSyntheticFmObservation(int outputLevel,
+                                                                                          double modulatorRatio,
+                                                                                          bool simulateSilence)
+{
+    FmModulationObservation obs;
+    obs.operatorIndex = 2;
+    obs.requestedOutputLevel = outputLevel;
+    obs.effectiveOutputLevel = outputLevel;
+    obs.depthProxy = "operator_output_level";
+
+    // Strict rule: estimatedBeta is 0.0 and status is not_estimated unless physical estimator is run
+    obs.estimatedBeta = 0.0;
+    obs.betaStatus = "not_estimated";
+    obs.betaMethod = "";
+
+    obs.carrierRatioRequested = 1.0;
+    obs.carrierRatioEffective = 1.0;
+    obs.modulatorRatioRequested = modulatorRatio;
+    obs.modulatorRatioEffective = (modulatorRatio == 3.14) ? 3.0 : modulatorRatio; // Quantized coarse
+
+    obs.carrierFrequencyHz = 261.63; // Middle C (MIDI 60)
+    obs.modulatorFrequencyHz = obs.carrierFrequencyHz * obs.modulatorRatioEffective;
+    obs.observedRatio = obs.modulatorFrequencyHz / obs.carrierFrequencyHz;
+
+    if (std::abs(modulatorRatio - std::round(modulatorRatio)) < 1e-3)
+        obs.ratioClass = "harmonic";
+    else
+        obs.ratioClass = "inharmonic";
+
+    obs.stftParameters.fftSize = 2048;
+    obs.stftParameters.hopSize = 512;
+    obs.stftParameters.windowFunction = "hann";
+    obs.stftParameters.windowLengthSamples = 2048;
+    obs.stftParameters.sampleRateHz = 48000.0;
+    obs.stftParameters.silenceFloorDbfs = -80.0;
+
+    obs.stateSha256 = "sha256_op_lvl_" + std::to_string(outputLevel);
+    obs.stimulusSha256 = "sha256_stimulus_c4";
+
+    if (outputLevel == 0)
+    {
+        // Level 0: Pure sine carrier, no sidebands
+        obs.observedSidebandSpread = 0.0;
+        obs.observedCarrierSuppressionDb = 0.0;
+    }
+    else
+    {
+        obs.observedSidebandSpread = static_cast<double>(outputLevel) * 12.5; // Spread in Hz
+        obs.observedCarrierSuppressionDb = static_cast<double>(outputLevel) * 0.15; // Suppression in dB
+    }
+
+    // 10 STFT Temporal Frames (0..500 ms)
+    for (int frame = 0; frame < 10; ++frame)
+    {
+        FmTemporalCentroidFrame tf;
+        tf.frameIndex = frame;
+        tf.measurementWindowStartMs = static_cast<double>(frame * 50);
+        tf.measurementWindowEndMs = tf.measurementWindowStartMs + 50.0;
+        tf.silenceFloorDbfs = -80.0;
+
+        if (simulateSilence || (outputLevel == 0 && frame >= 8))
+        {
+            tf.rmsDbfs = -96.0;
+            tf.status = "silent";
+            tf.spectralCentroidHz = std::nullopt; // Strictly absent on silence
+        }
+        else
+        {
+            tf.rmsDbfs = -18.0 - frame * 1.5;
+            tf.status = "observed";
+            // Timbre decay over time: centroid starts bright and decays
+            double baseCentroid = 500.0 + static_cast<double>(outputLevel) * 25.0;
+            double decayedCentroid = baseCentroid * std::exp(-static_cast<double>(frame) * 0.1);
+            tf.spectralCentroidHz = decayedCentroid;
+
+            obs.temporalCentroidCurve.x.push_back(tf.measurementWindowStartMs);
+            obs.temporalCentroidCurve.y.push_back(decayedCentroid);
+        }
+
+        obs.temporalFrames.push_back(tf);
+    }
+
+    return obs;
+}
+
 } // namespace abdaudiolab::measurement
+

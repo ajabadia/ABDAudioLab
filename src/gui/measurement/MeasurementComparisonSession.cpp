@@ -887,6 +887,70 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
         res.timbreEquivalence = PairwiseStateEquivalence::NotComparable;
     }
 
+    // 2b. Phase 20.11.4: Temporal Timbre Dimension C(t)
+    bool temporalBasisCompatible = false;
+    if (vmA.dynamicsResult.has_value() && vmB.dynamicsResult.has_value() &&
+        !vmA.dynamicsResult->points.empty() &&
+        vmA.dynamicsResult->points.size() == vmB.dynamicsResult->points.size())
+    {
+        const auto& ptsA = vmA.dynamicsResult->points;
+        const auto& ptsB = vmB.dynamicsResult->points;
+
+        const bool srMatch = (std::abs(vmA.sampleRateHz - vmB.sampleRateHz) < 1.0);
+        bool stftMatch = true;
+        if (vmA.dynamicsResult->spectralMetadata.has_value() && vmB.dynamicsResult->spectralMetadata.has_value())
+        {
+            if (vmA.dynamicsResult->spectralMetadata->fftSize != vmB.dynamicsResult->spectralMetadata->fftSize ||
+                vmA.dynamicsResult->spectralMetadata->window != vmB.dynamicsResult->spectralMetadata->window)
+            {
+                stftMatch = false;
+            }
+        }
+
+        bool anySilentOrInvalid = false;
+        bool timeWindowMismatch = false;
+
+        for (size_t i = 0; i < ptsA.size(); ++i)
+        {
+            if (ptsA[i].status == "silent" || ptsA[i].status == "unreliable" ||
+                ptsB[i].status == "silent" || ptsB[i].status == "unreliable")
+            {
+                anySilentOrInvalid = true;
+                break;
+            }
+            if (std::abs(ptsA[i].measurementWindowStartMs - ptsB[i].measurementWindowStartMs) > 1.0 ||
+                std::abs(ptsA[i].measurementWindowEndMs - ptsB[i].measurementWindowEndMs) > 1.0)
+            {
+                timeWindowMismatch = true;
+                break;
+            }
+        }
+
+        if (srMatch && stftMatch && !anySilentOrInvalid && !timeWindowMismatch)
+        {
+            temporalBasisCompatible = true;
+            double maxTempDelta = 0.0;
+            for (size_t i = 0; i < ptsA.size(); ++i)
+            {
+                const double diff = std::abs(ptsA[i].spectralCentroidHz - ptsB[i].spectralCentroidHz);
+                maxTempDelta = std::max(maxTempDelta, diff);
+            }
+            res.maxTemporalTimbreDeltaHz = maxTempDelta;
+
+            if (maxTempDelta == 0.0)
+                res.temporalTimbreEquivalence = PairwiseStateEquivalence::BitExact;
+            else if (maxTempDelta <= 1.0)
+                res.temporalTimbreEquivalence = PairwiseStateEquivalence::SemanticallyEquivalent;
+            else
+                res.temporalTimbreEquivalence = PairwiseStateEquivalence::NotEquivalent;
+        }
+    }
+
+    if (!temporalBasisCompatible)
+    {
+        res.temporalTimbreEquivalence = PairwiseStateEquivalence::NotComparable;
+    }
+
     // 3. Consolidated Equivalence & Descriptive Reason
     if (res.levelEquivalence == PairwiseStateEquivalence::NotComparable)
     {

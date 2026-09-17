@@ -72,6 +72,37 @@ public:
      * @brief Genera un manifest y fixtures sintéticos/mock para entornos de CI/tests sin plugin VST3 binario.
      */
     static ParametricCampaignManifest generateSyntheticFactorialManifest(ParametricCampaignType type);
+
+    /**
+     * @brief Ejecuta la Campaña C: Barrido de Nivel de Salida de Operador Modulador (Proxy de Profundidad FM 0..99).
+     */
+    static bool executeModulationIndexCampaign(juce::AudioPluginFormatManager& formatManager,
+                                              const juce::File& dexedBinary,
+                                              const juce::File& outputCampaignDir,
+                                              ParametricCampaignManifest& outManifest,
+                                              std::string& outError);
+
+    /**
+     * @brief Ejecuta la Campaña D: Comparación de Ratios de Frecuencia Armónicos vs Inarmónicos (1.0 vs 2.0 vs 3.14).
+     */
+    static bool executeFrequencyRatioCampaign(juce::AudioPluginFormatManager& formatManager,
+                                             const juce::File& dexedBinary,
+                                             const juce::File& outputCampaignDir,
+                                             ParametricCampaignManifest& outManifest,
+                                             std::string& outError);
+
+    /**
+     * @brief Ejecuta la Campaña E: Trayectoria Temporal del Centroide Espectral C(t) por STFT.
+     */
+    static bool executeTemporalCentroidCampaign(juce::AudioPluginFormatManager& formatManager,
+                                               const juce::File& dexedBinary,
+                                               const juce::File& outputCampaignDir,
+                                               FmModulationObservation& outObservation,
+                                               std::string& outError);
+
+    static FmModulationObservation generateSyntheticFmObservation(int outputLevel,
+                                                                 double modulatorRatio = 1.0,
+                                                                 bool simulateSilence = false);
 };
 
 } // namespace abdaudiolab::measurement
