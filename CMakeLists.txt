@@ -273,6 +273,16 @@ target_sources(ABDAudioLab
         src/measurement/adapters/DynamicsMeasurementAdapter.cpp
         src/measurement/adapters/ModulationMeasurementAdapter.h
         src/measurement/adapters/ModulationMeasurementAdapter.cpp
+        # Casio CZ-101 Target Adapter (Phase 20.11.7)
+        src/measurement/adapters/casio/CasioCz101SysExContracts.h
+        src/measurement/adapters/casio/CasioCz101SysExFrameValidator.h
+        src/measurement/adapters/casio/CasioCz101SysExFrameValidator.cpp
+        src/measurement/adapters/casio/CasioCz101PatchDecoder.h
+        src/measurement/adapters/casio/CasioCz101PatchDecoder.cpp
+        src/measurement/adapters/casio/CasioCz101PatchEncoder.h
+        src/measurement/adapters/casio/CasioCz101PatchEncoder.cpp
+        src/measurement/adapters/casio/CasioCz101ObservableBinding.h
+        src/measurement/adapters/casio/CasioCz101ObservableBinding.cpp
         # Measurement GUI (Phase 20.10.1 & Phase 20.11.1)
         src/gui/measurement/MeasurementViewModel.h
         src/gui/measurement/MeasurementViewModelLoader.h
@@ -626,6 +636,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T1.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T2.cpp
+    src/tests/test_Phase20_11_7_ComplexEnvelopes_T3.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -644,6 +655,10 @@ add_executable(ABDAudioLab_Tests
     src/measurement/adapters/FilterMeasurementAdapter.cpp
     src/measurement/adapters/DynamicsMeasurementAdapter.cpp
     src/measurement/adapters/ModulationMeasurementAdapter.cpp
+    src/measurement/adapters/casio/CasioCz101SysExFrameValidator.cpp
+    src/measurement/adapters/casio/CasioCz101PatchDecoder.cpp
+    src/measurement/adapters/casio/CasioCz101PatchEncoder.cpp
+    src/measurement/adapters/casio/CasioCz101ObservableBinding.cpp
     src/gui/measurement/MeasurementViewModelLoader.cpp
     src/gui/measurement/MeasurementTemporalCurveComponent.cpp
     src/gui/measurement/MeasurementFrequencyCurveComponent.cpp

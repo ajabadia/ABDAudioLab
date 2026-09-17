@@ -106,7 +106,7 @@
 [EN CURSO] Fase 20.11.7: Caracterización de Envolventes Complejas y Phase Distortion (Casio CZ-101 como DUT de Referencia).
 - [COMPLETADO] T20.11.7-1: Contratos canónicos agnósticos de envolvente (Pitch/DCO, Timbre/DCW, Amplitude/DCA), TemporalGrid con alineación explícita, EnvelopeObservationPoint con separación estricta de resolución e incertidumbre, EnvelopeStageDescriptor (8 etapas CZ), validadores formales y serialización determinista RFC 8785 (ComplexEnvelopeContracts.h y test_Phase20_11_7_ComplexEnvelopes_T1.cpp).
 - [COMPLETADO] T20.11.7-2: Analizador observable de trayectorias Pitch/Timbre/Amplitude en lockstep temporal (ComplexEnvelopeAnalyzer), generador de control sintético de 8 etapas con verdad fundamental (SyntheticEnvelopeControlGenerator), segregación estricta de ambigüedad de pitch, detección autónoma de onset/decay para modo no guiado y suite Catch2 dedicada (test_Phase20_11_7_ComplexEnvelopes_T2.cpp).
-- [PENDIENTE] T20.11.7-3: Adaptador de target Casio CZ-101 y mapeos nativos de parámetros SysEx/MIDI.
+- [COMPLETADO] T20.11.7-3: Adaptador de target Casio CZ-101: Validación de trama por catálogo de perfiles versionados (FrameProfile), modo decode-only seguro, codificador round-trip determinista, mapeo unilateral DCW a TimbreObservable (phaseDistortionProxy: "not_claimed") y suite Catch2 dedicada (test_Phase20_11_7_ComplexEnvelopes_T3.cpp). Certificación: 402/402 tests verdes (225.256 aserciones, 0 fallos).
 - [PENDIENTE] T20.11.7-4: Orquestador de captura hardware/software y comparación de trayectorias.
 - [PENDIENTE] T20.11.7-5: Exportación FAIR/LNL con SVG multiserie y visor interactivo de 8 etapas.
 - [PENDIENTE] T20.11.7-6: Pruebas de repetibilidad, suite integrada y sellado.
