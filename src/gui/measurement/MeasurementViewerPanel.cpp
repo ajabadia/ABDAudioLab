@@ -89,8 +89,13 @@ MeasurementViewerPanel::MeasurementViewerPanel()
     };
 
     // Action Buttons
-    btnOpenReport_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
-    btnOpenReport_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
+    btnLoadContainer_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
+    btnLoadContainer_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
+    btnLoadContainer_.onClick = [this] { promptLoadContainer(); };
+    addAndMakeVisible(btnLoadContainer_);
+
+    btnOpenReport_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
+    btnOpenReport_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffcbd5e1));
     btnOpenReport_.onClick = [this] { openHtmlReportInBrowser(); };
     addAndMakeVisible(btnOpenReport_);
 
@@ -487,6 +492,26 @@ void MeasurementViewerPanel::handleVerificationCompleted(bool ok, const juce::St
     selectAudioTrack(selectedAudioTrack_);
 }
 
+void MeasurementViewerPanel::promptLoadContainer()
+{
+    fileChooser_ = std::make_unique<juce::FileChooser>(
+        juce::String::fromUTF8(u8"Seleccionar Carpeta del Contenedor FAIR/LNL..."),
+        juce::File::getSpecialLocation(juce::File::userHomeDirectory),
+        "*",
+        true);
+
+    fileChooser_->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                              [this](const juce::FileChooser& chooser)
+    {
+        auto result = chooser.getResult();
+        if (result.exists() && result.isDirectory())
+        {
+            juce::String err;
+            loadContainer(result, err);
+        }
+    });
+}
+
 void MeasurementViewerPanel::openHtmlReportInBrowser()
 {
     if (model_.htmlReportFile.existsAsFile())
@@ -549,9 +574,11 @@ void MeasurementViewerPanel::resized()
 
     // 3. Action Buttons (Bottom Row)
     auto bottomArea = b.removeFromBottom(36);
-    btnOpenReport_.setBounds(bottomArea.removeFromLeft(170));
+    btnLoadContainer_.setBounds(bottomArea.removeFromLeft(160));
     bottomArea.removeFromLeft(10);
-    btnVerifyManifest_.setBounds(bottomArea.removeFromLeft(170));
+    btnOpenReport_.setBounds(bottomArea.removeFromLeft(160));
+    bottomArea.removeFromLeft(10);
+    btnVerifyManifest_.setBounds(bottomArea.removeFromLeft(160));
 
     b.removeFromBottom(10);
 

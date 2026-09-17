@@ -43,6 +43,7 @@ public:
     void selectAudioTrack(int trackIndex);
 
 private:
+    void promptLoadContainer();
     void triggerBackgroundManifestVerification();
     void handleVerificationCompleted(bool ok, const juce::String& diagnostic);
     void openHtmlReportInBrowser();
@@ -84,8 +85,11 @@ private:
     MeasurementAudioPlayerComponent audioPlayerComponent_;
 
     // Action buttons
+    juce::TextButton btnLoadContainer_ { "Cargar Contenedor..." };
     juce::TextButton btnOpenReport_ { "Abrir Informe HTML" };
     juce::TextButton btnVerifyManifest_ { "Verificar Manifiesto" };
+
+    std::unique_ptr<juce::FileChooser> fileChooser_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MeasurementViewerPanel)
 };

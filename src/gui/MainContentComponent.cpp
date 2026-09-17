@@ -9,10 +9,41 @@
 #include "hardware/AudioMidiInterfaceDetector.h"
 #include "core/plugins/PluginHardwareContractAdapter.h"
 #include "core/LabDataDirectories.h"
+#include "gui/measurement/MeasurementViewerPanel.h"
+#include "gui/measurement/MeasurementComparisonPanel.h"
 #include <cmath>
 
 namespace abdaudiolab
 {
+
+namespace
+{
+class MeasurementFloatingWindow : public juce::DocumentWindow
+{
+public:
+    MeasurementFloatingWindow(const juce::String& title,
+                              juce::Component* contentComponent,
+                              int defaultWidth,
+                              int defaultHeight,
+                              int minWidth,
+                              int minHeight)
+        : DocumentWindow(title,
+                         gui::AppTheme::BackgroundApp,
+                         DocumentWindow::allButtons)
+    {
+        setUsingNativeTitleBar(true);
+        setResizable(true, true);
+        setResizeLimits(minWidth, minHeight, 2560, 1440);
+        setContentOwned(contentComponent, true);
+        centreWithSize(defaultWidth, defaultHeight);
+    }
+
+    void closeButtonPressed() override
+    {
+        setVisible(false);
+    }
+};
+} // namespace
 
 std::string mapBadgeToBlockType(const juce::String& badgeText)
 {
@@ -221,6 +252,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         dirs.experiments.revealToUser();
     };
     mainHeader.onExitApp = [this] { confirmAndExit(); };
+    mainHeader.onOpenMeasurementViewer = [this] { openMeasurementViewerWindow(); };
+    mainHeader.onOpenMeasurementComparison = [this] { openMeasurementComparisonWindow(); };
 
     // Plugin Direct Monitoring Passthrough wiring (active only while plugin GUI is open and not running test sweep)
     pluginWindowController.onWindowStateChanged = [this](bool isOpen) {
@@ -336,6 +369,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
         topologyController.updateTheme(themeStr, gui::AppTheme::BackgroundApp);
+
+        if (measurementViewerWindow != nullptr)
+            measurementViewerWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+
+        if (measurementComparisonWindow != nullptr)
+            measurementComparisonWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
 
         drawer.updateTheme();
         operatorStepModal.updateTheme();
@@ -1516,6 +1555,18 @@ MainContentComponent::~MainContentComponent()
         virtualKeyboardWindow = nullptr;
     }
 
+    if (measurementViewerWindow != nullptr)
+    {
+        measurementViewerWindow->setVisible(false);
+        measurementViewerWindow = nullptr;
+    }
+
+    if (measurementComparisonWindow != nullptr)
+    {
+        measurementComparisonWindow->setVisible(false);
+        measurementComparisonWindow = nullptr;
+    }
+
     topologyController.closeWindow();
 
     juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
@@ -1851,6 +1902,40 @@ void MainContentComponent::toggleVirtualKeyboardWindow()
         virtualKeyboardWindow->setVisible(true);
         virtualKeyboardWindow->toFront(true);
     }
+}
+
+void MainContentComponent::openMeasurementViewerWindow()
+{
+    if (measurementViewerWindow == nullptr)
+    {
+        auto* panel = new gui::measurement::MeasurementViewerPanel();
+        measurementViewerWindow = std::make_unique<MeasurementFloatingWindow>(
+            juce::String::fromUTF8(u8"ABDAudioLab — Visor de Mediciones FAIR / LNL"),
+            panel,
+            1050, 720, 800, 550
+        );
+    }
+
+    measurementViewerWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+    measurementViewerWindow->setVisible(true);
+    measurementViewerWindow->toFront(true);
+}
+
+void MainContentComponent::openMeasurementComparisonWindow()
+{
+    if (measurementComparisonWindow == nullptr)
+    {
+        auto* panel = new gui::measurement::MeasurementComparisonPanel();
+        measurementComparisonWindow = std::make_unique<MeasurementFloatingWindow>(
+            juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multicontenedor FAIR / LNL"),
+            panel,
+            1150, 750, 900, 600
+        );
+    }
+
+    measurementComparisonWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+    measurementComparisonWindow->setVisible(true);
+    measurementComparisonWindow->toFront(true);
 }
 
 void MainContentComponent::toggleStudioTopologyWindow()

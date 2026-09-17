@@ -184,6 +184,9 @@ void MainHeaderController::showFileMenu()
     menu.addItem(4, "Save Session As...\tCtrl+Shift+S");
     menu.addItem(5, "Re-Analyze Session (Offline)...");
     menu.addSeparator();
+    menu.addItem(12, juce::String::fromUTF8(u8"Abrir Visor FAIR/LNL..."));
+    menu.addItem(13, juce::String::fromUTF8(u8"Abrir Comparador Multicontenedor..."));
+    menu.addSeparator();
     menu.addItem(6, "Export Certification Report (PDF/HTML)...");
     menu.addItem(7, "Open Export Folder");
     menu.addItem(11, "Open Experiments Folder");
@@ -210,6 +213,8 @@ void MainHeaderController::showFileMenu()
             case 9: if (safeThis->onScanPluginDirectories) safeThis->onScanPluginDirectories(); break;
             case 10: if (safeThis->onVirtualKeyboardToggle) safeThis->onVirtualKeyboardToggle(); break;
             case 11: if (safeThis->onOpenExperimentsFolder) safeThis->onOpenExperimentsFolder(); break;
+            case 12: if (safeThis->onOpenMeasurementViewer) safeThis->onOpenMeasurementViewer(); break;
+            case 13: if (safeThis->onOpenMeasurementComparison) safeThis->onOpenMeasurementComparison(); break;
             default: break;
         }
     });

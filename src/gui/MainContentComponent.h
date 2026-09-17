@@ -93,6 +93,8 @@ public:
     void toggleScopeWebWindow();
     void toggleStudioTopologyWindow();
     void toggleVirtualKeyboardWindow();
+    void openMeasurementViewerWindow();
+    void openMeasurementComparisonWindow();
     void preWarmScopeWindow();
     void preWarmHardwareDetector();
     void performOfflineReanalysis();
@@ -173,6 +175,8 @@ private:
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
     std::unique_ptr<abd::keyboard::MidiKeyboardFloatingWindow> virtualKeyboardWindow;
+    std::unique_ptr<juce::DocumentWindow> measurementViewerWindow;
+    std::unique_ptr<juce::DocumentWindow> measurementComparisonWindow;
     abd::topology::StudioTopologyController topologyController;
     std::unique_ptr<gui::SoundIdSplashWindow> aboutSplashWindow;
 

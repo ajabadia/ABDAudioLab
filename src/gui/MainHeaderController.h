@@ -61,6 +61,8 @@ public:
     std::function<void()> onSaveSession;
     std::function<void()> onSaveSessionAs;
     std::function<void()> onReanalyzeOffline;
+    std::function<void()> onOpenMeasurementViewer;
+    std::function<void()> onOpenMeasurementComparison;
     std::function<void()> onExportCertificationReport;
     std::function<void()> onOpenExportFolder;
     std::function<void()> onOpenExperimentsFolder;

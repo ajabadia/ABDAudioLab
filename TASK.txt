@@ -96,11 +96,11 @@
 - [COMPLETADO] T20.11.5-4: Suite de pruebas unitarias y de integración en test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp con tag [physical_estimators] cubriendo las 9 salvaguardas obligatorias y contratos agnósticos (DutIdentity, TargetParameterBinding, CarrierNullNeighborhood). Dexed posicionado formalmente como DUT de referencia y fixture de validación. Certificación: 384/384 tests verdes (223.718 aserciones, 0 fallos).
 
 [EN CURSO] Incremento 20.11.6: Apertura Robusta de Informes HTML y Navegación UI (DRY).
-- [PENDIENTE] T20.11.6-1: Corrección de apertura de informe HTML con juce::File::startAsProcess() y fallback a launchInDefaultBrowser(), aplicando principios DRY con el informe clásico.
-- [PENDIENTE] T20.11.6-2: Registro de comandos en el menú principal File (Abrir Visor FAIR/LNL..., Abrir Comparador Multicontenedor...).
-- [PENDIENTE] T20.11.6-3: Integración de MeasurementViewerPanel en ventana/panel accesible con ciclo de vida seguro.
-- [PENDIENTE] T20.11.6-4: Integración de MeasurementComparisonPanel con gestión segura de ownership (std::make_shared<MeasurementComparisonSession>()) y drenado de callbacks.
-- [PENDIENTE] T20.11.6-5: Tests unitarios de apertura de informe y navegación.
+- [COMPLETADO] T20.11.6-1: Corrección de apertura de informe HTML con juce::File::startAsProcess() y fallback a launchInDefaultBrowser(), aplicando principios DRY con el informe clásico (Commit 45ed800).
+- [COMPLETADO] T20.11.6-2: Registro de comandos en el menú principal File (Abrir Visor FAIR/LNL..., Abrir Comparador Multicontenedor...).
+- [COMPLETADO] T20.11.6-3: Integración de MeasurementViewerPanel en ventana/panel accesible con ciclo de vida seguro y botón interactivo "Cargar Contenedor...".
+- [COMPLETADO] T20.11.6-4: Integración de MeasurementComparisonPanel con gestión segura de ownership y drenado de callbacks en ventana desacoplada.
+- [COMPLETADO] T20.11.6-5: Tests unitarios de apertura de informe, navegación y ciclo de vida seguro de paneles.
 
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.

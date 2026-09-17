@@ -22,21 +22,29 @@ TEST_CASE("MainHeaderController: Autonomous top bar orchestration", "[gui][heade
         bool calibrateTriggered = false;
         bool newSessionTriggered = false;
         bool themeTriggered = false;
+        bool measurementViewerTriggered = false;
+        bool measurementComparisonTriggered = false;
 
         header.onScopeToggle = [&] { scopeTriggered = true; };
         header.onCalibrateClicked = [&] { calibrateTriggered = true; };
         header.onNewSession = [&] { newSessionTriggered = true; };
         header.onThemeToggled = [&] { themeTriggered = true; };
+        header.onOpenMeasurementViewer = [&] { measurementViewerTriggered = true; };
+        header.onOpenMeasurementComparison = [&] { measurementComparisonTriggered = true; };
 
         if (header.onScopeToggle) header.onScopeToggle();
         if (header.onCalibrateClicked) header.onCalibrateClicked();
         if (header.onNewSession) header.onNewSession();
         if (header.onThemeToggled) header.onThemeToggled();
+        if (header.onOpenMeasurementViewer) header.onOpenMeasurementViewer();
+        if (header.onOpenMeasurementComparison) header.onOpenMeasurementComparison();
 
         REQUIRE(scopeTriggered);
         REQUIRE(calibrateTriggered);
         REQUIRE(newSessionTriggered);
         REQUIRE(themeTriggered);
+        REQUIRE(measurementViewerTriggered);
+        REQUIRE(measurementComparisonTriggered);
     }
 
     SECTION("Calibration status management and flashing timer")
@@ -59,5 +67,30 @@ TEST_CASE("MainHeaderController: Autonomous top bar orchestration", "[gui][heade
         header.setHardwareInfo("Roland AIRA Torcido", "Tube Clipper", juce::Image(), gui::HardwareConnectionStatus::Connected);
         header.updateTheme();
         header.clearHardware();
+    }
+}
+
+#include "gui/measurement/MeasurementViewerPanel.h"
+#include "gui/measurement/MeasurementComparisonPanel.h"
+
+TEST_CASE("Measurement UI Panels: Safe construction and lifecycle draining", "[gui][measurement][panels]")
+{
+    SECTION("MeasurementViewerPanel initializes and layouts without crash")
+    {
+        auto viewer = std::make_unique<gui::measurement::MeasurementViewerPanel>();
+        REQUIRE(viewer != nullptr);
+        viewer->setBounds(0, 0, 1000, 700);
+        viewer.reset();
+    }
+
+    SECTION("MeasurementComparisonPanel initializes and drains session gracefully on destruction")
+    {
+        auto comparison = std::make_unique<gui::measurement::MeasurementComparisonPanel>();
+        REQUIRE(comparison != nullptr);
+        comparison->setBounds(0, 0, 1100, 750);
+        REQUIRE(comparison->getSession().getShutdownState() == gui::measurement::SessionShutdownState::Running);
+
+        // Safe destruction draining
+        comparison.reset();
     }
 }
