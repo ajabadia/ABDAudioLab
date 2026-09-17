@@ -124,11 +124,40 @@ struct EnvelopeObservationPoint
     std::optional<double> uncertaintyValue;
     std::string uncertaintyMethod;
 
+    // Metrology & observability extensions (T20.11.7-2)
+    double confidence { 1.0 };
+    std::string reason;                 // e.g. "ambiguous_f0", "silence", "noise_floor"
+    std::optional<int> peakBin;
+    std::optional<double> interpolatedBin;
+    std::string voicedStatus;           // "voiced", "unvoiced", "silence", "not_evaluated"
+    std::string normalizationReference; // "peak_observed", "full_scale", "calibration_reference"
+    std::optional<double> rmsDbfs;
+    std::optional<double> amplitudeNormalized;
+
     [[nodiscard]] nlohmann::ordered_json toCanonicalJson() const
     {
         nlohmann::ordered_json j;
+        if (amplitudeNormalized.has_value())
+            j["amplitudeNormalized"] = *amplitudeNormalized;
+        else
+            j["amplitudeNormalized"] = nullptr;
+        j["confidence"] = confidence;
         j["frameIndex"] = frameIndex;
+        if (interpolatedBin.has_value())
+            j["interpolatedBin"] = *interpolatedBin;
+        else
+            j["interpolatedBin"] = nullptr;
+        j["normalizationReference"] = normalizationReference;
+        if (peakBin.has_value())
+            j["peakBin"] = *peakBin;
+        else
+            j["peakBin"] = nullptr;
+        j["reason"] = reason;
         j["resolution"] = resolution;
+        if (rmsDbfs.has_value())
+            j["rmsDbfs"] = *rmsDbfs;
+        else
+            j["rmsDbfs"] = nullptr;
         j["status"] = status;
         j["timeMs"] = timeMs;
         j["uncertaintyMethod"] = uncertaintyMethod;
@@ -142,6 +171,7 @@ struct EnvelopeObservationPoint
             j["value"] = *value;
         else
             j["value"] = nullptr;
+        j["voicedStatus"] = voicedStatus;
         return j;
     }
 
@@ -159,6 +189,19 @@ struct EnvelopeObservationPoint
         p.unit = j.value("unit", "");
         if (j.contains("value") && !j["value"].is_null())
             p.value = j["value"].get<double>();
+
+        p.confidence = j.value("confidence", 1.0);
+        p.reason = j.value("reason", "");
+        if (j.contains("peakBin") && !j["peakBin"].is_null())
+            p.peakBin = j["peakBin"].get<int>();
+        if (j.contains("interpolatedBin") && !j["interpolatedBin"].is_null())
+            p.interpolatedBin = j["interpolatedBin"].get<double>();
+        p.voicedStatus = j.value("voicedStatus", "");
+        p.normalizationReference = j.value("normalizationReference", "");
+        if (j.contains("rmsDbfs") && !j["rmsDbfs"].is_null())
+            p.rmsDbfs = j["rmsDbfs"].get<double>();
+        if (j.contains("amplitudeNormalized") && !j["amplitudeNormalized"].is_null())
+            p.amplitudeNormalized = j["amplitudeNormalized"].get<double>();
         return p;
     }
 };
@@ -277,6 +320,12 @@ struct EnvelopeTrajectory
     std::optional<TargetParameterBinding> nativeBinding;
     std::vector<EnvelopeStageDescriptor> inferredStages;
 
+    // Metrología temporal y de normalización (T20.11.7-2)
+    std::string normalizationReference { "peak_observed" };
+    std::string noteOffMethod { "provided_midi_event" }; // "provided_midi_event", "energy_decay", "manual_marker", "not_available"
+    std::string noteOnMethod { "provided_midi_event" };  // "provided_midi_event", "energy_onset", "manual_marker", "not_available"
+    std::string phaseDistortionProxy { "not_claimed" };  // "not_claimed", "evaluated"
+
     EnvelopeSpectralMetadata spectralMetadata;
 
     [[nodiscard]] nlohmann::ordered_json toCanonicalJson() const
@@ -301,6 +350,10 @@ struct EnvelopeTrajectory
             j["nativeBinding"] = nullptr;
 
         j["nativeEnvelopeReconstruction"] = nativeEnvelopeReconstruction;
+        j["normalizationReference"] = normalizationReference;
+        j["noteOffMethod"] = noteOffMethod;
+        j["noteOnMethod"] = noteOnMethod;
+        j["phaseDistortionProxy"] = phaseDistortionProxy;
 
         nlohmann::ordered_json ptsJson = nlohmann::ordered_json::array();
         for (const auto& p : points)
@@ -351,6 +404,11 @@ struct EnvelopeTrajectory
             t.nativeBinding = b;
         }
         t.nativeEnvelopeReconstruction = j.value("nativeEnvelopeReconstruction", "not_claimed");
+        t.normalizationReference = j.value("normalizationReference", "peak_observed");
+        t.noteOffMethod = j.value("noteOffMethod", "provided_midi_event");
+        t.noteOnMethod = j.value("noteOnMethod", "provided_midi_event");
+        t.phaseDistortionProxy = j.value("phaseDistortionProxy", "not_claimed");
+
         if (j.contains("points") && j["points"].is_array())
         {
             for (const auto& pj : j["points"])
@@ -364,6 +422,19 @@ struct EnvelopeTrajectory
         t.trajectoryLabel = j.value("trajectoryLabel", "");
         return t;
     }
+};
+
+/**
+ * @brief Ground truth descriptor for synthetic control validation and calibration.
+ */
+struct SyntheticEnvelopeGroundTruth
+{
+    std::vector<EnvelopeStageDescriptor> pitchStages;
+    std::vector<EnvelopeStageDescriptor> timbreStages;
+    std::vector<EnvelopeStageDescriptor> amplitudeStages;
+    double expectedF0ToleranceHz { 5.0 };
+    double expectedCentroidToleranceHz { 50.0 };
+    double expectedRmsToleranceDb { 2.0 };
 };
 
 /**
