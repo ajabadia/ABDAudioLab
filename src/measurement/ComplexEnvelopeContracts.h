@@ -599,6 +599,21 @@ struct EnvelopeValidationResult
     auto ampRes = validateEnvelopeTrajectory(rec.amplitudeTrajectory);
     for (const auto& e : ampRes.errors) res.addError("amplitudeTrajectory." + e);
 
+    // Grid alignment validation
+    auto checkGridAlignment = [&](const EnvelopeTrajectory& traj, const std::string& name) {
+        if (traj.alignmentStatus == "aligned")
+        {
+            if (traj.temporalGridId.empty() || traj.temporalGridId != rec.temporalGrid.gridId)
+            {
+                res.addError(name + "_grid_id_mismatch: trajectory declared 'aligned' but temporalGridId '" +
+                             traj.temporalGridId + "' does not match container grid '" + rec.temporalGrid.gridId + "'");
+            }
+        }
+    };
+    checkGridAlignment(rec.pitchTrajectory, "pitchTrajectory");
+    checkGridAlignment(rec.timbreTrajectory, "timbreTrajectory");
+    checkGridAlignment(rec.amplitudeTrajectory, "amplitudeTrajectory");
+
     // Hash sanity (if present, must be 64 hex characters)
     auto checkShaHex = [&](const std::string& hash, const std::string& fieldName) {
         if (!hash.empty())

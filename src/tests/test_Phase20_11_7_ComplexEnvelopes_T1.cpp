@@ -382,4 +382,85 @@ TEST_CASE("Phase 20.11.7-T1: MultiDomainEnvelopeCaptureRecord and RFC 8785 fixit
         REQUIRE(restored.amplitudeTrajectory.points.size() == 1);
         REQUIRE(restored.computeCanonicalSha256() == rec.computeCanonicalSha256());
     }
+
+    SECTION("Grid alignment: rejects mismatched grid when status is 'aligned', permits when 'not_aligned'")
+    {
+        // 1. Mismatch with aligned status -> fails
+        rec.timbreTrajectory.temporalGridId = "different-grid-999";
+        rec.timbreTrajectory.alignmentStatus = "aligned";
+        auto res1 = validateMultiDomainEnvelopeCaptureRecord(rec);
+        REQUIRE_FALSE(res1.valid);
+        bool foundMismatchErr = false;
+        for (const auto& err : res1.errors)
+            if (err.find("grid_id_mismatch") != std::string::npos) foundMismatchErr = true;
+        REQUIRE(foundMismatchErr);
+
+        // 2. Mismatch with declared 'not_aligned' status -> valid (no silent interpolation)
+        rec.timbreTrajectory.alignmentStatus = "not_aligned";
+        auto res2 = validateMultiDomainEnvelopeCaptureRecord(rec);
+        REQUIRE(res2.valid);
+    }
+
+    SECTION("Round-trip preserves nullopt, optionals, inferredStages, and nativeBinding")
+    {
+        // Add nativeBinding
+        TargetParameterBinding binding;
+        binding.logicalName = "DCW_Waveform_Shape";
+        binding.nativeId = "CZ_SYS_PARAM_0x2A";
+        binding.unit = "normalized_0_99";
+        binding.mappingVersion = "1.0";
+        rec.timbreTrajectory.nativeBinding = binding;
+
+        // Add optional attack/release
+        rec.timbreTrajectory.attackTimeMs = 45.2;
+        rec.timbreTrajectory.releaseTimeMs = 120.8;
+        rec.timbreTrajectory.spectralMetadata.noiseFloorDbfs = -88.5;
+
+        // Add stages with optional targetLevel and rateOrSlope
+        EnvelopeStageDescriptor st;
+        st.stageIndex = 1;
+        st.parameterization = "rate_level";
+        st.durationMs = 60.0;
+        st.rateOrSlope = 75.0;
+        st.targetLevel = 90.0;
+        st.levelUnit = "normalized_0_99";
+        st.isSustainPoint = false;
+        rec.timbreTrajectory.inferredStages.push_back(st);
+
+        // Point with uncertaintyValue and evaluated status
+        EnvelopeObservationPoint pt;
+        pt.frameIndex = 0;
+        pt.timeMs = 0.0;
+        pt.value = 1250.0;
+        pt.unit = "spectralCentroidHz";
+        pt.status = "valid";
+        pt.resolution = 0.01;
+        pt.uncertaintyStatus = "evaluated";
+        pt.uncertaintyValue = 0.35;
+        pt.uncertaintyMethod = "type_a_stdev";
+        rec.timbreTrajectory.points.push_back(pt);
+
+        std::string jsonStr = rec.serializeCanonicalJson();
+        auto parsed = nlohmann::json::parse(jsonStr);
+        auto restored = MultiDomainEnvelopeCaptureRecord::fromJson(parsed);
+
+        REQUIRE(restored.timbreTrajectory.nativeBinding.has_value());
+        REQUIRE(restored.timbreTrajectory.nativeBinding->logicalName == "DCW_Waveform_Shape");
+        REQUIRE(restored.timbreTrajectory.nativeBinding->nativeId == "CZ_SYS_PARAM_0x2A");
+        REQUIRE(restored.timbreTrajectory.attackTimeMs.has_value());
+        REQUIRE(*restored.timbreTrajectory.attackTimeMs == 45.2);
+        REQUIRE(restored.timbreTrajectory.releaseTimeMs.has_value());
+        REQUIRE(*restored.timbreTrajectory.releaseTimeMs == 120.8);
+        REQUIRE(restored.timbreTrajectory.spectralMetadata.noiseFloorDbfs.has_value());
+        REQUIRE(*restored.timbreTrajectory.spectralMetadata.noiseFloorDbfs == -88.5);
+
+        REQUIRE(restored.timbreTrajectory.inferredStages.size() == 1);
+        REQUIRE(restored.timbreTrajectory.inferredStages[0].rateOrSlope.has_value());
+        REQUIRE(*restored.timbreTrajectory.inferredStages[0].rateOrSlope == 75.0);
+
+        REQUIRE(restored.timbreTrajectory.points.size() == 1);
+        REQUIRE(restored.timbreTrajectory.points[0].uncertaintyValue.has_value());
+        REQUIRE(*restored.timbreTrajectory.points[0].uncertaintyValue == 0.35);
+        REQUIRE(restored.timbreTrajectory.points[0].uncertaintyStatus == "evaluated");
+    }
 }
