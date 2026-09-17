@@ -70,6 +70,12 @@ public:
                                        juce::File& outHtmlFile);
 
     /**
+     * @brief Abre de forma robusta un informe HTML en el visor predeterminado del sistema operativo (DRY).
+     * Utiliza startAsProcess() con fallback a launchInDefaultBrowser(), sin borrar el archivo temporal.
+     */
+    static bool launchHtmlReportInDefaultViewer(const juce::File& reportFile, juce::String& outError);
+
+    /**
      * @brief Saves a crash-recovery checkpoint via SessionManager.
      */
     void triggerPeriodicAutoSaveCheckpoint(core::SessionManager& sessionManager,

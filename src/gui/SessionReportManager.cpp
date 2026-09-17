@@ -156,6 +156,26 @@ bool SessionReportManager::exportCertificationHtmlReport(const juce::File& desti
     );
 }
 
+bool SessionReportManager::launchHtmlReportInDefaultViewer(const juce::File& reportFile, juce::String& outError)
+{
+    if (!reportFile.existsAsFile())
+    {
+        outError = "El archivo de informe HTML no existe: " + reportFile.getFullPathName();
+        return false;
+    }
+
+    // Usar startAsProcess() para invocar el visor HTML nativo del sistema
+    if (reportFile.startAsProcess())
+        return true;
+
+    // Fallback secundario vía URL en caso de que startAsProcess() sea rechazado por el SO
+    if (juce::URL(reportFile).launchInDefaultBrowser())
+        return true;
+
+    outError = "No se pudo iniciar el proceso del navegador predeterminado para: " + reportFile.getFullPathName();
+    return false;
+}
+
 void SessionReportManager::triggerPeriodicAutoSaveCheckpoint(core::SessionManager& sessionManager,
                                                              const core::SessionManifest& currentManifest)
 {

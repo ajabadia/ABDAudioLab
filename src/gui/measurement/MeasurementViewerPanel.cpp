@@ -7,6 +7,7 @@
 
 #include "MeasurementViewerPanel.h"
 #include "MeasurementViewModelLoader.h"
+#include "../SessionReportManager.h"
 #include <thread>
 #include <iomanip>
 #include <sstream>
@@ -490,7 +491,8 @@ void MeasurementViewerPanel::openHtmlReportInBrowser()
 {
     if (model_.htmlReportFile.existsAsFile())
     {
-        juce::URL(model_.htmlReportFile).launchInDefaultBrowser();
+        juce::String err;
+        SessionReportManager::launchHtmlReportInDefaultViewer(model_.htmlReportFile, err);
     }
 }
 

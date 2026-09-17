@@ -5,6 +5,7 @@
 #include "../../export/CertificationReportExporter.h"
 #include "../../core/ModelHoldoutValidator.h"
 #include "../../core/ExperimentStorage.h"
+#include "../SessionReportManager.h"
 #include <iomanip>
 #include <sstream>
 
@@ -539,10 +540,11 @@ void SoundIdResultsSummaryView::openHtmlReport()
     commands_.recordUserClick();
     commands_.setOpenedAdvancedMode(true);
 
+    juce::String reportError;
     if (lastSnapshot_.validationSummary.htmlReportAvailable &&
         lastSnapshot_.validationSummary.htmlReportFile.existsAsFile())
     {
-        juce::URL(lastSnapshot_.validationSummary.htmlReportFile).launchInDefaultBrowser();
+        SessionReportManager::launchHtmlReportInDefaultViewer(lastSnapshot_.validationSummary.htmlReportFile, reportError);
         return;
     }
 
@@ -551,7 +553,7 @@ void SoundIdResultsSummaryView::openHtmlReport()
         juce::File f(lastSnapshot_.exportOptions.lastExportedHtmlReportPath);
         if (f.existsAsFile())
         {
-            juce::URL(f).launchInDefaultBrowser();
+            SessionReportManager::launchHtmlReportInDefaultViewer(f, reportError);
             return;
         }
     }
@@ -609,7 +611,7 @@ void SoundIdResultsSummaryView::openHtmlReport()
 
     if (ok && tempReport.existsAsFile())
     {
-        juce::URL(tempReport).launchInDefaultBrowser();
+        SessionReportManager::launchHtmlReportInDefaultViewer(tempReport, reportError);
     }
 }
 

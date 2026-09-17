@@ -61,6 +61,16 @@ TEST_CASE("SessionReportManager: Report export and directory handling", "[gui][s
         REQUIRE(outHtml.getSize() > 0);
     }
 
+    SECTION("launchHtmlReportInDefaultViewer rejects non-existent file safely without launching process")
+    {
+        juce::File nonExistent = tempDir.getChildFile("does_not_exist_report.html");
+        juce::String err;
+        bool ok = gui::SessionReportManager::launchHtmlReportInDefaultViewer(nonExistent, err);
+        REQUIRE_FALSE(ok);
+        REQUIRE(err.isNotEmpty());
+        REQUIRE(err.contains("no existe"));
+    }
+
     // Cleanup
     tempDir.deleteRecursively();
 }
