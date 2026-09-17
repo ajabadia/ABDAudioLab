@@ -95,12 +95,21 @@
 - [COMPLETADO] T20.11.5-3: Exportación en lote y generación de batch_manifest.json determinista con orden canónico estricto (keyboard note ascending -> operator level ascending -> ratio ascending) y hashes de estado y estímulo por variante sin depender del sistema de archivos ni timestamps.
 - [COMPLETADO] T20.11.5-4: Suite de pruebas unitarias y de integración en test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp con tag [physical_estimators] cubriendo las 9 salvaguardas obligatorias y contratos agnósticos (DutIdentity, TargetParameterBinding, CarrierNullNeighborhood). Dexed posicionado formalmente como DUT de referencia y fixture de validación. Certificación: 384/384 tests verdes (223.718 aserciones, 0 fallos).
 
-[EN CURSO] Incremento 20.11.6: Apertura Robusta de Informes HTML y Navegación UI (DRY).
+[COMPLETADO] Fase 20.11.6: Apertura Robusta de Informes HTML y Navegación UI (DRY).
 - [COMPLETADO] T20.11.6-1: Corrección de apertura de informe HTML con juce::File::startAsProcess() y fallback a launchInDefaultBrowser(), aplicando principios DRY con el informe clásico (Commit 45ed800).
 - [COMPLETADO] T20.11.6-2: Registro de comandos en el menú principal File (Abrir Visor FAIR/LNL..., Abrir Comparador Multicontenedor...).
 - [COMPLETADO] T20.11.6-3: Integración de MeasurementViewerPanel en ventana/panel accesible con ciclo de vida seguro y botón interactivo "Cargar Contenedor...".
 - [COMPLETADO] T20.11.6-4: Integración de MeasurementComparisonPanel con gestión segura de ownership y drenado de callbacks en ventana desacoplada.
-- [COMPLETADO] T20.11.6-5: Tests unitarios de apertura de informe, navegación y ciclo de vida seguro de paneles.
+- [COMPLETADO] T20.11.6-5: Tests unitarios de apertura de informe, navegación y ciclo de vida seguro de paneles (Commit e52dde5).
+- Certificación formal sellada en tag anotado: phase-20.11.6-certified (385/385 tests en verde, 223.726 aserciones).
+
+[EN CURSO] Fase 20.11.7: Caracterización de Envolventes Complejas y Phase Distortion (Casio CZ-101 como DUT de Referencia).
+- [COMPLETADO] T20.11.7-1: Contratos canónicos agnósticos de envolvente (Pitch/DCO, Timbre/DCW, Amplitude/DCA), TemporalGrid con alineación explícita, EnvelopeObservationPoint con separación estricta de resolución e incertidumbre, EnvelopeStageDescriptor (8 etapas CZ), validadores formales y serialización determinista RFC 8785 (ComplexEnvelopeContracts.h y test_Phase20_11_7_ComplexEnvelopes_T1.cpp).
+- [PENDIENTE] T20.11.7-2: Analizador observable de trayectorias DCO/DCW/DCA con extracción espectral y temporal sobre señales sintéticas de control.
+- [PENDIENTE] T20.11.7-3: Adaptador de target Casio CZ-101 y mapeos nativos de parámetros SysEx/MIDI.
+- [PENDIENTE] T20.11.7-4: Orquestador de captura hardware/software y comparación de trayectorias.
+- [PENDIENTE] T20.11.7-5: Exportación FAIR/LNL con SVG multiserie y visor interactivo de 8 etapas.
+- [PENDIENTE] T20.11.7-6: Pruebas de repetibilidad, suite integrada y sellado.
 
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.

@@ -254,6 +254,7 @@ target_sources(ABDAudioLab
         src/measurement/DexedParametricCampaignContracts.h
         src/measurement/DexedParametricCampaignCoordinator.h
         src/measurement/DexedParametricCampaignCoordinator.cpp
+        src/measurement/ComplexEnvelopeContracts.h
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -621,6 +622,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_3_DigitalExpansion.cpp
     src/tests/test_Phase20_11_4_AdvancedDigitalCampaigns.cpp
     src/tests/test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp
+    src/tests/test_Phase20_11_7_ComplexEnvelopes_T1.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
