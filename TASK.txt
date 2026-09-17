@@ -67,6 +67,14 @@
 - [COMPLETADO] T20.11.1-6: Generador de informe comparativo HTML MeasurementComparisonReportGenerator con SVG multi-serie, métricas consolidadas, lista de exclusiones justificadas y pares de equivalencia.
 - [COMPLETADO] T20.11.1-7: Panel interactivo principal MeasurementComparisonPanel y suite de pruebas Catch2 dedicada en test_Phase20_11_1_InteractiveViewerComparison.cpp (56/56 aserciones en verde, 0 fallos).
 
+[COMPLETADO] Fase 20.11.2: Robustez de Sesión, Accesibilidad y UX de Comparación.
+- [COMPLETADO] T20.11.2-1: Cancelación cooperativa, sessionGeneration monotónico, máquina de estados SessionShutdownState y drenado seguro de ThreadPoolJobs con weak_ptr y SharedSessionState desacoplado.
+- [COMPLETADO] T20.11.2-2: Contrato SessionResourceLimits, validación preventiva de tamaños (audio, manifest, JSON, curve points) y rechazo anticipado con resource_limit_exceeded.
+- [COMPLETADO] T20.11.2-3: Accesibilidad WCAG 2.4.7 y navegación por teclado en ListBox (flechas, Espacio, Enter, Delete sobre selección, anillo de foco cyan).
+- [COMPLETADO] T20.11.2-4: Virtualización segura y reciclaje sin fuga de estado de filas en MeasurementContainerListPanel.
+- [COMPLETADO] T20.11.2-5: Contrato ComparisonExclusionRecord reproducible con comparisonBasisHash simétrico y reglas deterministas en exportación HTML y JSON.
+- [COMPLETADO] T20.11.2-6: Suite de pruebas de estrés, robustez y regresión en test_Phase20_11_2_SessionRobustnessAndA11y.cpp (53/53 aserciones en verde, 0 fallos; suite global: 373/373 tests, 223.515 aserciones).
+
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
 - T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).

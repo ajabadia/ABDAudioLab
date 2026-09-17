@@ -1,6 +1,7 @@
 /**
  * @file MeasurementContainerListPanel.cpp
- * @brief Implementation of MeasurementContainerListPanel.
+ * @brief Implementation of MeasurementContainerListPanel with accessible keyboard navigation (WCAG 2.4.7),
+ *        focused item viewport tracking, and robust virtualized row recycling.
  * @author ABDSynths
  * @date 2026
  */
@@ -21,31 +22,39 @@ public:
         addAndMakeVisible(chkCompare_);
         addAndMakeVisible(btnAudioSource_);
         addAndMakeVisible(btnDelete_);
-
-        chkCompare_.onClick = [this]()
-        {
-            session_.setContainerSelectedForComparison(containerId_, chkCompare_.getToggleState());
-        };
-
-        btnAudioSource_.onClick = [this]()
-        {
-            session_.setActiveAudioContainerId(containerId_);
-        };
-
-        btnDelete_.onClick = [this]()
-        {
-            session_.removeContainer(containerId_);
-        };
     }
 
-    void update(const LoadedContainerEntry& entry, bool isActiveAudio)
+    /**
+     * @brief Completely overwrites the visual state and listeners for this row component,
+     *        ensuring clean virtualization without retaining state from previously represented rows.
+     */
+    void update(const LoadedContainerEntry& entry, bool isActiveAudio, bool isRowSelected)
     {
         containerId_ = entry.id;
         entry_ = entry;
+        isRowSelected_ = isRowSelected;
 
         const bool isVerified = (entry.loadState == ContainerLoadState::Verified);
         const bool isCorrupt = (entry.loadState == ContainerLoadState::Corrupt);
 
+        // 1. Rebind callbacks with exact captured containerId, completely replacing any prior listeners
+        const int capturedId = entry.id;
+        chkCompare_.onClick = [this, capturedId]()
+        {
+            session_.setContainerSelectedForComparison(capturedId, chkCompare_.getToggleState());
+        };
+
+        btnAudioSource_.onClick = [this, capturedId]()
+        {
+            session_.setActiveAudioContainerId(capturedId);
+        };
+
+        btnDelete_.onClick = [this, capturedId]()
+        {
+            session_.removeContainer(capturedId);
+        };
+
+        // 2. Refresh UI controls
         chkCompare_.setEnabled(isVerified);
         chkCompare_.setToggleState(entry.selectedForComparison && isVerified, juce::dontSendNotification);
 
@@ -63,22 +72,56 @@ public:
             btnAudioSource_.setTooltip("Seleccionar como fuente de audio");
         }
 
+        btnDelete_.setTooltip("Eliminar contenedor de la sesión");
+
+        repaint();
+    }
+
+    void resetToEmpty()
+    {
+        containerId_ = -1;
+        entry_ = LoadedContainerEntry();
+        isRowSelected_ = false;
+
+        chkCompare_.onClick = nullptr;
+        btnAudioSource_.onClick = nullptr;
+        btnDelete_.onClick = nullptr;
+
+        chkCompare_.setEnabled(false);
+        chkCompare_.setToggleState(false, juce::dontSendNotification);
+        btnAudioSource_.setEnabled(false);
+        btnAudioSource_.setButtonText("[Audio]");
+
         repaint();
     }
 
     void mouseDown(const juce::MouseEvent&) override
     {
-        if (onSelectCallback_)
+        if (onSelectCallback_ && containerId_ != -1)
             onSelectCallback_(containerId_);
     }
 
     void paint(juce::Graphics& g) override
     {
+        if (containerId_ == -1)
+            return;
+
         auto bounds = getLocalBounds().toFloat();
 
-        // Background
-        g.setColour(juce::Colour(0xff1e1e24));
-        g.fillRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f);
+        // Background with accessible focus highlight
+        if (isRowSelected_)
+        {
+            g.setColour(juce::Colour(0xff242430));
+            g.fillRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f);
+            // High-contrast WCAG focus indicator halo
+            g.setColour(juce::Colour(0xff00e5ff));
+            g.drawRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f, 2.0f);
+        }
+        else
+        {
+            g.setColour(juce::Colour(0xff1e1e24));
+            g.fillRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f);
+        }
 
         // Visual trace swatch (accessible pattern & marker)
         const float swatchX = 35.0f;
@@ -148,6 +191,11 @@ public:
             g.setColour(juce::Colour(0xffff5252));
             g.drawText("CORRUPT: " + entry_.diagnosticReason, 70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
         }
+        else if (entry_.loadState == ContainerLoadState::Rejected)
+        {
+            g.setColour(juce::Colour(0xffffab00));
+            g.drawText("REJECTED: " + entry_.diagnosticReason, 70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
+        }
         else if (entry_.viewModel != nullptr)
         {
             g.setColour(juce::Colour(0xffa0a0b0));
@@ -167,6 +215,8 @@ public:
             badgeCol = juce::Colour(0xff00c853); // Green
         else if (entry_.loadState == ContainerLoadState::Corrupt)
             badgeCol = juce::Colour(0xffd50000); // Red
+        else if (entry_.loadState == ContainerLoadState::Rejected)
+            badgeCol = juce::Colour(0xffff6d00); // Amber
         else if (entry_.loadState == ContainerLoadState::Loading)
             badgeCol = juce::Colour(0xff0091ea); // Blue
 
@@ -193,6 +243,7 @@ private:
     std::function<void(int)> onSelectCallback_;
     int containerId_ { -1 };
     LoadedContainerEntry entry_;
+    bool isRowSelected_ { false };
 
     juce::ToggleButton chkCompare_;
     juce::TextButton btnAudioSource_;
@@ -204,6 +255,8 @@ MeasurementContainerListPanel::MeasurementContainerListPanel(MeasurementComparis
     : session_(session)
 {
     session_.addListener(this);
+
+    setWantsKeyboardFocus(true);
 
     addAndMakeVisible(lblTitle_);
     lblTitle_.setFont(juce::FontOptions(15.0f));
@@ -229,6 +282,7 @@ MeasurementContainerListPanel::MeasurementContainerListPanel(MeasurementComparis
     listBox_.setModel(this);
     listBox_.setRowHeight(42);
     listBox_.setColour(juce::ListBox::backgroundColourId, juce::Colour(0xff141418));
+    listBox_.setWantsKeyboardFocus(true);
     addAndMakeVisible(listBox_);
 
     updateDomainFilterButtons();
@@ -281,19 +335,157 @@ void MeasurementContainerListPanel::paintListBoxItem(int, juce::Graphics&, int, 
 {
 }
 
-juce::Component* MeasurementContainerListPanel::refreshComponentForRow(int rowNumber, bool, juce::Component* existingComponentToUpdate)
+juce::Component* MeasurementContainerListPanel::refreshComponentForRow(int rowNumber,
+                                                                      bool isRowSelected,
+                                                                      juce::Component* existingComponentToUpdate)
 {
     auto* rowComp = dynamic_cast<ContainerRowComponent*>(existingComponentToUpdate);
     if (rowComp == nullptr)
-        rowComp = new ContainerRowComponent(session_, onContainerSelected);
+    {
+        rowComp = new ContainerRowComponent(session_, [this](int containerId)
+        {
+            for (size_t i = 0; i < cachedEntries_.size(); ++i)
+            {
+                if (cachedEntries_[i].id == containerId)
+                {
+                    listBox_.selectRow(static_cast<int>(i));
+                    break;
+                }
+            }
+            if (onContainerSelected)
+                onContainerSelected(containerId);
+        });
+    }
 
     if (rowNumber >= 0 && rowNumber < static_cast<int>(cachedEntries_.size()))
     {
         const auto& entry = cachedEntries_[static_cast<size_t>(rowNumber)];
         const bool isActiveAudio = (entry.id == session_.getActiveAudioContainerId());
-        rowComp->update(entry, isActiveAudio);
+        rowComp->update(entry, isActiveAudio, isRowSelected);
+    }
+    else
+    {
+        rowComp->resetToEmpty();
     }
     return rowComp;
+}
+
+void MeasurementContainerListPanel::selectedRowsChanged(int lastRowSelected)
+{
+    if (lastRowSelected >= 0 && lastRowSelected < static_cast<int>(cachedEntries_.size()))
+    {
+        if (onContainerSelected)
+            onContainerSelected(cachedEntries_[static_cast<size_t>(lastRowSelected)].id);
+    }
+    listBox_.repaint();
+}
+
+bool MeasurementContainerListPanel::keyPressed(const juce::KeyPress& key)
+{
+    const int totalRows = getNumRows();
+    const int currentSel = listBox_.getSelectedRow();
+
+    // 1. Up arrow: Navigate up
+    if (key.isKeyCode(juce::KeyPress::upKey))
+    {
+        if (currentSel > 0)
+        {
+            const int target = currentSel - 1;
+            listBox_.selectRow(target);
+            listBox_.scrollToEnsureRowIsOnscreen(target);
+            selectedRowsChanged(target);
+            return true;
+        }
+        else if (currentSel == -1 && totalRows > 0)
+        {
+            listBox_.selectRow(0);
+            listBox_.scrollToEnsureRowIsOnscreen(0);
+            selectedRowsChanged(0);
+            return true;
+        }
+        return true;
+    }
+
+    // 2. Down arrow: Navigate down
+    if (key.isKeyCode(juce::KeyPress::downKey))
+    {
+        if (currentSel < totalRows - 1)
+        {
+            const int target = (currentSel == -1) ? 0 : currentSel + 1;
+            listBox_.selectRow(target);
+            listBox_.scrollToEnsureRowIsOnscreen(target);
+            selectedRowsChanged(target);
+            return true;
+        }
+        return true;
+    }
+
+    // 3. Space: Toggle comparison for selected container (only if Verified)
+    if (key.isKeyCode(juce::KeyPress::spaceKey))
+    {
+        if (currentSel >= 0 && currentSel < static_cast<int>(cachedEntries_.size()))
+        {
+            const auto& entry = cachedEntries_[static_cast<size_t>(currentSel)];
+            if (entry.loadState == ContainerLoadState::Verified)
+            {
+                session_.setContainerSelectedForComparison(entry.id, !entry.selectedForComparison);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    // 4. Return / Enter: Activate verified audio for selected container
+    if (key.isKeyCode(juce::KeyPress::returnKey))
+    {
+        if (currentSel >= 0 && currentSel < static_cast<int>(cachedEntries_.size()))
+        {
+            const auto& entry = cachedEntries_[static_cast<size_t>(currentSel)];
+            if (entry.isPlayable())
+            {
+                session_.setActiveAudioContainerId(entry.id);
+                return true;
+            }
+        }
+        return true;
+    }
+
+    // 5. Delete: Delete SELECTED container (strictly NOT active audio if different, no-op if no selection)
+    if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
+    {
+        if (currentSel >= 0 && currentSel < static_cast<int>(cachedEntries_.size()))
+        {
+            const int targetId = cachedEntries_[static_cast<size_t>(currentSel)].id;
+            session_.removeContainer(targetId);
+
+            // Maintain safe focus on remaining items
+            const int remainingRows = getNumRows();
+            if (remainingRows > 0)
+            {
+                const int nextSel = std::min(currentSel, remainingRows - 1);
+                listBox_.selectRow(nextSel);
+                listBox_.scrollToEnsureRowIsOnscreen(nextSel);
+                selectedRowsChanged(nextSel);
+            }
+            return true;
+        }
+        // If nothing is selected, Delete does nothing!
+        return true;
+    }
+
+    return Component::keyPressed(key);
+}
+
+int MeasurementContainerListPanel::getSelectedRow() const
+{
+    return listBox_.getSelectedRow();
+}
+
+void MeasurementContainerListPanel::selectRow(int rowNumber)
+{
+    listBox_.selectRow(rowNumber);
+    listBox_.scrollToEnsureRowIsOnscreen(rowNumber);
+    selectedRowsChanged(rowNumber);
 }
 
 void MeasurementContainerListPanel::containerStateChanged(int, ContainerLoadState)
@@ -303,8 +495,15 @@ void MeasurementContainerListPanel::containerStateChanged(int, ContainerLoadStat
 
 void MeasurementContainerListPanel::containerListChanged()
 {
+    const int prevSel = listBox_.getSelectedRow();
     cachedEntries_ = session_.getFilteredContainers();
     listBox_.updateContent();
+
+    if (prevSel >= 0 && prevSel < static_cast<int>(cachedEntries_.size()))
+        listBox_.selectRow(prevSel);
+    else if (!cachedEntries_.empty() && prevSel >= static_cast<int>(cachedEntries_.size()))
+        listBox_.selectRow(static_cast<int>(cachedEntries_.size()) - 1);
+
     listBox_.repaint();
 }
 

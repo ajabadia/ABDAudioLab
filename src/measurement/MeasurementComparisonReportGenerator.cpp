@@ -175,7 +175,7 @@ juce::String MeasurementComparisonReportGenerator::generateReportHtml(const abda
     }
     ss << "</tbody></table>\n</div>\n";
 
-    // 4. Excluded / Corrupt Containers
+    // 4. Excluded / Corrupt Containers & Traceable Exclusion Records
     ss << "<div class=\"card\">\n<h2>Contenedores Excluidos de Comparación</h2>\n";
     std::vector<abdaudiolab::gui::measurement::LoadedContainerEntry> excluded;
     for (const auto& c : allContainers)
@@ -184,22 +184,45 @@ juce::String MeasurementComparisonReportGenerator::generateReportHtml(const abda
             excluded.push_back(c);
     }
 
-    if (excluded.empty())
+    const auto exclusionRecords = session.getExclusionRecords();
+
+    if (excluded.empty() && exclusionRecords.empty())
     {
         ss << "<p>Ningún contenedor fue excluido. Todos los elementos cargados cumplen los criterios metrológicos y de integridad.</p>\n";
     }
     else
     {
-        ss << "<table>\n<thead><tr><th>ID</th><th>Carpeta / Nombre</th><th>Estado</th><th>Motivo de Exclusión</th></tr></thead>\n<tbody>\n";
-        for (const auto& c : excluded)
+        if (!excluded.empty())
         {
-            ss << "<tr>\n<td>" << c.id << "</td>\n";
-            ss << "<td>" << c.containerDir.getFileName().toStdString() << "</td>\n";
-            std::string badgeClass = (c.loadState == abdaudiolab::gui::measurement::ContainerLoadState::Corrupt) ? "badge-corrupt" : "badge-excluded";
-            ss << "<td><span class=\"badge " << badgeClass << "\">" << abdaudiolab::gui::measurement::containerLoadStateToString(c.loadState).toStdString() << "</span></td>\n";
-            ss << "<td>" << (c.diagnosticReason.isNotEmpty() ? c.diagnosticReason.toStdString() : "Incompatible or unverified") << "</td>\n</tr>\n";
+            ss << "<table>\n<thead><tr><th>ID</th><th>Carpeta / Nombre</th><th>Estado</th><th>Motivo de Exclusión</th></tr></thead>\n<tbody>\n";
+            for (const auto& c : excluded)
+            {
+                ss << "<tr>\n<td>" << c.id << "</td>\n";
+                ss << "<td>" << c.containerDir.getFileName().toStdString() << "</td>\n";
+                std::string badgeClass = (c.loadState == abdaudiolab::gui::measurement::ContainerLoadState::Corrupt) ? "badge-corrupt" : "badge-excluded";
+                ss << "<td><span class=\"badge " << badgeClass << "\">" << abdaudiolab::gui::measurement::containerLoadStateToString(c.loadState).toStdString() << "</span></td>\n";
+                ss << "<td>" << (c.diagnosticReason.isNotEmpty() ? c.diagnosticReason.toStdString() : "Incompatible or unverified") << "</td>\n</tr>\n";
+            }
+            ss << "</tbody></table>\n";
         }
-        ss << "</tbody></table>\n";
+
+        if (!exclusionRecords.empty())
+        {
+            ss << "<h3 style=\"margin-top: 16px; color: #ffb74d;\">Exclusiones Deterministas Registradas (Reproducibles)</h3>\n";
+            ss << "<table>\n<thead><tr><th>Contenedor</th><th>Métrica</th><th>Código</th><th>Regla</th><th>Hash Base de Decisión</th><th>Diagnóstico</th></tr></thead>\n<tbody>\n";
+            for (const auto& rec : exclusionRecords)
+            {
+                ss << "<tr>\n";
+                ss << "<td>" << rec.containerId << "</td>\n";
+                ss << "<td>" << rec.metric << "</td>\n";
+                ss << "<td><code>" << rec.code << "</code></td>\n";
+                ss << "<td>" << rec.rulesVersion << "</td>\n";
+                ss << "<td class=\"sha\">" << rec.comparisonBasisHash.substr(0, 16) << "...</td>\n";
+                ss << "<td>" << rec.message << "</td>\n";
+                ss << "</tr>\n";
+            }
+            ss << "</tbody></table>\n";
+        }
     }
     ss << "</div>\n";
 

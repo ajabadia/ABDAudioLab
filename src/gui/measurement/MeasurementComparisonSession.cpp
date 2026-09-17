@@ -1,11 +1,13 @@
 /**
  * @file MeasurementComparisonSession.cpp
- * @brief Implementation of MeasurementComparisonSession.
+ * @brief Implementation of MeasurementComparisonSession with cooperative cancellation,
+ *        session generation monotonic tracking, preventive resource bounds, and safe lifecycle draining.
  * @author ABDSynths
  * @date 2026
  */
 
 #include "MeasurementComparisonSession.h"
+#include "../../synth/Sha256.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <algorithm>
 
@@ -23,16 +25,295 @@ static const std::vector<juce::Colour> kAccessibleColours = {
     juce::Colour(0xffb388ff)  // Lavender
 };
 
-MeasurementComparisonSession::MeasurementComparisonSession()
+std::string ComparisonExclusionRecord::computeBasisHash(const std::string& idOrLabelA,
+                                                        const std::string& idOrLabelB,
+                                                        const std::string& metricName,
+                                                        const std::string& unit,
+                                                        const std::string& domain,
+                                                        const std::string& rulesVer)
 {
-    threadPool_ = std::make_unique<juce::ThreadPool>(2);
+    std::string a = idOrLabelA;
+    std::string b = idOrLabelB;
+    if (a > b)
+        std::swap(a, b);
+
+    const std::string raw = rulesVer + "|" + a + "|" + b + "|" + metricName + "|" + unit + "|" + domain;
+    return abdaudiolab::synth::Sha256::computeHex(raw);
+}
+
+namespace
+{
+
+/**
+ * @brief Helper to evaluate resource quotas before reading files or allocating vectors.
+ */
+bool checkResourceLimitsPreLoad(const juce::File& containerDir,
+                                const SessionResourceLimits& limits,
+                                int currentContainerCount,
+                                juce::String& outError)
+{
+    if (currentContainerCount >= limits.maxContainers)
+    {
+        outError = "resource_limit_exceeded: maximum container count reached (" +
+                   juce::String(limits.maxContainers) + ")";
+        return false;
+    }
+
+    juce::File manifestFile = containerDir.getChildFile("manifest.json");
+    if (manifestFile.existsAsFile() && manifestFile.getSize() > limits.maxManifestBytes)
+    {
+        outError = "resource_limit_exceeded: manifest.json size (" +
+                   juce::String(manifestFile.getSize()) + " bytes) exceeds limit (" +
+                   juce::String(limits.maxManifestBytes) + " bytes)";
+        return false;
+    }
+
+    juce::Array<juce::File> jsonFiles;
+    containerDir.findChildFiles(jsonFiles, juce::File::findFiles, true, "*.json");
+    for (const auto& jf : jsonFiles)
+    {
+        if (jf.getSize() > limits.maxJsonBytes)
+        {
+            outError = "resource_limit_exceeded: JSON file " + jf.getFileName() + " (" +
+                       juce::String(jf.getSize()) + " bytes) exceeds limit (" +
+                       juce::String(limits.maxJsonBytes) + " bytes)";
+            return false;
+        }
+    }
+
+    juce::Array<juce::File> audioFiles;
+    containerDir.findChildFiles(audioFiles, juce::File::findFiles, true, "*.wav");
+    for (const auto& af : audioFiles)
+    {
+        if (af.getSize() > limits.maxAudioBytes)
+        {
+            outError = "resource_limit_exceeded: audio file " + af.getFileName() + " (" +
+                       juce::String(af.getSize()) + " bytes) exceeds limit (" +
+                       juce::String(limits.maxAudioBytes) + " bytes)";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * @brief Background job for loading and verifying FAIR measurement containers with cooperative checks.
+ */
+class ContainerLoadJob : public juce::ThreadPoolJob
+{
+public:
+    ContainerLoadJob(std::weak_ptr<SharedSessionState> weakState,
+                     uint64_t generation,
+                     juce::File containerDir,
+                     int assignedId,
+                     std::function<void(int, ContainerLoadState)> onComplete)
+        : juce::ThreadPoolJob("ContainerLoadJob_" + juce::String(assignedId)),
+          weakState_(std::move(weakState)),
+          generation_(generation),
+          containerDir_(std::move(containerDir)),
+          assignedId_(assignedId),
+          onComplete_(std::move(onComplete))
+    {
+    }
+
+    JobStatus runJob() override
+    {
+        auto isCancelled = [this]() -> bool
+        {
+            if (shouldExit())
+                return true;
+            auto state = weakState_.lock();
+            if (!state)
+                return true;
+            if (state->cancelToken.load() || state->shutdownState.load() != SessionShutdownState::Running)
+                return true;
+            return generation_ != state->sessionGeneration.load();
+        };
+
+        if (isCancelled())
+            return jobHasFinished;
+
+        auto state = weakState_.lock();
+        if (!state)
+            return jobHasFinished;
+
+        SessionResourceLimits limits;
+        int currentCount = 0;
+        {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            limits = state->resourceLimits;
+            currentCount = static_cast<int>(state->containers.size());
+        }
+
+        // 1. Preventive resource check prior to heavy disk or JSON operations
+        juce::String resourceDiag;
+        if (!checkResourceLimitsPreLoad(containerDir_, limits, currentCount, resourceDiag))
+        {
+            publishResult(ContainerLoadState::Rejected, resourceDiag, nullptr);
+            return jobHasFinished;
+        }
+
+        if (isCancelled())
+            return jobHasFinished;
+
+        // 2. Load model from container
+        MeasurementViewModel vm;
+        juce::String loadErr;
+        const bool loadOk = MeasurementViewModelLoader::loadFromContainer(containerDir_, vm, loadErr);
+
+        if (isCancelled())
+            return jobHasFinished;
+
+        ContainerLoadState finalState = ContainerLoadState::Failed;
+        juce::String diagnostic = loadErr;
+
+        if (loadOk)
+        {
+            // Evaluate curve points quota
+            const int pointCount = static_cast<int>(vm.curve.x.size());
+            if (pointCount > limits.maxCurvePoints)
+            {
+                finalState = ContainerLoadState::Rejected;
+                diagnostic = "resource_limit_exceeded: curve points (" + juce::String(pointCount) +
+                             ") exceeds maxCurvePoints (" + juce::String(limits.maxCurvePoints) + ")";
+                publishResult(finalState, diagnostic, nullptr);
+                return jobHasFinished;
+            }
+
+            if (isCancelled())
+                return jobHasFinished;
+
+            // 3. Cryptographic integrity verification against manifest.json
+            juce::String integrityDiag;
+            const bool integrityOk = MeasurementViewModelLoader::verifyContainerIntegrity(containerDir_, integrityDiag);
+
+            if (isCancelled())
+                return jobHasFinished;
+
+            if (integrityOk)
+            {
+                finalState = ContainerLoadState::Verified;
+                diagnostic = "All artifacts verified against manifest.";
+            }
+            else
+            {
+                finalState = ContainerLoadState::Corrupt;
+                diagnostic = integrityDiag.isNotEmpty() ? integrityDiag : "Integrity check failed.";
+            }
+        }
+        else
+        {
+            if (vm.integrityStatus == UiIntegrityStatus::Corrupt)
+                finalState = ContainerLoadState::Corrupt;
+            else
+                finalState = ContainerLoadState::Failed;
+        }
+
+        if (isCancelled())
+            return jobHasFinished;
+
+        auto vmPtr = std::make_shared<const MeasurementViewModel>(std::move(vm));
+        publishResult(finalState, diagnostic, vmPtr);
+        return jobHasFinished;
+    }
+
+private:
+    void publishResult(ContainerLoadState finalState,
+                       const juce::String& diagnostic,
+                       std::shared_ptr<const MeasurementViewModel> vmPtr)
+    {
+        auto weakState = weakState_;
+        const auto gen = generation_;
+        const auto assignedId = assignedId_;
+        auto onComplete = onComplete_;
+
+        juce::MessageManager::callAsync([weakState, gen, assignedId, finalState, diagnostic, vmPtr, onComplete]()
+        {
+            auto state = weakState.lock();
+            if (!state)
+                return;
+
+            // Strict triple-condition check to avoid stale callbacks
+            if (state->cancelToken.load() ||
+                state->shutdownState.load() != SessionShutdownState::Running ||
+                state->sessionGeneration.load() != gen)
+            {
+                return;
+            }
+
+            bool wasActivated = false;
+            {
+                std::lock_guard<std::mutex> lock(state->mutex);
+                for (auto& c : state->containers)
+                {
+                    if (c.id == assignedId)
+                    {
+                        c.loadState = finalState;
+                        c.diagnosticReason = diagnostic;
+                        c.viewModel = vmPtr;
+                        if (state->activeAudioContainerId == -1 && c.isPlayable())
+                        {
+                            state->activeAudioContainerId = assignedId;
+                            wasActivated = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (onComplete != nullptr)
+                onComplete(assignedId, finalState);
+        });
+    }
+
+    std::weak_ptr<SharedSessionState> weakState_;
+    uint64_t generation_;
+    juce::File containerDir_;
+    int assignedId_;
+    std::function<void(int, ContainerLoadState)> onComplete_;
+};
+
+} // namespace
+
+MeasurementComparisonSession::MeasurementComparisonSession()
+    : sharedState_(std::make_shared<SharedSessionState>()),
+      threadPool_(std::make_shared<juce::ThreadPool>(4))
+{
 }
 
 MeasurementComparisonSession::~MeasurementComparisonSession()
 {
-    cancelPendingLoads();
+    // Coordinated lifecycle teardown avoiding use-after-free
+    if (sharedState_ != nullptr)
+    {
+        sharedState_->shutdownState.store(SessionShutdownState::CancellationRequested);
+        sharedState_->cancelToken.store(true);
+        sharedState_->sessionGeneration.fetch_add(1);
+
+        sharedState_->shutdownState.store(SessionShutdownState::Draining);
+        notifyShutdownStateChanged(SessionShutdownState::Draining);
+    }
+
     if (threadPool_ != nullptr)
-        threadPool_->removeAllJobs(true, 4000);
+    {
+        const bool drained = threadPool_->removeAllJobs(true, 3000);
+        if (sharedState_ != nullptr)
+        {
+            if (drained)
+            {
+                sharedState_->shutdownState.store(SessionShutdownState::Drained);
+                notifyShutdownStateChanged(SessionShutdownState::Drained);
+            }
+            else
+            {
+                sharedState_->shutdownState.store(SessionShutdownState::DrainTimedOut);
+                notifyShutdownStateChanged(SessionShutdownState::DrainTimedOut);
+            }
+            sharedState_->shutdownState.store(SessionShutdownState::Destroyed);
+            notifyShutdownStateChanged(SessionShutdownState::Destroyed);
+        }
+    }
 }
 
 void MeasurementComparisonSession::addListener(Listener* listener)
@@ -57,17 +338,43 @@ int MeasurementComparisonSession::addContainerSync(const juce::File& containerDi
 {
     LoadedContainerEntry entry;
     int assignedId = 0;
+    SessionResourceLimits limits;
+    int currentCount = 0;
+
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        assignedId = nextContainerId_++;
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        limits = sharedState_->resourceLimits;
+        currentCount = static_cast<int>(sharedState_->containers.size());
+
+        assignedId = sharedState_->nextContainerId++;
         entry.id = assignedId;
         entry.containerDir = containerDir;
         entry.loadState = ContainerLoadState::Loading;
-        assignVisualStyling(entry, static_cast<int>(containers_.size()));
-        containers_.push_back(entry);
+        assignVisualStyling(entry, currentCount);
+        sharedState_->containers.push_back(entry);
     }
 
     notifyContainerListChanged();
+
+    // 1. Preventive resource check
+    juce::String resourceDiag;
+    if (!checkResourceLimitsPreLoad(containerDir, limits, currentCount, resourceDiag))
+    {
+        {
+            std::lock_guard<std::mutex> lock(sharedState_->mutex);
+            for (auto& c : sharedState_->containers)
+            {
+                if (c.id == assignedId)
+                {
+                    c.loadState = ContainerLoadState::Rejected;
+                    c.diagnosticReason = resourceDiag;
+                    break;
+                }
+            }
+        }
+        notifyContainerStateChanged(assignedId, ContainerLoadState::Rejected);
+        return assignedId;
+    }
 
     MeasurementViewModel vm;
     juce::String loadErr;
@@ -78,77 +385,14 @@ int MeasurementComparisonSession::addContainerSync(const juce::File& containerDi
 
     if (loadOk)
     {
-        juce::String integrityDiag;
-        const bool integrityOk = MeasurementViewModelLoader::verifyContainerIntegrity(containerDir, integrityDiag);
-        if (integrityOk)
+        const int pointCount = static_cast<int>(vm.curve.x.size());
+        if (pointCount > limits.maxCurvePoints)
         {
-            finalState = ContainerLoadState::Verified;
-            diagnostic = "All artifacts verified against manifest.";
+            finalState = ContainerLoadState::Rejected;
+            diagnostic = "resource_limit_exceeded: curve points (" + juce::String(pointCount) +
+                         ") exceeds maxCurvePoints (" + juce::String(limits.maxCurvePoints) + ")";
         }
         else
-        {
-            finalState = ContainerLoadState::Corrupt;
-            diagnostic = integrityDiag.isNotEmpty() ? integrityDiag : "Integrity check failed.";
-        }
-    }
-    else
-    {
-        if (vm.integrityStatus == UiIntegrityStatus::Corrupt)
-            finalState = ContainerLoadState::Corrupt;
-        else
-            finalState = ContainerLoadState::Failed;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        for (auto& c : containers_)
-        {
-            if (c.id == assignedId)
-            {
-                c.loadState = finalState;
-                c.diagnosticReason = diagnostic;
-                c.viewModel = std::make_shared<const MeasurementViewModel>(std::move(vm));
-                if (activeAudioContainerId_ == -1 && c.isPlayable())
-                    activeAudioContainerId_ = assignedId;
-                break;
-            }
-        }
-    }
-
-    notifyContainerStateChanged(assignedId, finalState);
-    return assignedId;
-}
-
-int MeasurementComparisonSession::addContainerAsync(const juce::File& containerDir,
-                                                    std::function<void(int, ContainerLoadState)> onComplete)
-{
-    LoadedContainerEntry entry;
-    int assignedId = 0;
-    {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        assignedId = nextContainerId_++;
-        entry.id = assignedId;
-        entry.containerDir = containerDir;
-        entry.loadState = ContainerLoadState::Loading;
-        assignVisualStyling(entry, static_cast<int>(containers_.size()));
-        containers_.push_back(entry);
-    }
-
-    notifyContainerListChanged();
-
-    threadPool_->addJob([this, containerDir, assignedId, onComplete]()
-    {
-        if (isCancelling_.load())
-            return;
-
-        MeasurementViewModel vm;
-        juce::String loadErr;
-        const bool loadOk = MeasurementViewModelLoader::loadFromContainer(containerDir, vm, loadErr);
-
-        ContainerLoadState finalState = ContainerLoadState::Failed;
-        juce::String diagnostic = loadErr;
-
-        if (loadOk)
         {
             juce::String integrityDiag;
             const bool integrityOk = MeasurementViewModelLoader::verifyContainerIntegrity(containerDir, integrityDiag);
@@ -163,59 +407,89 @@ int MeasurementComparisonSession::addContainerAsync(const juce::File& containerD
                 diagnostic = integrityDiag.isNotEmpty() ? integrityDiag : "Integrity check failed.";
             }
         }
+    }
+    else
+    {
+        if (vm.integrityStatus == UiIntegrityStatus::Corrupt)
+            finalState = ContainerLoadState::Corrupt;
         else
-        {
-            if (vm.integrityStatus == UiIntegrityStatus::Corrupt)
-                finalState = ContainerLoadState::Corrupt;
-            else
-                finalState = ContainerLoadState::Failed;
-        }
+            finalState = ContainerLoadState::Failed;
+    }
 
-        auto vmPtr = std::make_shared<const MeasurementViewModel>(std::move(vm));
-
-        juce::MessageManager::callAsync([this, assignedId, finalState, diagnostic, vmPtr, onComplete]()
+    bool wasActivated = false;
+    {
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        for (auto& c : sharedState_->containers)
         {
-            bool wasActivated = false;
+            if (c.id == assignedId)
             {
-                std::lock_guard<std::mutex> lock(sessionMutex_);
-                for (auto& c : containers_)
+                c.loadState = finalState;
+                c.diagnosticReason = diagnostic;
+                c.viewModel = std::make_shared<const MeasurementViewModel>(std::move(vm));
+                if (sharedState_->activeAudioContainerId == -1 && c.isPlayable())
                 {
-                    if (c.id == assignedId)
-                    {
-                        c.loadState = finalState;
-                        c.diagnosticReason = diagnostic;
-                        c.viewModel = vmPtr;
-                        if (activeAudioContainerId_ == -1 && c.isPlayable())
-                        {
-                            activeAudioContainerId_ = assignedId;
-                            wasActivated = true;
-                        }
-                        break;
-                    }
+                    sharedState_->activeAudioContainerId = assignedId;
+                    wasActivated = true;
                 }
+                break;
             }
+        }
+    }
 
-            notifyContainerStateChanged(assignedId, finalState);
-            if (wasActivated)
-                notifyActiveAudioSourceChanged(assignedId);
+    notifyContainerStateChanged(assignedId, finalState);
+    if (wasActivated)
+        notifyActiveAudioSourceChanged(assignedId);
 
+    return assignedId;
+}
+
+int MeasurementComparisonSession::addContainerAsync(const juce::File& containerDir,
+                                                    std::function<void(int, ContainerLoadState)> onComplete)
+{
+    LoadedContainerEntry entry;
+    int assignedId = 0;
+    uint64_t generation = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        generation = sharedState_->sessionGeneration.load();
+        assignedId = sharedState_->nextContainerId++;
+        entry.id = assignedId;
+        entry.containerDir = containerDir;
+        entry.loadState = ContainerLoadState::Loading;
+        assignVisualStyling(entry, static_cast<int>(sharedState_->containers.size()));
+        sharedState_->containers.push_back(entry);
+    }
+
+    notifyContainerListChanged();
+
+    auto job = std::make_unique<ContainerLoadJob>(
+        sharedState_,
+        generation,
+        containerDir,
+        assignedId,
+        [this, onComplete](int id, ContainerLoadState state)
+        {
+            notifyContainerStateChanged(id, state);
             if (onComplete != nullptr)
-                onComplete(assignedId, finalState);
+                onComplete(id, state);
         });
-    });
 
+    threadPool_->addJob(job.release(), true);
     return assignedId;
 }
 
 void MeasurementComparisonSession::cancelPendingLoads()
 {
-    isCancelling_.store(true);
+    sharedState_->cancelToken.store(true);
+    sharedState_->sessionGeneration.fetch_add(1);
+
     if (threadPool_ != nullptr)
         threadPool_->removeAllJobs(false, 1000);
 
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        for (auto& c : containers_)
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        for (auto& c : sharedState_->containers)
         {
             if (c.loadState == ContainerLoadState::Loading || c.loadState == ContainerLoadState::Pending)
             {
@@ -224,7 +498,8 @@ void MeasurementComparisonSession::cancelPendingLoads()
             }
         }
     }
-    isCancelling_.store(false);
+
+    sharedState_->cancelToken.store(false);
     notifyContainerListChanged();
 }
 
@@ -234,26 +509,25 @@ bool MeasurementComparisonSession::removeContainer(int containerId)
     bool activeAudioChanged = false;
 
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        auto it = std::remove_if(containers_.begin(), containers_.end(),
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        auto it = std::remove_if(sharedState_->containers.begin(), sharedState_->containers.end(),
                                  [containerId](const LoadedContainerEntry& e) { return e.id == containerId; });
-        if (it != containers_.end())
+        if (it != sharedState_->containers.end())
         {
-            containers_.erase(it, containers_.end());
+            sharedState_->containers.erase(it, sharedState_->containers.end());
             removed = true;
 
-            // Re-index visual styling
-            for (size_t i = 0; i < containers_.size(); ++i)
-                assignVisualStyling(containers_[i], static_cast<int>(i));
+            for (size_t i = 0; i < sharedState_->containers.size(); ++i)
+                assignVisualStyling(sharedState_->containers[i], static_cast<int>(i));
 
-            if (activeAudioContainerId_ == containerId)
+            if (sharedState_->activeAudioContainerId == containerId)
             {
-                activeAudioContainerId_ = -1;
-                for (const auto& c : containers_)
+                sharedState_->activeAudioContainerId = -1;
+                for (const auto& c : sharedState_->containers)
                 {
                     if (c.isPlayable())
                     {
-                        activeAudioContainerId_ = c.id;
+                        sharedState_->activeAudioContainerId = c.id;
                         break;
                     }
                 }
@@ -266,33 +540,43 @@ bool MeasurementComparisonSession::removeContainer(int containerId)
     {
         notifyContainerListChanged();
         if (activeAudioChanged)
-            notifyActiveAudioSourceChanged(activeAudioContainerId_);
+            notifyActiveAudioSourceChanged(sharedState_->activeAudioContainerId);
     }
+
     return removed;
 }
 
 void MeasurementComparisonSession::clear()
 {
-    cancelPendingLoads();
+    sharedState_->cancelToken.store(true);
+    sharedState_->sessionGeneration.fetch_add(1);
+
+    if (threadPool_ != nullptr)
+        threadPool_->removeAllJobs(false, 1000);
+
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        containers_.clear();
-        activeAudioContainerId_ = -1;
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        sharedState_->containers.clear();
+        sharedState_->exclusions.clear();
+        sharedState_->activeAudioContainerId = -1;
+        sharedState_->nextContainerId = 1;
     }
+
+    sharedState_->cancelToken.store(false);
     notifyContainerListChanged();
     notifyActiveAudioSourceChanged(-1);
 }
 
 int MeasurementComparisonSession::getContainerCount() const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    return static_cast<int>(containers_.size());
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    return static_cast<int>(sharedState_->containers.size());
 }
 
 std::optional<LoadedContainerEntry> MeasurementComparisonSession::getContainerById(int containerId) const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    for (const auto& c : containers_)
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    for (const auto& c : sharedState_->containers)
     {
         if (c.id == containerId)
             return c;
@@ -304,17 +588,21 @@ void MeasurementComparisonSession::setContainerSelectedForComparison(int contain
 {
     bool changed = false;
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        for (auto& c : containers_)
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        for (auto& c : sharedState_->containers)
         {
-            if (c.id == containerId && c.selectedForComparison != selected)
+            if (c.id == containerId)
             {
-                c.selectedForComparison = selected;
-                changed = true;
+                if (c.selectedForComparison != selected)
+                {
+                    c.selectedForComparison = selected;
+                    changed = true;
+                }
                 break;
             }
         }
     }
+
     if (changed)
         notifyContainerListChanged();
 }
@@ -322,47 +610,42 @@ void MeasurementComparisonSession::setContainerSelectedForComparison(int contain
 void MeasurementComparisonSession::setDomainFilter(std::optional<abdaudiolab::measurement::MeasurementExecutionDomain> filter)
 {
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
-        if (domainFilter_ == filter)
-            return;
-        domainFilter_ = filter;
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
+        sharedState_->domainFilter = filter;
     }
     notifyDomainFilterChanged();
 }
 
 std::optional<abdaudiolab::measurement::MeasurementExecutionDomain> MeasurementComparisonSession::getDomainFilter() const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    return domainFilter_;
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    return sharedState_->domainFilter;
 }
 
 int MeasurementComparisonSession::getActiveAudioContainerId() const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    return activeAudioContainerId_;
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    return sharedState_->activeAudioContainerId;
 }
 
 bool MeasurementComparisonSession::setActiveAudioContainerId(int containerId)
 {
     bool updated = false;
     {
-        std::lock_guard<std::mutex> lock(sessionMutex_);
+        std::lock_guard<std::mutex> lock(sharedState_->mutex);
         if (containerId == -1)
         {
-            activeAudioContainerId_ = -1;
+            sharedState_->activeAudioContainerId = -1;
             updated = true;
         }
         else
         {
-            for (const auto& c : containers_)
+            for (const auto& c : sharedState_->containers)
             {
-                if (c.id == containerId)
+                if (c.id == containerId && c.isPlayable())
                 {
-                    if (c.isPlayable())
-                    {
-                        activeAudioContainerId_ = containerId;
-                        updated = true;
-                    }
+                    sharedState_->activeAudioContainerId = containerId;
+                    updated = true;
                     break;
                 }
             }
@@ -370,41 +653,51 @@ bool MeasurementComparisonSession::setActiveAudioContainerId(int containerId)
     }
 
     if (updated)
-        notifyActiveAudioSourceChanged(activeAudioContainerId_);
+        notifyActiveAudioSourceChanged(containerId);
 
     return updated;
 }
 
 std::vector<LoadedContainerEntry> MeasurementComparisonSession::getFilteredContainers() const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    if (!domainFilter_.has_value())
-        return containers_;
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    if (!sharedState_->domainFilter.has_value())
+        return sharedState_->containers;
 
-    std::vector<LoadedContainerEntry> res;
-    for (const auto& c : containers_)
+    std::vector<LoadedContainerEntry> result;
+    for (const auto& c : sharedState_->containers)
     {
-        if (c.viewModel != nullptr && c.viewModel->executionDomain == *domainFilter_)
-            res.push_back(c);
-        else if (c.viewModel == nullptr)
-            res.push_back(c); // Always show pending/loading for user feedback
+        if (c.viewModel != nullptr)
+        {
+            if (c.viewModel->executionDomain == *sharedState_->domainFilter)
+                result.push_back(c);
+        }
+        else
+        {
+            result.push_back(c);
+        }
     }
-    return res;
+    return result;
 }
 
 std::vector<LoadedContainerEntry> MeasurementComparisonSession::getEligibleComparisonContainers() const
 {
-    std::lock_guard<std::mutex> lock(sessionMutex_);
-    std::vector<LoadedContainerEntry> res;
-    for (const auto& c : containers_)
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    std::vector<LoadedContainerEntry> result;
+    for (const auto& c : sharedState_->containers)
     {
-        if (c.isEligibleForComparison())
+        if (!c.isEligibleForComparison())
+            continue;
+
+        if (sharedState_->domainFilter.has_value() && c.viewModel != nullptr)
         {
-            if (!domainFilter_.has_value() || c.viewModel->executionDomain == *domainFilter_)
-                res.push_back(c);
+            if (c.viewModel->executionDomain != *sharedState_->domainFilter)
+                continue;
         }
+
+        result.push_back(c);
     }
-    return res;
+    return result;
 }
 
 bool MeasurementComparisonSession::areMeasurementBasesCompatible(const MeasurementViewModel& a,
@@ -479,7 +772,6 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
     res.containerLabelA = vmA.dutName.isNotEmpty() ? vmA.dutName : optA->containerDir.getFileName();
     res.containerLabelB = vmB.dutName.isNotEmpty() ? vmB.dutName : optB->containerDir.getFileName();
 
-    // Check plugin identity and binary
     if (vmA.pluginIdentity.has_value() && vmB.pluginIdentity.has_value())
     {
         res.pluginBinarySha256A = vmA.pluginIdentity->binarySha256;
@@ -494,11 +786,9 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
         }
     }
 
-    // Check audio delta and state fixity if available
-    res.stateSha256A = vmA.expectedAudioSha256; // fallback indicator
+    res.stateSha256A = vmA.expectedAudioSha256;
     res.stateSha256B = vmB.expectedAudioSha256;
 
-    // Evaluate curve delta
     if (vmA.curve.y.size() == vmB.curve.y.size() && !vmA.curve.y.empty())
     {
         double maxDelta = 0.0;
@@ -534,6 +824,40 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
     return res;
 }
 
+SessionShutdownState MeasurementComparisonSession::getShutdownState() const noexcept
+{
+    return sharedState_->shutdownState.load();
+}
+
+uint64_t MeasurementComparisonSession::getSessionGeneration() const noexcept
+{
+    return sharedState_->sessionGeneration.load();
+}
+
+SessionResourceLimits MeasurementComparisonSession::getResourceLimits() const
+{
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    return sharedState_->resourceLimits;
+}
+
+void MeasurementComparisonSession::setResourceLimits(const SessionResourceLimits& limits)
+{
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    sharedState_->resourceLimits = limits;
+}
+
+std::vector<ComparisonExclusionRecord> MeasurementComparisonSession::getExclusionRecords() const
+{
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    return sharedState_->exclusions;
+}
+
+void MeasurementComparisonSession::addExclusionRecord(const ComparisonExclusionRecord& rec)
+{
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    sharedState_->exclusions.push_back(rec);
+}
+
 void MeasurementComparisonSession::notifyContainerStateChanged(int containerId, ContainerLoadState newState)
 {
     listeners_.call(&Listener::containerStateChanged, containerId, newState);
@@ -552,6 +876,11 @@ void MeasurementComparisonSession::notifyActiveAudioSourceChanged(int activeCont
 void MeasurementComparisonSession::notifyDomainFilterChanged()
 {
     listeners_.call(&Listener::domainFilterChanged);
+}
+
+void MeasurementComparisonSession::notifyShutdownStateChanged(SessionShutdownState state)
+{
+    listeners_.call(&Listener::sessionShutdownStateChanged, state);
 }
 
 } // namespace abdaudiolab::gui::measurement
