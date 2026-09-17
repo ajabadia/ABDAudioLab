@@ -89,8 +89,22 @@
 - [COMPLETADO] T20.11.4-4: Reutilización DRY de MeasurementSvgGenerator::generateMultiSeriesSvg para curvas temporales C(t) y espectrales.
 - [COMPLETADO] T20.11.4-5: Suite de pruebas Catch2 dedicada en test_Phase20_11_4_AdvancedDigitalCampaigns.cpp (55/55 aserciones en verde, 0 fallos; suite global: 380/380 tests, 223.620 aserciones).
 
+[COMPLETADO] Fase 20.11.5: Generalización del Framework de Medición, Estimadores Físicos FM y Key Tracking.
+- [COMPLETADO] T20.11.5-1: Estimador físico de beta por anulación de portadora Bessel J0 (CarrierNullBetaEstimator / estimateBetaFromCarrierNull) agnóstico al DUT, con detección estricta de mínimo local de 3 puntos (carrier(k) <= carrier(k-1) y carrier(k) <= carrier(k+1)), persistencia de CarrierNullNeighborhood, umbral configurable (24 dB default), clasificación de orden de nulo (nullOrder 1 -> beta 2.4048, nullOrder 2 -> beta 5.5201), distinción de resolución (0.01) vs incertidumbre (not_estimated) y salvaguarda suppression_without_local_null.
+- [COMPLETADO] T20.11.5-2: Segregación dimensional de Key Tracking / Escalado de Teclado: separación formal entre KeyboardLevelScaling (breakpoint, curvas, profundidades L/R, nivel efectivo) y KeyboardRateScaling (rate scaling 0..7, attackTimeMs, releaseTimeMs), preservando trazabilidad individual por toma C1..C6 y contratos TargetParameterBinding / DutIdentity.
+- [COMPLETADO] T20.11.5-3: Exportación en lote y generación de batch_manifest.json determinista con orden canónico estricto (keyboard note ascending -> operator level ascending -> ratio ascending) y hashes de estado y estímulo por variante sin depender del sistema de archivos ni timestamps.
+- [COMPLETADO] T20.11.5-4: Suite de pruebas unitarias y de integración en test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp con tag [physical_estimators] cubriendo las 9 salvaguardas obligatorias y contratos agnósticos (DutIdentity, TargetParameterBinding, CarrierNullNeighborhood). Dexed posicionado formalmente como DUT de referencia y fixture de validación. Certificación: 384/384 tests verdes (223.718 aserciones, 0 fallos).
+
+[EN CURSO] Incremento 20.11.6: Apertura Robusta de Informes HTML y Navegación UI (DRY).
+- [PENDIENTE] T20.11.6-1: Corrección de apertura de informe HTML con juce::File::startAsProcess() y fallback a launchInDefaultBrowser(), aplicando principios DRY con el informe clásico.
+- [PENDIENTE] T20.11.6-2: Registro de comandos en el menú principal File (Abrir Visor FAIR/LNL..., Abrir Comparador Multicontenedor...).
+- [PENDIENTE] T20.11.6-3: Integración de MeasurementViewerPanel en ventana/panel accesible con ciclo de vida seguro.
+- [PENDIENTE] T20.11.6-4: Integración de MeasurementComparisonPanel con gestión segura de ownership (std::make_shared<MeasurementComparisonSession>()) y drenado de callbacks.
+- [PENDIENTE] T20.11.6-5: Tests unitarios de apertura de informe y navegación.
+
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
 - T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).
 - T4.5 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
+
 

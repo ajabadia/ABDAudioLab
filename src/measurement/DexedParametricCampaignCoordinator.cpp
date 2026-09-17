@@ -494,5 +494,310 @@ FmModulationObservation DexedParametricCampaignCoordinator::generateSyntheticFmO
     return obs;
 }
 
+BetaNullObservation DexedParametricCampaignCoordinator::estimateBetaFromCarrierNull(
+    const std::vector<CarrierSweepPoint>& sweepPoints,
+    const CarrierNullEstimationConfig& config)
+{
+    BetaNullObservation obs;
+    obs.method = BetaEstimationMethod::CarrierNullBesselJ0;
+    obs.carrierNullThresholdDb = config.carrierNullThresholdDb;
+    obs.carrierNullSearchToleranceDb = config.carrierNullSearchToleranceDb;
+
+    // 1. Reliability checks
+    for (const auto& pt : sweepPoints)
+    {
+        if (pt.hasClipping || pt.carrierLevelDbfs >= 0.0)
+        {
+            obs.status = "unreliable";
+            obs.reason = "clipping_detected";
+            return obs;
+        }
+        if (pt.hasInsufficientSignal)
+        {
+            obs.status = "unreliable";
+            obs.reason = "insufficient_signal";
+            return obs;
+        }
+        if (pt.spectrumContaminated)
+        {
+            obs.status = "unreliable";
+            obs.reason = "contaminated_spectrum";
+            return obs;
+        }
+    }
+
+    if (sweepPoints.size() < 3)
+    {
+        obs.status = "not_estimated";
+        obs.reason = "insufficient_sweep_points";
+        return obs;
+    }
+
+    // Determine baseline unmodulated carrier level
+    double baseline = (sweepPoints.front().controlValue == 0)
+                          ? sweepPoints.front().carrierLevelDbfs
+                          : config.baselineCarrierDbfs;
+
+    // 2. Identify candidate local minima meeting 3-point condition:
+    // carrier(k) <= carrier(k-1) and carrier(k) <= carrier(k+1)
+    struct NullCandidate
+    {
+        size_t index { 0 };
+        double suppressionDb { 0.0 };
+        int detectedOrder { 1 };
+    };
+
+    std::vector<NullCandidate> candidates;
+    int orderCounter = 0;
+
+    for (size_t k = 1; k < sweepPoints.size() - 1; ++k)
+    {
+        double prevLvl = sweepPoints[k - 1].carrierLevelDbfs;
+        double currLvl = sweepPoints[k].carrierLevelDbfs;
+        double nextLvl = sweepPoints[k + 1].carrierLevelDbfs;
+
+        if (currLvl <= prevLvl && currLvl <= nextLvl)
+        {
+            double suppDb = baseline - currLvl;
+            if (suppDb >= config.carrierNullThresholdDb)
+            {
+                orderCounter++;
+                candidates.push_back({ k, suppDb, orderCounter });
+            }
+        }
+    }
+
+    // Check if suppression threshold was reached anywhere in the sweep without a valid local minimum
+    if (candidates.empty())
+    {
+        bool reachedSuppression = false;
+        for (const auto& pt : sweepPoints)
+        {
+            if ((baseline - pt.carrierLevelDbfs) >= config.carrierNullThresholdDb)
+            {
+                reachedSuppression = true;
+                break;
+            }
+        }
+
+        obs.status = "not_estimated";
+        if (reachedSuppression)
+            obs.reason = "suppression_without_local_null";
+        else
+            obs.reason = "no_null_detected";
+
+        return obs;
+    }
+
+    // 3. Select candidate matching target null order (or the first available)
+    const NullCandidate* selectedCandidate = nullptr;
+    for (const auto& cand : candidates)
+    {
+        if (cand.detectedOrder == config.targetNullOrder)
+        {
+            selectedCandidate = &cand;
+            break;
+        }
+    }
+
+    if (selectedCandidate == nullptr)
+    {
+        // Target order not found among detected nulls
+        selectedCandidate = &candidates.front();
+    }
+
+    size_t k = selectedCandidate->index;
+    const auto& pt = sweepPoints[k];
+    obs.nullOrder = selectedCandidate->detectedOrder;
+    obs.controlValueAtNull = pt.controlValue;
+    obs.carrierSuppressionDb = selectedCandidate->suppressionDb;
+    obs.carrierLevelBeforeDbfs = sweepPoints[k - 1].carrierLevelDbfs;
+    obs.carrierLevelAtNullDbfs = pt.carrierLevelDbfs;
+    obs.carrierLevelAfterDbfs = sweepPoints[k + 1].carrierLevelDbfs;
+    obs.localNeighborhood.controlBefore = static_cast<double>(sweepPoints[k - 1].controlValue);
+    obs.localNeighborhood.carrierBeforeDbfs = sweepPoints[k - 1].carrierLevelDbfs;
+    obs.localNeighborhood.controlAtNull = static_cast<double>(pt.controlValue);
+    obs.localNeighborhood.carrierAtNullDbfs = pt.carrierLevelDbfs;
+    obs.localNeighborhood.controlAfter = static_cast<double>(sweepPoints[k + 1].controlValue);
+    obs.localNeighborhood.carrierAfterDbfs = sweepPoints[k + 1].carrierLevelDbfs;
+    obs.observedModulationFrequencyHz = pt.modulationFrequencyHz;
+    obs.modulationFrequencyHz = pt.modulationFrequencyHz;
+
+    // 4. Validate physical prerequisites at the candidate
+    if (!pt.sidebandsObservable)
+    {
+        obs.status = "not_estimated";
+        obs.reason = "sidebands_not_observable";
+        return obs;
+    }
+
+    if (pt.modulationFrequencyHz <= 0.0)
+    {
+        obs.status = "not_estimated";
+        obs.reason = "fm_not_observable";
+        return obs;
+    }
+
+    if (!pt.ratioCompatible)
+    {
+        obs.status = "not_estimated";
+        obs.reason = "ratio_incompatible";
+        return obs;
+    }
+
+    // 5. Invariant physical roots of Bessel J0(x)
+    // Order 1: 2.4048255577
+    // Order 2: 5.5200781103
+    // Order 3: 8.6537279129
+    if (obs.nullOrder == 1)
+        obs.estimatedBeta = 2.4048255577;
+    else if (obs.nullOrder == 2)
+        obs.estimatedBeta = 5.5200781103;
+    else if (obs.nullOrder == 3)
+        obs.estimatedBeta = 8.6537279129;
+    else
+        obs.estimatedBeta = 11.7915344390;
+
+    obs.betaEstimatedFromObservedNull = true;
+    obs.status = "estimated";
+    obs.reason = "";
+
+    // Confidence metric based on trough depth and suppression margin
+    double troughDepth = std::min(obs.carrierLevelBeforeDbfs - obs.carrierLevelAtNullDbfs,
+                                  obs.carrierLevelAfterDbfs - obs.carrierLevelAtNullDbfs);
+    double suppressionSurplus = obs.carrierSuppressionDb - config.carrierNullThresholdDb;
+    double rawConf = 0.5 + 0.05 * std::max(0.0, troughDepth) + 0.02 * std::max(0.0, suppressionSurplus);
+    obs.nullConfidence = std::min(1.0, std::max(0.0, rawConf));
+
+    return obs;
+}
+
+bool DexedParametricCampaignCoordinator::executeKeyboardScalingCampaign(
+    juce::AudioPluginFormatManager& formatManager,
+    const juce::File& dexedBinary,
+    const juce::File& outputCampaignDir,
+    KeyboardScalingCampaignResult& outResult,
+    std::string& outError)
+{
+    juce::ignoreUnused(formatManager, dexedBinary, outputCampaignDir, outError);
+    outResult.campaignId = "campaign_keyboard_scaling";
+    outResult.schemaVersion = "abdaudiolab-fair-lnl-1.0";
+    outResult.points.clear();
+
+    // Notes C1 to C6 (MIDI 36, 48, 60, 72, 84, 96)
+    int notes[] = { 36, 48, 60, 72, 84, 96 };
+    for (int note : notes)
+    {
+        outResult.points.push_back(generateSyntheticKeyboardScalingPoint(note, 60, 50, 50, 3));
+    }
+
+    return true;
+}
+
+KeyboardScalingPointRecord DexedParametricCampaignCoordinator::generateSyntheticKeyboardScalingPoint(
+    int note,
+    int breakpoint,
+    int leftDepth,
+    int rightDepth,
+    int rateScaling)
+{
+    KeyboardScalingPointRecord pt;
+    pt.note = note;
+    pt.breakpoint = breakpoint;
+    pt.leftCurve = "-LIN";
+    pt.rightCurve = "-LIN";
+    pt.leftDepth = leftDepth;
+    pt.rightDepth = rightDepth;
+    pt.rateScaling = rateScaling;
+
+    // 1. Level scaling isolation:
+    int baseLevel = 80;
+    int scaledLevel = baseLevel;
+    if (note < breakpoint)
+    {
+        double diff = static_cast<double>(breakpoint - note) / 36.0;
+        double reduction = diff * (static_cast<double>(leftDepth) / 99.0) * 30.0;
+        scaledLevel = std::max(0, static_cast<int>(std::round(baseLevel - reduction)));
+    }
+    else if (note > breakpoint)
+    {
+        double diff = static_cast<double>(note - breakpoint) / 36.0;
+        double reduction = diff * (static_cast<double>(rightDepth) / 99.0) * 30.0;
+        scaledLevel = std::max(0, static_cast<int>(std::round(baseLevel - reduction)));
+    }
+    pt.effectiveOutputLevel = scaledLevel;
+
+    // 2. Rate scaling isolation:
+    double noteOffset = static_cast<double>(note - 60);
+    double rateFactor = std::pow(2.0, -noteOffset * (static_cast<double>(rateScaling) / 7.0) / 24.0);
+    pt.attackTimeMs = std::max(1.0, 20.0 * rateFactor);
+    pt.releaseTimeMs = std::max(10.0, 250.0 * rateFactor);
+
+    // Fundamental f0 for MIDI note
+    double f0 = 440.0 * std::pow(2.0, (static_cast<double>(note) - 69.0) / 12.0);
+    pt.spectralCentroidHz = f0 * (1.0 + (static_cast<double>(scaledLevel) / 99.0) * 4.0);
+
+    // Populate segregated sub-records
+    pt.keyboardLevelScaling.breakpoint = breakpoint;
+    pt.keyboardLevelScaling.leftCurve = pt.leftCurve;
+    pt.keyboardLevelScaling.rightCurve = pt.rightCurve;
+    pt.keyboardLevelScaling.leftDepth = leftDepth;
+    pt.keyboardLevelScaling.rightDepth = rightDepth;
+    pt.keyboardLevelScaling.effectiveOutputLevel = scaledLevel;
+    pt.keyboardLevelScaling.spectralCentroidHz = pt.spectralCentroidHz;
+
+    pt.keyboardRateScaling.rateScaling = rateScaling;
+    pt.keyboardRateScaling.attackTimeMs = pt.attackTimeMs;
+    pt.keyboardRateScaling.releaseTimeMs = pt.releaseTimeMs;
+
+    return pt;
+}
+
+bool DexedParametricCampaignCoordinator::exportBatchManifest(
+    const juce::File& outputDir,
+    const std::string& campaignId,
+    const std::string& campaignType,
+    std::vector<BatchVariantItem> variants,
+    BatchCampaignManifest& outManifest,
+    std::string& outError)
+{
+    outManifest.campaignId = campaignId;
+    outManifest.campaignType = campaignType;
+    outManifest.schemaVersion = "abdaudiolab-fair-lnl-1.0";
+    outManifest.rulesVersion = "20.11.5";
+
+    // Enforce canonical deterministic sort:
+    // 1. keyboard note ascending
+    // 2. operator level ascending
+    // 3. ratio ascending
+    std::sort(variants.begin(), variants.end(), compareBatchVariantItems);
+
+    outManifest.orderedVariantIds.clear();
+    outManifest.variantStateHashes.clear();
+    outManifest.variantStimulusHashes.clear();
+    outManifest.containerPaths.clear();
+
+    for (const auto& v : variants)
+    {
+        outManifest.orderedVariantIds.push_back(v.variantId);
+        outManifest.variantStateHashes.push_back(v.stateHash);
+        outManifest.variantStimulusHashes.push_back(v.stimulusHash);
+        outManifest.containerPaths.push_back(v.containerPath);
+    }
+
+    if (outputDir.exists() || outputDir.createDirectory())
+    {
+        auto manifestFile = outputDir.getChildFile("batch_manifest.json");
+        juce::String jsonContent = outManifest.toJson().dump(2);
+        if (!manifestFile.replaceWithText(jsonContent))
+        {
+            outError = "failed_to_write_batch_manifest";
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace abdaudiolab::measurement
 

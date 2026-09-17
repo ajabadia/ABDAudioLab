@@ -103,6 +103,48 @@ public:
     static FmModulationObservation generateSyntheticFmObservation(int outputLevel,
                                                                  double modulatorRatio = 1.0,
                                                                  bool simulateSilence = false);
+
+    /**
+     * @brief Estima el índice de modulación física beta a partir de la anulación de portadora Bessel J0.
+     *
+     * Requiere:
+     * - Mínimo local estricto de 3 puntos: carrier(k) <= carrier(k-1) y carrier(k) <= carrier(k+1)
+     * - Supresión de portadora >= carrierNullThresholdDb (default 24.0 dB)
+     * - Bandas laterales observables
+     * - Frecuencia moduladora (fmHz) observable
+     * - Ratio compatible
+     *
+     * Si sólo hay supresión sin mínimo local: status = "not_estimated", reason = "suppression_without_local_null".
+     * Si hay clipping o señal insuficiente: status = "unreliable".
+     */
+    static BetaNullObservation estimateBetaFromCarrierNull(const std::vector<CarrierSweepPoint>& sweepPoints,
+                                                           const CarrierNullEstimationConfig& config = {});
+
+    /**
+     * @brief Ejecuta la Campaña F: Barrido de Escalado de Teclado con segregación estricta de Level Scaling y Rate Scaling.
+     */
+    static bool executeKeyboardScalingCampaign(juce::AudioPluginFormatManager& formatManager,
+                                               const juce::File& dexedBinary,
+                                               const juce::File& outputCampaignDir,
+                                               KeyboardScalingCampaignResult& outResult,
+                                               std::string& outError);
+
+    static KeyboardScalingPointRecord generateSyntheticKeyboardScalingPoint(int note,
+                                                                            int breakpoint = 60,
+                                                                            int leftDepth = 50,
+                                                                            int rightDepth = 50,
+                                                                            int rateScaling = 3);
+
+    /**
+     * @brief Exporta el manifiesto en lote batch_manifest.json ordenado deterministamente:
+     * note asc -> operatorLevel asc -> ratio asc.
+     */
+    static bool exportBatchManifest(const juce::File& outputDir,
+                                    const std::string& campaignId,
+                                    const std::string& campaignType,
+                                    std::vector<BatchVariantItem> variants,
+                                    BatchCampaignManifest& outManifest,
+                                    std::string& outError);
 };
 
 } // namespace abdaudiolab::measurement

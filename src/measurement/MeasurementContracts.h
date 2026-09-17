@@ -399,6 +399,15 @@ struct DutIdentity
     std::string format;
     std::string version;
     std::string type; /**< "instrument", "audioEffect", "hardwareAudioInOut" */
+
+    std::string dutType { "vst3" };       /**< vst3, hardware_synth, effect, module */
+    std::string vendor;
+    std::string model;
+    std::string instanceId;
+    std::string binarySha256;             /**< Optional host/binary hash */
+    std::string firmwareSha256;           /**< Optional firmware hash for hardware DUTs */
+    std::string stateSha256;              /**< Canonical state fixity hash */
+    std::string interfaceId;
 };
 
 /**
