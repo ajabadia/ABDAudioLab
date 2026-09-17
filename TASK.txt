@@ -39,7 +39,7 @@
 - Carga reactiva en MeasurementViewModelLoader y visor MeasurementViewerPanel.
 - Suite de pruebas completa: 347/347 test cases pasados, 160.025 aserciones superadas con 0 fallos.
 
-[EN PROGRESO] Fase 20.11: Integración de Hosting VST3 Real (Dexed.vst3) y Soporte de Hardware Analógico en vivo.
+[COMPLETADO] Fase 20.11: Integración de Hosting VST3 Real (Dexed.vst3), Loopback Puro y Exportación FAIR/LNL.
 - [COMPLETADO] T1: Contratos Metrológicos y Segregación de 4 Dominios (Vst3OfflineDigital, Vst3Realtime, DigitalHardwareRoundtrip, CombinedDutAndChain), PluginIdentity, AnalogChainCalibrationRecord y función isDomainConsistent(...) en contratos, serialización RFC 8785, manifest.json y reportes HTML.
 - [COMPLETADO] T2.1 & T2.2: Host VST3 in-process resiliente en ExternalPluginFixture, introspección formal de factory por Class IDs/CID, enumeración de buses y catálogo reproducible de parámetros sin conteo rígido (parameterCount > 0 verificado contra Dexed.vst3 real).
 - [COMPLETADO] T2.3 & T2.4: Fixture controlado ControlledPresetFixture con fixity SHA-256, round-trip determinista de estado binario (getState/setState) y render offline bloque a bloque en Vst3OfflineDigital con verificación estricta de reproducibilidad idéntica bit a bit y telemetría de reloj (underruns/overruns = 0).
@@ -48,10 +48,15 @@
   * [COMPLETADO] T3.2: Inyección de estado y automatización con orden estricto de ciclo de vida (prepare -> resetState -> loadState -> verifyState -> render) y soporte de secuencias con canonicalEvents de byte exacto y loadSysEx en ExternalPluginFixture.
   * [COMPLETADO] T3.3: Captura de audio y telemetría de sesión CaptureArtifactMetadata con timestamps ISO 8601 UTC, hashes SHA-256 (audio, midi, sysex, state), métricas de reloj, underruns y overruns.
   * [COMPLETADO] T3.4: Suite de pruebas integrada en test_CaptureAutomationAndFair_T3.cpp verificando ciclo de vida, prevención de fugas de audio espurio ante fallos de verificación de estado, inyección SysEx y reproducibilidad bit-exacta. Certificación: 361/361 tests verdes (169.159 aserciones, 0 fallos).
-- [EN PROGRESO] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
+- [COMPLETADO] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
   * [COMPLETADO] T4.1: Contratos de calibración LoopbackCalibrationRecord (latencia total de ida y vuelta round-trip sin desagregación especulativa), segregación estricta de artefactos en 3 capas (loopback_reference, dut_plus_chain, compensated_result) con CompensatedResponseMetadata, y clase LoopbackCalibrator con síntesis de estímulo log-sweep y análisis metrológico. Certificación: 365/365 tests verdes (223.190 aserciones, 0 fallos).
-  * [COMPLETADO] T4.2: Medición de loopback puro (DAC -> cable de referencia -> ADC) en PhysicalLoopbackCoordinator y exportador FAIR LoopbackContainerExporter (specs, audio, results, reports, manifest.json con SHA-256).
-- [PENDIENTE] T5: Prueba Vertical de Integración y Exportación FAIR de Dexed.vst3.
+  * [COMPLETADO] T4.2: Medición de loopback puro (DAC -> cable de referencia -> ADC) en PhysicalLoopbackCoordinator y exportador FAIR LoopbackContainerExporter (specs, audio, results, reports, manifest.json con SHA-256). Certificación: 370/370 tests verdes (223.298 aserciones, 0 fallos).
+- [COMPLETADO] T5: Prueba Vertical de Integración y Exportación FAIR/LNL de Dexed.vst3.
+  * [COMPLETADO] T5.1: Fixture vertical Dexed real (Dexed_Controlled_Init con fixity SHA-256 verificada, C4, velocityGrid [32, 64, 96, 127], dominio Vst3OfflineDigital).
+  * [COMPLETADO] T5.2: Campaña de medición con ciclo estricto (prepare -> resetState -> setState -> verifyState -> render -> análisis dinámico y modulación).
+  * [COMPLETADO] T5.3: Empaquetador DexedVerticalContainerExporter con 12 artefactos obligatorios según schema abdaudiolab-fair-lnl-1.0 y manifest.json RFC 8785.
+  * [COMPLETADO] T5.4: Integración UI en MeasurementViewModelLoader (soporte dexed_reference.wav y verificación criptográfica anti-tampering).
+  * [COMPLETADO] T5.5: Suite de pruebas unitarias y E2E en test_Phase20_11_VerticalDexedAndFair_T5.cpp con 10 escenarios específicos. Certificación: 371/371 tests verdes (223.406 aserciones, 0 fallos).
 
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.

@@ -8,6 +8,7 @@
 #include "MeasurementViewModelLoader.h"
 #include "../../measurement/MeasurementSerialization.h"
 #include "../../core/ExperimentStorage.h"
+#include "../../synth/Sha256.h"
 #include <nlohmann/json.hpp>
 
 namespace abdaudiolab::gui::measurement
@@ -33,6 +34,8 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     juce::File audioFile = containerDir.getChildFile("audio/envelope_reference.wav");
     if (!audioFile.existsAsFile())
         audioFile = containerDir.getChildFile("audio/modulation_reference.wav");
+    if (!audioFile.existsAsFile())
+        audioFile = containerDir.getChildFile("audio/dexed_reference.wav");
     if (!audioFile.existsAsFile())
         audioFile = containerDir.getChildFile("audio/audio_captured.wav");
 
@@ -96,7 +99,7 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
                     outModel.expectedStimulusAudioSha256 = juce::String(sha);
                 else if (role == "measurement_impulse_response")
                     outModel.expectedImpulseResponseSha256 = juce::String(sha);
-                else if (role == "measurement_captured_audio" || role == "measurement_baseline_audio")
+                else if (role == "measurement_captured_audio" || role == "measurement_baseline_audio" || role == "audio_reference")
                 {
                     if (outModel.expectedAudioSha256.isEmpty())
                         outModel.expectedAudioSha256 = juce::String(sha);
@@ -222,18 +225,59 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
 bool MeasurementViewModelLoader::verifyContainerIntegrity(const juce::File& containerDir,
                                                           juce::String& outDiagnostic)
 {
-    core::ExperimentFolderReader reader;
-    if (!reader.canRead(containerDir))
+    juce::File manifestFile = containerDir.getChildFile("manifest.json");
+    if (!manifestFile.existsAsFile())
     {
-        outDiagnostic = "Directory lacks experiment.json or manifest.json required for verification";
+        outDiagnostic = "Directory lacks manifest.json required for verification: " + containerDir.getFullPathName();
         return false;
     }
 
-    juce::String readErr;
-    auto recordOpt = reader.read(containerDir, readErr);
-    if (!recordOpt.has_value() || recordOpt->status == core::ExperimentStatus::Corrupt)
+    try
     {
-        outDiagnostic = readErr.isNotEmpty() ? readErr : "Integrity verification failed (Corrupt status)";
+        auto manifestJson = nlohmann::json::parse(manifestFile.loadFileAsString().toStdString());
+        if (!manifestJson.contains("artifacts") || !manifestJson["artifacts"].is_array())
+        {
+            outDiagnostic = "Manifest does not contain an artifacts array";
+            return false;
+        }
+
+        for (const auto& a : manifestJson["artifacts"])
+        {
+            std::string relPath = a.value("path", "");
+            std::string declaredSha = a.value("sha256", "");
+            if (relPath.empty() || declaredSha.empty())
+            {
+                outDiagnostic = "Malformed artifact entry in manifest";
+                return false;
+            }
+
+            juce::File artFile = containerDir.getChildFile(relPath);
+            if (!artFile.existsAsFile())
+            {
+                outDiagnostic = "Missing required artifact on disk: " + juce::String(relPath);
+                return false;
+            }
+
+            juce::MemoryBlock mb;
+            if (!artFile.loadFileAsData(mb))
+            {
+                outDiagnostic = "Failed to read artifact: " + juce::String(relPath);
+                return false;
+            }
+
+            std::string actualSha = abdaudiolab::synth::Sha256::computeHex(mb.getData(), mb.getSize());
+            if (actualSha != declaredSha)
+            {
+                outDiagnostic = "Cryptographic mismatch for " + juce::String(relPath) +
+                                ": declared=" + juce::String(declaredSha) +
+                                ", actual=" + juce::String(actualSha);
+                return false;
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        outDiagnostic = "Corrupt manifest.json: " + juce::String(e.what());
         return false;
     }
 
