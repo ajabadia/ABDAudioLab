@@ -245,6 +245,10 @@ target_sources(ABDAudioLab
         src/measurement/MeasurementStimulusCoordinator.cpp
         src/measurement/MeasurementCaptureCoordinator.h
         src/measurement/MeasurementCaptureCoordinator.cpp
+        src/measurement/LoopbackCalibrator.h
+        src/measurement/LoopbackCalibrator.cpp
+        src/measurement/PhysicalLoopbackAdapter.h
+        src/measurement/PhysicalLoopbackAdapter.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -580,6 +584,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Vst3DexedRealHosting_T2.cpp
     src/tests/test_MidiAndSysExContracts_T3.cpp
     src/tests/test_CaptureAutomationAndFair_T3.cpp
+    src/tests/test_LoopbackCalibration_T4.cpp
+    src/tests/test_PhysicalLoopback_T4_2.cpp
     src/tests/test_MeasurementContracts.cpp
     src/tests/test_DynamicsAndModulationContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
@@ -597,6 +603,8 @@ add_executable(ABDAudioLab_Tests
     src/measurement/MeasurementSerialization.cpp
     src/measurement/MeasurementStimulusCoordinator.cpp
     src/measurement/MeasurementCaptureCoordinator.cpp
+    src/measurement/LoopbackCalibrator.cpp
+    src/measurement/PhysicalLoopbackAdapter.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp

@@ -48,5 +48,13 @@
   * [COMPLETADO] T3.2: Inyección de estado y automatización con orden estricto de ciclo de vida (prepare -> resetState -> loadState -> verifyState -> render) y soporte de secuencias con canonicalEvents de byte exacto y loadSysEx en ExternalPluginFixture.
   * [COMPLETADO] T3.3: Captura de audio y telemetría de sesión CaptureArtifactMetadata con timestamps ISO 8601 UTC, hashes SHA-256 (audio, midi, sysex, state), métricas de reloj, underruns y overruns.
   * [COMPLETADO] T3.4: Suite de pruebas integrada en test_CaptureAutomationAndFair_T3.cpp verificando ciclo de vida, prevención de fugas de audio espurio ante fallos de verificación de estado, inyección SysEx y reproducibilidad bit-exacta. Certificación: 361/361 tests verdes (169.159 aserciones, 0 fallos).
-- [PENDIENTE] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
-- [PENDIENTE] T5: Prueba Vertical de Integración y Exportación FAIR.
+- [EN PROGRESO] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
+  * [COMPLETADO] T4.1: Contratos de calibración LoopbackCalibrationRecord (latencia total de ida y vuelta round-trip sin desagregación especulativa), segregación estricta de artefactos en 3 capas (loopback_reference, dut_plus_chain, compensated_result) con CompensatedResponseMetadata, y clase LoopbackCalibrator con síntesis de estímulo log-sweep y análisis metrológico. Certificación: 365/365 tests verdes (223.190 aserciones, 0 fallos).
+  * [COMPLETADO] T4.2: Medición de loopback puro (DAC -> cable de referencia -> ADC) en PhysicalLoopbackCoordinator y exportador FAIR LoopbackContainerExporter (specs, audio, results, reports, manifest.json con SHA-256).
+- [PENDIENTE] T5: Prueba Vertical de Integración y Exportación FAIR de Dexed.vst3.
+
+[FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
+- T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
+- T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).
+- T4.5 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
+

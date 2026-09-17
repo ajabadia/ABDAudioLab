@@ -89,6 +89,73 @@ struct AnalogChainCalibrationRecord
 };
 
 /**
+ * @brief Registro canónico formal de calibración analógica por loopback (Fase 20.11 T4.1).
+ *
+ * La latencia se documenta como latencia total de ida y vuelta (round-trip),
+ * midiendo el trayecto integral DAC -> cable de referencia -> ADC sin desagregación especulativa.
+ */
+struct LoopbackCalibrationRecord
+{
+    std::string calibrationId;
+    double sampleRateHz { 0.0 };
+    int blockSize { 0 };
+    double roundTripLatencySamples { 0.0 };
+    double roundTripLatencyMs { 0.0 };
+    double snrDb { 0.0 };
+    double peakDbfs { -96.0 };
+    double dcOffsetDb { -96.0 };
+    double clockDriftPpm { 0.0 };
+    std::string stimulusSha256;
+    std::string responseSha256;
+    std::string status { "uncalibrated" }; /**< "pass", "fail", "uncalibrated" */
+
+    // Criterios metrológicos de aceptación configurables
+    double snrDbMin { 18.0 };
+    double peakDbfsMax { -0.5 };
+    double dcOffsetDbMax { -60.0 };
+    double maxClockDriftPpm { 50.0 };
+
+    [[nodiscard]] bool isPass() const noexcept { return status == "pass"; }
+};
+
+/**
+ * @brief Clasificación de artefactos de la cadena analógica en 3 capas estricta (Fase 20.11 T4.1).
+ */
+enum class AnalogChainArtifactTier
+{
+    LoopbackReference,   /**< DAC -> cable/interfaz de referencia -> ADC */
+    DutPlusChain,        /**< DAC -> DUT analógico + interfaz -> ADC (crudo sin alterar) */
+    CompensatedResult    /**< Señal resultante compensada reversiblemente respecto a la referencia */
+};
+
+[[nodiscard]] inline std::string analogChainArtifactTierToString(AnalogChainArtifactTier tier)
+{
+    switch (tier)
+    {
+        case AnalogChainArtifactTier::LoopbackReference: return "loopback_reference";
+        case AnalogChainArtifactTier::DutPlusChain:      return "dut_plus_chain";
+        case AnalogChainArtifactTier::CompensatedResult: return "compensated_result";
+        default:                                         return "loopback_reference";
+    }
+}
+
+/**
+ * @brief Metadatos y encapsulación de compensación analógica reversible (Fase 20.11 T4.1 / T4.5).
+ */
+struct CompensatedResponseMetadata
+{
+    std::string rawDutAudioSha256;
+    std::string loopbackReferenceCalibrationId;
+    std::string loopbackReferenceAudioSha256;
+    std::string compensationMethod { "regularized_spectral_deconvolution" };
+    double regularizationEpsilon { 1e-4 };
+    double validFrequencyMinHz { 20.0 };
+    double validFrequencyMaxHz { 20000.0 };
+    bool isReversible { true };
+    std::string compensatedAudioSha256;
+};
+
+/**
  * @brief Device Under Test (DUT) classification for appropriate stimulus routing.
  */
 enum class DeviceUnderTest
