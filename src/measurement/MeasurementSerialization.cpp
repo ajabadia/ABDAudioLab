@@ -160,6 +160,8 @@ std::string MeasurementSerialization::serializeSpec(const MeasurementSpec& spec,
     j["schemaUri"] = spec.schemaUri;
     j["measurementId"] = spec.measurementId;
     j["measurementType"] = spec.measurementType;
+    j["measurementDomain"] = spec.measurementDomain;
+    j["filterTopology"] = spec.filterTopology;
     j["dutType"] = deviceUnderTestToString(spec.dutType);
     j["parameterId"] = spec.parameterId;
     j["parameterName"] = spec.parameterName;
@@ -212,6 +214,8 @@ bool MeasurementSerialization::deserializeSpec(const std::string& jsonStr,
         outSpec.schemaUri = sUri;
         outSpec.measurementId = j.value("measurementId", "");
         outSpec.measurementType = j.value("measurementType", "");
+        outSpec.measurementDomain = j.value("measurementDomain", "directTransferFunction");
+        outSpec.filterTopology = j.value("filterTopology", "unknown");
         outSpec.dutType = deviceUnderTestFromString(j.value("dutType", "unknown"));
         outSpec.parameterId = j.value("parameterId", "");
         outSpec.parameterName = j.value("parameterName", "");
@@ -269,6 +273,8 @@ std::string MeasurementSerialization::serializeResult(const MeasurementResult& r
     j["schemaUri"] = result.schemaUri;
     j["measurementId"] = result.measurementId;
     j["measurementType"] = result.measurementType;
+    j["measurementDomain"] = result.measurementDomain;
+    j["filterTopology"] = result.filterTopology;
     j["status"] = measurementStatusToString(result.status);
     j["reason"] = result.reason;
 
@@ -310,9 +316,22 @@ std::string MeasurementSerialization::serializeResult(const MeasurementResult& r
         mj["value"] = m.value;
         mj["unit"] = m.unit.toStdString();
         mj["status"] = m.status.toStdString();
+        if (m.reason.isNotEmpty())
+            mj["reason"] = m.reason.toStdString();
         metrics.push_back(mj);
     }
     j["metrics"] = metrics;
+
+    if (result.slopeFit.has_value())
+    {
+        ordered_json sf;
+        sf["frequencyStartHz"] = result.slopeFit->frequencyStartHz;
+        sf["frequencyEndHz"] = result.slopeFit->frequencyEndHz;
+        sf["rSquared"] = result.slopeFit->rSquared;
+        sf["sampleCount"] = result.slopeFit->sampleCount;
+        sf["selectionReason"] = result.slopeFit->selectionReason;
+        j["slopeFit"] = sf;
+    }
 
     ordered_json curve;
     curve["xName"] = result.curve.xName.toStdString();
@@ -356,6 +375,8 @@ bool MeasurementSerialization::deserializeResult(const std::string& jsonStr,
         outResult.schemaUri = sUri;
         outResult.measurementId = j.value("measurementId", "");
         outResult.measurementType = j.value("measurementType", "");
+        outResult.measurementDomain = j.value("measurementDomain", "directTransferFunction");
+        outResult.filterTopology = j.value("filterTopology", "unknown");
         outResult.status = measurementStatusFromString(j.value("status", "failed"));
         outResult.reason = j.value("reason", "");
 
@@ -411,8 +432,25 @@ bool MeasurementSerialization::deserializeResult(const std::string& jsonStr,
                 met.value = m.value("value", 0.0);
                 met.unit = juce::String(m.value("unit", ""));
                 met.status = juce::String(m.value("status", "observed"));
+                met.reason = juce::String(m.value("reason", ""));
                 outResult.metrics.push_back(met);
             }
+        }
+
+        if (j.contains("slopeFit") && j["slopeFit"].is_object())
+        {
+            const auto& sf = j["slopeFit"];
+            SlopeFitMetadata s;
+            s.frequencyStartHz = sf.value("frequencyStartHz", 0.0);
+            s.frequencyEndHz = sf.value("frequencyEndHz", 0.0);
+            s.rSquared = sf.value("rSquared", 0.0);
+            s.sampleCount = sf.value("sampleCount", 0);
+            s.selectionReason = sf.value("selectionReason", "");
+            outResult.slopeFit = s;
+        }
+        else
+        {
+            outResult.slopeFit = std::nullopt;
         }
 
         if (j.contains("curve") && j["curve"].is_object())

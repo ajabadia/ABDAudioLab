@@ -247,14 +247,22 @@ target_sources(ABDAudioLab
         src/measurement/MeasurementCaptureCoordinator.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
+        src/measurement/MeasurementSvgGenerator.h
+        src/measurement/MeasurementSvgGenerator.cpp
+        src/measurement/MeasurementReportGenerator.h
+        src/measurement/MeasurementReportGenerator.cpp
         src/measurement/adapters/EnvelopeMeasurementAdapter.h
         src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
+        src/measurement/adapters/FilterMeasurementAdapter.h
+        src/measurement/adapters/FilterMeasurementAdapter.cpp
         # Measurement GUI (Phase 20.10.1)
         src/gui/measurement/MeasurementViewModel.h
         src/gui/measurement/MeasurementViewModelLoader.h
         src/gui/measurement/MeasurementViewModelLoader.cpp
         src/gui/measurement/MeasurementTemporalCurveComponent.h
         src/gui/measurement/MeasurementTemporalCurveComponent.cpp
+        src/gui/measurement/MeasurementFrequencyCurveComponent.h
+        src/gui/measurement/MeasurementFrequencyCurveComponent.cpp
         src/gui/measurement/MeasurementAudioPlayerComponent.h
         src/gui/measurement/MeasurementAudioPlayerComponent.cpp
         src/gui/measurement/MeasurementViewerPanel.h
@@ -566,17 +574,25 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_GuidedPluginLoad_Dexed.cpp
     src/tests/test_MeasurementContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
+    src/tests/test_FilterMeasurementAdapter.cpp
     src/tests/test_MeasurementStimulusCapture.cpp
+    src/tests/test_MeasurementAudioThroughCapture.cpp
     src/tests/test_MeasurementPersistenceAndReport.cpp
+    src/tests/test_FilterMeasurementPersistenceAndReport.cpp
     src/tests/test_DexedEnvelopeMeasurement_T5.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
+    src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
     src/measurement/MeasurementStimulusCoordinator.cpp
     src/measurement/MeasurementCaptureCoordinator.cpp
     src/measurement/MeasurementContainerExporter.cpp
+    src/measurement/MeasurementSvgGenerator.cpp
+    src/measurement/MeasurementReportGenerator.cpp
     src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
+    src/measurement/adapters/FilterMeasurementAdapter.cpp
     src/gui/measurement/MeasurementViewModelLoader.cpp
     src/gui/measurement/MeasurementTemporalCurveComponent.cpp
+    src/gui/measurement/MeasurementFrequencyCurveComponent.cpp
     src/gui/measurement/MeasurementAudioPlayerComponent.cpp
     src/gui/measurement/MeasurementViewerPanel.cpp
     src/tests/test_ModelEvaluation.cpp

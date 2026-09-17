@@ -43,13 +43,20 @@ struct MeasurementViewModel
     juce::String analyzerName;
     juce::String analyzerVersion;
 
+    juce::String filterTopology;
+    juce::String measurementDomain;
+    std::optional<abdaudiolab::measurement::SlopeFitMetadata> slopeFit;
+
     // Metrics & Curve
     std::vector<abdaudiolab::measurement::MeasurementMetric> metrics;
     abdaudiolab::measurement::MeasurementCurve curve;
 
     // FAIR Artifact paths
     juce::File containerDirectory;
-    juce::File audioFile;
+    juce::File audioFile;               // Primary captured audio
+    juce::File stimulusAudioFile;       // Sweep stimulus audio
+    juce::File impulseResponseFile;     // Deconvolved IR audio
+    juce::File curveFile;               // Envelope or filter response curve JSON
     juce::File htmlReportFile;
     juce::File specFile;
     juce::File resultFile;
@@ -57,6 +64,8 @@ struct MeasurementViewModel
     // Integrity state
     UiIntegrityStatus integrityStatus { UiIntegrityStatus::Unchecked };
     juce::String expectedAudioSha256;
+    juce::String expectedStimulusAudioSha256;
+    juce::String expectedImpulseResponseSha256;
     juce::String integrityDiagnostic;
 
     [[nodiscard]] bool isPlaybackAllowed() const noexcept
@@ -65,6 +74,18 @@ struct MeasurementViewModel
                measurementStatus != abdaudiolab::measurement::MeasurementStatus::invalid &&
                measurementStatus != abdaudiolab::measurement::MeasurementStatus::failed &&
                audioFile.existsAsFile();
+    }
+
+    [[nodiscard]] bool isStimulusPlaybackAllowed() const noexcept
+    {
+        return integrityStatus != UiIntegrityStatus::Corrupt &&
+               stimulusAudioFile.existsAsFile();
+    }
+
+    [[nodiscard]] bool isImpulseResponsePlaybackAllowed() const noexcept
+    {
+        return integrityStatus != UiIntegrityStatus::Corrupt &&
+               impulseResponseFile.existsAsFile();
     }
 };
 

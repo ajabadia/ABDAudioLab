@@ -31,6 +31,15 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     juce::File specFile = containerDir.getChildFile("specs/measurement_spec.json");
     juce::File resultFile = containerDir.getChildFile("results/measurement_result.json");
     juce::File audioFile = containerDir.getChildFile("audio/envelope_reference.wav");
+    if (!audioFile.existsAsFile())
+        audioFile = containerDir.getChildFile("audio/audio_captured.wav");
+
+    juce::File stimulusAudioFile = containerDir.getChildFile("audio/audio_stimulus.wav");
+    juce::File impulseResponseFile = containerDir.getChildFile("audio/impulse_response.wav");
+    juce::File curveFile = containerDir.getChildFile("curves/filter_response_curve.json");
+    if (!curveFile.existsAsFile())
+        curveFile = containerDir.getChildFile("curves/envelope_curve.json");
+
     juce::File htmlReportFile = containerDir.getChildFile("reports/measurement_report.html");
 
     // Path traversal verification: all resolved files must be strictly confined inside containerDir
@@ -39,7 +48,9 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     };
 
     if (!checkConfinement(manifestFile) || !checkConfinement(specFile) ||
-        !checkConfinement(resultFile) || !checkConfinement(audioFile) || !checkConfinement(htmlReportFile))
+        !checkConfinement(resultFile) || !checkConfinement(audioFile) ||
+        !checkConfinement(stimulusAudioFile) || !checkConfinement(impulseResponseFile) ||
+        !checkConfinement(curveFile) || !checkConfinement(htmlReportFile))
     {
         outError = "Security violation: Path traversal detected outside container directory";
         return false;
@@ -48,6 +59,9 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.specFile = specFile;
     outModel.resultFile = resultFile;
     outModel.audioFile = audioFile;
+    outModel.stimulusAudioFile = stimulusAudioFile;
+    outModel.impulseResponseFile = impulseResponseFile;
+    outModel.curveFile = curveFile;
     outModel.htmlReportFile = htmlReportFile;
 
     if (!manifestFile.existsAsFile())
@@ -55,6 +69,29 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
         outError = "Missing required manifest.json in container: " + containerDir.getFullPathName();
         return false;
     }
+
+    try
+    {
+        auto manifestJson = nlohmann::json::parse(manifestFile.loadFileAsString().toStdString());
+        if (manifestJson.contains("artifacts") && manifestJson["artifacts"].is_array())
+        {
+            for (const auto& a : manifestJson["artifacts"])
+            {
+                std::string role = a.value("role", "");
+                std::string sha = a.value("sha256", "");
+                if (role == "measurement_stimulus_audio")
+                    outModel.expectedStimulusAudioSha256 = juce::String(sha);
+                else if (role == "measurement_impulse_response")
+                    outModel.expectedImpulseResponseSha256 = juce::String(sha);
+                else if (role == "measurement_captured_audio" || role == "measurement_baseline_audio")
+                {
+                    if (outModel.expectedAudioSha256.isEmpty())
+                        outModel.expectedAudioSha256 = juce::String(sha);
+                }
+            }
+        }
+    }
+    catch (...) {}
 
     // 2. Read results/measurement_result.json
     if (!resultFile.existsAsFile())
@@ -86,6 +123,9 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.metrics = result.metrics;
     outModel.curve = result.curve;
     outModel.expectedAudioSha256 = result.artifacts.audioSha256;
+    outModel.filterTopology = result.filterTopology;
+    outModel.measurementDomain = result.measurementDomain;
+    outModel.slopeFit = result.slopeFit;
 
     // 3. Read specs/measurement_spec.json for additional execution context if available
     if (specFile.existsAsFile())

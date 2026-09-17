@@ -17,33 +17,62 @@ namespace abdaudiolab::gui::measurement
 MeasurementViewerPanel::MeasurementViewerPanel()
 {
     // Title & Subtitle
-    lblTitle_.setFont(juce::Font(18.0f, juce::Font::bold));
+    lblTitle_.setFont(juce::Font(juce::FontOptions(18.0f)).boldened());
     lblTitle_.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
     lblTitle_.setText("Envelope Measurement Viewer", juce::dontSendNotification);
     addAndMakeVisible(lblTitle_);
 
-    lblSubtitle_.setFont(juce::Font(12.0f, juce::Font::plain));
+    lblSubtitle_.setFont(juce::Font(juce::FontOptions(12.0f)));
     lblSubtitle_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
     lblSubtitle_.setText("Target: None | No measurement container loaded", juce::dontSendNotification);
     addAndMakeVisible(lblSubtitle_);
 
+    // Domain Badge
+    lblDomainBadge_.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
+    lblDomainBadge_.setJustificationType(juce::Justification::centred);
+    lblDomainBadge_.setVisible(false);
+    addAndMakeVisible(lblDomainBadge_);
+
     // Status Badge
-    lblStatusBadge_.setFont(juce::Font(11.0f, juce::Font::bold));
+    lblStatusBadge_.setFont(juce::Font(juce::FontOptions(11.0f)).boldened());
     lblStatusBadge_.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(lblStatusBadge_);
 
     // Integrity Badge
-    lblIntegrityBadge_.setFont(juce::Font(11.0f, juce::Font::bold));
+    lblIntegrityBadge_.setFont(juce::Font(juce::FontOptions(11.0f)).boldened());
     lblIntegrityBadge_.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(lblIntegrityBadge_);
 
     // Diagnostic label
-    lblDiagnostic_.setFont(juce::Font(11.5f, juce::Font::plain));
+    lblDiagnostic_.setFont(juce::Font(juce::FontOptions(11.5f)));
     lblDiagnostic_.setColour(juce::Label::textColourId, juce::Colour(0xfffbbf24));
     addAndMakeVisible(lblDiagnostic_);
 
-    // Subcomponents
+    // Curve Subcomponents
     addAndMakeVisible(curveComponent_);
+    addAndMakeVisible(freqCurveComponent_);
+    freqCurveComponent_.setVisible(false);
+
+    // Audio Track Selector
+    btnTrackOutput_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
+    btnTrackOutput_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
+    btnTrackOutput_.onClick = [this] { selectAudioTrack(0); };
+    btnTrackOutput_.setVisible(false);
+    addAndMakeVisible(btnTrackOutput_);
+
+    btnTrackInput_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
+    btnTrackInput_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff94a3b8));
+    btnTrackInput_.onClick = [this] { selectAudioTrack(1); };
+    btnTrackInput_.setVisible(false);
+    addAndMakeVisible(btnTrackInput_);
+
+    btnTrackIr_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
+    btnTrackIr_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff94a3b8));
+    btnTrackIr_.onClick = [this] { selectAudioTrack(2); };
+    btnTrackIr_.setVisible(false);
+    addAndMakeVisible(btnTrackIr_);
+
+    // Audio Player Subcomponent
     addAndMakeVisible(audioPlayerComponent_);
 
     // Wire on-demand corruption callback from player
@@ -55,6 +84,7 @@ MeasurementViewerPanel::MeasurementViewerPanel()
         updateIntegrityUi();
         updateHeaderAndBadges();
         curveComponent_.setCurve(model_.curve, false);
+        freqCurveComponent_.setCurve(model_.curve, model_.slopeFit, -1.0, false, false);
     };
 
     // Action Buttons
@@ -72,6 +102,28 @@ MeasurementViewerPanel::MeasurementViewerPanel()
     updateHeaderAndBadges();
 }
 
+void MeasurementViewerPanel::selectAudioTrack(int trackIndex)
+{
+    selectedAudioTrack_ = trackIndex;
+    bool verified = (model_.integrityStatus != UiIntegrityStatus::Corrupt);
+
+    auto updateBtn = [](juce::TextButton& btn, bool active) {
+        btn.setColour(juce::TextButton::buttonColourId, active ? juce::Colour(0xff0284c7) : juce::Colour(0xff1e293b));
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colour(0xfff8fafc) : juce::Colour(0xff94a3b8));
+    };
+
+    updateBtn(btnTrackOutput_, trackIndex == 0);
+    updateBtn(btnTrackInput_, trackIndex == 1);
+    updateBtn(btnTrackIr_, trackIndex == 2);
+
+    if (trackIndex == 1)
+        audioPlayerComponent_.setAudioFile(model_.stimulusAudioFile, model_.expectedStimulusAudioSha256, verified);
+    else if (trackIndex == 2)
+        audioPlayerComponent_.setAudioFile(model_.impulseResponseFile, model_.expectedImpulseResponseSha256, verified);
+    else
+        audioPlayerComponent_.setAudioFile(model_.audioFile, model_.expectedAudioSha256, verified);
+}
+
 bool MeasurementViewerPanel::loadContainer(const juce::File& containerDir, juce::String& outError)
 {
     MeasurementViewModel model;
@@ -86,7 +138,17 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
 {
     model_ = model;
 
-    // Subtitle
+    // Title & Subtitle
+    if (model_.measurementType == "filter")
+    {
+        juce::String topStr = model_.filterTopology.isNotEmpty() ? (model_.filterTopology.toUpperCase() + " ") : "";
+        lblTitle_.setText(topStr + "Filter Response Measurement Viewer", juce::dontSendNotification);
+    }
+    else
+    {
+        lblTitle_.setText("Envelope Measurement Viewer", juce::dontSendNotification);
+    }
+
     juce::String sub = "Target: " + (model_.dutName.isNotEmpty() ? model_.dutName : "Unknown")
                      + " (" + (model_.dutFormat.isNotEmpty() ? model_.dutFormat : "VST3") + ")"
                      + " | ID: " + model_.measurementId
@@ -95,32 +157,91 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
 
     // Setup cards
     metricCardViews_.clear();
+
+    bool isMidiProxy = (model_.measurementType == "filter" && model_.measurementDomain == "synthesizedSpectralResponse");
+
     for (const auto& m : model_.metrics)
     {
+        // Enforce metrological rule: do not show isolated transfer function cards for MIDI composite response
+        if (isMidiProxy && (m.name == "cutoffFrequency" || m.name == "asymptoticSlope" || m.name == "qFactor"))
+        {
+            continue;
+        }
+
         auto card = std::make_unique<MetricCard>();
-        card->lblName.setFont(juce::Font(10.5f, juce::Font::bold));
+        card->lblName.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
         card->lblName.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
         card->lblName.setText(m.name.toUpperCase(), juce::dontSendNotification);
         addAndMakeVisible(card->lblName);
 
-        card->lblValue.setFont(juce::Font("Consolas", 15.0f, juce::Font::bold));
+        card->lblValue.setFont(juce::FontOptions("Consolas", 15.0f, juce::Font::bold));
         card->lblValue.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
-        std::ostringstream valStream;
-        valStream << std::fixed << std::setprecision(1) << m.value << " " << m.unit.toStdString();
-        card->lblValue.setText(valStream.str(), juce::dontSendNotification);
+
+        if (m.status == "not_observable")
+        {
+            card->lblValue.setText("not_observable", juce::dontSendNotification);
+        }
+        else
+        {
+            std::ostringstream valStream;
+            valStream << std::fixed << std::setprecision(1) << m.value << " " << m.unit.toStdString();
+            card->lblValue.setText(valStream.str(), juce::dontSendNotification);
+        }
         addAndMakeVisible(card->lblValue);
 
-        card->lblStatus.setFont(juce::Font(10.0f, juce::Font::bold));
-        bool isObs = (m.status == "observed");
-        card->lblStatus.setColour(juce::Label::textColourId, isObs ? juce::Colour(0xff38bdf8) : juce::Colour(0xfffbbf24));
-        card->lblStatus.setText(isObs ? "[OK] OBSERVED" : "[!] UNRELIABLE", juce::dontSendNotification);
+        card->lblStatus.setFont(juce::Font(juce::FontOptions(10.0f)).boldened());
+        if (m.status == "observed")
+        {
+            card->lblStatus.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
+            card->lblStatus.setText("[OK] OBSERVED", juce::dontSendNotification);
+        }
+        else if (m.status == "not_observable")
+        {
+            card->lblStatus.setColour(juce::Label::textColourId, juce::Colour(0xff64748b));
+            card->lblStatus.setText("[-] NOT OBSERVABLE", juce::dontSendNotification);
+        }
+        else if (m.status == "invalid")
+        {
+            card->lblStatus.setColour(juce::Label::textColourId, juce::Colour(0xfff87171));
+            card->lblStatus.setText("[X] INVALID", juce::dontSendNotification);
+        }
+        else
+        {
+            card->lblStatus.setColour(juce::Label::textColourId, juce::Colour(0xfffbbf24));
+            card->lblStatus.setText("[!] UNRELIABLE", juce::dontSendNotification);
+        }
+        addAndMakeVisible(card->lblStatus);
+
+        metricCardViews_.push_back(std::move(card));
+    }
+
+    // If filter directTransferFunction and slopeFit present, add Slope Fit & R^2 card
+    if (model_.measurementType == "filter" && !isMidiProxy && model_.slopeFit.has_value())
+    {
+        auto card = std::make_unique<MetricCard>();
+        card->lblName.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
+        card->lblName.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+        card->lblName.setText("SLOPE FIT & R²", juce::dontSendNotification);
+        addAndMakeVisible(card->lblName);
+
+        card->lblValue.setFont(juce::FontOptions("Consolas", 15.0f, juce::Font::bold));
+        card->lblValue.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
+        std::ostringstream r2Stream;
+        r2Stream << "R²=" << std::fixed << std::setprecision(3) << model_.slopeFit->rSquared;
+        card->lblValue.setText(r2Stream.str(), juce::dontSendNotification);
+        addAndMakeVisible(card->lblValue);
+
+        card->lblStatus.setFont(juce::Font(juce::FontOptions(10.0f)).boldened());
+        bool goodFit = (model_.slopeFit->rSquared >= 0.90);
+        card->lblStatus.setColour(juce::Label::textColourId, goodFit ? juce::Colour(0xff38bdf8) : juce::Colour(0xfffbbf24));
+        card->lblStatus.setText(goodFit ? "[OK] OBSERVED" : "[!] UNRELIABLE", juce::dontSendNotification);
         addAndMakeVisible(card->lblStatus);
 
         metricCardViews_.push_back(std::move(card));
     }
 
     // Diagnostic reason
-    if (model_.diagnosticReason.isNotEmpty() && model_.diagnosticReason != "Envelope successfully observed")
+    if (model_.diagnosticReason.isNotEmpty() && model_.diagnosticReason != "Envelope successfully observed" && model_.diagnosticReason != "Filter response successfully observed")
     {
         lblDiagnostic_.setText("[!] Reason: " + model_.diagnosticReason, juce::dontSendNotification);
         lblDiagnostic_.setVisible(true);
@@ -132,8 +253,41 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
 
     // Update curve & audio subcomponents
     bool verified = (model_.integrityStatus != UiIntegrityStatus::Corrupt);
-    curveComponent_.setCurve(model_.curve, verified);
-    audioPlayerComponent_.setAudioFile(model_.audioFile, model_.expectedAudioSha256, verified);
+
+    if (model_.measurementType == "filter")
+    {
+        curveComponent_.setVisible(false);
+        freqCurveComponent_.setVisible(true);
+
+        double cutoffHz = -1.0;
+        bool isCutoffObs = false;
+        for (const auto& m : model_.metrics)
+        {
+            if (m.name == "cutoffFrequency" && m.status == "observed" && m.value > 0.0)
+            {
+                cutoffHz = m.value;
+                isCutoffObs = true;
+                break;
+            }
+        }
+        freqCurveComponent_.setCurve(model_.curve, model_.slopeFit, cutoffHz, isCutoffObs, verified);
+
+        btnTrackOutput_.setVisible(true);
+        btnTrackInput_.setVisible(model_.stimulusAudioFile.existsAsFile());
+        btnTrackIr_.setVisible(model_.impulseResponseFile.existsAsFile());
+        selectAudioTrack(0);
+    }
+    else
+    {
+        freqCurveComponent_.setVisible(false);
+        curveComponent_.setVisible(true);
+        curveComponent_.setCurve(model_.curve, verified);
+
+        btnTrackOutput_.setVisible(false);
+        btnTrackInput_.setVisible(false);
+        btnTrackIr_.setVisible(false);
+        audioPlayerComponent_.setAudioFile(model_.audioFile, model_.expectedAudioSha256, verified);
+    }
 
     updateIntegrityUi();
     updateHeaderAndBadges();
@@ -142,6 +296,28 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
 
 void MeasurementViewerPanel::updateHeaderAndBadges()
 {
+    // Domain badge
+    if (model_.measurementDomain == "directTransferFunction")
+    {
+        lblDomainBadge_.setText("DIRECT TRANSFER [H(w)]", juce::dontSendNotification);
+        lblDomainBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff0c4a6e));
+        lblDomainBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
+        lblDomainBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff0284c7));
+        lblDomainBadge_.setVisible(true);
+    }
+    else if (model_.measurementDomain == "synthesizedSpectralResponse")
+    {
+        lblDomainBadge_.setText("SYNTHESIZED SPECTRAL [PROXY]", juce::dontSendNotification);
+        lblDomainBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff78350f));
+        lblDomainBadge_.setColour(juce::Label::textColourId, juce::Colour(0xfffbbf24));
+        lblDomainBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xffd97706));
+        lblDomainBadge_.setVisible(true);
+    }
+    else
+    {
+        lblDomainBadge_.setVisible(false);
+    }
+
     // Status badge (Never PASS)
     juce::String fullStatus = model_.statusText + " " + model_.statusIcon;
     lblStatusBadge_.setText(fullStatus, juce::dontSendNotification);
@@ -221,16 +397,13 @@ void MeasurementViewerPanel::triggerBackgroundManifestVerification()
     juce::File targetDir = model_.containerDirectory;
     juce::Component::SafePointer<MeasurementViewerPanel> safeThis(this);
 
-    // Mandatory Adjustment 1: Run verification completely off audio/message thread in worker thread
-    // SafePointer prevents accessing a destroyed component if panel is closed during verification
     std::thread([safeThis, targetDir]() {
         juce::String diagnostic;
         bool ok = MeasurementViewModelLoader::verifyContainerIntegrity(targetDir, diagnostic);
 
-        // Safe async return to Message Thread
         juce::MessageManager::callAsync([safeThis, ok, diagnostic]() {
             if (safeThis == nullptr)
-                return; // Component was destroyed while verifying in background
+                return;
 
             safeThis->handleVerificationCompleted(ok, diagnostic);
         });
@@ -263,8 +436,29 @@ void MeasurementViewerPanel::handleVerificationCompleted(bool ok, const juce::St
 
     updateIntegrityUi();
     updateHeaderAndBadges();
-    curveComponent_.setCurve(model_.curve, model_.integrityStatus != UiIntegrityStatus::Corrupt);
-    audioPlayerComponent_.setAudioFile(model_.audioFile, model_.expectedAudioSha256, model_.integrityStatus != UiIntegrityStatus::Corrupt);
+
+    bool verified = (model_.integrityStatus != UiIntegrityStatus::Corrupt);
+    if (model_.measurementType == "filter")
+    {
+        double cutoffHz = -1.0;
+        bool isCutoffObs = false;
+        for (const auto& m : model_.metrics)
+        {
+            if (m.name == "cutoffFrequency" && m.status == "observed" && m.value > 0.0)
+            {
+                cutoffHz = m.value;
+                isCutoffObs = true;
+                break;
+            }
+        }
+        freqCurveComponent_.setCurve(model_.curve, model_.slopeFit, cutoffHz, isCutoffObs, verified);
+    }
+    else
+    {
+        curveComponent_.setCurve(model_.curve, verified);
+    }
+
+    selectAudioTrack(selectedAudioTrack_);
 }
 
 void MeasurementViewerPanel::openHtmlReportInBrowser()
@@ -281,9 +475,16 @@ void MeasurementViewerPanel::resized()
 
     // 1. Header (Top Row)
     auto topArea = b.removeFromTop(44);
-    auto badgeArea = topArea.removeFromRight(320);
+    auto badgeArea = topArea.removeFromRight(500);
+
+    if (lblDomainBadge_.isVisible())
+    {
+        lblDomainBadge_.setBounds(badgeArea.removeFromLeft(180).reduced(0, 8));
+        badgeArea.removeFromLeft(8);
+    }
+
     lblStatusBadge_.setBounds(badgeArea.removeFromLeft(140).reduced(0, 8));
-    badgeArea.removeFromLeft(10);
+    badgeArea.removeFromLeft(8);
     lblIntegrityBadge_.setBounds(badgeArea.reduced(0, 8));
 
     lblTitle_.setBounds(topArea.removeFromTop(24));
@@ -328,19 +529,39 @@ void MeasurementViewerPanel::resized()
     b.removeFromBottom(10);
 
     // 4. Audio Player (Middle-Bottom)
-    auto audioArea = b.removeFromBottom(110);
+    auto audioArea = b.removeFromBottom(100);
     audioPlayerComponent_.setBounds(audioArea);
 
-    b.removeFromBottom(10);
+    // 4b. Track selector row (if visible for filter)
+    if (btnTrackOutput_.isVisible())
+    {
+        b.removeFromBottom(6);
+        auto trackRow = b.removeFromBottom(26);
+        btnTrackOutput_.setBounds(trackRow.removeFromLeft(140));
+        trackRow.removeFromLeft(8);
+        if (btnTrackInput_.isVisible())
+        {
+            btnTrackInput_.setBounds(trackRow.removeFromLeft(140));
+            trackRow.removeFromLeft(8);
+        }
+        if (btnTrackIr_.isVisible())
+        {
+            btnTrackIr_.setBounds(trackRow.removeFromLeft(180));
+        }
+        b.removeFromBottom(8);
+    }
+    else
+    {
+        b.removeFromBottom(10);
+    }
 
-    // 5. Curve Visualizer (Remaining Space)
+    // 5. Curve Visualizers (Remaining Space)
     curveComponent_.setBounds(b);
+    freqCurveComponent_.setBounds(b);
 }
 
 void MeasurementViewerPanel::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat();
-
     // Dark canvas background
     g.setColour(juce::Colour(0xff0b0f19));
     g.fillAll();

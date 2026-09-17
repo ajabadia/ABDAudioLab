@@ -10,6 +10,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "MeasurementViewModel.h"
 #include "MeasurementTemporalCurveComponent.h"
+#include "MeasurementFrequencyCurveComponent.h"
 #include "MeasurementAudioPlayerComponent.h"
 
 namespace abdaudiolab::gui::measurement
@@ -36,6 +37,11 @@ public:
 
     [[nodiscard]] const MeasurementViewModel& getViewModel() const noexcept { return model_; }
 
+    /**
+     * @brief Selects which audio track to feed into the audio player (0=Captured, 1=Stimulus, 2=IR).
+     */
+    void selectAudioTrack(int trackIndex);
+
 private:
     void triggerBackgroundManifestVerification();
     void handleVerificationCompleted(bool ok, const juce::String& diagnostic);
@@ -46,10 +52,12 @@ private:
 
     MeasurementViewModel model_;
     bool isVerifyingBackground_ { false };
+    int selectedAudioTrack_ { 0 };
 
     // Header labels & badges
     juce::Label lblTitle_;
     juce::Label lblSubtitle_;
+    juce::Label lblDomainBadge_;
     juce::Label lblStatusBadge_;
     juce::Label lblIntegrityBadge_;
     juce::Label lblDiagnostic_;
@@ -63,8 +71,16 @@ private:
     };
     std::vector<std::unique_ptr<MetricCard>> metricCardViews_;
 
-    // Subcomponents
+    // Curve Visualizers (temporal for envelope, frequency for filter)
     MeasurementTemporalCurveComponent curveComponent_;
+    MeasurementFrequencyCurveComponent freqCurveComponent_;
+
+    // Audio Track Selector (for filter measurements)
+    juce::TextButton btnTrackOutput_ { "Salida (Captura)" };
+    juce::TextButton btnTrackInput_ { "Entrada (Barrido)" };
+    juce::TextButton btnTrackIr_ { "Respuesta Impulsional (IR)" };
+
+    // Audio Player
     MeasurementAudioPlayerComponent audioPlayerComponent_;
 
     // Action buttons

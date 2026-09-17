@@ -135,6 +135,71 @@ enum class MeasurementStatus
 }
 
 /**
+ * @brief Formal measurement domain classification distinguishing audio-in from MIDI excitation.
+ */
+enum class MeasurementDomain
+{
+    directTransferFunction,     /**< Direct H(omega) = Y/X measurement via audio input and sweep deconvolution */
+    synthesizedSpectralResponse /**< Observed spectral response of entire synthesizer under declared MIDI excitation */
+};
+
+[[nodiscard]] inline std::string measurementDomainToString(MeasurementDomain domain)
+{
+    switch (domain)
+    {
+        case MeasurementDomain::directTransferFunction:     return "directTransferFunction";
+        case MeasurementDomain::synthesizedSpectralResponse: return "synthesizedSpectralResponse";
+        default:                                            return "directTransferFunction";
+    }
+}
+
+[[nodiscard]] inline MeasurementDomain measurementDomainFromString(const std::string& str)
+{
+    if (str == "synthesizedSpectralResponse") return MeasurementDomain::synthesizedSpectralResponse;
+    return MeasurementDomain::directTransferFunction;
+}
+
+/**
+ * @brief Classical and non-linear filter topologies for metrological interpretation.
+ */
+enum class FilterTopology
+{
+    lowPass,
+    highPass,
+    bandPass,
+    bandStop,
+    allPass,
+    comb,
+    unknown
+};
+
+[[nodiscard]] inline std::string filterTopologyToString(FilterTopology topology)
+{
+    switch (topology)
+    {
+        case FilterTopology::lowPass:  return "lowPass";
+        case FilterTopology::highPass: return "highPass";
+        case FilterTopology::bandPass: return "bandPass";
+        case FilterTopology::bandStop: return "bandStop";
+        case FilterTopology::allPass:  return "allPass";
+        case FilterTopology::comb:     return "comb";
+        case FilterTopology::unknown:  return "unknown";
+        default:                       return "unknown";
+    }
+}
+
+[[nodiscard]] inline FilterTopology filterTopologyFromString(const std::string& str)
+{
+    if (str == "lowPass")  return FilterTopology::lowPass;
+    if (str == "highPass") return FilterTopology::highPass;
+    if (str == "bandPass") return FilterTopology::bandPass;
+    if (str == "bandStop") return FilterTopology::bandStop;
+    if (str == "allPass")  return FilterTopology::allPass;
+    if (str == "comb")     return FilterTopology::comb;
+    return FilterTopology::unknown;
+}
+
+/**
  * @brief Formal signal observability descriptor for distinguishing measurement outcome from signal fidelity.
  */
 struct ObservabilityInfo
@@ -144,14 +209,37 @@ struct ObservabilityInfo
 };
 
 /**
- * @brief Strongly-typed scalar metric with formal unit and individual observability status.
+ * @brief Strongly-typed scalar metric with formal unit, status, and diagnostic explanation.
  */
 struct MeasurementMetric
 {
     juce::String name;
     double value { 0.0 };
     juce::String unit;
-    juce::String status { "observed" }; /**< "observed", "unreliable", "invalid" */
+    juce::String status { "observed" }; /**< "observed", "unreliable", "invalid", "not_applicable", "not_observable" */
+    juce::String reason; /**< Explanatory diagnostic if status is unreliable/invalid/not_applicable */
+};
+
+/**
+ * @brief Topologically-aware cutoff metrics accommodating lowpass, highpass, bandpass and bandstop.
+ */
+struct CutoffMetrics
+{
+    MeasurementMetric lowerCutoffHz;
+    MeasurementMetric upperCutoffHz;
+    MeasurementMetric bandwidthHz;
+};
+
+/**
+ * @brief Audit trail and statistical fixity for asymptotic stopband slope regression.
+ */
+struct SlopeFitMetadata
+{
+    double frequencyStartHz { 0.0 };
+    double frequencyEndHz { 0.0 };
+    double rSquared { 0.0 };
+    int sampleCount { 0 };
+    std::string selectionReason;
 };
 
 /**
@@ -263,6 +351,9 @@ struct MeasurementSpec
     std::string parameterId;
     std::string parameterName;
 
+    std::string measurementDomain { "directTransferFunction" }; /**< "directTransferFunction" or "synthesizedSpectralResponse" */
+    std::string filterTopology { "unknown" };
+
     ExecutionMetadata execution;
     StimulusSpec stimulus;
     AnalysisSpec analysis;
@@ -278,6 +369,8 @@ struct MeasurementResult
     std::string schemaUri { "urn:abdaudiolab:response-measurement:1.0" };
     std::string measurementId;
     std::string measurementType;
+    std::string measurementDomain { "directTransferFunction" }; /**< "directTransferFunction" or "synthesizedSpectralResponse" */
+    std::string filterTopology { "unknown" };
 
     MeasurementStatus status { MeasurementStatus::failed };
     std::string reason;
@@ -289,6 +382,7 @@ struct MeasurementResult
     ObservabilityInfo observability;
 
     std::vector<MeasurementMetric> metrics;
+    std::optional<SlopeFitMetadata> slopeFit { std::nullopt };
     MeasurementCurve curve;
     MeasurementArtifacts artifacts;
 

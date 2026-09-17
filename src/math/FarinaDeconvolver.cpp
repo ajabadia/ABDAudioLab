@@ -64,7 +64,7 @@ std::vector<float> FarinaDeconvolver::generateInverseFilter(double sampleRate, d
 }
 
 std::vector<float> FarinaDeconvolver::extractImpulseResponse(const std::vector<float>& recordedResponse,
-                                                              const std::vector<float>& stimulusSweep,
+                                                              const std::vector<float>& /*stimulusSweep*/,
                                                               double sampleRate,
                                                               double sweepDurationSec,
                                                               float startFreqHz,
@@ -284,10 +284,17 @@ void FarinaDeconvolver::computeFrequencyResponse(const std::vector<float>& impul
     std::vector<float> timeData(fftSize * 2, 0.0f);
     size_t copyLen = std::min(impulseResponse.size(), fftSize);
     
-    // Apply Hann window
+    // Apply gentle right-tail taper (Tukey window) so the impulse arrival at the beginning
+    // is preserved at unity gain without being distorted by a symmetric window zeroing at t=0.
+    size_t taperStart = static_cast<size_t>(copyLen * 0.85);
     for (size_t i = 0; i < copyLen; ++i)
     {
-        float win = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(std::numbers::pi) * static_cast<float>(i) / static_cast<float>(copyLen)));
+        float win = 1.0f;
+        if (i >= taperStart && copyLen > taperStart)
+        {
+            float phase = static_cast<float>(i - taperStart) / static_cast<float>(copyLen - taperStart);
+            win = 0.5f * (1.0f + std::cos(static_cast<float>(std::numbers::pi) * phase));
+        }
         timeData[i] = impulseResponse[i] * win;
     }
 
