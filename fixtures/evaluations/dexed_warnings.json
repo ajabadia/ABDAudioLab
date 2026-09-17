@@ -1,5 +1,5 @@
 {
-  "canonicalEvaluationHash": "c907070b0f51aaf000b606d966f1317c558ddf735a006afdc40f4974bcf84fe8",
+  "canonicalEvaluationHash": "b0f8e88f5e6d69b77a91a28d89142bac748a88287cfee0c17136591a7f767a64",
   "decision": {
     "rationale": "Model passes out-of-sample fidelity but inherits target operational warnings",
     "recommendedModelId": "DEXED_FM_MODEL_V1",
@@ -9,7 +9,7 @@
     "peakAutocorrelation": 0.9943618235834206,
     "residualCharacterization": "CorrelatedDynamicResidual"
   },
-  "evaluationId": "eval_17896219790966086",
+  "evaluationId": "eval_17896373615685235",
   "evaluationOrigin": "MeasuredExternalPlugin",
   "limitations": [],
   "metrics": {

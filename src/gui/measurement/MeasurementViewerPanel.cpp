@@ -144,6 +144,14 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
         juce::String topStr = model_.filterTopology.isNotEmpty() ? (model_.filterTopology.toUpperCase() + " ") : "";
         lblTitle_.setText(topStr + "Filter Response Measurement Viewer", juce::dontSendNotification);
     }
+    else if (model_.measurementType == "dynamics")
+    {
+        lblTitle_.setText("MIDI Dynamics Response Measurement Viewer", juce::dontSendNotification);
+    }
+    else if (model_.measurementType == "modulation")
+    {
+        lblTitle_.setText("Cyclic Modulation (LFO) Measurement Viewer", juce::dontSendNotification);
+    }
     else
     {
         lblTitle_.setText("Envelope Measurement Viewer", juce::dontSendNotification);
@@ -311,6 +319,23 @@ void MeasurementViewerPanel::updateHeaderAndBadges()
         lblDomainBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff78350f));
         lblDomainBadge_.setColour(juce::Label::textColourId, juce::Colour(0xfffbbf24));
         lblDomainBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xffd97706));
+        lblDomainBadge_.setVisible(true);
+    }
+    else if (model_.measurementType == "dynamics")
+    {
+        lblDomainBadge_.setText("DYNAMIC: MIDI_VELOCITY", juce::dontSendNotification);
+        lblDomainBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff0c4a6e));
+        lblDomainBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
+        lblDomainBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff0284c7));
+        lblDomainBadge_.setVisible(true);
+    }
+    else if (model_.measurementType == "modulation")
+    {
+        juce::String dest = (model_.modulationResult.has_value() && model_.modulationResult->depth.unit == "cents") ? "PITCH" : "AMPLITUDE";
+        lblDomainBadge_.setText("MODULATION: " + dest, juce::dontSendNotification);
+        lblDomainBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff0c4a6e));
+        lblDomainBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
+        lblDomainBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff0284c7));
         lblDomainBadge_.setVisible(true);
     }
     else

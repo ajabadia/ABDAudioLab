@@ -221,6 +221,15 @@ bool MeasurementContainerExporter::exportMeasurement(const juce::File& container
                                                      const juce::File& sourceAudioWav,
                                                      juce::String& outError)
 {
+    if (spec.measurementType == "dynamics" || result.measurementType == "dynamics" || result.dynamicResult.has_value())
+    {
+        return exportDynamicsMeasurement(containerDir, spec, result, outError);
+    }
+    if (spec.measurementType == "modulation" || result.measurementType == "modulation" || result.modulationResult.has_value())
+    {
+        return exportModulationMeasurement(containerDir, spec, result, sourceAudioWav, outError);
+    }
+
     if (containerDir.existsAsFile())
     {
         outError = "Target container path is an existing file, directory required";
@@ -590,6 +599,348 @@ bool MeasurementContainerExporter::exportFilterMeasurement(const juce::File& con
     if (!readResult.has_value() || readResult->status == core::ExperimentStatus::Corrupt)
     {
         outError = "Verification of generated filter manifest failed: " + outError;
+        return false;
+    }
+
+    return true;
+}
+
+bool MeasurementContainerExporter::exportDynamicsMeasurement(const juce::File& containerDir,
+                                                             const MeasurementSpec& spec,
+                                                             const MeasurementResult& result,
+                                                             juce::String& outError)
+{
+    if (containerDir.existsAsFile())
+    {
+        outError = "Target container path is an existing file, directory required";
+        return false;
+    }
+
+    if (!containerDir.isDirectory() && !containerDir.createDirectory())
+    {
+        outError = "Failed to create container directory: " + containerDir.getFullPathName();
+        return false;
+    }
+
+    juce::File specsDir = containerDir.getChildFile("specs");
+    juce::File resultsDir = containerDir.getChildFile("results");
+    juce::File curvesDir = containerDir.getChildFile("curves");
+    juce::File reportsDir = containerDir.getChildFile("reports");
+
+    specsDir.createDirectory();
+    resultsDir.createDirectory();
+    curvesDir.createDirectory();
+    reportsDir.createDirectory();
+
+    // 0. Write experiment.json
+    writeExperimentJson(containerDir, spec, spec.execution.sampleRateHz, spec.stimulus.durationSec, spec.stimulus.sha256);
+
+    std::vector<core::ExperimentArtifact> artifacts;
+
+    // 1. Write specs/measurement_spec.json
+    juce::File specFile = specsDir.getChildFile("measurement_spec.json");
+    std::string specJson = MeasurementSerialization::serializeSpec(spec);
+    specFile.replaceWithText(juce::String::fromUTF8(specJson.c_str()));
+
+    core::ExperimentArtifact artSpec;
+    artSpec.relativePath = "specs/measurement_spec.json";
+    artSpec.role = "measurement_spec";
+    artSpec.sizeBytes = static_cast<uint64_t>(specFile.getSize());
+    artSpec.sha256 = core::ExperimentStorage::computeFileSha256(specFile);
+    artifacts.push_back(artSpec);
+
+    // 2. Write specs/measurement_stimulus.json
+    juce::File stimFile = specsDir.getChildFile("measurement_stimulus.json");
+    std::string stimJson = MeasurementSerialization::serializeStimulus(spec.stimulus);
+    stimFile.replaceWithText(juce::String::fromUTF8(stimJson.c_str()));
+
+    core::ExperimentArtifact artStim;
+    artStim.relativePath = "specs/measurement_stimulus.json";
+    artStim.role = "measurement_stimulus";
+    artStim.sizeBytes = static_cast<uint64_t>(stimFile.getSize());
+    artStim.sha256 = core::ExperimentStorage::computeFileSha256(stimFile);
+    artifacts.push_back(artStim);
+
+    // 3. Write curves/dynamics_velocity_level_curve.json
+    const auto* dyn = result.dynamicResult.has_value() ? &(*result.dynamicResult) : nullptr;
+    ordered_json levelCurveJson;
+    levelCurveJson["xName"] = (dyn && !dyn->amplitudeCurve.xName.isEmpty()) ? dyn->amplitudeCurve.xName.toStdString() : "midi_velocity";
+    levelCurveJson["xUnit"] = (dyn && !dyn->amplitudeCurve.xUnit.isEmpty()) ? dyn->amplitudeCurve.xUnit.toStdString() : "0-127";
+    levelCurveJson["yName"] = (dyn && !dyn->amplitudeCurve.yName.isEmpty()) ? dyn->amplitudeCurve.yName.toStdString() : "rms_level";
+    levelCurveJson["yUnit"] = (dyn && !dyn->amplitudeCurve.yUnit.isEmpty()) ? dyn->amplitudeCurve.yUnit.toStdString() : "dBFS";
+    if (dyn != nullptr)
+    {
+        levelCurveJson["sampleCount"] = dyn->amplitudeCurve.x.size();
+        levelCurveJson["x"] = dyn->amplitudeCurve.x;
+        levelCurveJson["y"] = dyn->amplitudeCurve.y;
+    }
+    else
+    {
+        levelCurveJson["sampleCount"] = 0;
+        levelCurveJson["x"] = std::vector<double>{};
+        levelCurveJson["y"] = std::vector<double>{};
+    }
+
+    juce::File levelCurveFile = curvesDir.getChildFile("dynamics_velocity_level_curve.json");
+    levelCurveFile.replaceWithText(juce::String::fromUTF8(levelCurveJson.dump(2).c_str()));
+
+    core::ExperimentArtifact artLevelCurve;
+    artLevelCurve.relativePath = "curves/dynamics_velocity_level_curve.json";
+    artLevelCurve.role = "dynamics_level_curve";
+    artLevelCurve.sizeBytes = static_cast<uint64_t>(levelCurveFile.getSize());
+    artLevelCurve.sha256 = core::ExperimentStorage::computeFileSha256(levelCurveFile);
+    artifacts.push_back(artLevelCurve);
+
+    // 4. Write curves/dynamics_velocity_timbre_curve.json
+    ordered_json timbreCurveJson;
+    timbreCurveJson["xName"] = (dyn && !dyn->brightnessCurve.xName.isEmpty()) ? dyn->brightnessCurve.xName.toStdString() : "midi_velocity";
+    timbreCurveJson["xUnit"] = (dyn && !dyn->brightnessCurve.xUnit.isEmpty()) ? dyn->brightnessCurve.xUnit.toStdString() : "0-127";
+    timbreCurveJson["yName"] = (dyn && !dyn->brightnessCurve.yName.isEmpty()) ? dyn->brightnessCurve.yName.toStdString() : "spectral_centroid";
+    timbreCurveJson["yUnit"] = (dyn && !dyn->brightnessCurve.yUnit.isEmpty()) ? dyn->brightnessCurve.yUnit.toStdString() : "Hz";
+    if (dyn != nullptr)
+    {
+        timbreCurveJson["sampleCount"] = dyn->brightnessCurve.x.size();
+        timbreCurveJson["x"] = dyn->brightnessCurve.x;
+        timbreCurveJson["y"] = dyn->brightnessCurve.y;
+    }
+    else
+    {
+        timbreCurveJson["sampleCount"] = 0;
+        timbreCurveJson["x"] = std::vector<double>{};
+        timbreCurveJson["y"] = std::vector<double>{};
+    }
+
+    juce::File timbreCurveFile = curvesDir.getChildFile("dynamics_velocity_timbre_curve.json");
+    timbreCurveFile.replaceWithText(juce::String::fromUTF8(timbreCurveJson.dump(2).c_str()));
+
+    core::ExperimentArtifact artTimbreCurve;
+    artTimbreCurve.relativePath = "curves/dynamics_velocity_timbre_curve.json";
+    artTimbreCurve.role = "dynamics_timbre_curve";
+    artTimbreCurve.sizeBytes = static_cast<uint64_t>(timbreCurveFile.getSize());
+    artTimbreCurve.sha256 = core::ExperimentStorage::computeFileSha256(timbreCurveFile);
+    artifacts.push_back(artTimbreCurve);
+
+    // 5. Write results/measurement_result.json
+    juce::File resultFile = resultsDir.getChildFile("measurement_result.json");
+    std::string resultJson = MeasurementSerialization::serializeResult(result);
+    resultFile.replaceWithText(juce::String::fromUTF8(resultJson.c_str()));
+
+    core::ExperimentArtifact artResult;
+    artResult.relativePath = "results/measurement_result.json";
+    artResult.role = "measurement_result";
+    artResult.sizeBytes = static_cast<uint64_t>(resultFile.getSize());
+    artResult.sha256 = core::ExperimentStorage::computeFileSha256(resultFile);
+    artifacts.push_back(artResult);
+
+    // 6. Write reports/measurement_report.html
+    juce::File reportFile = reportsDir.getChildFile("measurement_report.html");
+    std::string htmlContent = MeasurementReportGenerator::generateDynamicsReportHtml(spec, result);
+    reportFile.replaceWithText(juce::String::fromUTF8(htmlContent.c_str()));
+
+    core::ExperimentArtifact artReport;
+    artReport.relativePath = "reports/measurement_report.html";
+    artReport.role = "measurement_report";
+    artReport.sizeBytes = static_cast<uint64_t>(reportFile.getSize());
+    artReport.sha256 = core::ExperimentStorage::computeFileSha256(reportFile);
+    artifacts.push_back(artReport);
+
+    // 7. Write manifest.json
+    writeManifestJson(containerDir, spec, artifacts);
+
+    // 8. Verify cryptographic integrity
+    core::ExperimentFolderReader reader;
+    auto readResult = reader.read(containerDir, outError);
+    if (!readResult.has_value() || readResult->status == core::ExperimentStatus::Corrupt)
+    {
+        outError = "Verification of generated manifest failed: " + outError;
+        return false;
+    }
+
+    return true;
+}
+
+bool MeasurementContainerExporter::exportModulationMeasurement(const juce::File& containerDir,
+                                                               const MeasurementSpec& spec,
+                                                               const MeasurementResult& result,
+                                                               const juce::File& sourceAudioWav,
+                                                               juce::String& outError)
+{
+    if (containerDir.existsAsFile())
+    {
+        outError = "Target container path is an existing file, directory required";
+        return false;
+    }
+
+    if (!containerDir.isDirectory() && !containerDir.createDirectory())
+    {
+        outError = "Failed to create container directory: " + containerDir.getFullPathName();
+        return false;
+    }
+
+    juce::File specsDir = containerDir.getChildFile("specs");
+    juce::File resultsDir = containerDir.getChildFile("results");
+    juce::File curvesDir = containerDir.getChildFile("curves");
+    juce::File audioDir = containerDir.getChildFile("audio");
+    juce::File reportsDir = containerDir.getChildFile("reports");
+
+    specsDir.createDirectory();
+    resultsDir.createDirectory();
+    curvesDir.createDirectory();
+    audioDir.createDirectory();
+    reportsDir.createDirectory();
+
+    // 0. Write experiment.json
+    writeExperimentJson(containerDir, spec, spec.execution.sampleRateHz, spec.stimulus.durationSec, spec.stimulus.sha256);
+
+    std::vector<core::ExperimentArtifact> artifacts;
+
+    // 1. Write specs/measurement_spec.json
+    juce::File specFile = specsDir.getChildFile("measurement_spec.json");
+    std::string specJson = MeasurementSerialization::serializeSpec(spec);
+    specFile.replaceWithText(juce::String::fromUTF8(specJson.c_str()));
+
+    core::ExperimentArtifact artSpec;
+    artSpec.relativePath = "specs/measurement_spec.json";
+    artSpec.role = "measurement_spec";
+    artSpec.sizeBytes = static_cast<uint64_t>(specFile.getSize());
+    artSpec.sha256 = core::ExperimentStorage::computeFileSha256(specFile);
+    artifacts.push_back(artSpec);
+
+    // 2. Write specs/measurement_stimulus.json
+    juce::File stimFile = specsDir.getChildFile("measurement_stimulus.json");
+    std::string stimJson = MeasurementSerialization::serializeStimulus(spec.stimulus);
+    stimFile.replaceWithText(juce::String::fromUTF8(stimJson.c_str()));
+
+    core::ExperimentArtifact artStim;
+    artStim.relativePath = "specs/measurement_stimulus.json";
+    artStim.role = "measurement_stimulus";
+    artStim.sizeBytes = static_cast<uint64_t>(stimFile.getSize());
+    artStim.sha256 = core::ExperimentStorage::computeFileSha256(stimFile);
+    artifacts.push_back(artStim);
+
+    // 3. Write curves/modulation_time_curve.json
+    const auto* mod = result.modulationResult.has_value() ? &(*result.modulationResult) : nullptr;
+    ordered_json timeCurveJson;
+    timeCurveJson["xName"] = (mod && !mod->timeCurve.xName.isEmpty()) ? mod->timeCurve.xName.toStdString() : "time";
+    timeCurveJson["xUnit"] = (mod && !mod->timeCurve.xUnit.isEmpty()) ? mod->timeCurve.xUnit.toStdString() : "ms";
+    timeCurveJson["yName"] = (mod && !mod->timeCurve.yName.isEmpty()) ? mod->timeCurve.yName.toStdString() : "amplitude";
+    timeCurveJson["yUnit"] = (mod && !mod->timeCurve.yUnit.isEmpty()) ? mod->timeCurve.yUnit.toStdString() : "dBFS";
+    if (mod != nullptr)
+    {
+        timeCurveJson["sampleCount"] = mod->timeCurve.x.size();
+        timeCurveJson["x"] = mod->timeCurve.x;
+        timeCurveJson["y"] = mod->timeCurve.y;
+    }
+    else
+    {
+        timeCurveJson["sampleCount"] = 0;
+        timeCurveJson["x"] = std::vector<double>{};
+        timeCurveJson["y"] = std::vector<double>{};
+    }
+
+    juce::File timeCurveFile = curvesDir.getChildFile("modulation_time_curve.json");
+    timeCurveFile.replaceWithText(juce::String::fromUTF8(timeCurveJson.dump(2).c_str()));
+
+    core::ExperimentArtifact artTimeCurve;
+    artTimeCurve.relativePath = "curves/modulation_time_curve.json";
+    artTimeCurve.role = "modulation_time_curve";
+    artTimeCurve.sizeBytes = static_cast<uint64_t>(timeCurveFile.getSize());
+    artTimeCurve.sha256 = core::ExperimentStorage::computeFileSha256(timeCurveFile);
+    artifacts.push_back(artTimeCurve);
+
+    // 4. Write curves/modulation_spectrum_curve.json
+    ordered_json specCurveJson;
+    specCurveJson["xName"] = (mod && !mod->spectrumCurve.xName.isEmpty()) ? mod->spectrumCurve.xName.toStdString() : "frequency";
+    specCurveJson["xUnit"] = (mod && !mod->spectrumCurve.xUnit.isEmpty()) ? mod->spectrumCurve.xUnit.toStdString() : "Hz";
+    specCurveJson["yName"] = (mod && !mod->spectrumCurve.yName.isEmpty()) ? mod->spectrumCurve.yName.toStdString() : "magnitude";
+    specCurveJson["yUnit"] = (mod && !mod->spectrumCurve.yUnit.isEmpty()) ? mod->spectrumCurve.yUnit.toStdString() : "dBFS";
+    if (mod != nullptr)
+    {
+        specCurveJson["sampleCount"] = mod->spectrumCurve.x.size();
+        specCurveJson["x"] = mod->spectrumCurve.x;
+        specCurveJson["y"] = mod->spectrumCurve.y;
+    }
+    else
+    {
+        specCurveJson["sampleCount"] = 0;
+        specCurveJson["x"] = std::vector<double>{};
+        specCurveJson["y"] = std::vector<double>{};
+    }
+
+    juce::File specCurveFile = curvesDir.getChildFile("modulation_spectrum_curve.json");
+    specCurveFile.replaceWithText(juce::String::fromUTF8(specCurveJson.dump(2).c_str()));
+
+    core::ExperimentArtifact artSpecCurve;
+    artSpecCurve.relativePath = "curves/modulation_spectrum_curve.json";
+    artSpecCurve.role = "modulation_spectrum_curve";
+    artSpecCurve.sizeBytes = static_cast<uint64_t>(specCurveFile.getSize());
+    artSpecCurve.sha256 = core::ExperimentStorage::computeFileSha256(specCurveFile);
+    artifacts.push_back(artSpecCurve);
+
+    // 5. Audio handling
+    std::string relAudioPathForHtml;
+    if (sourceAudioWav.existsAsFile())
+    {
+        juce::File destAudio = audioDir.getChildFile("modulation_reference.wav");
+        if (!sourceAudioWav.copyFileTo(destAudio))
+        {
+            outError = "Failed to copy audio artifact to " + destAudio.getFullPathName();
+            return false;
+        }
+
+        auto artAudio = registerAudioArtifact(destAudio, "audio/modulation_reference.wav", "measurement_baseline_audio");
+        artifacts.push_back(artAudio);
+        relAudioPathForHtml = "../audio/modulation_reference.wav";
+    }
+
+    // 6. Write results/measurement_result.json
+    MeasurementResult updatedResult = result;
+    if (!artifacts.empty())
+    {
+        for (const auto& a : artifacts)
+        {
+            if (a.role == "measurement_baseline_audio")
+            {
+                updatedResult.artifacts.audioPath = a.relativePath;
+                updatedResult.artifacts.audioSha256 = a.sha256;
+                updatedResult.integrityVerified = true;
+                break;
+            }
+        }
+    }
+
+    juce::File resultFile = resultsDir.getChildFile("measurement_result.json");
+    std::string resultJson = MeasurementSerialization::serializeResult(updatedResult);
+    resultFile.replaceWithText(juce::String::fromUTF8(resultJson.c_str()));
+
+    core::ExperimentArtifact artResult;
+    artResult.relativePath = "results/measurement_result.json";
+    artResult.role = "measurement_result";
+    artResult.sizeBytes = static_cast<uint64_t>(resultFile.getSize());
+    artResult.sha256 = core::ExperimentStorage::computeFileSha256(resultFile);
+    artifacts.push_back(artResult);
+
+    // 7. Write reports/measurement_report.html
+    juce::File reportFile = reportsDir.getChildFile("measurement_report.html");
+    std::string htmlContent = MeasurementReportGenerator::generateModulationReportHtml(spec, updatedResult, relAudioPathForHtml);
+    reportFile.replaceWithText(juce::String::fromUTF8(htmlContent.c_str()));
+
+    core::ExperimentArtifact artReport;
+    artReport.relativePath = "reports/measurement_report.html";
+    artReport.role = "measurement_report";
+    artReport.sizeBytes = static_cast<uint64_t>(reportFile.getSize());
+    artReport.sha256 = core::ExperimentStorage::computeFileSha256(reportFile);
+    artifacts.push_back(artReport);
+
+    // 8. Write manifest.json
+    writeManifestJson(containerDir, spec, artifacts);
+
+    // 9. Verify cryptographic integrity
+    core::ExperimentFolderReader reader;
+    auto readResult = reader.read(containerDir, outError);
+    if (!readResult.has_value() || readResult->status == core::ExperimentStatus::Corrupt)
+    {
+        outError = "Verification of generated manifest failed: " + outError;
         return false;
     }
 

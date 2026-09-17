@@ -32,13 +32,23 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     juce::File resultFile = containerDir.getChildFile("results/measurement_result.json");
     juce::File audioFile = containerDir.getChildFile("audio/envelope_reference.wav");
     if (!audioFile.existsAsFile())
+        audioFile = containerDir.getChildFile("audio/modulation_reference.wav");
+    if (!audioFile.existsAsFile())
         audioFile = containerDir.getChildFile("audio/audio_captured.wav");
 
     juce::File stimulusAudioFile = containerDir.getChildFile("audio/audio_stimulus.wav");
     juce::File impulseResponseFile = containerDir.getChildFile("audio/impulse_response.wav");
     juce::File curveFile = containerDir.getChildFile("curves/filter_response_curve.json");
     if (!curveFile.existsAsFile())
+        curveFile = containerDir.getChildFile("curves/dynamics_velocity_level_curve.json");
+    if (!curveFile.existsAsFile())
+        curveFile = containerDir.getChildFile("curves/modulation_time_curve.json");
+    if (!curveFile.existsAsFile())
         curveFile = containerDir.getChildFile("curves/envelope_curve.json");
+
+    juce::File secondaryCurveFile = containerDir.getChildFile("curves/dynamics_velocity_timbre_curve.json");
+    if (!secondaryCurveFile.existsAsFile())
+        secondaryCurveFile = containerDir.getChildFile("curves/modulation_spectrum_curve.json");
 
     juce::File htmlReportFile = containerDir.getChildFile("reports/measurement_report.html");
 
@@ -50,7 +60,7 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     if (!checkConfinement(manifestFile) || !checkConfinement(specFile) ||
         !checkConfinement(resultFile) || !checkConfinement(audioFile) ||
         !checkConfinement(stimulusAudioFile) || !checkConfinement(impulseResponseFile) ||
-        !checkConfinement(curveFile) || !checkConfinement(htmlReportFile))
+        !checkConfinement(curveFile) || !checkConfinement(secondaryCurveFile) || !checkConfinement(htmlReportFile))
     {
         outError = "Security violation: Path traversal detected outside container directory";
         return false;
@@ -62,6 +72,7 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.stimulusAudioFile = stimulusAudioFile;
     outModel.impulseResponseFile = impulseResponseFile;
     outModel.curveFile = curveFile;
+    outModel.secondaryCurveFile = secondaryCurveFile;
     outModel.htmlReportFile = htmlReportFile;
 
     if (!manifestFile.existsAsFile())
@@ -126,6 +137,8 @@ bool MeasurementViewModelLoader::loadFromContainer(const juce::File& containerDi
     outModel.filterTopology = result.filterTopology;
     outModel.measurementDomain = result.measurementDomain;
     outModel.slopeFit = result.slopeFit;
+    outModel.dynamicsResult = result.dynamicResult;
+    outModel.modulationResult = result.modulationResult;
 
     // 3. Read specs/measurement_spec.json for additional execution context if available
     if (specFile.existsAsFile())

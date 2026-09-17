@@ -88,6 +88,23 @@ public:
                                         juce::String& outError);
 
     /**
+     * @brief Persists a complete MIDI dynamics measurement into an immutable FAIR container with manifest.
+     */
+    static bool exportDynamicsMeasurement(const juce::File& containerDir,
+                                          const MeasurementSpec& spec,
+                                          const MeasurementResult& result,
+                                          juce::String& outError);
+
+    /**
+     * @brief Persists a complete LFO modulation measurement into an immutable FAIR container with manifest.
+     */
+    static bool exportModulationMeasurement(const juce::File& containerDir,
+                                            const MeasurementSpec& spec,
+                                            const MeasurementResult& result,
+                                            const juce::File& sourceAudioWav,
+                                            juce::String& outError);
+
+    /**
      * @brief Writes a single-channel or stereo PCM 16-bit WAV file from float samples.
      */
     static bool writeWavFile(const juce::File& file,

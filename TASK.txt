@@ -30,6 +30,13 @@
 - Validación manual de Release completada de extremo a extremo en modo Guiado: 9/9 escenarios PASS registrados en docs/architecture/MVP_RELEASE_VALIDATION.md.
 - Suite de pruebas automatizadas: 35/35 aserciones de nomenclatura y aislamiento en verde, 100% de tests pasando.
 
-[SIGUIENTE HITO] Fase 20.9: Integración de Hosting VST3 Real para Plugins Externos Complejos (Dexed.vst3) y Soporte de Hardware Analógico en vivo.
+[COMPLETADO] Fase 20.10.3: Medición de Dinámica MIDI y Modulación LFO, Exportación FAIR y Reportes Vectoriales.
+- Adaptador DynamicsMeasurementAdapter: análisis de velocidad MIDI vs Peak/RMS/Attack/Centroid/Rolloff, desacoplamiento de R^2 respecto a linealidad implícita y detección de discontinuidades observadas.
+- Adaptador ModulationMeasurementAdapter: demodulación de amplitud y frecuencia, estimación de frecuencia LFO, clasificación de forma de onda y extracción de bandas laterales espectrales con supresión de armónicos propios.
+- Contratos FAIR en MeasurementContracts.h: DynamicPoint, DynamicResultData, CurveFitResult, DiscontinuityObservation, ModulationResultData, SpectralSidebandObservation.
+- Exportación e Integración de Contenedores FAIR en MeasurementContainerExporter: persistencia determinista de curvas JSON y generación de reportes HTML auto-contenidos con SVG integrados y reproductor WAV.
+- Generadores Vectoriales SVG y Reportes HTML en MeasurementSvgGenerator y MeasurementReportGenerator.
+- Carga reactiva en MeasurementViewModelLoader y visor MeasurementViewerPanel.
+- Suite de pruebas completa: 347/347 test cases pasados, 160.025 aserciones superadas con 0 fallos.
 
-
+[SIGUIENTE HITO] Fase 20.11: Integración de Hosting VST3 Real (Dexed.vst3) y Soporte de Hardware Analógico en vivo.

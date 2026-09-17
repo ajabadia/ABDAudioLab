@@ -47,6 +47,9 @@ struct MeasurementViewModel
     juce::String measurementDomain;
     std::optional<abdaudiolab::measurement::SlopeFitMetadata> slopeFit;
 
+    std::optional<abdaudiolab::measurement::DynamicResponseResult> dynamicsResult;
+    std::optional<abdaudiolab::measurement::ModulationResultData> modulationResult;
+
     // Metrics & Curve
     std::vector<abdaudiolab::measurement::MeasurementMetric> metrics;
     abdaudiolab::measurement::MeasurementCurve curve;
@@ -56,7 +59,8 @@ struct MeasurementViewModel
     juce::File audioFile;               // Primary captured audio
     juce::File stimulusAudioFile;       // Sweep stimulus audio
     juce::File impulseResponseFile;     // Deconvolved IR audio
-    juce::File curveFile;               // Envelope or filter response curve JSON
+    juce::File curveFile;               // Primary curve JSON
+    juce::File secondaryCurveFile;      // Secondary curve JSON (timbre or modulation spectrum)
     juce::File htmlReportFile;
     juce::File specFile;
     juce::File resultFile;

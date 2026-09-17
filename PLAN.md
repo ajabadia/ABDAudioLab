@@ -23,14 +23,16 @@
 
 ---
 
-## Siguiente Hito: Fase 20.9 — Integración de Hosting VST3 Real (Dexed.vst3) y Hardware Analógico en vivo
+## Estado Actual: Fase 20.10.3 Completada y Validada (17/09/2026)
+- **Suite de Pruebas**: 347 / 347 casos de prueba ejecutados y superados (160.025 aserciones, 0 fallos).
+- **Medición de Dinámica MIDI**: `DynamicsMeasurementAdapter` con análisis de velocidad frente a Peak, RMS, ataque y centroide tímbrico. Desacoplamiento riguroso de $R^2$ sin asumir linealidad implícita y detección de discontinuidades observadas.
+- **Medición de Modulación Cíclica (LFO)**: `ModulationMeasurementAdapter` con demodulación Hilbert/envolvente, estimación de frecuencia LFO por autocorrelación y FFT, clasificación de forma de onda y discriminación de bandas laterales espectrales frente a armónicos de portadora.
+- **Contratos FAIR e Integridad Criptográfica**: Estructuras en `MeasurementContracts.h` con serialización canónica RFC 8785, fixity SHA-256 por artefacto y contenedor reproducible con `manifest.json`.
+- **Exportación e Informes de Publicación**: `MeasurementContainerExporter` con persistencia de curvas en disco, renderizado vectorial SVG interactivo (`MeasurementSvgGenerator`) y generación de reportes HTML autónomos (`MeasurementReportGenerator`) con controles de audio embebidos.
+- **Integración en Visor UI**: Actualización de `MeasurementViewModelLoader` y componentes de visualización `MeasurementViewerPanel`.
 
-### Objetivos Principales:
-1. **Hosting de Plugins Externos Complejos**:
-   - Validación y escaneo dinámico de `Dexed.vst3` en el worker aislado out-of-process.
-   - Sincronización de parámetros MIDI SysEx y mapeo automatizado del espacio tímbrico FM.
-2. **Soporte de Hardware Analógico**:
-   - Rutas de excitación analógica con loopback y calibración automática de niveles/latencia.
-   - Protección contra sobrecarga acústica y clipping analógico.
+---
+
+## Siguiente Hito: Fase 20.11 — Integración de Hosting VST3 Real (Dexed.vst3) y Hardware Analógico en vivo
 
 

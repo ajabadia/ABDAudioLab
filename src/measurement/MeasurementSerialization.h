@@ -76,6 +76,30 @@ public:
     static bool deserializeStimulus(const std::string& jsonStr, 
                                     StimulusSpec& outStimulus, 
                                     std::string& outError);
+
+    /**
+     * @brief Serializes a DynamicResponseResult.
+     */
+    static std::string serializeDynamicResult(const DynamicResponseResult& res, int indent = 2);
+
+    /**
+     * @brief Parses a DynamicResponseResult from a JSON string.
+     */
+    static bool deserializeDynamicResult(const std::string& jsonStr, 
+                                         DynamicResponseResult& outRes, 
+                                         std::string& outError);
+
+    /**
+     * @brief Serializes a ModulationResultData.
+     */
+    static std::string serializeModulationResult(const ModulationResultData& res, int indent = 2);
+
+    /**
+     * @brief Parses a ModulationResultData from a JSON string.
+     */
+    static bool deserializeModulationResult(const std::string& jsonStr, 
+                                           ModulationResultData& outRes, 
+                                           std::string& outError);
 };
 
 } // namespace abdaudiolab::measurement

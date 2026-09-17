@@ -53,6 +53,46 @@ public:
                                               double cutoffHz = -1.0,
                                               int width = 760,
                                               int height = 280);
+
+    /**
+     * @brief Renders inline vector SVG chart for MIDI dynamics level response (velocity 0..127 vs dBFS).
+     */
+    static std::string generateDynamicsLevelSvg(const std::vector<double>& velocities,
+                                                const std::vector<double>& levelsDb,
+                                                const std::optional<CurveFitMetadata>& fit = std::nullopt,
+                                                const DiscontinuityObservation& discontinuity = {},
+                                                int width = 760,
+                                                int height = 280);
+
+    /**
+     * @brief Renders inline vector SVG chart for MIDI dynamics timbre response (velocity 0..127 vs Hz).
+     */
+    static std::string generateDynamicsTimbreSvg(const std::vector<double>& velocities,
+                                                 const std::vector<double>& centroidHz,
+                                                 const std::vector<double>& rolloffHz = {},
+                                                 const std::optional<CurveFitMetadata>& fit = std::nullopt,
+                                                 int width = 760,
+                                                 int height = 280);
+
+    /**
+     * @brief Renders inline vector SVG chart for demodulated modulation time trajectory.
+     */
+    static std::string generateModulationTimeSvg(const std::vector<double>& timeMs,
+                                                 const std::vector<double>& values,
+                                                 const std::string& yUnit = "dBFS",
+                                                 const std::string& waveformShape = "sine",
+                                                 int width = 760,
+                                                 int height = 280);
+
+    /**
+     * @brief Renders inline vector SVG chart for modulation spectrum and observed sidebands.
+     */
+    static std::string generateModulationSpectrumSvg(const std::vector<double>& freqHz,
+                                                     const std::vector<double>& magDb,
+                                                     const std::vector<ModulationSideband>& sidebands = {},
+                                                     double carrierHz = 0.0,
+                                                     int width = 760,
+                                                     int height = 280);
 };
 
 } // namespace abdaudiolab::measurement

@@ -255,6 +255,10 @@ target_sources(ABDAudioLab
         src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
         src/measurement/adapters/FilterMeasurementAdapter.h
         src/measurement/adapters/FilterMeasurementAdapter.cpp
+        src/measurement/adapters/DynamicsMeasurementAdapter.h
+        src/measurement/adapters/DynamicsMeasurementAdapter.cpp
+        src/measurement/adapters/ModulationMeasurementAdapter.h
+        src/measurement/adapters/ModulationMeasurementAdapter.cpp
         # Measurement GUI (Phase 20.10.1)
         src/gui/measurement/MeasurementViewModel.h
         src/gui/measurement/MeasurementViewModelLoader.h
@@ -573,8 +577,12 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_DexedValidation.cpp
     src/tests/test_GuidedPluginLoad_Dexed.cpp
     src/tests/test_MeasurementContracts.cpp
+    src/tests/test_DynamicsAndModulationContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
     src/tests/test_FilterMeasurementAdapter.cpp
+    src/tests/test_DynamicsMeasurementAdapter.cpp
+    src/tests/test_ModulationMeasurementAdapter.cpp
+    src/tests/test_DynamicsAndModulationExport.cpp
     src/tests/test_MeasurementStimulusCapture.cpp
     src/tests/test_MeasurementAudioThroughCapture.cpp
     src/tests/test_MeasurementPersistenceAndReport.cpp
@@ -590,6 +598,8 @@ add_executable(ABDAudioLab_Tests
     src/measurement/MeasurementReportGenerator.cpp
     src/measurement/adapters/EnvelopeMeasurementAdapter.cpp
     src/measurement/adapters/FilterMeasurementAdapter.cpp
+    src/measurement/adapters/DynamicsMeasurementAdapter.cpp
+    src/measurement/adapters/ModulationMeasurementAdapter.cpp
     src/gui/measurement/MeasurementViewModelLoader.cpp
     src/gui/measurement/MeasurementTemporalCurveComponent.cpp
     src/gui/measurement/MeasurementFrequencyCurveComponent.cpp

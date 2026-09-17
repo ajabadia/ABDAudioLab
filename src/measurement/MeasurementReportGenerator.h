@@ -43,6 +43,19 @@ public:
                                                 const std::string& relCapturedAudio = "",
                                                 const std::string& relStimulusAudio = "",
                                                 const std::string& relImpulseResponse = "");
+
+    /**
+     * @brief Generates self-contained HTML publication-grade report for MIDI dynamics measurements.
+     */
+    static std::string generateDynamicsReportHtml(const MeasurementSpec& spec,
+                                                  const MeasurementResult& result);
+
+    /**
+     * @brief Generates self-contained HTML publication-grade report for LFO cyclic modulation measurements.
+     */
+    static std::string generateModulationReportHtml(const MeasurementSpec& spec,
+                                                    const MeasurementResult& result,
+                                                    const std::string& relativeAudioPath = "");
 };
 
 } // namespace abdaudiolab::measurement

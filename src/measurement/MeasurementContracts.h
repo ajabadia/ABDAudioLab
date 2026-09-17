@@ -338,6 +338,180 @@ struct MeasurementArtifacts
 };
 
 /**
+ * @brief Formal model for non-linear regression fitting without assuming linearity.
+ */
+enum class CurveFitModel
+{
+    none,
+    linear,
+    logarithmic,
+    exponential,
+    piecewise
+};
+
+[[nodiscard]] inline std::string curveFitModelToString(CurveFitModel model)
+{
+    switch (model)
+    {
+        case CurveFitModel::linear:      return "linear";
+        case CurveFitModel::logarithmic: return "logarithmic";
+        case CurveFitModel::exponential: return "exponential";
+        case CurveFitModel::piecewise:   return "piecewise";
+        default:                         return "none";
+    }
+}
+
+[[nodiscard]] inline CurveFitModel curveFitModelFromString(const std::string& str)
+{
+    if (str == "linear")      return CurveFitModel::linear;
+    if (str == "logarithmic") return CurveFitModel::logarithmic;
+    if (str == "exponential") return CurveFitModel::exponential;
+    if (str == "piecewise")   return CurveFitModel::piecewise;
+    return CurveFitModel::none;
+}
+
+/**
+ * @brief Audit trail and statistical goodness of fit for empirical curve models.
+ */
+struct CurveFitMetadata
+{
+    std::string model { "none" }; /**< "linear", "logarithmic", "exponential", "piecewise", "none" */
+    double rSquared { 0.0 };
+    std::string xVariable;
+    std::string yVariable;
+};
+
+/**
+ * @brief Empirical discontinuity observation separating data from semantic interpretations.
+ */
+struct DiscontinuityObservation
+{
+    bool detected { false };
+    int lowerVelocity { 0 };
+    int upperVelocity { 0 };
+    double jumpDb { 0.0 };
+    double confidence { 0.0 };
+    juce::String reason; /**< e.g. "discontinuity_observed_in_rms_curve" */
+};
+
+/**
+ * @brief Formal audit metadata for spectral FFT/STFT windowing and resolution.
+ */
+struct SpectralAnalysisMetadata
+{
+    int fftSize { 0 };
+    int hopSize { 0 };
+    juce::String window { "hann" };
+    double frequencyResolutionHz { 0.0 };
+    int averagingCount { 1 };
+};
+
+/**
+ * @brief Single discrete velocity response sample in MIDI dynamics characterization.
+ */
+struct DynamicPoint
+{
+    int velocity { 0 };                     /**< 0..127 */
+    double peakDbfs { -96.0 };              /**< Peak observed amplitude (dBFS) */
+    double rmsDbfs { -96.0 };               /**< Steady-state RMS amplitude (dBFS) */
+    double spectralCentroidHz { 0.0 };      /**< Timbral brightness centroid (Hz) */
+    double spectralRolloffHz { 0.0 };       /**< High-frequency rolloff (Hz) */
+    double attackTimeMs { 0.0 };            /**< Dynamic attack time (ms) */
+    std::string status { "observed" };      /**< "observed", "unreliable", "skipped", "silent" */
+    std::string reason;                     /**< Diagnostic explanation if skipped or silent */
+
+    // Strict point-level reproducibility & audit trail
+    double measurementWindowStartMs { 0.0 };
+    double measurementWindowEndMs { 0.0 };
+    std::string presetStateHash;
+    std::string audioArtifactHash;
+
+    std::vector<MeasurementMetric> metrics;
+};
+
+/**
+ * @brief Aggregate dynamic response result across multiple velocity points.
+ */
+struct DynamicResponseResult
+{
+    std::vector<DynamicPoint> points;
+    MeasurementCurve amplitudeCurve;        /**< Velocity (0..127) -> Peak/RMS Amplitude (dBFS) */
+    MeasurementCurve brightnessCurve;       /**< Velocity (0..127) -> Spectral Centroid (Hz) */
+    std::optional<CurveFitMetadata> amplitudeFit { std::nullopt };
+    std::optional<CurveFitMetadata> brightnessFit { std::nullopt };
+    std::optional<SpectralAnalysisMetadata> spectralMetadata { std::nullopt };
+    double dynamicRangeDb { 0.0 };          /**< Dynamic range between observed maximum and minimum */
+    DiscontinuityObservation discontinuity; /**< Observed jump/step discontinuity without assuming layers */
+};
+
+/**
+ * @brief Declared modulation target destination.
+ */
+enum class ModulationDestination
+{
+    pitch,      /**< Pitch modulation (vibrato): cents or Hz */
+    amplitude,  /**< Amplitude modulation (tremolo): dB or ratio */
+    cutoff,     /**< Filter cutoff modulation: Hz or parameter delta */
+    unknown
+};
+
+[[nodiscard]] inline std::string modulationDestinationToString(ModulationDestination dest)
+{
+    switch (dest)
+    {
+        case ModulationDestination::pitch:     return "pitch";
+        case ModulationDestination::amplitude: return "amplitude";
+        case ModulationDestination::cutoff:    return "cutoff";
+        default:                               return "unknown";
+    }
+}
+
+[[nodiscard]] inline ModulationDestination modulationDestinationFromString(const std::string& str)
+{
+    if (str == "pitch")     return ModulationDestination::pitch;
+    if (str == "amplitude") return ModulationDestination::amplitude;
+    if (str == "cutoff")    return ModulationDestination::cutoff;
+    return ModulationDestination::unknown;
+}
+
+/**
+ * @brief Observed spectral sideband associated with a carrier frequency.
+ */
+struct ModulationSideband
+{
+    double carrierFrequencyHz { 0.0 };
+    double sidebandFrequencyHz { 0.0 };
+    int order { 1 };                        /**< +1, -1, +2, -2, etc. */
+    double levelRelativeToCarrierDb { 0.0 };
+};
+
+/**
+ * @brief Waveform classification and confidence.
+ */
+struct WaveformEstimate
+{
+    std::string waveform { "none" };        /**< "sine", "triangle", "sawUp", "sawDown", "square", "sampleAndHold", "complex" */
+    std::string status { "not_observable" };/**< "observed", "inferred", "not_observable" */
+    double confidence { 0.0 };              /**< 0..1 confidence factor */
+};
+
+/**
+ * @brief Complete metrics record for LFO or cyclic modulation response.
+ */
+struct ModulationResultData
+{
+    std::string targetDestination { "unknown" }; /**< "pitch", "amplitude", "cutoff" */
+    MeasurementMetric rateHz;                    /**< Estimated LFO frequency (Hz) */
+    std::string rateMethod;                      /**< "temporal_period", "spectral_peak", "pitch_tracking", "amplitude_demodulation" */
+    MeasurementMetric depth;                     /**< Modulation depth in target destination units */
+    WaveformEstimate waveform;
+    SpectralAnalysisMetadata spectralMetadata;   /**< FFT size, window, and frequency resolution */
+    std::vector<ModulationSideband> sidebands;
+    MeasurementCurve timeCurve;                  /**< Demodulated temporal waveform trajectory */
+    MeasurementCurve spectrumCurve;              /**< Low-frequency or sideband spectrum */
+};
+
+/**
  * @brief Comprehensive specification defining what and how to measure.
  */
 struct MeasurementSpec
@@ -353,6 +527,13 @@ struct MeasurementSpec
 
     std::string measurementDomain { "directTransferFunction" }; /**< "directTransferFunction" or "synthesizedSpectralResponse" */
     std::string filterTopology { "unknown" };
+    std::string modulationDestination { "unknown" };
+
+    // Reproducibility & State Fixity
+    std::string presetStateHash;
+    std::vector<int> velocityGrid; /**< Custom velocity points (e.g. 0, 1, 8, ..., 127) */
+    double measurementWindowStartMs { 0.0 };
+    double measurementWindowEndMs { 0.0 };
 
     ExecutionMetadata execution;
     StimulusSpec stimulus;
@@ -371,9 +552,15 @@ struct MeasurementResult
     std::string measurementType;
     std::string measurementDomain { "directTransferFunction" }; /**< "directTransferFunction" or "synthesizedSpectralResponse" */
     std::string filterTopology { "unknown" };
+    std::string modulationDestination { "unknown" };
 
     MeasurementStatus status { MeasurementStatus::failed };
     std::string reason;
+
+    // Reproducibility & Execution Context
+    std::string presetStateHash;
+    double measurementWindowStartMs { 0.0 };
+    double measurementWindowEndMs { 0.0 };
 
     DutIdentity dut;
     ExecutionMetadata execution;
@@ -384,6 +571,11 @@ struct MeasurementResult
     std::vector<MeasurementMetric> metrics;
     std::optional<SlopeFitMetadata> slopeFit { std::nullopt };
     MeasurementCurve curve;
+
+    // Phase 20.10.3 Domain Payloads
+    std::optional<DynamicResponseResult> dynamicResult { std::nullopt };
+    std::optional<ModulationResultData> modulationResult { std::nullopt };
+
     MeasurementArtifacts artifacts;
 
     bool integrityVerified { false };

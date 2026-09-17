@@ -241,6 +241,14 @@ std::string MeasurementReportGenerator::generateReportHtml(const MeasurementSpec
     {
         return generateFilterReportHtml(spec, result, relativeAudioPath);
     }
+    if (spec.measurementType == "dynamics" || result.measurementType == "dynamics" || result.dynamicResult.has_value())
+    {
+        return generateDynamicsReportHtml(spec, result);
+    }
+    if (spec.measurementType == "modulation" || result.measurementType == "modulation" || result.modulationResult.has_value())
+    {
+        return generateModulationReportHtml(spec, result, relativeAudioPath);
+    }
 
     std::ostringstream h;
     h << "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n"
@@ -360,6 +368,330 @@ std::string MeasurementReportGenerator::generateReportHtml(const MeasurementSpec
       << "      <tr><td>Measurement Result</td><td><code>measurement_result</code></td><td><code>" << spec.measurementId << "</code></td></tr>\n"
       << "      <tr><td>Envelope Curve</td><td><code>envelope_curve</code></td><td><code>envelope_curve.json</code></td></tr>\n"
       << "      <tr><td>Acoustic Audio</td><td><code>measurement_baseline_audio</code></td><td><code>" << result.artifacts.audioSha256 << "</code></td></tr>\n"
+      << "    </tbody>\n"
+      << "  </table>\n";
+
+    h << "</div>\n</body>\n</html>\n";
+    return h.str();
+}
+
+std::string MeasurementReportGenerator::generateDynamicsReportHtml(const MeasurementSpec& spec,
+                                                                   const MeasurementResult& result)
+{
+    std::ostringstream h;
+    h << "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n"
+      << "  <meta charset=\"UTF-8\">\n"
+      << "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+      << "  <title>Reporte de Medición de Respuesta Dinámica MIDI — " << spec.measurementId << "</title>\n"
+      << "  <style>\n"
+      << "    body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f19; color: #f1f5f9; margin: 0; padding: 32px 24px; line-height: 1.5; }\n"
+      << "    .container { max-width: 860px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }\n"
+      << "    h1 { font-size: 22px; font-weight: 700; color: #f8fafc; margin: 0 0 8px 0; }\n"
+      << "    .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }\n"
+      << "    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }\n"
+      << "    .badge-completed { background: #065f46; color: #34d399; border: 1px solid #059669; }\n"
+      << "    .badge-unreliable { background: #78350f; color: #fbbf24; border: 1px solid #d97706; }\n"
+      << "    .badge-invalid { background: #7f1d1d; color: #f87171; border: 1px solid #dc2626; }\n"
+      << "    .badge-failed { background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }\n"
+      << "    .badge-skipped { background: #374151; color: #9ca3af; border: 1px solid #4b5563; }\n"
+      << "    .badge-observed { background: #0c4a6e; color: #38bdf8; border: 1px solid #0284c7; }\n"
+      << "    .alert { padding: 14px 18px; border-radius: 8px; margin: 18px 0; font-size: 13px; }\n"
+      << "    .alert-warning { background: #1c1917; border-left: 4px solid #f59e0b; color: #fef3c7; }\n"
+      << "    .alert-info { background: #082f49; border-left: 4px solid #0284c7; color: #e0f2fe; }\n"
+      << "    .section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.75px; color: #94a3b8; margin: 28px 0 12px 0; border-bottom: 1px solid #1f2937; padding-bottom: 6px; }\n"
+      << "    table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 24px 0; }\n"
+      << "    th { text-align: left; background: #1e293b; color: #94a3b8; padding: 10px 14px; font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid #334155; }\n"
+      << "    td { padding: 10px 14px; border-bottom: 1px solid #1f2937; color: #cbd5e1; }\n"
+      << "    tr:hover td { background: #1e293b; }\n"
+      << "    code { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; background: #1e293b; padding: 2px 6px; border-radius: 4px; color: #38bdf8; }\n"
+      << "    .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }\n"
+      << "    .meta-card { background: #1e293b; padding: 12px 16px; border-radius: 8px; border: 1px solid #334155; }\n"
+      << "    .meta-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }\n"
+      << "  </style>\n</head>\n<body>\n<div class=\"container\">\n";
+
+    std::string badgeClass = (result.status == MeasurementStatus::completed) ? "badge-completed" : "badge-unreliable";
+    std::string statusLabel = (result.status == MeasurementStatus::completed) ? "COMPLETED" : "UNRELIABLE";
+
+    h << "  <div style=\"display: flex; justify-content: space-between; align-items: flex-start;\">\n"
+      << "    <div>\n"
+      << "      <h1>MIDI Dynamics: " << statusLabel << "</h1>\n"
+      << "      <div class=\"subtitle\">Target: <strong>" << result.dut.name << "</strong> (" << result.dut.format << ") | ID: <code>" << spec.measurementId << "</code></div>\n"
+      << "    </div>\n"
+      << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
+      << "      <span class=\"badge badge-observed\">DYNAMIC: MIDI_VELOCITY</span>\n"
+      << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
+      << "    </div>\n"
+      << "  </div>\n";
+
+    // Metrological Advisory Banners (Ajustes 1 y 2)
+    h << "  <div class=\"alert alert-info\">\n"
+      << "    <strong>Metrological Evaluation Notice:</strong> Evaluates empirical curve match with declared regression models (R²); non-linear responses are valid expressive synthesis behaviors. Discontinuities are recorded as empirical observations without asserting multisample switching architecture without independent proof.\n"
+      << "  </div>\n";
+
+    const auto* dyn = result.dynamicResult.has_value() ? &(*result.dynamicResult) : nullptr;
+
+    if (dyn != nullptr && dyn->discontinuity.detected)
+    {
+        h << "  <div class=\"alert alert-warning\">\n"
+          << "    <strong>Discontinuity Observed:</strong> Abrupt step of <strong>"
+          << std::fixed << std::setprecision(1) << dyn->discontinuity.jumpDb
+          << " dB</strong> detected between velocity " << dyn->discontinuity.lowerVelocity
+          << " and " << dyn->discontinuity.upperVelocity << " (confidence: "
+          << std::fixed << std::setprecision(2) << dyn->discontinuity.confidence << "). Reason: <code>"
+          << dyn->discontinuity.reason << "</code>.\n"
+          << "  </div>\n";
+    }
+
+    // Section 1: Execution & Preset Metadata
+    h << "  <div class=\"section-title\">Execution & Metrological Metadata</div>\n"
+      << "  <div class=\"meta-grid\">\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Sampling Rate</div><div class=\"meta-value\">" << static_cast<int>(result.execution.sampleRateHz) << " Hz</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Block Size / Latency</div><div class=\"meta-value\">" << result.execution.blockSize << " spl / " << result.execution.latencySamples << " spl</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Analyzer Engine</div><div class=\"meta-value\">" << result.analyzer.name << " (v" << result.analyzer.version << ")</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Evaluated Velocity Points</div><div class=\"meta-value\">" << (dyn ? dyn->points.size() : 0) << " velocities</div></div>\n"
+      << "  </div>\n";
+
+    // Section 2: Summary Metrics Table
+    h << "  <div class=\"section-title\">Observed Dynamics Metrics</div>\n"
+      << "  <table>\n"
+      << "    <thead><tr><th>Metric</th><th>Observed Value</th><th>Unit</th><th>Status</th></tr></thead>\n"
+      << "    <tbody>\n";
+
+    for (const auto& m : result.metrics)
+    {
+        std::string mBadge = (m.status == "observed") ? "badge-observed" : "badge-unreliable";
+        h << "      <tr>\n"
+          << "        <td><strong>" << m.name.toStdString() << "</strong></td>\n"
+          << "        <td style=\"font-weight: 600; color: #f8fafc;\">" << std::fixed << std::setprecision(2) << m.value << "</td>\n"
+          << "        <td><code>" << m.unit.toStdString() << "</code></td>\n"
+          << "        <td><span class=\"badge " << mBadge << "\">" << m.status.toStdString() << "</span></td>\n"
+          << "      </tr>\n";
+    }
+    h << "    </tbody>\n  </table>\n";
+
+    // Section 3: Level Curve SVG
+    if (dyn != nullptr && !dyn->points.empty())
+    {
+        std::vector<double> vels, rmsLevels;
+        for (const auto& pt : dyn->points)
+        {
+            vels.push_back(static_cast<double>(pt.velocity));
+            rmsLevels.push_back(pt.rmsDbfs);
+        }
+
+        h << "  <div class=\"section-title\">Velocity vs Level Response</div>\n"
+          << "  <div style=\"margin: 16px 0; text-align: center;\">\n"
+          << MeasurementSvgGenerator::generateDynamicsLevelSvg(vels, rmsLevels, dyn->amplitudeFit, dyn->discontinuity, 796, 260)
+          << "  </div>\n";
+
+        // Section 4: Timbre Curve SVG
+        std::vector<double> centroids, rolloffs;
+        for (const auto& pt : dyn->points)
+        {
+            centroids.push_back(pt.spectralCentroidHz);
+            rolloffs.push_back(pt.spectralRolloffHz);
+        }
+
+        h << "  <div class=\"section-title\">Velocity vs Timbre (Centroid & Rolloff)</div>\n"
+          << "  <div style=\"margin: 16px 0; text-align: center;\">\n"
+          << MeasurementSvgGenerator::generateDynamicsTimbreSvg(vels, centroids, rolloffs, dyn->brightnessFit, 796, 260)
+          << "  </div>\n";
+
+        // Section 5: Tabulated Points Table
+        h << "  <div class=\"section-title\">Tabulated Velocity Series</div>\n"
+          << "  <table>\n"
+          << "    <thead><tr><th>Velocity</th><th>Peak (dBFS)</th><th>RMS (dBFS)</th><th>Attack (ms)</th><th>Centroid (Hz)</th><th>Rolloff (Hz)</th><th>Window (ms)</th></tr></thead>\n"
+          << "    <tbody>\n";
+
+        for (const auto& pt : dyn->points)
+        {
+            h << "      <tr>\n"
+              << "        <td><strong>" << pt.velocity << "</strong></td>\n"
+              << "        <td>" << std::fixed << std::setprecision(1) << pt.peakDbfs << "</td>\n"
+              << "        <td>" << std::fixed << std::setprecision(1) << pt.rmsDbfs << "</td>\n"
+              << "        <td>" << std::fixed << std::setprecision(1) << pt.attackTimeMs << "</td>\n"
+              << "        <td>" << static_cast<int>(std::round(pt.spectralCentroidHz)) << "</td>\n"
+              << "        <td>" << static_cast<int>(std::round(pt.spectralRolloffHz)) << "</td>\n"
+              << "        <td>[" << static_cast<int>(std::round(pt.measurementWindowStartMs)) << " - "
+              << static_cast<int>(std::round(pt.measurementWindowEndMs)) << "]</td>\n"
+              << "      </tr>\n";
+        }
+        h << "    </tbody>\n  </table>\n";
+    }
+
+    // Section 6: FAIR Cryptographic Provenance
+    h << "  <div class=\"section-title\">FAIR Cryptographic Provenance</div>\n"
+      << "  <table>\n"
+      << "    <thead><tr><th>Artifact</th><th>FAIR Role</th><th>Fixity SHA-256</th></tr></thead>\n"
+      << "    <tbody>\n"
+      << "      <tr><td>Measurement Spec</td><td><code>measurement_spec</code></td><td><code>" << spec.measurementId << "</code></td></tr>\n"
+      << "      <tr><td>Measurement Stimulus</td><td><code>measurement_stimulus</code></td><td><code>" << spec.stimulus.sha256 << "</code></td></tr>\n"
+      << "      <tr><td>Velocity Level Curve</td><td><code>dynamics_level_curve</code></td><td><code>dynamics_velocity_level_curve.json</code></td></tr>\n"
+      << "      <tr><td>Velocity Timbre Curve</td><td><code>dynamics_timbre_curve</code></td><td><code>dynamics_velocity_timbre_curve.json</code></td></tr>\n"
+      << "      <tr><td>Measurement Result</td><td><code>measurement_result</code></td><td><code>" << spec.measurementId << "</code></td></tr>\n"
+      << "    </tbody>\n"
+      << "  </table>\n";
+
+    h << "</div>\n</body>\n</html>\n";
+    return h.str();
+}
+
+std::string MeasurementReportGenerator::generateModulationReportHtml(const MeasurementSpec& spec,
+                                                                     const MeasurementResult& result,
+                                                                     const std::string& relativeAudioPath)
+{
+    std::ostringstream h;
+    h << "<!DOCTYPE html>\n<html lang=\"es\">\n<head>\n"
+      << "  <meta charset=\"UTF-8\">\n"
+      << "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+      << "  <title>Reporte de Medición de Modulación Cíclica (LFO) — " << spec.measurementId << "</title>\n"
+      << "  <style>\n"
+      << "    body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0b0f19; color: #f1f5f9; margin: 0; padding: 32px 24px; line-height: 1.5; }\n"
+      << "    .container { max-width: 860px; margin: 0 auto; background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }\n"
+      << "    h1 { font-size: 22px; font-weight: 700; color: #f8fafc; margin: 0 0 8px 0; }\n"
+      << "    .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }\n"
+      << "    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }\n"
+      << "    .badge-completed { background: #065f46; color: #34d399; border: 1px solid #059669; }\n"
+      << "    .badge-unreliable { background: #78350f; color: #fbbf24; border: 1px solid #d97706; }\n"
+      << "    .badge-invalid { background: #7f1d1d; color: #f87171; border: 1px solid #dc2626; }\n"
+      << "    .badge-failed { background: #450a0a; color: #fca5a5; border: 1px solid #991b1b; }\n"
+      << "    .badge-skipped { background: #374151; color: #9ca3af; border: 1px solid #4b5563; }\n"
+      << "    .badge-observed { background: #0c4a6e; color: #38bdf8; border: 1px solid #0284c7; }\n"
+      << "    .alert { padding: 14px 18px; border-radius: 8px; margin: 18px 0; font-size: 13px; }\n"
+      << "    .alert-warning { background: #1c1917; border-left: 4px solid #f59e0b; color: #fef3c7; }\n"
+      << "    .alert-info { background: #082f49; border-left: 4px solid #0284c7; color: #e0f2fe; }\n"
+      << "    .section-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.75px; color: #94a3b8; margin: 28px 0 12px 0; border-bottom: 1px solid #1f2937; padding-bottom: 6px; }\n"
+      << "    table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 12px 0 24px 0; }\n"
+      << "    th { text-align: left; background: #1e293b; color: #94a3b8; padding: 10px 14px; font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; border-bottom: 1px solid #334155; }\n"
+      << "    td { padding: 10px 14px; border-bottom: 1px solid #1f2937; color: #cbd5e1; }\n"
+      << "    tr:hover td { background: #1e293b; }\n"
+      << "    code { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 12px; background: #1e293b; padding: 2px 6px; border-radius: 4px; color: #38bdf8; }\n"
+      << "    .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }\n"
+      << "    .meta-card { background: #1e293b; padding: 12px 16px; border-radius: 8px; border: 1px solid #334155; }\n"
+      << "    .meta-label { font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }\n"
+      << "  </style>\n</head>\n<body>\n<div class=\"container\">\n";
+
+    std::string badgeClass = (result.status == MeasurementStatus::completed) ? "badge-completed" : "badge-unreliable";
+    std::string statusLabel = (result.status == MeasurementStatus::completed) ? "COMPLETED" : "UNRELIABLE";
+
+    const auto* mod = result.modulationResult.has_value() ? &(*result.modulationResult) : nullptr;
+    std::string dest = result.modulationDestination.empty() ? spec.modulationDestination : result.modulationDestination;
+    if (dest.empty()) dest = "amplitude";
+
+    h << "  <div style=\"display: flex; justify-content: space-between; align-items: flex-start;\">\n"
+      << "    <div>\n"
+      << "      <h1>LFO Modulation: " << statusLabel << "</h1>\n"
+      << "      <div class=\"subtitle\">Target: <strong>" << result.dut.name << "</strong> (" << result.dut.format << ") | ID: <code>" << spec.measurementId << "</code></div>\n"
+      << "    </div>\n"
+      << "    <div style=\"display: flex; gap: 8px; align-items: center;\">\n"
+      << "      <span class=\"badge badge-observed\">MODULATION: " << dest << "</span>\n"
+      << "      <span class=\"badge " << badgeClass << "\">" << statusLabel << "</span>\n"
+      << "    </div>\n"
+      << "  </div>\n";
+
+    if (result.status == MeasurementStatus::unreliable)
+    {
+        h << "  <div class=\"alert alert-warning\">\n"
+          << "    <strong>Unreliable Measurement:</strong> Modulation depth or rate could not be reliably observed (signal may be silent, below noise floor, or unmodulated). Diagnostic: <code>"
+          << result.reason << "</code>.\n"
+          << "  </div>\n";
+    }
+
+    // Section 1: Execution & Estimation Metadata
+    h << "  <div class=\"section-title\">Modulation & Estimation Metadata</div>\n"
+      << "  <div class=\"meta-grid\">\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">LFO Rate & Method</div><div class=\"meta-value\">"
+      << (mod ? std::to_string(mod->rateHz.value).substr(0, 4) : "0.0") << " Hz ("
+      << (mod ? mod->rateMethod : "unknown") << ")</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Modulation Depth</div><div class=\"meta-value\">"
+      << (mod ? std::to_string(mod->depth.value).substr(0, 4) : "0.0") << " "
+      << (mod ? mod->depth.unit.toStdString() : "dB") << "</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">Waveform Estimate</div><div class=\"meta-value\">"
+      << (mod ? mod->waveform.waveform : "none") << " (conf: "
+      << (mod ? std::to_string(static_cast<int>(mod->waveform.confidence * 100)) : "0") << "%, "
+      << (mod ? mod->waveform.status : "unknown") << ")</div></div>\n"
+      << "    <div class=\"meta-card\"><div class=\"meta-label\">FFT Resolution</div><div class=\"meta-value\">"
+      << (mod ? std::to_string(mod->spectralMetadata.frequencyResolutionHz).substr(0, 4) : "0.0") << " Hz/bin ("
+      << (mod ? std::to_string(mod->spectralMetadata.fftSize) : "0") << " pts)</div></div>\n"
+      << "  </div>\n";
+
+    // Section 2: Summary Metrics Table
+    h << "  <div class=\"section-title\">Observed Modulation Metrics</div>\n"
+      << "  <table>\n"
+      << "    <thead><tr><th>Metric</th><th>Observed Value</th><th>Unit</th><th>Status</th></tr></thead>\n"
+      << "    <tbody>\n";
+
+    for (const auto& m : result.metrics)
+    {
+        std::string mBadge = (m.status == "observed") ? "badge-observed" : "badge-unreliable";
+        h << "      <tr>\n"
+          << "        <td><strong>" << m.name.toStdString() << "</strong></td>\n"
+          << "        <td style=\"font-weight: 600; color: #f8fafc;\">" << std::fixed << std::setprecision(2) << m.value << "</td>\n"
+          << "        <td><code>" << m.unit.toStdString() << "</code></td>\n"
+          << "        <td><span class=\"badge " << mBadge << "\">" << m.status.toStdString() << "</span></td>\n"
+          << "      </tr>\n";
+    }
+    h << "    </tbody>\n  </table>\n";
+
+    // Section 3: Time Trajectory SVG
+    if (mod != nullptr && !mod->timeCurve.x.empty())
+    {
+        h << "  <div class=\"section-title\">Demodulated Modulation Trajectory</div>\n"
+          << "  <div style=\"margin: 16px 0; text-align: center;\">\n"
+          << MeasurementSvgGenerator::generateModulationTimeSvg(mod->timeCurve.x, mod->timeCurve.y, mod->depth.unit.toStdString(), mod->waveform.waveform, 796, 260)
+          << "  </div>\n";
+    }
+
+    // Section 4: Spectrum & Sidebands SVG
+    if (mod != nullptr && !mod->spectrumCurve.x.empty())
+    {
+        double nominalCarrierHz = spec.stimulus.startFreqHz > 20.0f ? static_cast<double>(spec.stimulus.startFreqHz) : 440.0;
+        h << "  <div class=\"section-title\">Modulation Spectrum &amp; Carrier Sidebands</div>\n"
+          << "  <div style=\"margin: 16px 0; text-align: center;\">\n"
+          << MeasurementSvgGenerator::generateModulationSpectrumSvg(mod->spectrumCurve.x, mod->spectrumCurve.y, mod->sidebands, nominalCarrierHz, 796, 260)
+          << "  </div>\n";
+
+        // Sidebands Table
+        if (!mod->sidebands.empty())
+        {
+            h << "  <div class=\"section-title\">Observed Spectral Sidebands</div>\n"
+              << "  <table>\n"
+              << "    <thead><tr><th>Order</th><th>Carrier (Hz)</th><th>Sideband (Hz)</th><th>Level Rel. Carrier (dB)</th></tr></thead>\n"
+              << "    <tbody>\n";
+
+            for (const auto& sb : mod->sidebands)
+            {
+                h << "      <tr>\n"
+                  << "        <td><strong>" << (sb.order > 0 ? "+" : "") << sb.order << "</strong></td>\n"
+                  << "        <td>" << std::fixed << std::setprecision(1) << sb.carrierFrequencyHz << "</td>\n"
+                  << "        <td>" << std::fixed << std::setprecision(1) << sb.sidebandFrequencyHz << "</td>\n"
+                  << "        <td style=\"font-weight: 600; color: #34d399;\">" << std::fixed << std::setprecision(1) << sb.levelRelativeToCarrierDb << " dB</td>\n"
+                  << "      </tr>\n";
+            }
+            h << "    </tbody>\n  </table>\n";
+        }
+    }
+
+    // Section 5: Audio Playback if present
+    if (!relativeAudioPath.empty())
+    {
+        h << "  <div class=\"section-title\">Acoustic Artifact & Playback</div>\n"
+          << "  <div style=\"background: #1e293b; padding: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;\">\n"
+          << "    <audio controls preload=\"none\" style=\"width: 70%;\" src=\"" << relativeAudioPath << "\"></audio>\n"
+          << "    <a href=\"" << relativeAudioPath << "\" style=\"color: #38bdf8; text-decoration: none; font-size: 12px; font-weight: 600;\">Download WAV</a>\n"
+          << "  </div>\n";
+    }
+
+    // Section 6: FAIR Cryptographic Provenance
+    h << "  <div class=\"section-title\">FAIR Cryptographic Provenance</div>\n"
+      << "  <table>\n"
+      << "    <thead><tr><th>Artifact</th><th>FAIR Role</th><th>Fixity SHA-256</th></tr></thead>\n"
+      << "    <tbody>\n"
+      << "      <tr><td>Measurement Spec</td><td><code>measurement_spec</code></td><td><code>" << spec.measurementId << "</code></td></tr>\n"
+      << "      <tr><td>Measurement Stimulus</td><td><code>measurement_stimulus</code></td><td><code>" << spec.stimulus.sha256 << "</code></td></tr>\n"
+      << "      <tr><td>Modulation Time Curve</td><td><code>modulation_time_curve</code></td><td><code>modulation_time_curve.json</code></td></tr>\n"
+      << "      <tr><td>Modulation Spectrum Curve</td><td><code>modulation_spectrum_curve</code></td><td><code>modulation_spectrum_curve.json</code></td></tr>\n"
+      << "      <tr><td>Measurement Result</td><td><code>measurement_result</code></td><td><code>" << spec.measurementId << "</code></td></tr>\n"
       << "    </tbody>\n"
       << "  </table>\n";
 
