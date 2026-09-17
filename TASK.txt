@@ -43,6 +43,10 @@
 - [COMPLETADO] T1: Contratos Metrológicos y Segregación de 4 Dominios (Vst3OfflineDigital, Vst3Realtime, DigitalHardwareRoundtrip, CombinedDutAndChain), PluginIdentity, AnalogChainCalibrationRecord y función isDomainConsistent(...) en contratos, serialización RFC 8785, manifest.json y reportes HTML.
 - [COMPLETADO] T2.1 & T2.2: Host VST3 in-process resiliente en ExternalPluginFixture, introspección formal de factory por Class IDs/CID, enumeración de buses y catálogo reproducible de parámetros sin conteo rígido (parameterCount > 0 verificado contra Dexed.vst3 real).
 - [COMPLETADO] T2.3 & T2.4: Fixture controlado ControlledPresetFixture con fixity SHA-256, round-trip determinista de estado binario (getState/setState) y render offline bloque a bloque en Vst3OfflineDigital con verificación estricta de reproducibilidad idéntica bit a bit y telemetría de reloj (underruns/overruns = 0).
-- [PENDIENTE] T3: Automatización y Captura (SysEx + MIDI con hash canónico de estímulo).
+- [COMPLETADO] T3: Automatización y Captura (SysEx + MIDI con hash canónico de estímulo).
+  * [COMPLETADO] T3.1: Contratos MidiExcitationEvent, extensión canónica de MidiExcitationSequence con serialización RFC 8785 determinista, SysExArtifact con fixity SHA-256 y validador estructural Dx7SysExValidator (bancos 32 voces 4104B, single voice 163B, checksum 7-bit, manufacturer ID 0x43 y delimitación F0..F7).
+  * [COMPLETADO] T3.2: Inyección de estado y automatización con orden estricto de ciclo de vida (prepare -> resetState -> loadState -> verifyState -> render) y soporte de secuencias con canonicalEvents de byte exacto y loadSysEx en ExternalPluginFixture.
+  * [COMPLETADO] T3.3: Captura de audio y telemetría de sesión CaptureArtifactMetadata con timestamps ISO 8601 UTC, hashes SHA-256 (audio, midi, sysex, state), métricas de reloj, underruns y overruns.
+  * [COMPLETADO] T3.4: Suite de pruebas integrada en test_CaptureAutomationAndFair_T3.cpp verificando ciclo de vida, prevención de fugas de audio espurio ante fallos de verificación de estado, inyección SysEx y reproducibilidad bit-exacta. Certificación: 361/361 tests verdes (169.159 aserciones, 0 fallos).
 - [PENDIENTE] T4: Cadena Analógica (LoopbackCalibrator, umbrales y aislamiento host vs hardware).
 - [PENDIENTE] T5: Prueba Vertical de Integración y Exportación FAIR.

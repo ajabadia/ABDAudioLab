@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Enable MSVC optimizations & UTF-8
 if(MSVC)
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>" "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
-    add_compile_options(/W4 /permissive- /Zc:__cplusplus)
+    add_compile_options(/W4 /permissive- /Zc:__cplusplus /MP)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
 endif()
 
@@ -312,6 +312,7 @@ target_sources(ABDAudioLab
         src/synth/ParameterExcitationEngine.h
         src/synth/ParameterExcitationEngine.cpp
         src/synth/ExternalPluginTypes.h
+        src/synth/SysExContracts.h
         src/synth/TargetContractDiscovery.h
         src/synth/TargetContractDiscovery.cpp
         src/synth/ExternalPluginFixture.h
@@ -577,6 +578,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_DexedValidation.cpp
     src/tests/test_GuidedPluginLoad_Dexed.cpp
     src/tests/test_Vst3DexedRealHosting_T2.cpp
+    src/tests/test_MidiAndSysExContracts_T3.cpp
+    src/tests/test_CaptureAutomationAndFair_T3.cpp
     src/tests/test_MeasurementContracts.cpp
     src/tests/test_DynamicsAndModulationContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
@@ -878,6 +881,7 @@ target_link_libraries(ABDAudioLab_Vst3Validation PRIVATE
     juce::juce_audio_formats
     juce::juce_audio_utils
     juce::juce_dsp
+    nlohmann_json::nlohmann_json
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags
 )

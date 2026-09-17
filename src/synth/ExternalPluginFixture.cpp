@@ -192,6 +192,19 @@ bool ExternalPluginFixture::loadState(const SynthPresetState& state)
     return true;
 }
 
+bool ExternalPluginFixture::loadSysEx(const SysExArtifact& sysEx)
+{
+    if (instance_ == nullptr)
+        return false;
+
+    if (sysEx.bytes.empty() || sysEx.semanticStatus != "valid")
+        return false;
+
+    instance_->setStateInformation(sysEx.bytes.data(), static_cast<int>(sysEx.bytes.size()));
+    isStateVerified_ = true;
+    return true;
+}
+
 StateAppliedStatus ExternalPluginFixture::verifyState() const
 {
     return isStateVerified_ ? StateAppliedStatus::Passed : StateAppliedStatus::Unverified;
@@ -248,23 +261,42 @@ void ExternalPluginFixture::render(const MidiExcitationSequence& sequence,
         blockBuf.clear();
         midiBuf.clear();
 
-        // 1. Inyectar eventos MIDI con sampleOffset exacto dentro del bloque
-        for (const auto& ev : sequence.events)
+        // 1. Inyectar eventos MIDI canónicos o temporizados con sampleOffset exacto dentro del bloque
+        if (!sequence.canonicalEvents.empty())
         {
-            if (ev.sampleOffset >= samplesRendered && ev.sampleOffset < (samplesRendered + currentBlockSize))
+            for (const auto& cev : sequence.canonicalEvents)
             {
-                int offsetInBlock = ev.sampleOffset - samplesRendered;
-                juce::MidiMessage msg;
+                if (cev.sampleOffset >= samplesRendered && cev.sampleOffset < (samplesRendered + currentBlockSize))
+                {
+                    int offsetInBlock = cev.sampleOffset - samplesRendered;
+                    if (!cev.bytes.empty())
+                    {
+                        juce::MidiMessage msg(cev.bytes.data(), static_cast<int>(cev.bytes.size()), 0.0);
+                        if (msg.getRawDataSize() > 0)
+                            midiBuf.addEvent(msg, offsetInBlock);
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (const auto& ev : sequence.events)
+            {
+                if (ev.sampleOffset >= samplesRendered && ev.sampleOffset < (samplesRendered + currentBlockSize))
+                {
+                    int offsetInBlock = ev.sampleOffset - samplesRendered;
+                    juce::MidiMessage msg;
 
-                if (ev.type == TimedMidiType::NoteOn)
-                    msg = juce::MidiMessage::noteOn(ev.channel, ev.noteNumber, ev.velocity);
-                else if (ev.type == TimedMidiType::NoteOff)
-                    msg = juce::MidiMessage::noteOff(ev.channel, ev.noteNumber, 0.0f);
-                else if (ev.type == TimedMidiType::AllNotesOff)
-                    msg = juce::MidiMessage::allNotesOff(ev.channel);
+                    if (ev.type == TimedMidiType::NoteOn)
+                        msg = juce::MidiMessage::noteOn(ev.channel, ev.noteNumber, ev.velocity);
+                    else if (ev.type == TimedMidiType::NoteOff)
+                        msg = juce::MidiMessage::noteOff(ev.channel, ev.noteNumber, 0.0f);
+                    else if (ev.type == TimedMidiType::AllNotesOff)
+                        msg = juce::MidiMessage::allNotesOff(ev.channel);
 
-                if (msg.getRawDataSize() > 0)
-                    midiBuf.addEvent(msg, offsetInBlock);
+                    if (msg.getRawDataSize() > 0)
+                        midiBuf.addEvent(msg, offsetInBlock);
+                }
             }
         }
 

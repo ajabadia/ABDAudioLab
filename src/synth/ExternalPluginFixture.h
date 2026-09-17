@@ -4,6 +4,7 @@
 #include "ExternalPluginTypes.h"
 #include "TargetContract.h"
 #include "TargetContractDiscovery.h"
+#include "SysExContracts.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 #include <string>
@@ -43,6 +44,7 @@ public:
 
     // --- Implementación de ISynthTarget ---
     bool loadState(const SynthPresetState& state) override;
+    bool loadSysEx(const SysExArtifact& sysEx);
     [[nodiscard]] StateAppliedStatus verifyState() const override;
     void prepare(const ProcessingSpec& spec) override;
     void resetState() override;

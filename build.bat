@@ -59,44 +59,70 @@ if exist "!SHARED_ASSETS!" (
     )
 )
 
-:: 3. Configure with CMake
-echo [Info] Configuring project with CMake...
-cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-if %errorlevel% neq 0 (
-    echo [Info] Trying fallback CMake configuration...
-    cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+:: 3. Configure with CMake (only when cache is missing or CMakeLists changed)
+if not exist "build\CMakeCache.txt" (
+    echo [Info] Configuring project with CMake...
+    cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     if %errorlevel% neq 0 (
-        echo [Error] CMake configuration failed.
-        exit /b 1
+        echo [Info] Trying fallback CMake configuration...
+        cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        if %errorlevel% neq 0 (
+            echo [Error] CMake configuration failed.
+            exit /b 1
+        )
     )
 )
 
-:: 4. Auto-increment build number in src/BuildVersion.h
-powershell -NoProfile -Command "$file = 'src\BuildVersion.h'; if (Test-Path $file) { $c = Get-Content $file -Raw; if ($c -match 'kBuildNumber = (\d+);') { $b = [int]$matches[1] + 1; $c = $c -replace 'kBuildNumber = \d+;', ('kBuildNumber = ' + $b + ';'); Set-Content $file $c; Write-Host ('[Info] Incremented build number to: ' + $b) } }"
+:: 4. Target Selection and Build Configuration
+set "BUILD_TARGET="
+set "IS_TEST_ONLY=0"
+if /i "%1"=="tests" (
+    set "BUILD_TARGET=--target ABDAudioLab_Tests"
+    set "IS_TEST_ONLY=1"
+    echo [Info] Fast build mode: compiling ABDAudioLab_Tests only.
+) else if /i "%1"=="test" (
+    set "BUILD_TARGET=--target ABDAudioLab_Tests"
+    set "IS_TEST_ONLY=1"
+    echo [Info] Fast build mode: compiling ABDAudioLab_Tests only.
+) else if /i "%1"=="app" (
+    set "BUILD_TARGET=--target ABDAudioLab"
+    echo [Info] Compiling ABDAudioLab app only.
+)
 
-:: 5. Build Project
-echo [Info] Building ABDAudioLab (Release)...
-cmake --build build --config Release --parallel
+:: 5. Auto-increment build number in src/BuildVersion.h (only for full app builds)
+if "!IS_TEST_ONLY!"=="0" (
+    powershell -NoProfile -Command "$file = 'src\BuildVersion.h'; if (Test-Path $file) { $c = Get-Content $file -Raw; if ($c -match 'kBuildNumber = (\d+);') { $b = [int]$matches[1] + 1; $c = $c -replace 'kBuildNumber = \d+;', ('kBuildNumber = ' + $b + ';'); Set-Content $file $c; Write-Host ('[Info] Incremented build number to: ' + $b) } }"
+)
+
+:: 6. Build Project with Parallel Multiprocessor Execution
+echo [Info] Building ABDAudioLab Release !BUILD_TARGET!...
+cmake --build build --config Release !BUILD_TARGET! --parallel
 if %errorlevel% neq 0 (
     echo [Error] Build failed.
     exit /b 1
 )
 
-:: 6. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe for portable/isolated execution
-if exist "build\Release\ABDAudioLab_PluginWorker.exe" (
-    if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
-    copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_artefacts\Release\" >nul
-    echo [Info] Synced ABDAudioLab_PluginWorker.exe to artefacts directory.
-)
-if exist "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" (
-    if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
-    xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_artefacts\Release\ReferenceSynth.vst3" >nul
-    echo [Info] Synced ReferenceSynth.vst3 to artefacts directory.
+:: 7. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe for portable/isolated execution (only when building app/all)
+if "!IS_TEST_ONLY!"=="0" (
+    if exist "build\Release\ABDAudioLab_PluginWorker.exe" (
+        if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
+        copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_artefacts\Release\" >nul
+        echo [Info] Synced ABDAudioLab_PluginWorker.exe to artefacts directory.
+    )
+    if exist "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" (
+        if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
+        xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_artefacts\Release\ReferenceSynth.vst3" >nul
+        echo [Info] Synced ReferenceSynth.vst3 to artefacts directory.
+    )
 )
 
 echo ==============================================================================
 echo  Build Successful!
-echo  Executable output: build\ABDAudioLab_artefacts\Release\ABDAudioLab.exe
+if "!IS_TEST_ONLY!"=="1" (
+    echo  Test executable ready: build\Release\ABDAudioLab_Tests.exe
+) else (
+    echo  Executable output: build\ABDAudioLab_artefacts\Release\ABDAudioLab.exe
+)
 echo ==============================================================================
 
 if /i "%1"=="run" (

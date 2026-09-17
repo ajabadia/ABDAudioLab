@@ -4,10 +4,26 @@
 #include <vector>
 #include <cstdint>
 #include <juce_core/juce_core.h>
+#include <nlohmann/json.hpp>
 #include "SynthPresetState.h"
 
 namespace abdaudiolab::synth
 {
+
+/**
+ * @brief Evento MIDI canónico muestra a muestra con payload binario exacto (Fase 20.11 T3.1).
+ */
+struct MidiExcitationEvent
+{
+    int32_t sampleOffset { 0 };
+    std::vector<uint8_t> bytes;
+
+    bool operator==(const MidiExcitationEvent& other) const noexcept
+    {
+        return sampleOffset == other.sampleOffset && bytes == other.bytes;
+    }
+};
+
 
 enum class TimedMidiType
 {
@@ -188,6 +204,195 @@ struct MidiExcitationSequence
             blob += "P:" + pev.normalizedParameterId + "=" + std::to_string(pev.normalizedValue) + "@" + std::to_string(pev.sampleOffset) + "\n";
         }
         sequenceHash = Sha256::computeHex(blob);
+    }
+
+    // --- Campos de Especificación Canónica (Fase 20.11 T3.1) ---
+    double sampleRateHz { 0.0 };
+    int32_t midiChannel { 1 };
+    int32_t note { 60 };
+    int32_t velocity { 100 };
+    double noteDurationSec { 0.0 };
+    double releaseTailSec { 0.0 };
+    std::vector<MidiExcitationEvent> canonicalEvents;
+    std::string canonicalSha256;
+
+    /**
+     * @brief Computa el hash canónico determinista del estímulo sobre una representación RFC 8785 inmutable.
+     * Incluye: sampleRateHz, midiChannel, note, velocity, noteDurationSec, releaseTailSec y eventos con sampleOffset y bytes exactos.
+     */
+    std::string computeCanonicalSha256()
+    {
+        canonicalSha256 = Sha256::computeHex(serializeCanonicalJson());
+        return canonicalSha256;
+    }
+
+    /**
+     * @brief Serializa la secuencia de excitación a JSON canónico determinista RFC 8785.
+     */
+    [[nodiscard]] std::string serializeCanonicalJson() const
+    {
+        nlohmann::ordered_json j;
+        j["midiChannel"] = midiChannel;
+        j["note"] = note;
+        j["noteDurationSec"] = noteDurationSec;
+        j["releaseTailSec"] = releaseTailSec;
+        j["sampleRateHz"] = sampleRateHz;
+        j["velocity"] = velocity;
+
+        nlohmann::ordered_json evs = nlohmann::ordered_json::array();
+        for (const auto& ev : canonicalEvents)
+        {
+            nlohmann::ordered_json ej;
+            ej["bytes"] = ev.bytes;
+            ej["sampleOffset"] = ev.sampleOffset;
+            evs.push_back(ej);
+        }
+        j["events"] = evs;
+
+        return j.dump(); // Canónico compacto sin espacios
+    }
+
+    /**
+     * @brief Deserializa la secuencia de excitación desde un JSON canónico.
+     */
+    static bool deserializeCanonicalJson(const std::string& jsonStr,
+                                         MidiExcitationSequence& outSeq,
+                                         std::string& outError)
+    {
+        try
+        {
+            auto j = nlohmann::json::parse(jsonStr);
+            if (!j.is_object())
+            {
+                outError = "Root is not a JSON object";
+                return false;
+            }
+
+            outSeq.midiChannel = j.value("midiChannel", 1);
+            outSeq.note = j.value("note", 60);
+            outSeq.noteDurationSec = j.value("noteDurationSec", 0.0);
+            outSeq.releaseTailSec = j.value("releaseTailSec", 0.0);
+            outSeq.sampleRateHz = j.value("sampleRateHz", 48000.0);
+            outSeq.velocity = j.value("velocity", 100);
+
+            // Sincronizar campos legados
+            outSeq.channel = outSeq.midiChannel;
+            outSeq.noteNumber = outSeq.note;
+            outSeq.midiVelocity = outSeq.velocity;
+            outSeq.normalizedVelocity = static_cast<float>(outSeq.velocity) / 127.0f;
+            outSeq.gateDurationSec = outSeq.noteDurationSec;
+            outSeq.postSilenceSec = outSeq.releaseTailSec;
+            outSeq.totalDurationSec = outSeq.noteDurationSec + outSeq.releaseTailSec;
+
+            outSeq.canonicalEvents.clear();
+            outSeq.events.clear();
+
+            if (j.contains("events") && j["events"].is_array())
+            {
+                for (const auto& ej : j["events"])
+                {
+                    MidiExcitationEvent ev;
+                    ev.sampleOffset = ej.value("sampleOffset", int32_t(0));
+                    if (ej.contains("bytes") && ej["bytes"].is_array())
+                        ev.bytes = ej["bytes"].get<std::vector<uint8_t>>();
+                    outSeq.canonicalEvents.push_back(ev);
+
+                    // Mapear a TimedMidiEvent legado si es un NoteOn o NoteOff
+                    if (ev.bytes.size() >= 3)
+                    {
+                        uint8_t statusNibble = ev.bytes[0] & 0xF0;
+                        if (statusNibble == 0x90 && ev.bytes[2] > 0)
+                        {
+                            outSeq.events.push_back(TimedMidiEvent{
+                                TimedMidiType::NoteOn,
+                                (ev.bytes[0] & 0x0F) + 1,
+                                ev.bytes[1],
+                                static_cast<float>(ev.bytes[2]) / 127.0f,
+                                ev.sampleOffset,
+                                outSeq.sampleRateHz > 0.0 ? (double)ev.sampleOffset / outSeq.sampleRateHz * 1000.0 : 0.0
+                            });
+                        }
+                        else if (statusNibble == 0x80 || (statusNibble == 0x90 && ev.bytes[2] == 0))
+                        {
+                            outSeq.events.push_back(TimedMidiEvent{
+                                TimedMidiType::NoteOff,
+                                (ev.bytes[0] & 0x0F) + 1,
+                                ev.bytes[1],
+                                0.0f,
+                                ev.sampleOffset,
+                                outSeq.sampleRateHz > 0.0 ? (double)ev.sampleOffset / outSeq.sampleRateHz * 1000.0 : 0.0
+                            });
+                        }
+                    }
+                }
+            }
+
+            outSeq.computeCanonicalSha256();
+            outSeq.computeHash();
+            return true;
+        }
+        catch (const std::exception& e)
+        {
+            outError = "JSON parse error in MidiExcitationSequence: " + std::string(e.what());
+            return false;
+        }
+    }
+
+    /**
+     * @brief Construye un ensayo de excitación canónico con offsets de muestra exactos y bytes MIDI de 3 octetos.
+     */
+    static MidiExcitationSequence createCanonicalNoteTrial(double sampleRate,
+                                                          int32_t channel,
+                                                          int32_t midiNote,
+                                                          int32_t midiVel,
+                                                          double noteDurSec,
+                                                          double releaseSec,
+                                                          int32_t noteOnSampleOffset = 0)
+    {
+        MidiExcitationSequence seq;
+        seq.sampleRateHz = sampleRate;
+        seq.midiChannel = channel;
+        seq.note = midiNote;
+        seq.velocity = midiVel;
+        seq.noteDurationSec = noteDurSec;
+        seq.releaseTailSec = releaseSec;
+        seq.totalDurationSec = noteDurSec + releaseSec;
+
+        // Sincronizar legados
+        seq.channel = channel;
+        seq.noteNumber = midiNote;
+        seq.midiVelocity = midiVel;
+        seq.normalizedVelocity = static_cast<float>(midiVel) / 127.0f;
+        seq.gateDurationSec = noteDurSec;
+        seq.postSilenceSec = releaseSec;
+
+        int32_t noteOnOffset = noteOnSampleOffset;
+        int32_t noteOffOffset = noteOnOffset + static_cast<int32_t>(std::lround(noteDurSec * sampleRate));
+
+        uint8_t statusOn = static_cast<uint8_t>(0x90 | ((channel - 1) & 0x0F));
+        uint8_t statusOff = static_cast<uint8_t>(0x80 | ((channel - 1) & 0x0F));
+
+        MidiExcitationEvent evOn;
+        evOn.sampleOffset = noteOnOffset;
+        evOn.bytes = { statusOn, static_cast<uint8_t>(midiNote & 0x7F), static_cast<uint8_t>(midiVel & 0x7F) };
+        seq.canonicalEvents.push_back(evOn);
+
+        MidiExcitationEvent evOff;
+        evOff.sampleOffset = noteOffOffset;
+        evOff.bytes = { statusOff, static_cast<uint8_t>(midiNote & 0x7F), 0 };
+        seq.canonicalEvents.push_back(evOff);
+
+        // Mapear eventos a events para ejecución directa en ExternalPluginFixture
+        seq.events.push_back(TimedMidiEvent{
+            TimedMidiType::NoteOn, channel, midiNote, seq.normalizedVelocity, noteOnOffset, (double)noteOnOffset / sampleRate * 1000.0
+        });
+        seq.events.push_back(TimedMidiEvent{
+            TimedMidiType::NoteOff, channel, midiNote, 0.0f, noteOffOffset, (double)noteOffOffset / sampleRate * 1000.0
+        });
+
+        seq.computeCanonicalSha256();
+        seq.computeHash();
+        return seq;
     }
 };
 
