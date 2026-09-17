@@ -251,6 +251,9 @@ target_sources(ABDAudioLab
         src/measurement/PhysicalLoopbackAdapter.cpp
         src/measurement/DexedVerticalCampaign.h
         src/measurement/DexedVerticalCampaign.cpp
+        src/measurement/DexedParametricCampaignContracts.h
+        src/measurement/DexedParametricCampaignCoordinator.h
+        src/measurement/DexedParametricCampaignCoordinator.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -615,6 +618,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_VerticalDexedAndFair_T5.cpp
     src/tests/test_Phase20_11_1_InteractiveViewerComparison.cpp
     src/tests/test_Phase20_11_2_SessionRobustnessAndA11y.cpp
+    src/tests/test_Phase20_11_3_DigitalExpansion.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -623,6 +627,7 @@ add_executable(ABDAudioLab_Tests
     src/measurement/LoopbackCalibrator.cpp
     src/measurement/PhysicalLoopbackAdapter.cpp
     src/measurement/DexedVerticalCampaign.cpp
+    src/measurement/DexedParametricCampaignCoordinator.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp

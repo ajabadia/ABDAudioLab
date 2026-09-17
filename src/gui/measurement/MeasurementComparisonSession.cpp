@@ -789,6 +789,7 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
     res.stateSha256A = vmA.expectedAudioSha256;
     res.stateSha256B = vmB.expectedAudioSha256;
 
+    // 1. Level Dimension Comparison
     if (vmA.curve.y.size() == vmB.curve.y.size() && !vmA.curve.y.empty())
     {
         double maxDelta = 0.0;
@@ -800,25 +801,139 @@ PairwiseComparisonResult MeasurementComparisonSession::compareContainers(int con
         res.maxAudioDelta = maxDelta;
 
         if (maxDelta == 0.0)
+            res.levelEquivalence = PairwiseStateEquivalence::BitExact;
+        else if (maxDelta <= 1e-4)
+            res.levelEquivalence = PairwiseStateEquivalence::SemanticallyEquivalent;
+        else
+            res.levelEquivalence = PairwiseStateEquivalence::NotEquivalent;
+    }
+    else
+    {
+        res.levelEquivalence = PairwiseStateEquivalence::NotComparable;
+    }
+
+    // 2. Timbre Dimension Comparison (Spectral Centroid Hz)
+    bool timbreBasisCompatible = false;
+    if (vmA.dynamicsResult.has_value() && vmB.dynamicsResult.has_value() &&
+        !vmA.dynamicsResult->brightnessCurve.y.empty() &&
+        vmA.dynamicsResult->brightnessCurve.y.size() == vmB.dynamicsResult->brightnessCurve.y.size())
+    {
+        const auto& dynA = *vmA.dynamicsResult;
+        const auto& dynB = *vmB.dynamicsResult;
+
+        // Check sample rate match
+        const bool srMatch = (std::abs(vmA.sampleRateHz - vmB.sampleRateHz) < 1.0);
+
+        // Check window & validity across discrete points
+        bool anyUnreliableOrSilent = false;
+        bool windowMismatch = false;
+
+        const size_t numPoints = std::min(dynA.points.size(), dynB.points.size());
+        for (size_t p = 0; p < numPoints; ++p)
+        {
+            if (dynA.points[p].status == "silent" || dynA.points[p].status == "unreliable" ||
+                dynB.points[p].status == "silent" || dynB.points[p].status == "unreliable")
+            {
+                anyUnreliableOrSilent = true;
+                break;
+            }
+
+            if (std::abs(dynA.points[p].measurementWindowStartMs - dynB.points[p].measurementWindowStartMs) > 1.0 ||
+                std::abs(dynA.points[p].measurementWindowEndMs - dynB.points[p].measurementWindowEndMs) > 1.0)
+            {
+                windowMismatch = true;
+                break;
+            }
+        }
+
+        if (srMatch && !anyUnreliableOrSilent && !windowMismatch)
+        {
+            timbreBasisCompatible = true;
+            res.timbreMetric = "spectralCentroidHz";
+            res.sampleRateHz = vmA.sampleRateHz;
+
+            if (dynA.spectralMetadata.has_value())
+            {
+                res.fftSize = dynA.spectralMetadata->fftSize;
+                res.windowFunction = dynA.spectralMetadata->window.toStdString();
+            }
+            if (!dynA.points.empty())
+            {
+                res.windowStartMs = dynA.points.front().measurementWindowStartMs;
+                res.windowEndMs = dynA.points.front().measurementWindowEndMs;
+            }
+
+            double maxTimbreDelta = 0.0;
+            const auto& brA = dynA.brightnessCurve.y;
+            const auto& brB = dynB.brightnessCurve.y;
+            for (size_t i = 0; i < brA.size(); ++i)
+            {
+                const double tDelta = std::abs(brA[i] - brB[i]);
+                maxTimbreDelta = std::max(maxTimbreDelta, tDelta);
+            }
+            res.maxTimbreDeltaHz = maxTimbreDelta;
+
+            if (maxTimbreDelta == 0.0)
+                res.timbreEquivalence = PairwiseStateEquivalence::BitExact;
+            else if (maxTimbreDelta <= 1.0) // within 1 Hz tolerance
+                res.timbreEquivalence = PairwiseStateEquivalence::SemanticallyEquivalent;
+            else
+                res.timbreEquivalence = PairwiseStateEquivalence::NotEquivalent;
+        }
+    }
+
+    if (!timbreBasisCompatible)
+    {
+        res.timbreEquivalence = PairwiseStateEquivalence::NotComparable;
+    }
+
+    // 3. Consolidated Equivalence & Descriptive Reason
+    if (res.levelEquivalence == PairwiseStateEquivalence::NotComparable)
+    {
+        res.equivalence = PairwiseStateEquivalence::NotComparable;
+        res.reason = "Different point counts or missing curve data.";
+    }
+    else if (res.levelEquivalence == PairwiseStateEquivalence::BitExact)
+    {
+        if (res.timbreEquivalence == PairwiseStateEquivalence::NotEquivalent)
+        {
+            res.equivalence = PairwiseStateEquivalence::NotEquivalent;
+            res.reason = "Level is bit-exact, but timbre divergence observed (maxTimbreDelta = " +
+                         juce::String(res.maxTimbreDeltaHz, 1) + " Hz).";
+        }
+        else if (res.timbreEquivalence == PairwiseStateEquivalence::SemanticallyEquivalent)
+        {
+            res.equivalence = PairwiseStateEquivalence::SemanticallyEquivalent;
+            res.reason = "Level is bit-exact, timbre semantically equivalent (maxTimbreDelta = " +
+                         juce::String(res.maxTimbreDeltaHz, 1) + " Hz).";
+        }
+        else
         {
             res.equivalence = PairwiseStateEquivalence::BitExact;
             res.reason = "Identical curve values across all sample points (maxDelta = 0.0).";
         }
-        else if (maxDelta <= 1e-4)
+    }
+    else if (res.levelEquivalence == PairwiseStateEquivalence::SemanticallyEquivalent)
+    {
+        if (res.timbreEquivalence == PairwiseStateEquivalence::NotEquivalent)
+        {
+            res.equivalence = PairwiseStateEquivalence::NotEquivalent;
+            res.reason = "Level semantically equivalent, but timbre divergence observed (maxTimbreDelta = " +
+                         juce::String(res.maxTimbreDeltaHz, 1) + " Hz).";
+        }
+        else
         {
             res.equivalence = PairwiseStateEquivalence::SemanticallyEquivalent;
             res.reason = "Numerically equivalent within metrological tolerance (maxDelta <= 1e-4).";
         }
-        else
-        {
-            res.equivalence = PairwiseStateEquivalence::NotEquivalent;
-            res.reason = "Acoustic divergence observed between instances.";
-        }
     }
-    else
+    else // NotEquivalent
     {
-        res.equivalence = PairwiseStateEquivalence::NotComparable;
-        res.reason = "Different point counts or missing curve data.";
+        res.equivalence = PairwiseStateEquivalence::NotEquivalent;
+        if (res.timbreEquivalence == PairwiseStateEquivalence::NotEquivalent)
+            res.reason = "Both level and timbre divergence observed between instances.";
+        else
+            res.reason = "Acoustic level divergence observed between instances.";
     }
 
     return res;
@@ -881,6 +996,16 @@ void MeasurementComparisonSession::notifyDomainFilterChanged()
 void MeasurementComparisonSession::notifyShutdownStateChanged(SessionShutdownState state)
 {
     listeners_.call(&Listener::sessionShutdownStateChanged, state);
+}
+
+int MeasurementComparisonSession::addLoadedContainerDirectlyForTesting(const LoadedContainerEntry& entry)
+{
+    std::lock_guard<std::mutex> lock(sharedState_->mutex);
+    auto e = entry;
+    if (e.id <= 0)
+        e.id = sharedState_->nextContainerId++;
+    sharedState_->containers.push_back(e);
+    return e.id;
 }
 
 } // namespace abdaudiolab::gui::measurement

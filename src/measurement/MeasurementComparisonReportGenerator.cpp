@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementComparisonReportGenerator.h"
+#include "MeasurementSvgGenerator.h"
 #include <sstream>
 #include <iomanip>
 
@@ -66,29 +67,9 @@ juce::String MeasurementComparisonReportGenerator::generateReportHtml(const abda
        << "</strong> | Excluidos / Corruptos: <strong>" << (allContainers.size() - eligible.size())
        << "</strong></p>\n</div>\n";
 
-    // 2. SVG Comparison Chart
-    ss << "<div class=\"card\">\n<h2>Superposición de Dinámica (Velocidad MIDI vs dBFS)</h2>\n";
-    ss << "<svg viewBox=\"0 0 800 320\" xmlns=\"http://www.w3.org/2000/svg\">\n";
-
-    // Grid
-    ss << "<rect x=\"50\" y=\"20\" width=\"550\" height=\"260\" fill=\"#161620\" stroke=\"#2e2e40\"/>\n";
-    for (int v : { 0, 32, 64, 96, 127 })
-    {
-        const float x = 50.0f + (static_cast<float>(v) / 127.0f) * 550.0f;
-        ss << "<line x1=\"" << x << "\" y1=\"20\" x2=\"" << x << "\" y2=\"280\" stroke=\"#262636\"/>\n";
-        ss << "<text x=\"" << x << "\" y=\"295\" fill=\"#8e8ea0\" font-size=\"10\" text-anchor=\"middle\">" << v << "</text>\n";
-    }
-    for (int db = 0; db >= -96; db -= 24)
-    {
-        const float frac = static_cast<float>(db + 96) / 96.0f;
-        const float y = 280.0f - frac * 260.0f;
-        ss << "<line x1=\"50\" y1=\"" << y << "\" x2=\"600\" y2=\"" << y << "\" stroke=\"#262636\"/>\n";
-        ss << "<text x=\"42\" y=\"" << y + 3.0f << "\" fill=\"#8e8ea0\" font-size=\"10\" text-anchor=\"end\">" << db << " dB</text>\n";
-    }
-
-    // Series
-    const char* kColours[] = { "#00d4ff", "#ffa726", "#e040fb", "#76ff03", "#ff5252" };
-    int seriesIdx = 0;
+    // 2. SVG Comparison Charts (Level & Timbre)
+    std::vector<MeasurementSvgGenerator::SvgSeries> levelSeries;
+    std::vector<MeasurementSvgGenerator::SvgSeries> timbreSeries;
 
     for (const auto& entry : eligible)
     {
@@ -96,63 +77,81 @@ juce::String MeasurementComparisonReportGenerator::generateReportHtml(const abda
             continue;
 
         const auto& vm = *entry.viewModel;
-        std::vector<std::pair<double, double>> pts;
+        std::string label = vm.dutName.isNotEmpty() ? vm.dutName.toStdString() : entry.containerDir.getFileName().toStdString();
+
+        // Level series (dBFS)
+        MeasurementSvgGenerator::SvgSeries ls;
+        ls.id = std::to_string(entry.id);
+        ls.label = label;
+        ls.lineStyle = entry.dashPatternIndex;
+        ls.markerStyle = entry.markerShapeIndex;
 
         if (vm.dynamicsResult.has_value() && !vm.dynamicsResult->amplitudeCurve.x.empty())
         {
             const auto& crv = vm.dynamicsResult->amplitudeCurve;
             for (size_t i = 0; i < crv.x.size() && i < crv.y.size(); ++i)
-                pts.push_back({ crv.x[i], crv.y[i] });
+                ls.points.push_back({ crv.x[i], crv.y[i] });
         }
         else
         {
             for (size_t i = 0; i < vm.curve.x.size() && i < vm.curve.y.size(); ++i)
-                pts.push_back({ vm.curve.x[i], vm.curve.y[i] });
+                ls.points.push_back({ vm.curve.x[i], vm.curve.y[i] });
         }
 
-        if (pts.empty())
-            continue;
+        if (!ls.points.empty())
+            levelSeries.push_back(std::move(ls));
 
-        const char* col = kColours[seriesIdx % 5];
-        std::string dashAttr = "";
-        if (entry.dashPatternIndex == 1) dashAttr = "stroke-dasharray=\"6,3\" ";
-        else if (entry.dashPatternIndex == 2) dashAttr = "stroke-dasharray=\"8,3,2,3\" ";
-        else if (entry.dashPatternIndex == 3) dashAttr = "stroke-dasharray=\"2,2\" ";
-
-        ss << "<polyline fill=\"none\" stroke=\"" << col << "\" stroke-width=\"2.5\" " << dashAttr << "points=\"";
-        for (const auto& pt : pts)
+        // Timbre series (Spectral Centroid Hz)
+        if (vm.dynamicsResult.has_value() && !vm.dynamicsResult->brightnessCurve.x.empty())
         {
-            const float x = 50.0f + (static_cast<float>(pt.first) / 127.0f) * 550.0f;
-            const float frac = static_cast<float>((pt.second + 96.0) / 96.0);
-            const float y = 280.0f - std::max(0.0f, std::min(1.0f, frac)) * 260.0f;
-            ss << x << "," << y << " ";
+            MeasurementSvgGenerator::SvgSeries ts;
+            ts.id = std::to_string(entry.id);
+            ts.label = label;
+            ts.lineStyle = entry.dashPatternIndex;
+            ts.markerStyle = entry.markerShapeIndex;
+            const auto& crv = vm.dynamicsResult->brightnessCurve;
+            for (size_t i = 0; i < crv.x.size() && i < crv.y.size(); ++i)
+                ts.points.push_back({ crv.x[i], crv.y[i] });
+
+            if (!ts.points.empty())
+                timbreSeries.push_back(std::move(ts));
         }
-        ss << "\"/>\n";
-
-        // Draw points with markers
-        for (const auto& pt : pts)
-        {
-            const float x = 50.0f + (static_cast<float>(pt.first) / 127.0f) * 550.0f;
-            const float frac = static_cast<float>((pt.second + 96.0) / 96.0);
-            const float y = 280.0f - std::max(0.0f, std::min(1.0f, frac)) * 260.0f;
-
-            if (entry.markerShapeIndex == 1) // rect
-                ss << "<rect x=\"" << x - 3.5f << "\" y=\"" << y - 3.5f << "\" width=\"7\" height=\"7\" fill=\"" << col << "\" stroke=\"#000\"/>\n";
-            else
-                ss << "<circle cx=\"" << x << "\" cy=\"" << y << "\" r=\"4\" fill=\"" << col << "\" stroke=\"#000\"/>\n";
-        }
-
-        // Legend entry in SVG
-        const float legY = 40.0f + seriesIdx * 20.0f;
-        ss << "<line x1=\"615\" y1=\"" << legY << "\" x2=\"635\" y2=\"" << legY << "\" stroke=\"" << col << "\" stroke-width=\"2.5\" " << dashAttr << "/>\n";
-        ss << "<circle cx=\"625\" cy=\"" << legY << "\" r=\"3.5\" fill=\"" << col << "\"/>\n";
-        std::string legLabel = vm.dutName.isNotEmpty() ? vm.dutName.toStdString() : entry.containerDir.getFileName().toStdString();
-        ss << "<text x=\"645\" y=\"" << legY + 3.0f << "\" fill=\"#e0e0e0\" font-size=\"11\">" << legLabel << "</text>\n";
-
-        seriesIdx++;
     }
 
-    ss << "</svg>\n</div>\n";
+    ss << "<div class=\"card\">\n<h2>Superposición de Dinámica (Velocidad MIDI vs dBFS)</h2>\n";
+    MeasurementSvgGenerator::SvgPlotSpec levelSpec;
+    levelSpec.xLabel = "Velocidad MIDI";
+    levelSpec.yLabel = "Nivel (dBFS)";
+    levelSpec.xMin = 0.0;
+    levelSpec.xMax = 127.0;
+    levelSpec.yMin = -96.0;
+    levelSpec.yMax = 0.0;
+    levelSpec.width = 800;
+    levelSpec.height = 320;
+    levelSpec.yUnit = "dB";
+    levelSpec.xTicks = { 0.0, 32.0, 64.0, 96.0, 127.0 };
+    levelSpec.yTicks = { 0.0, -24.0, -48.0, -72.0, -96.0 };
+    ss << MeasurementSvgGenerator::generateMultiSeriesSvg(levelSeries, levelSpec);
+    ss << "</div>\n";
+
+    if (!timbreSeries.empty())
+    {
+        ss << "<div class=\"card\">\n<h2>Superposición de Timbre (Velocidad MIDI vs Centroide Hz)</h2>\n";
+        MeasurementSvgGenerator::SvgPlotSpec timbreSpec;
+        timbreSpec.xLabel = "Velocidad MIDI";
+        timbreSpec.yLabel = "Centroide (Hz)";
+        timbreSpec.xMin = 0.0;
+        timbreSpec.xMax = 127.0;
+        timbreSpec.yMin = 0.0;
+        timbreSpec.yMax = 8000.0;
+        timbreSpec.width = 800;
+        timbreSpec.height = 320;
+        timbreSpec.yUnit = "Hz";
+        timbreSpec.xTicks = { 0.0, 32.0, 64.0, 96.0, 127.0 };
+        timbreSpec.yTicks = { 8000.0, 6000.0, 4000.0, 2000.0, 0.0 };
+        ss << MeasurementSvgGenerator::generateMultiSeriesSvg(timbreSeries, timbreSpec);
+        ss << "</div>\n";
+    }
 
     // 3. Table of Eligible Verified Series
     ss << "<div class=\"card\">\n<h2>Series Verificadas y Comparadas</h2>\n";

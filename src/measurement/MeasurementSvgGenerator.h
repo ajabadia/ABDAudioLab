@@ -93,6 +93,48 @@ public:
                                                      double carrierHz = 0.0,
                                                      int width = 760,
                                                      int height = 280);
+
+    /**
+     * @brief Declarative series definition for multi-series SVG rendering.
+     */
+    struct SvgSeries
+    {
+        std::string id;
+        std::string label;
+        std::vector<std::pair<double, double>> points;
+        int lineStyle { 0 };       /**< 0: Solid, 1: Dashed (6,3), 2: Dot-Dash (8,3,2,3), 3: Dotted (2,2) */
+        int markerStyle { 0 };     /**< 0: Circle, 1: Rectangle, 2: Triangle, 3: Diamond */
+        std::string strokeColor;   /**< Optional explicit hex color (e.g. "#00d4ff"). If empty, palette is used. */
+        std::string unit;
+    };
+
+    /**
+     * @brief Explicit plot specifications for multi-series SVG canvas.
+     */
+    struct SvgPlotSpec
+    {
+        std::string xLabel;
+        std::string yLabel;
+        std::string title;
+        double xMin { 0.0 };
+        double xMax { 127.0 };
+        double yMin { -96.0 };
+        double yMax { 0.0 };
+        int width { 800 };
+        int height { 320 };
+        std::string yUnit { "dB" };
+        std::vector<double> xTicks;
+        std::vector<double> yTicks;
+    };
+
+    /**
+     * @brief Unifying declarative SVG renderer for multi-series comparisons (DRY).
+     *
+     * Centralizes axis, grid lines, ticks, markers, strokes, and legend layout with zero business logic.
+     * Guaranteed exact visual parity with Phase 20.11.1 / 20.11.2 reports.
+     */
+    static std::string generateMultiSeriesSvg(const std::vector<SvgSeries>& series,
+                                              const SvgPlotSpec& spec = {});
 };
 
 } // namespace abdaudiolab::measurement

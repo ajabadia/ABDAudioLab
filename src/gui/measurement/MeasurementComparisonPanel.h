@@ -50,6 +50,7 @@ private:
 
     // Master toolbar
     juce::Label lblHeader_ { {}, "ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL" };
+    juce::ComboBox cmbMetricMode_;
     juce::TextButton btnExportReport_ { "Exportar Informe HTML..." };
     juce::Label lblProvenance_ { {}, "Fuente de Audio: Ninguna" };
 

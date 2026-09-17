@@ -75,6 +75,13 @@
 - [COMPLETADO] T20.11.2-5: Contrato ComparisonExclusionRecord reproducible con comparisonBasisHash simétrico y reglas deterministas en exportación HTML y JSON.
 - [COMPLETADO] T20.11.2-6: Suite de pruebas de estrés, robustez y regresión en test_Phase20_11_2_SessionRobustnessAndA11y.cpp (53/53 aserciones en verde, 0 fallos; suite global: 373/373 tests, 223.515 aserciones).
 
+[COMPLETADO] Fase 20.11.3: Ampliación Digital, Campañas Factoriales Paramétricas y Segregación Nivel/Timbre FAIR/LNL.
+- [COMPLETADO] T20.11.3-1: Contratos de variantes y campañas factoriales aisladas (DexedParametricCampaignContracts.h), registro de requestedValue vs effectiveValue, stateSha256 y fixtureRole como canonical_pair.
+- [COMPLETADO] T20.11.3-2: Motor SVG declarativo unificado (MeasurementSvgGenerator::generateMultiSeriesSvg, SvgSeries, SvgPlotSpec) y refactorización DRY en MeasurementComparisonReportGenerator.cpp garantizando paridad visual exacta y soporte multi-gráfico (nivel y timbre).
+- [COMPLETADO] T20.11.3-3: Comparación dimensionalmente segregada de Nivel y Timbre en MeasurementComparisonSession (levelEquivalence, timbreEquivalence, maxTimbreDeltaHz, base metrológica spectralCentroidHz y descarte NotComparable para tomas incompatibles o silenciosas).
+- [COMPLETADO] T20.11.3-4: Selector de métrica en UI (cmbMetricMode_ en MeasurementComparisonPanel) para alternar entre Nivel dBFS y Timbre Hz, y presentación dual de evidencia dimensional en MeasurementStateEquivalenceCard.
+- [COMPLETADO] T20.11.3-5: Orquestador de campañas factoriales aisladas DexedParametricCampaignCoordinator y suite de pruebas Catch2 en test_Phase20_11_3_DigitalExpansion.cpp (50/50 aserciones en verde, 0 fallos; suite global: 376/376 tests, 223.565 aserciones).
+
 [FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
 - T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).

@@ -228,7 +228,21 @@ struct PairwiseComparisonResult
     juce::String stateSha256B;
     juce::String stimulusSha256A;
     juce::String stimulusSha256B;
+
+    // Phase 20.11.3: Independent Level & Timbre Dimensions
+    PairwiseStateEquivalence levelEquivalence { PairwiseStateEquivalence::NotComparable };
+    PairwiseStateEquivalence timbreEquivalence { PairwiseStateEquivalence::NotComparable };
     double maxAudioDelta { 0.0 };
+    double maxTimbreDeltaHz { 0.0 };
+
+    // Strict Timbre Metrological Basis
+    std::string timbreMetric { "spectralCentroidHz" };
+    double windowStartMs { 0.0 };
+    double windowEndMs { 0.0 };
+    double sampleRateHz { 48000.0 };
+    int fftSize { 2048 };
+    std::string windowFunction { "Hann" };
+
     juce::String normalizationVersion;
 };
 
@@ -308,6 +322,8 @@ public:
 
     [[nodiscard]] std::vector<ComparisonExclusionRecord> getExclusionRecords() const;
     void addExclusionRecord(const ComparisonExclusionRecord& rec);
+
+    int addLoadedContainerDirectlyForTesting(const LoadedContainerEntry& entry);
 
 private:
     void notifyContainerStateChanged(int containerId, ContainerLoadState newState);

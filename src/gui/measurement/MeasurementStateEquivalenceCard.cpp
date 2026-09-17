@@ -140,7 +140,14 @@ void MeasurementStateEquivalenceCard::paint(juce::Graphics& g)
 
     const int rowH = 18;
     auto row1 = area.removeFromTop(rowH);
-    g.drawText("Max Delta Audio: " + juce::String(currentResult_->maxAudioDelta, 6), row1, juce::Justification::centredLeft);
+    juce::String dimText = "Nivel: " + pairwiseEquivalenceToString(currentResult_->levelEquivalence) +
+                           " (Delta: " + juce::String(currentResult_->maxAudioDelta, 6) + ")";
+    if (currentResult_->timbreEquivalence != PairwiseStateEquivalence::NotComparable)
+    {
+        dimText += " | Timbre: " + pairwiseEquivalenceToString(currentResult_->timbreEquivalence) +
+                   " (Delta: " + juce::String(currentResult_->maxTimbreDeltaHz, 1) + " Hz)";
+    }
+    g.drawText(dimText, row1, juce::Justification::centredLeft);
 
     auto row2 = area.removeFromTop(rowH);
     juce::String binA = currentResult_->pluginBinarySha256A.substring(0, 16);

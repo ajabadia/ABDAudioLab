@@ -1,0 +1,77 @@
+/**
+ * @file DexedParametricCampaignCoordinator.h
+ * @brief Coordinator for offline isolated factorial parametric campaigns on Dexed.vst3.
+ * @author ABDSynths
+ * @date 2026
+ */
+
+#pragma once
+
+#include "DexedParametricCampaignContracts.h"
+#include "DexedVerticalCampaign.h"
+#include "../synth/ExternalPluginFixture.h"
+#include <juce_core/juce_core.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <string>
+#include <vector>
+#include <memory>
+
+namespace abdaudiolab::measurement
+{
+
+/**
+ * @class DexedParametricCampaignCoordinator
+ * @brief Orquestador de campañas factoriales aisladas (OFAT) sobre Dexed.vst3.
+ *
+ * Aplica aislamiento riguroso de variables:
+ * - Campaña A: Variación de Algoritmo (1 vs 32) manteniendo Feedback = 0 constante.
+ * - Campaña B: Variación de Feedback (0 vs 7) manteniendo Algoritmo = 1 constante.
+ *
+ * Registra formalmente requestedValue vs effectiveValue, parameterId, stateSha256
+ * y fixtureRole ("canonical_pair").
+ */
+class DexedParametricCampaignCoordinator
+{
+public:
+    /**
+     * @brief Modifica un parámetro en el plugin Dexed, cuantiza al dominio nativo y registra el valor efectivo.
+     */
+    static bool applyParametricVariation(abdaudiolab::synth::ExternalPluginFixture& plug,
+                                         const std::string& paramName,
+                                         double requestedValue,
+                                         ParametricRecord& outRecord,
+                                         std::string& outError);
+
+    /**
+     * @brief Genera un fixture controlado canónico exploratorio con aislamiento de variables.
+     */
+    static DexedVerticalFixture createControlledVariantFixture(const DexedVerticalFixture& baseFixture,
+                                                               int algorithm,
+                                                               int feedback,
+                                                               FixtureRole role = FixtureRole::CanonicalExploratoryPair);
+
+    /**
+     * @brief Ejecuta la Campaña Factorial A (Algoritmo 1 vs 32, Feedback 0) exportando contenedores FAIR independientes.
+     */
+    static bool executeCampaignA(juce::AudioPluginFormatManager& formatManager,
+                                 const juce::File& dexedBinary,
+                                 const juce::File& outputCampaignDir,
+                                 ParametricCampaignManifest& outManifest,
+                                 std::string& outError);
+
+    /**
+     * @brief Ejecuta la Campaña Factorial B (Feedback 0 vs 7, Algoritmo 1) exportando contenedores FAIR independientes.
+     */
+    static bool executeCampaignB(juce::AudioPluginFormatManager& formatManager,
+                                 const juce::File& dexedBinary,
+                                 const juce::File& outputCampaignDir,
+                                 ParametricCampaignManifest& outManifest,
+                                 std::string& outError);
+
+    /**
+     * @brief Genera un manifest y fixtures sintéticos/mock para entornos de CI/tests sin plugin VST3 binario.
+     */
+    static ParametricCampaignManifest generateSyntheticFactorialManifest(ParametricCampaignType type);
+};
+
+} // namespace abdaudiolab::measurement

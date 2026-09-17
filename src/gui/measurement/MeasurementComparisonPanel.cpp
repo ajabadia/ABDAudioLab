@@ -21,6 +21,22 @@ MeasurementComparisonPanel::MeasurementComparisonPanel()
     lblHeader_.setFont(juce::FontOptions(16.0f));
     lblHeader_.setColour(juce::Label::textColourId, juce::Colour(0xff00d4ff));
 
+    addAndMakeVisible(cmbMetricMode_);
+    cmbMetricMode_.addItem("Nivel (dBFS)", 1);
+    cmbMetricMode_.addItem("Timbre (Centroide Hz)", 2);
+    cmbMetricMode_.addItem("Timbre (Rolloff Hz)", 3);
+    cmbMetricMode_.setSelectedId(1, juce::dontSendNotification);
+    cmbMetricMode_.onChange = [this]()
+    {
+        const int id = cmbMetricMode_.getSelectedId();
+        if (id == 1)
+            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::LevelDbfs);
+        else if (id == 2)
+            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::TimbreCentroidHz);
+        else if (id == 3)
+            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::TimbreRolloffHz);
+    };
+
     addAndMakeVisible(btnExportReport_);
     btnExportReport_.onClick = [this]() { exportComparisonReport(); };
 
@@ -115,8 +131,11 @@ void MeasurementComparisonPanel::resized()
 
     // Top master bar
     auto topBar = area.removeFromTop(32);
-    lblHeader_.setBounds(topBar.removeFromLeft(getWidth() - 220));
-    btnExportReport_.setBounds(topBar.removeFromRight(200));
+    btnExportReport_.setBounds(topBar.removeFromRight(170));
+    topBar.removeFromRight(8);
+    cmbMetricMode_.setBounds(topBar.removeFromRight(190));
+    topBar.removeFromRight(8);
+    lblHeader_.setBounds(topBar);
 
     area.removeFromTop(6);
 

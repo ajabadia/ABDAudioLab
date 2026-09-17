@@ -753,4 +753,98 @@ std::string MeasurementSvgGenerator::generateModulationSpectrumSvg(const std::ve
     return ss.str();
 }
 
+std::string MeasurementSvgGenerator::generateMultiSeriesSvg(const std::vector<SvgSeries>& series,
+                                                            const SvgPlotSpec& spec)
+{
+    std::ostringstream ss;
+    ss << "<svg viewBox=\"0 0 " << spec.width << " " << spec.height << "\" xmlns=\"http://www.w3.org/2000/svg\">\n";
+
+    // Background and plotting area
+    ss << "<rect x=\"50\" y=\"20\" width=\"550\" height=\"260\" fill=\"#161620\" stroke=\"#2e2e40\"/>\n";
+
+    const double xMin = spec.xMin;
+    const double xMax = (std::abs(spec.xMax - spec.xMin) > 1e-6) ? spec.xMax : (xMin + 1.0);
+    const double yMin = spec.yMin;
+    const double yMax = (std::abs(spec.yMax - spec.yMin) > 1e-6) ? spec.yMax : (yMin + 1.0);
+
+    // X Ticks & Grid
+    std::vector<double> xTicks = spec.xTicks;
+    if (xTicks.empty())
+        xTicks = { 0.0, 32.0, 64.0, 96.0, 127.0 };
+
+    for (double v : xTicks)
+    {
+        const float x = 50.0f + static_cast<float>((v - xMin) / (xMax - xMin)) * 550.0f;
+        ss << "<line x1=\"" << x << "\" y1=\"20\" x2=\"" << x << "\" y2=\"280\" stroke=\"#262636\"/>\n";
+        ss << "<text x=\"" << x << "\" y=\"295\" fill=\"#8e8ea0\" font-size=\"10\" text-anchor=\"middle\">"
+           << static_cast<int>(std::round(v)) << "</text>\n";
+    }
+
+    // Y Ticks & Grid
+    std::vector<double> yTicks = spec.yTicks;
+    if (yTicks.empty())
+        yTicks = { 0.0, -24.0, -48.0, -72.0, -96.0 };
+
+    for (double db : yTicks)
+    {
+        const float frac = static_cast<float>((db - yMin) / (yMax - yMin));
+        const float y = 280.0f - frac * 260.0f;
+        ss << "<line x1=\"50\" y1=\"" << y << "\" x2=\"600\" y2=\"" << y << "\" stroke=\"#262636\"/>\n";
+        ss << "<text x=\"42\" y=\"" << (y + 3.0f) << "\" fill=\"#8e8ea0\" font-size=\"10\" text-anchor=\"end\">"
+           << static_cast<int>(std::round(db)) << " " << spec.yUnit << "</text>\n";
+    }
+
+    // Palette & Rendering
+    const char* kColours[] = { "#00d4ff", "#ffa726", "#e040fb", "#76ff03", "#ff5252" };
+    int seriesIdx = 0;
+
+    for (const auto& s : series)
+    {
+        if (s.points.empty())
+            continue;
+
+        const std::string col = !s.strokeColor.empty() ? s.strokeColor : kColours[seriesIdx % 5];
+        std::string dashAttr = "";
+        if (s.lineStyle == 1) dashAttr = "stroke-dasharray=\"6,3\" ";
+        else if (s.lineStyle == 2) dashAttr = "stroke-dasharray=\"8,3,2,3\" ";
+        else if (s.lineStyle == 3) dashAttr = "stroke-dasharray=\"2,2\" ";
+
+        // Polyline
+        ss << "<polyline fill=\"none\" stroke=\"" << col << "\" stroke-width=\"2.5\" " << dashAttr << "points=\"";
+        for (const auto& pt : s.points)
+        {
+            const float x = 50.0f + static_cast<float>((pt.first - xMin) / (xMax - xMin)) * 550.0f;
+            const float frac = static_cast<float>((pt.second - yMin) / (yMax - yMin));
+            const float y = 280.0f - std::max(0.0f, std::min(1.0f, frac)) * 260.0f;
+            ss << x << "," << y << " ";
+        }
+        ss << "\"/>\n";
+
+        // Markers
+        for (const auto& pt : s.points)
+        {
+            const float x = 50.0f + static_cast<float>((pt.first - xMin) / (xMax - xMin)) * 550.0f;
+            const float frac = static_cast<float>((pt.second - yMin) / (yMax - yMin));
+            const float y = 280.0f - std::max(0.0f, std::min(1.0f, frac)) * 260.0f;
+
+            if (s.markerStyle == 1) // Rectangle
+                ss << "<rect x=\"" << (x - 3.5f) << "\" y=\"" << (y - 3.5f) << "\" width=\"7\" height=\"7\" fill=\"" << col << "\" stroke=\"#000\"/>\n";
+            else // Circle default
+                ss << "<circle cx=\"" << x << "\" cy=\"" << y << "\" r=\"4\" fill=\"" << col << "\" stroke=\"#000\"/>\n";
+        }
+
+        // Legend entry
+        const float legY = 40.0f + seriesIdx * 20.0f;
+        ss << "<line x1=\"615\" y1=\"" << legY << "\" x2=\"635\" y2=\"" << legY << "\" stroke=\"" << col << "\" stroke-width=\"2.5\" " << dashAttr << "/>\n";
+        ss << "<circle cx=\"625\" cy=\"" << legY << "\" r=\"3.5\" fill=\"" << col << "\"/>\n";
+        ss << "<text x=\"645\" y=\"" << (legY + 3.0f) << "\" fill=\"#e0e0e0\" font-size=\"11\">" << s.label << "</text>\n";
+
+        seriesIdx++;
+    }
+
+    ss << "</svg>\n";
+    return ss.str();
+}
+
 } // namespace abdaudiolab::measurement
+
