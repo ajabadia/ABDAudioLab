@@ -231,6 +231,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Wire SessionIoController Callbacks
     sessionIoController.setExportDirectory(exportDirectory);
+    sessionIoController.setSessionContextProvider([this]() -> gui::SessionSaveContext {
+        gui::SessionSaveContext ctx;
+        ctx.manifest = buildCurrentSessionManifest();
+        ctx.metadata.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
+        ctx.metadata.targetModule = drawer.getSelectedFunctionId().toStdString();
+        ctx.metadata.sampleRate = audioEngine.getCurrentSampleRate();
+        ctx.metadata.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+        ctx.metadata.operatorNotes = drawer.getOperatorNotes().toStdString();
+        ctx.metadata.ambientTemperatureC = drawer.getAmbientTemperature();
+        ctx.metadata.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
+        ctx.suggestedFileName = drawer.getActiveHardwareDisplayName().replaceCharacter(' ', '_') + ".abdlabtest";
+        return ctx;
+    });
     sessionIoController.onSessionLoaded = [this](const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points) {
         applyLoadedSession(manifest, points);
     };
@@ -3623,48 +3636,17 @@ void MainContentComponent::applyLoadedSession(const core::SessionManifest& manif
 
 void MainContentComponent::handleSaveSession()
 {
-    core::SessionManifest manifest = buildCurrentSessionManifest();
-    core::ProfilingMetadata meta;
-    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-    meta.sampleRate = audioEngine.getCurrentSampleRate();
-    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-    sessionIoController.handleSaveSession(manifest, meta);
+    sessionIoController.handleSaveSession();
 }
 
 void MainContentComponent::handleSaveSessionAs()
 {
-    core::SessionManifest manifest = buildCurrentSessionManifest();
-    core::ProfilingMetadata meta;
-    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-    meta.sampleRate = audioEngine.getCurrentSampleRate();
-    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-    juce::String defaultName = drawer.getActiveHardwareDisplayName().replaceCharacter(' ', '_') + ".abdlabtest";
-    sessionIoController.handleSaveSessionAs(manifest, meta, defaultName);
+    sessionIoController.handleSaveSessionAs();
 }
 
 void MainContentComponent::saveSessionToFile(const juce::File& file)
 {
-    core::SessionManifest manifest = buildCurrentSessionManifest();
-    core::ProfilingMetadata meta;
-    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-    meta.sampleRate = audioEngine.getCurrentSampleRate();
-    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-    sessionIoController.saveSessionToFile(file, manifest, meta);
+    sessionIoController.saveSessionToFile(file);
 }
 
 void MainContentComponent::exportCertificationReport()
@@ -3792,32 +3774,9 @@ void MainContentComponent::publishCertificationToCloud()
 // ==============================================================================
 void MainContentComponent::promptNewSession()
 {
-    if (sessionManager.isDirty() && sessionManager.hasPoints())
-    {
-        confirmationModal.show(
-            this,
-            "Unsaved Changes",
-            "The current session contains unsaved measurement points.\nDo you want to save before creating a new session?",
-            "Save",
-            "Don't Save",
-            "Cancel",
-            [this](gui::ConfirmationModalDialog::Result result) {
-                if (result == gui::ConfirmationModalDialog::Result::Primary)
-                {
-                    handleSaveSession();
-                    performNewSessionReset();
-                }
-                else if (result == gui::ConfirmationModalDialog::Result::Secondary)
-                {
-                    performNewSessionReset();
-                }
-            }
-        );
-    }
-    else
-    {
+    sessionIoController.promptNewSession(this, [this] {
         performNewSessionReset();
-    }
+    });
 }
 
 void MainContentComponent::performNewSessionReset()
@@ -3872,64 +3831,23 @@ void MainContentComponent::performOpenSessionFileChooser()
 
 void MainContentComponent::promptDeleteTest(int index, const gui::QueueItem& item)
 {
-    if (item.status == gui::QueueItemStatus::Completed || item.status == gui::QueueItemStatus::Incomplete)
-    {
-        confirmationModal.show(
-            this,
-            "Delete Measured Test",
-            "Test '" + item.title + "' contains recorded measurement data.\n\nWhat would you like to do?",
-            "Discard & Delete",
-            "Mark as Invalid (Keep)",
-            "Cancel",
-            [this, index](gui::ConfirmationModalDialog::Result result) {
-                if (result == gui::ConfirmationModalDialog::Result::Primary)
-                {
-                    suiteList.removeTestDirectly(index);
-                    sessionManager.setDirty(true);
-                }
-                else if (result == gui::ConfirmationModalDialog::Result::Secondary)
-                {
-                    suiteList.invalidateTest(index);
-                    sessionManager.setDirty(true);
-                }
-            }
-        );
-    }
-    else
-    {
-        suiteList.removeTestDirectly(index);
-        sessionManager.setDirty(true);
-    }
+    sessionIoController.promptDeleteTest(this, index, item,
+        [this](int idx) {
+            suiteList.removeTestDirectly(idx);
+            sessionManager.setDirty(true);
+        },
+        [this](int idx) {
+            suiteList.invalidateTest(idx);
+            sessionManager.setDirty(true);
+        }
+    );
 }
 
 void MainContentComponent::confirmAndExit()
 {
-    if (sessionManager.isDirty() && sessionManager.hasPoints())
-    {
-        confirmationModal.show(
-            this,
-            "Exit ABDAudioLab",
-            "You have unsaved measurement points in this session. Do you want to save before exiting?",
-            "Save and Exit",
-            "Exit Without Saving",
-            "Cancel",
-            [this](gui::ConfirmationModalDialog::Result result) {
-                if (result == gui::ConfirmationModalDialog::Result::Primary)
-                {
-                    handleSaveSession();
-                    juce::JUCEApplication::getInstance()->systemRequestedQuit();
-                }
-                else if (result == gui::ConfirmationModalDialog::Result::Secondary)
-                {
-                    juce::JUCEApplication::getInstance()->systemRequestedQuit();
-                }
-            }
-        );
-    }
-    else
-    {
+    sessionIoController.confirmAndExit(this, [] {
         juce::JUCEApplication::getInstance()->systemRequestedQuit();
-    }
+    });
 }
 
 void MainContentComponent::initializeAutoUpdater()

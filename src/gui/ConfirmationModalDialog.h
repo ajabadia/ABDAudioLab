@@ -96,6 +96,14 @@ public:
         }
     }
 
+    /**
+     * @brief Programmatically simulates a dialog result for headless testing and automation.
+     */
+    void simulateResult(Result r)
+    {
+        finish(r);
+    }
+
     bool keyPressed(const juce::KeyPress& key, juce::Component*) override
     {
         if (isVisible())

@@ -619,6 +619,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ProfilingArchitectureRefactor.cpp
     src/tests/test_PresetEngineDecomposition.cpp
     src/tests/test_SessionReportManager.cpp
+    src/tests/test_SessionIoController.cpp
     src/tests/test_MainHeaderController.cpp
     src/tests/test_SessionExecutionCoordinator.cpp
     src/tests/test_Waterfall3DComponent.cpp
@@ -819,6 +820,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/HardwareRoutingPanel.cpp
     src/gui/AudioABVerificationModal.cpp
     src/gui/SessionReportManager.cpp
+    src/gui/controllers/SessionIoController.cpp
     src/gui/MainHeaderController.cpp
     src/gui/SessionExecutionCoordinator.cpp
     src/gui/Waterfall3DComponent.cpp
