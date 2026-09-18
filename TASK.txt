@@ -112,9 +112,14 @@
 - [COMPLETADO] T20.11.7-6: Pruebas de repetibilidad, suite integrada y sellado: auditoría E2E unificada T1->T5, repetibilidad estricta bit-a-bit comprobada (Pass 1 == Pass 2 con hashes SHA-256 idénticos en todos los artefactos), enriquecimiento de metadatos FAIR de gobernanza y licencia segregada (dataLicense, softwareLicense, audioLicense, thirdPartyNotice), ambiente reproducible normalizado, verificación de inmutabilidad y suite Catch2 dedicada (test_Phase20_11_7_ComplexEnvelopes_T6.cpp). Certificación: 413/413 tests verdes (225.461 aserciones, 0 fallos; sub-suite [complex_envelopes]: 1.735/1.735 aserciones en 28 test cases; sub-suite [e2e_repeatability]: 54/54 aserciones en 3 test cases).
 - Certificación formal sellada en tag anotado: phase-20.11.7-certified (413/413 tests en verde, 225.461 aserciones).
 
-[FUTURO / BACKLOG] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
-- T4.3 (Futuro): Latencia fina y caracterización de deriva de reloj con hardware multicanal.
-- T4.4 (Futuro): Caracterización analógica de DUT (respuesta de frecuencia, distorsión armónica, IMD y umbrales de clipping).
-- T4.5 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
+[EN PROGRESO] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
+- [COMPLETADO] T20.12-1: Latencia fina sub-muestra, deriva de reloj (clock drift) y sincronización multicanal.
+  * Contratos canónicos metrológicos en FineLatencyContracts.h: modelado explícito de latencia fija entera/fraccional, ClockDriftObservation con semántica de unidades rigurosa (offsetUnit, timeUnit, slopeUnit), ChannelSkewObservation con fase angular opcional y detección de polaridad invertida, ClockTopology (SharedClock, IndependentClocks), DriftInterpretation (RelativeClockDrift, ResidualJitter), y diagnóstico exhaustivo de residuos (residualMedianAbsoluteDeviation, maxResidualSamples, inlierCount, outlierCount, fitStatus).
+  * Motor DSP analítico FineLatencyAnalyzer: correlación cruzada normalizada con refinamiento parabólico de 3 puntos en el pico, estimación de incertidumbre acotada según SNR y curvatura, regresión lineal de deriva con rechazo robusto de outliers por MAD, detección formal de saltos/dropouts (TimingDiscontinuity) y análisis de skew multicanal relativo al canal de referencia 0.
+  * Vistas de compensación no destructivas LatencyCompensationView (TimeAxisOnly con inmutabilidad absoluta de memoria y punteros, IntegerShift con buffer derivado).
+  * Suite Catch2 dedicada en test_Phase20_12_FineLatency_T1.cpp con tag [fine_latency]. Certificación: 419/419 tests verdes (225.532 aserciones, 0 fallos; sub-suite [fine_latency]: 71/71 aserciones en 6 test cases).
+- T20.12-2 (Futuro): Caracterización analógica de DUT (respuesta en frecuencia, distorsión armónica THD/IMD y umbrales de clipping).
+- T20.12-3 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
+
 
 

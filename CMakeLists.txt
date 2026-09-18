@@ -273,6 +273,9 @@ target_sources(ABDAudioLab
         src/measurement/ComplexEnvelopeHtmlReportGenerator.cpp
         src/measurement/ComplexEnvelopeFairExporter.h
         src/measurement/ComplexEnvelopeFairExporter.cpp
+        src/measurement/FineLatencyContracts.h
+        src/measurement/FineLatencyAnalyzer.h
+        src/measurement/FineLatencyAnalyzer.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -658,6 +661,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T4.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T5.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T6.cpp
+    src/tests/test_Phase20_12_FineLatency_T1.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -675,6 +679,7 @@ add_executable(ABDAudioLab_Tests
     src/measurement/ComplexEnvelopeSvgRenderer.cpp
     src/measurement/ComplexEnvelopeHtmlReportGenerator.cpp
     src/measurement/ComplexEnvelopeFairExporter.cpp
+    src/measurement/FineLatencyAnalyzer.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp
