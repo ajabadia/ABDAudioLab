@@ -122,6 +122,23 @@ public:
      */
     void postLiveMidiMessage(const juce::MidiMessage& message);
 
+    // Plugin MIDI delivery & audio verification telemetry
+    [[nodiscard]] int getPluginMidiEventsDelivered() const noexcept { return pluginMidiEventsDelivered.load(std::memory_order_relaxed); }
+    [[nodiscard]] int getPluginNoteOnCount() const noexcept { return pluginNoteOnCount.load(std::memory_order_relaxed); }
+    [[nodiscard]] int getPluginNoteOffCount() const noexcept { return pluginNoteOffCount.load(std::memory_order_relaxed); }
+    [[nodiscard]] int getLastNoteOnNumber() const noexcept { return lastNoteOnNumber.load(std::memory_order_relaxed); }
+    [[nodiscard]] float getLastNoteOnVelocity() const noexcept { return lastNoteOnVelocity.load(std::memory_order_relaxed); }
+    [[nodiscard]] float getLastPluginOutputRms() const noexcept { return lastPluginOutputRms.load(std::memory_order_relaxed); }
+    void resetPluginMidiTelemetry() noexcept
+    {
+        pluginMidiEventsDelivered.store(0, std::memory_order_relaxed);
+        pluginNoteOnCount.store(0, std::memory_order_relaxed);
+        pluginNoteOffCount.store(0, std::memory_order_relaxed);
+        lastNoteOnNumber.store(-1, std::memory_order_relaxed);
+        lastNoteOnVelocity.store(0.0f, std::memory_order_relaxed);
+        lastPluginOutputRms.store(0.0f, std::memory_order_relaxed);
+    }
+
     /**
      * @brief Enables or disables 1 kHz diagnostic reference test tone.
      */
@@ -278,6 +295,14 @@ private:
     std::atomic<float> outputRmsR { 0.0f };
 
     std::atomic<float> inputTrimGain { 1.0f };
+
+    // Plugin MIDI delivery & audio verification telemetry
+    std::atomic<int> pluginMidiEventsDelivered { 0 };
+    std::atomic<int> pluginNoteOnCount { 0 };
+    std::atomic<int> pluginNoteOffCount { 0 };
+    std::atomic<int> lastNoteOnNumber { -1 };
+    std::atomic<float> lastNoteOnVelocity { 0.0f };
+    std::atomic<float> lastPluginOutputRms { 0.0f };
 
     std::vector<float> tempProcessBufferL;
     std::vector<float> tempProcessBufferR;

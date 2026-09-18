@@ -39,6 +39,7 @@ struct TestCase
 
     // 1.7.13 Autonomous synthesizer excitation & MIDI articulation
     bool isAutonomousSynth { false };
+    ExcitationMode excitationMode { ExcitationMode::AudioSweep };
     int midiChannel { 1 };
     int midiNoteNumber { 60 };           // Middle C (C4)
     float midiVelocity { 0.8f };         // Velocity ~100

@@ -42,12 +42,28 @@ HardwareContract PluginHardwareContractAdapter::createContractFromPlugin(juce::A
 
     if (desc.isInstrument)
     {
+        fn.excitationMode = ExcitationMode::MidiNotes;
+        fn.measurementRecipe.recipeType = "INTERNAL_MIDI_EXCITATION";
+        fn.measurementRecipe.excitationMode = ExcitationMode::MidiNotes;
+        fn.measurementRecipe.description = desc.name.toStdString() + " Standard Profiling (Cutoff / Velocity Sweep)";
+
+        NoteSequenceEvent defaultNote;
+        defaultNote.noteNumber = 60; // C4
+        defaultNote.velocity = 100;
+        defaultNote.durationMs = 1500;
+        fn.measurementRecipe.excitationNotes.push_back(defaultNote);
+
         fn.routingGuide.stimulusOutput = "Internal MIDI Injection (Direct Bus)";
         fn.routingGuide.responseInput = "Plugin Internal Audio Out (DAC Direct)";
         fn.routingGuide.notes = "Excitación autónoma por secuenciador MIDI interno sin latencia de hardware.";
     }
     else
     {
+        fn.excitationMode = ExcitationMode::AudioSweep;
+        fn.measurementRecipe.recipeType = "DIRECT_AUDIO_IN";
+        fn.measurementRecipe.excitationMode = ExcitationMode::AudioSweep;
+        fn.measurementRecipe.description = desc.name.toStdString() + " Audio Sweep Profile";
+
         fn.routingGuide.stimulusOutput = "Stimulus Generator (Internal Bus)";
         fn.routingGuide.responseInput = "Plugin Audio Output (Direct In)";
         fn.routingGuide.notes = "Lazo cerrado digital directo sin coloración de convertidores físicos.";

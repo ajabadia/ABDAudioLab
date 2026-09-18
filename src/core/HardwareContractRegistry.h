@@ -60,10 +60,19 @@ struct NoteSequenceEvent
     bool isLegato { false };
 };
 
+enum class ExcitationMode
+{
+    MidiNotes,      // Instrument plugins, hardware synths triggered by MIDI note-on/off
+    AudioSweep,     // Audio effects, loopback, pedals, filter inputs
+    ManualCapture,  // Manual hardware, Eurorack without auto-stimulus
+    ExternalSignal  // Passive line-in recording
+};
+
 struct MeasurementPresetRecipe
 {
     std::string recipeType; // e.g. "INTERNAL_NOISE_EXCITATION", "LEGATO_PITCH_SWEEP", "DIRECT_AUDIO_IN", "BULK_SYSEX_DUMP", "MANUAL_PATCH"
     std::string description;
+    ExcitationMode excitationMode { ExcitationMode::AudioSweep };
     std::vector<HardwareSetupAction> setupActions;
     std::vector<NoteSequenceEvent> excitationNotes;
     int postSettlingDelayMs { 100 };
@@ -82,6 +91,7 @@ struct HardwareFunction
     std::string name;
     std::string blockType; // "TimeDynamic", "SpectrumFilter", "WaveShaper", "CyclicModulator", "AmplitudeGain"
     std::string suggestedStimulus; // "GATE_PULSE", "LOG_SINE_SWEEP", "MULTILEVEL_RAMP", "SILENT_CAPTURE", "MULTI_CYCLE_MODULATION"
+    ExcitationMode excitationMode { ExcitationMode::AudioSweep };
     std::string captureMode { "FIXED_TIME" }; // "FIXED_TIME", "ADAPTIVE_ENVELOPE", "INTEGRATED_TAIL"
     float defaultBurstDurationSec { 1.0f };
     float maxTimeoutSec { 60.0f };

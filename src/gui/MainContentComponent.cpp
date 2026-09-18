@@ -1326,6 +1326,15 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             lblActionReasonBanner.setVisible(true);
             return;
         }
+        juce::String hid = drawer.getSelectedHardwareId();
+        juce::String fid = drawer.getSelectedFunctionId();
+        if (hardwareManager.isAutonomousSynth(hid, fid) || activePluginInstance != nullptr)
+        {
+            audioEngine.postLiveMidiMessage(juce::MidiMessage::noteOn(1, 60, 0.8f));
+            juce::Timer::callAfterDelay(1200, [this] {
+                audioEngine.postLiveMidiMessage(juce::MidiMessage::noteOff(1, 60, 0.0f));
+            });
+        }
         sessionCoordinator.triggerFreeCapture();
     };
     addChildComponent(btnFreeCapture);
@@ -1343,6 +1352,46 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         sessionCoordinator.triggerStopSession();
     };
     addChildComponent(btnFreeStop);
+
+    btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  INICIAR MEDICIÓN"));
+    btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
+    btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnPrimaryAction.onClick = [this] {
+        auto state = sessionCoordinator.getCoordinatorState();
+        bool isRunning = sequencer.isRunningSession();
+        bool isPaused = sequencer.isSessionPaused();
+
+        if (state == measurement::CoordinatorState::SessionCompleted)
+        {
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::ExportReport);
+            return;
+        }
+
+        if (isRunning)
+        {
+            if (isPaused)
+            {
+                sequencer.resumeSession();
+            }
+            else
+            {
+                sequencer.pauseSession();
+            }
+        }
+        else
+        {
+            startProfilingSession(false);
+        }
+    };
+    addChildComponent(btnPrimaryAction);
+
+    btnCancelAction.setButtonText("CANCELAR");
+    btnCancelAction.setColour(juce::TextButton::buttonColourId, juce::Colours::coral.withAlpha(0.25f));
+    btnCancelAction.setColour(juce::TextButton::textColourOffId, juce::Colours::coral);
+    btnCancelAction.onClick = [this] {
+        stopProfilingSession();
+    };
+    addChildComponent(btnCancelAction);
 
     // 7. Slide-In Drawer & Modals (Overlays on top)
     drawer.onHardwareSelected = [this](const juce::String& hwId, const juce::String& funcId) {
@@ -1715,12 +1764,17 @@ void MainContentComponent::updateGovernanceUi()
         lblHeaderStatusBadge.setVisible(false);
         btnFreeCapture.setVisible(false);
         btnFreeStop.setVisible(false);
+        btnPrimaryAction.setVisible(false);
+        btnCancelAction.setVisible(false);
         lblActionReasonBanner.setVisible(false);
         return;
     }
 
     btnModeToggle.setVisible(true);
     lblHeaderStatusBadge.setVisible(true);
+
+    // Hide suiteList run button to avoid duplicate conflicting execution buttons
+    suiteList.setRunButtonVisible(false);
 
     auto mode = sessionCoordinator.getWorkspaceInteractionMode();
     auto state = sessionCoordinator.getCoordinatorState();
@@ -1796,12 +1850,23 @@ void MainContentComponent::updateGovernanceUi()
             break;
     }
 
-    // 3. Texto del Punto
+    // 3. Texto del Punto y Telemetría en Vivo
     juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
                              ? ("Punto: " + juce::String(currentPt) + " de " + juce::String(std::max(currentPt, totalPts)))
                              : ("Tomas registradas: " + juce::String(currentPt));
 
-    lblHeaderStatusBadge.setText("  " + modeStr + "  |  " + stateStr + "  |  " + ptStr + "  ", juce::dontSendNotification);
+    float liveRms = audioEngine.getLastPluginOutputRms();
+    int lastNote = audioEngine.getLastNoteOnNumber();
+    juce::String telemetrySuffix;
+    if (liveRms > 0.00001f)
+    {
+        float rmsDb = juce::Decibels::gainToDecibels(liveRms);
+        telemetrySuffix = "  |  RMS: " + juce::String(rmsDb, 1) + " dBFS";
+        if (lastNote >= 0)
+            telemetrySuffix += " (" + juce::MidiMessage::getMidiNoteName(lastNote, true, true, 3) + ")";
+    }
+
+    lblHeaderStatusBadge.setText("  " + modeStr + "  |  " + stateStr + "  |  " + ptStr + telemetrySuffix + "  ", juce::dontSendNotification);
     lblHeaderStatusBadge.setColour(juce::Label::textColourId, stateCol);
     lblHeaderStatusBadge.setColour(juce::Label::outlineColourId, stateCol.withAlpha(0.6f));
 
@@ -1813,24 +1878,87 @@ void MainContentComponent::updateGovernanceUi()
     else
         confirmManualButton.setTooltip("Confirmar posicion fisica del mando (Barra espaciadora)");
 
-    bool canCapture = sessionCoordinator.isDirectCaptureAllowed();
-    btnFreeCapture.setEnabled(canCapture);
-    if (!canCapture)
-        btnFreeCapture.setTooltip(sessionCoordinator.getRejectionReasonForAction("capture"));
-    else
-        btnFreeCapture.setTooltip("Disparar captura inmediata ad-hoc en modo libre");
-
-    bool canCancel = sessionCoordinator.isCancellationAllowed();
-    btnFreeStop.setEnabled(canCancel);
-    if (!canCancel)
-        btnFreeStop.setTooltip(sessionCoordinator.getRejectionReasonForAction("cancel"));
-    else
-        btnFreeStop.setTooltip("Detener o cancelar la sesion de medicion actual");
-
-    // 5. Visibilidad en Modo Libre vs Guiado
     bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
-    btnFreeCapture.setVisible(isFreeMode);
-    btnFreeStop.setVisible(isFreeMode);
+    bool isRunning = sequencer.isRunningSession();
+    bool isPaused = sequencer.isSessionPaused();
+    bool isCompleted = (state == measurement::CoordinatorState::SessionCompleted);
+
+    if (isFreeMode)
+    {
+        btnPrimaryAction.setVisible(false);
+        btnCancelAction.setVisible(false);
+
+        btnFreeCapture.setVisible(true);
+        bool canCapture = sessionCoordinator.isDirectCaptureAllowed();
+        btnFreeCapture.setEnabled(canCapture);
+        if (!canCapture)
+            btnFreeCapture.setTooltip(sessionCoordinator.getRejectionReasonForAction("capture"));
+        else
+            btnFreeCapture.setTooltip("Disparar captura inmediata ad-hoc en modo libre");
+
+        btnFreeStop.setVisible(true);
+        bool canCancel = sessionCoordinator.isCancellationAllowed();
+        btnFreeStop.setEnabled(canCancel);
+        if (!canCancel)
+            btnFreeStop.setTooltip(sessionCoordinator.getRejectionReasonForAction("cancel"));
+        else
+            btnFreeStop.setTooltip("Detener o cancelar la sesion de medicion actual");
+    }
+    else
+    {
+        btnFreeCapture.setVisible(false);
+        btnFreeStop.setVisible(false);
+        btnPrimaryAction.setVisible(true);
+
+        if (isCompleted)
+        {
+            btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"✓  VER RESULTADOS / EXPORTAR"));
+            btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentPurple);
+            btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+            btnPrimaryAction.setEnabled(true);
+            btnPrimaryAction.setTooltip("Ver resultados y generar informe de exportacion");
+            btnCancelAction.setVisible(false);
+        }
+        else if (isRunning)
+        {
+            if (isPaused)
+            {
+                btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  REANUDAR"));
+                btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
+                btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+                btnPrimaryAction.setTooltip("Reanudar la medicion desde el punto pausado");
+            }
+            else
+            {
+                btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"❚❚  PAUSAR"));
+                btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentAmber.withAlpha(0.35f));
+                btnPrimaryAction.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentAmber);
+                btnPrimaryAction.setTooltip("Pausar temporalmente la medicion y silenciar notas activas");
+            }
+            btnPrimaryAction.setEnabled(true);
+
+            btnCancelAction.setVisible(true);
+            btnCancelAction.setEnabled(true);
+            btnCancelAction.setTooltip("Cancelar la sesion actual de medicion");
+        }
+        else
+        {
+            btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  INICIAR MEDICIÓN"));
+            btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
+            btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+            bool canStart = (state == measurement::CoordinatorState::SessionReady
+                             || state == measurement::CoordinatorState::ProfileSelected
+                             || (state != measurement::CoordinatorState::NoSession && suiteList.getQueueSize() > 0));
+            btnPrimaryAction.setEnabled(canStart);
+            if (!canStart)
+                btnPrimaryAction.setTooltip("Prepara o selecciona un hardware o plugin con receta antes de iniciar");
+            else
+                btnPrimaryAction.setTooltip("Iniciar la ejecucion automatica de la receta de medicion");
+
+            btnCancelAction.setVisible(false);
+        }
+    }
 
     // 6. Banner persistente de motivo / instrucciones para el operador
     if (state == measurement::CoordinatorState::AwaitingManualConfirmation)
@@ -1948,10 +2076,10 @@ void MainContentComponent::resized()
     // 4. In Step::RunSession, show Governance Bar at the top of the central measurement area
     if (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::RunSession)
     {
-        auto govRow = bounds.removeFromTop(30);
+        auto govRow = bounds.removeFromTop(32);
         btnModeToggle.setBounds(govRow.removeFromLeft(110));
         govRow.removeFromLeft(10);
-        lblHeaderStatusBadge.setBounds(govRow.removeFromLeft(360));
+        lblHeaderStatusBadge.setBounds(govRow.removeFromLeft(380));
         govRow.removeFromLeft(10);
 
         if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free)
@@ -1960,6 +2088,17 @@ void MainContentComponent::resized()
             govRow.removeFromLeft(8);
             btnFreeStop.setBounds(govRow.removeFromLeft(80));
             govRow.removeFromLeft(10);
+        }
+        else
+        {
+            int btnW = (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted) ? 240 : 180;
+            btnPrimaryAction.setBounds(govRow.removeFromLeft(btnW));
+            govRow.removeFromLeft(8);
+            if (btnCancelAction.isVisible())
+            {
+                btnCancelAction.setBounds(govRow.removeFromLeft(110));
+                govRow.removeFromLeft(10);
+            }
         }
         if (lblActionReasonBanner.isVisible())
         {
@@ -2562,9 +2701,19 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
         sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
     }
 
-    // Auto-populate default test plan for the selected function if queue is currently empty
-    if (suiteList.getQueueSize() == 0 && !contract->functions.empty())
+    // Auto-populate measurement recipe for the selected function (preserving pinned noise baseline)
+    if (!contract->functions.empty())
     {
+        // 1. Remove previous non-pinned / non-baseline items
+        for (int i = suiteList.getQueueSize() - 1; i >= 0; --i)
+        {
+            const auto& qItem = suiteList.getQueue()[static_cast<size_t>(i)];
+            if (!qItem.isPinned && qItem.stimulusType != audio::StimulusType::Silence)
+            {
+                suiteList.removeTestDirectly(i);
+            }
+        }
+
         const auto* targetFunc = &contract->functions[0];
         for (const auto& f : contract->functions)
         {
@@ -2582,29 +2731,45 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
         item.burstDurationSec = f.defaultBurstDurationSec > 0.05f ? f.defaultBurstDurationSec : 1.0f;
         item.captureMode = f.captureMode;
 
-        if (f.blockType == "TimeDynamic") item.stimulusType = audio::StimulusType::SyncPulses3;
+        if (f.excitationMode == core::ExcitationMode::MidiNotes)
+        {
+            item.stimulusType = audio::StimulusType::Silence;
+            item.badgeText = "SYN";
+        }
+        else if (f.blockType == "TimeDynamic") item.stimulusType = audio::StimulusType::SyncPulses3;
         else if (f.blockType == "WaveShaper") item.stimulusType = audio::StimulusType::AmplitudeRamp;
         else if (f.blockType == "CyclicModulator") item.stimulusType = audio::StimulusType::SineWave1kHz;
         else item.stimulusType = audio::StimulusType::LogFarinaSweep;
 
-        applyBadgeForStimulus(item, item.stimulusType);
+        if (f.excitationMode != core::ExcitationMode::MidiNotes)
+            applyBadgeForStimulus(item, item.stimulusType);
 
         int totalPts = 1;
-        for (size_t k = 0; k < f.controls.size(); ++k)
+        if (!f.controls.empty())
         {
-            gui::ControlStepConfig cs;
-            cs.id = juce::String(f.controls[k].name);
-            cs.name = f.controls[k].name;
-            cs.type = f.controls[k].type;
-            cs.steps = (k == 0) ? 8 : ((k == 1) ? 4 : 1);
-            totalPts *= cs.steps;
-            item.controls.push_back(cs);
+            for (size_t k = 0; k < f.controls.size(); ++k)
+            {
+                gui::ControlStepConfig cs;
+                cs.id = juce::String(f.controls[k].name);
+                cs.name = f.controls[k].name;
+                cs.type = f.controls[k].type;
+                cs.steps = (k == 0) ? 8 : ((k == 1) ? 4 : 1);
+                totalPts *= cs.steps;
+                item.controls.push_back(cs);
+            }
+        }
+        else if (!f.measurementRecipe.excitationNotes.empty())
+        {
+            totalPts = std::max(1, static_cast<int>(f.measurementRecipe.excitationNotes.size()));
         }
         item.totalPoints = totalPts;
         item.description = juce::String::fromUTF8(u8"Standard Recipe • ") + juce::String(item.totalPoints) + " points";
         item.status = gui::QueueItemStatus::Queued;
         item.id = "test_standard_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
         suiteList.addTestToQueue(item);
+
+        summary.totalPointsPlanned = totalPts;
+        sidebarStepper.setSessionSummary(summary);
     }
 
     // Inicializar formalmente la MeasurementSession en el coordinador
@@ -2837,8 +3002,11 @@ core::ProfilingSession MainContentComponent::buildProfilingSessionFromQueue(cons
             tc.testId = item.title.toStdString();
             tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
             tc.presetRecipe = itemRecipe;
-            tc.stimulusType = isAutonomousSynth ? audio::StimulusType::Silence : item.stimulusType;
-            tc.isAutonomousSynth = isAutonomousSynth;
+            core::ExcitationMode excMode = itemRecipe.excitationMode;
+            if (isAutonomousSynth) excMode = core::ExcitationMode::MidiNotes;
+            tc.excitationMode = excMode;
+            tc.isAutonomousSynth = (excMode == core::ExcitationMode::MidiNotes);
+            tc.stimulusType = (excMode == core::ExcitationMode::MidiNotes) ? audio::StimulusType::Silence : item.stimulusType;
             tc.midiNoteNumber = 60;
             tc.midiVelocity = 0.8f;
             tc.noteGateDurationSec = item.burstDurationSec;
@@ -2889,8 +3057,11 @@ core::ProfilingSession MainContentComponent::buildProfilingSessionFromQueue(cons
 
             tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
             tc.presetRecipe = itemRecipe;
-            tc.stimulusType = isAutonomousSynth ? audio::StimulusType::Silence : item.stimulusType;
-            tc.isAutonomousSynth = isAutonomousSynth;
+            core::ExcitationMode excMode = itemRecipe.excitationMode;
+            if (isAutonomousSynth) excMode = core::ExcitationMode::MidiNotes;
+            tc.excitationMode = excMode;
+            tc.isAutonomousSynth = (excMode == core::ExcitationMode::MidiNotes);
+            tc.stimulusType = (excMode == core::ExcitationMode::MidiNotes) ? audio::StimulusType::Silence : item.stimulusType;
             tc.midiNoteNumber = 60;
             tc.midiVelocity = 0.8f;
             tc.noteGateDurationSec = item.burstDurationSec;

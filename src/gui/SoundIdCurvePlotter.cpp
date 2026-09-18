@@ -499,21 +499,17 @@ void SoundIdCurvePlotter::paint(juce::Graphics& g)
     float reservedRight = 36.0f;
     if (!isCollapsed)
     {
-        // 6 tabs (~476px) + palette (if 3D/Heatmap, ~96px) + layer toggles (~180px)
-        if (currentView == ViewMode::FrequencyCurve)
-            reservedRight = 720.0f;
-        else if (currentView == ViewMode::PhaseGroupDelay)
-            reservedRight = 680.0f;
-        else if (currentView == ViewMode::Waterfall3D || currentView == ViewMode::Heatmap2D)
-            reservedRight = 620.0f;
-        else
-            reservedRight = 520.0f;
+        // Buttons take ~860px from the right
+        reservedRight = 880.0f;
     }
 
     auto headerArea = bounds.removeFromTop(32.0f).reduced(10.0f, 0.0f);
-    float availTitleWidth = std::max(60.0f, headerArea.getWidth() - reservedRight);
-    auto titleArea = headerArea.removeFromLeft(availTitleWidth);
-    drawLegend(g, titleArea);
+    float availTitleWidth = headerArea.getWidth() - reservedRight;
+    if (availTitleWidth >= 120.0f)
+    {
+        auto titleArea = headerArea.removeFromLeft(availTitleWidth);
+        drawLegend(g, titleArea);
+    }
 
     // If collapsed, only header is rendered
     if (isCollapsed)

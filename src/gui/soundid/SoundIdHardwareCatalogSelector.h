@@ -87,12 +87,14 @@ private:
     // Visual cards
     HardwareDeviceDisplayCardComponent deviceDisplayCard;
     HardwareWiringDiagramComponent wiringDiagram;
+    juce::Label lblRecipeCard;
 
     void rebuildDeviceTypes();
     void rebuildBrandsForCurrentType();
     void rebuildModelsForCurrentBrand();
     void rebuildObjectivesForCurrentModel();
     void syncVisualCards();
+    void updateRecipeCard();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundIdHardwareCatalogSelector)
 };

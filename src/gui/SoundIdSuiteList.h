@@ -124,6 +124,7 @@ public:
     void updateTheme();
     void setStandardTestAvailable(bool available);
     void updateCompactViewButtonState();
+    void setRunButtonVisible(bool visible) { btnRunSession.setVisible(visible); resized(); }
 
     void paint(juce::Graphics& g) override;
     void resized() override;

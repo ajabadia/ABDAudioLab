@@ -506,8 +506,11 @@ void SoundIdSuiteList::resized()
     topBar.removeFromLeft(6);
     btnRerunSelected.setBounds(topBar.removeFromLeft(140).reduced(2, 4));
 
-    btnRunSession.setBounds(topBar.removeFromRight(205).reduced(4, 3));
-    topBar.removeFromRight(6);
+    if (btnRunSession.isVisible())
+    {
+        btnRunSession.setBounds(topBar.removeFromRight(205).reduced(4, 3));
+        topBar.removeFromRight(6);
+    }
     btnClear.setBounds(topBar.removeFromRight(70).reduced(2, 4));
 
     viewport.setBounds(bounds);

@@ -153,6 +153,13 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     };
     addAndMakeVisible(btnContinue);
 
+    lblRecipeCard.setColour(juce::Label::backgroundColourId, SoundIdTheme::surfaceSubtle.withAlpha(0.6f));
+    lblRecipeCard.setColour(juce::Label::outlineColourId, SoundIdTheme::borderSubtle);
+    lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
+    lblRecipeCard.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+    lblRecipeCard.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(lblRecipeCard);
+
     lblLockedBanner.setText("Hardware profile locked for the active session.", juce::dontSendNotification);
     lblLockedBanner.setFont(juce::FontOptions(11.0f, juce::Font::italic));
     lblLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
@@ -550,7 +557,104 @@ void SoundIdHardwareCatalogSelector::syncVisualCards()
         deviceDisplayCard.clear();
         wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Custom / Unlisted Setup", false);
     }
+    updateRecipeCard();
     repaint();
+}
+
+void SoundIdHardwareCatalogSelector::updateRecipeCard()
+{
+    if (isPluginMode)
+    {
+        if (auto* desc = getSelectedPluginDescription())
+        {
+            juce::String name = desc->name;
+            bool isInst = desc->isInstrument;
+            juce::String excStr = isInst 
+                ? juce::String::fromUTF8(u8"Notas MIDI (Canal 1, C4) + Automatización")
+                : juce::String::fromUTF8(u8"Barrido Senoidal Logarítmico (20 Hz - 20 kHz)");
+            int pts = isInst ? 32 : 1;
+            juce::String text = juce::String::fromUTF8(u8"Receta: ") + name + " Standard Profiling  •  Puntos: " 
+                + juce::String(pts) + juce::String::fromUTF8(u8"  •  Excitación: ") + excStr 
+                + juce::String::fromUTF8(u8"  •  Estado: Preparada ✓");
+            lblRecipeCard.setText(text, juce::dontSendNotification);
+            lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+            btnContinue.setEnabled(true);
+            btnContinue.setTooltip({});
+        }
+        else
+        {
+            lblRecipeCard.setText(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"), juce::dontSendNotification);
+            lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+            btnContinue.setEnabled(false);
+            btnContinue.setTooltip(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"));
+        }
+        return;
+    }
+
+    int selIndex = comboModel.getSelectedId() - 1;
+    if (selIndex >= 0 && selIndex < static_cast<int>(contractsList.size()) && !isLibreMode)
+    {
+        const auto& c = contractsList[static_cast<size_t>(selIndex)];
+        int fnSel = comboObjective.getSelectedId() - 1;
+        if (fnSel >= 0 && fnSel < static_cast<int>(c.functions.size()))
+        {
+            const auto& fn = c.functions[static_cast<size_t>(fnSel)];
+            int totalPts = 1;
+            if (!fn.controls.empty())
+            {
+                for (size_t k = 0; k < fn.controls.size(); ++k)
+                {
+                    int steps = (k == 0) ? 8 : ((k == 1) ? 4 : 1);
+                    totalPts *= steps;
+                }
+            }
+            else if (!fn.measurementRecipe.excitationNotes.empty())
+            {
+                totalPts = std::max(1, static_cast<int>(fn.measurementRecipe.excitationNotes.size()));
+            }
+
+            juce::String excStr;
+            if (fn.excitationMode == core::ExcitationMode::MidiNotes)
+                excStr = juce::String::fromUTF8(u8"Notas MIDI + Automatización");
+            else if (fn.excitationMode == core::ExcitationMode::ManualCapture || c.deviceType.find("MANUAL") != std::string::npos)
+                excStr = juce::String::fromUTF8(u8"Ajuste Manual de Perillas");
+            else
+                excStr = juce::String::fromUTF8(u8"Barrido Senoidal Logarítmico (20 Hz - 20 kHz)");
+
+            juce::String recName = fn.measurementRecipe.description.empty() 
+                ? juce::String(fn.name) 
+                : juce::String(fn.measurementRecipe.description);
+
+            juce::String text = juce::String::fromUTF8(u8"Receta: ") + recName + "  •  Puntos: " 
+                + juce::String(totalPts) + juce::String::fromUTF8(u8"  •  Excitación: ") + excStr 
+                + juce::String::fromUTF8(u8"  •  Estado: Preparada ✓");
+            lblRecipeCard.setText(text, juce::dontSendNotification);
+            lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+            btnContinue.setEnabled(true);
+            btnContinue.setTooltip({});
+        }
+        else
+        {
+            lblRecipeCard.setText(juce::String::fromUTF8(u8"Modo Libre / Manual  •  Captura bajo demanda sin receta fija"), juce::dontSendNotification);
+            lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+            btnContinue.setEnabled(true);
+            btnContinue.setTooltip({});
+        }
+    }
+    else if (isLibreMode)
+    {
+        lblRecipeCard.setText(juce::String::fromUTF8(u8"Dispositivo no listado (Modo Libre)  •  Captura bajo demanda"), juce::dontSendNotification);
+        lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+        btnContinue.setEnabled(true);
+        btnContinue.setTooltip({});
+    }
+    else
+    {
+        lblRecipeCard.setText(juce::String::fromUTF8(u8"Selecciona un dispositivo para preparar la receta de medición."), juce::dontSendNotification);
+        lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
+        btnContinue.setEnabled(false);
+        btnContinue.setTooltip(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"));
+    }
 }
 
 void SoundIdHardwareCatalogSelector::resetSelection()
@@ -769,6 +873,8 @@ void SoundIdHardwareCatalogSelector::resized()
     // 3. Barra Inferior de Navegación (Continuar a Ejecución de Sesión)
     auto bottomBar = b.removeFromBottom(38);
     btnContinue.setBounds(bottomBar.removeFromRight(280));
+    bottomBar.removeFromRight(12);
+    lblRecipeCard.setBounds(bottomBar);
 
     b.removeFromBottom(12);
 

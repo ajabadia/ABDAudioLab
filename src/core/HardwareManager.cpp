@@ -246,14 +246,17 @@ bool HardwareManager::isAutonomousSynth(const juce::String& hardwareId, const ju
             || hid.contains("pro-800") || hid.contains("bassstation") || hid.contains("dx7");
     }
 
-    // Devices controlled via MIDI CC / SysEx / Virtual ASIO that generate audio
-    if (contract->deviceType == "AUTOMATED_MIDI_CC" || contract->deviceType == "AUTOMATED_SYSEX" || contract->deviceType == "VIRTUAL_LOOPBACK_ASIO")
+    // Devices controlled via MIDI CC / SysEx / Virtual ASIO / Software Plugins that generate audio
+    if (contract->deviceType == "AUTOMATED_MIDI_CC" || contract->deviceType == "AUTOMATED_SYSEX"
+        || contract->deviceType == "VIRTUAL_LOOPBACK_ASIO" || contract->deviceType == "SOFTWARE_PLUGIN")
     {
         for (const auto& fn : contract->functions)
         {
-            if (fn.id == functionId.toStdString())
+            if (fn.id == functionId.toStdString() || functionId.isEmpty())
             {
-                if (fn.suggestedStimulus == "SILENT_CAPTURE" || fn.suggestedStimulus == "GATE_PULSE"
+                if (fn.excitationMode == ExcitationMode::MidiNotes
+                    || fn.suggestedStimulus == "NOTE_ON_EXCITATION"
+                    || fn.suggestedStimulus == "SILENT_CAPTURE" || fn.suggestedStimulus == "GATE_PULSE"
                     || juce::String(fn.routingGuide.stimulusOutput).containsIgnoreCase("MIDI")
                     || juce::String(fn.routingGuide.stimulusOutput).containsIgnoreCase("NONE")
                     || fn.routingGuide.stimulusOutput.empty())
@@ -267,7 +270,8 @@ bool HardwareManager::isAutonomousSynth(const juce::String& hardwareId, const ju
         if (name.containsIgnoreCase("Juno") || name.containsIgnoreCase("DeepMind")
             || name.containsIgnoreCase("Prophecy") || name.containsIgnoreCase("MS2000")
             || name.containsIgnoreCase("CZ-101") || name.containsIgnoreCase("PRO-800")
-            || name.containsIgnoreCase("Bass Station") || name.containsIgnoreCase("DX7"))
+            || name.containsIgnoreCase("Bass Station") || name.containsIgnoreCase("DX7")
+            || name.containsIgnoreCase("Dexed"))
         {
             return true;
         }

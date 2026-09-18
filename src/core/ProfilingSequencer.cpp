@@ -32,6 +32,12 @@ ProfilingSequencer::ProfilingSequencer(audio::LabAudioEngine& engine,
       hardwareDispatcher(std::make_unique<ProfilingHardwareDispatcher>(&hw)),
       audioCapture(std::make_unique<ProfilingAudioCapture>(engine.getResponseReceiver(), engine.getStimulusGenerator()))
 {
+    if (hardwareDispatcher != nullptr)
+    {
+        hardwareDispatcher->setMidiSinkCallback([this](const juce::MidiMessage& msg) {
+            audioEngine.postLiveMidiMessage(msg);
+        });
+    }
 }
 
 ProfilingSequencer::~ProfilingSequencer()
@@ -108,6 +114,12 @@ void ProfilingSequencer::stepBack()
 void ProfilingSequencer::pauseSession()
 {
     sessionPaused.store(true, std::memory_order_release);
+    audioEngine.getStimulusGenerator().stop();
+    if (hardwareDispatcher != nullptr)
+    {
+        for (int ch = 1; ch <= 16; ++ch)
+            hardwareDispatcher->sendAllNotesOff(ch);
+    }
     notifyProgress(0.0f, "Session paused by operator.", SequencerState::Idle);
 }
 
@@ -522,7 +534,8 @@ void ProfilingSequencer::run()
 
             notifyProgress(progress, taskMsg + " [Pass " + juce::String(p + 1) + "/" + juce::String(tc.numPasses) + "]", SequencerState::InjectStimulus);
 
-            bool isMidiTriggered = tc.isAutonomousSynth || (tc.stimulusType == audio::StimulusType::Silence);
+            bool isMidiTriggered = (tc.excitationMode == ExcitationMode::MidiNotes) || tc.isAutonomousSynth
+                || (tc.stimulusType == audio::StimulusType::Silence && tc.functionalBlockType != "NoiseFloor");
             float gateDurationSec = (tc.noteGateDurationSec > 0.0f) ? tc.noteGateDurationSec : static_cast<float>(tc.stimulusDurationSec);
 
             double maxRecSec = (tc.captureMode == "ADAPTIVE_ENVELOPE") ? std::max(tc.stimulusDurationSec + 2.0, 4.0) : (tc.stimulusDurationSec + 0.3);

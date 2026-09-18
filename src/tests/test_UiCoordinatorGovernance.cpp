@@ -369,6 +369,130 @@ TEST_CASE("UI Governance: Step-Based Action Invariants (Calibrate vs RunSession 
     }
 }
 
+TEST_CASE("UI Governance: Plugin Instrument ExcitationMode & MIDI Delivery", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    class MockSynthProcessor : public juce::AudioPluginInstance
+    {
+    public:
+        MockSynthProcessor() : juce::AudioPluginInstance(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)) {}
+        const juce::String getName() const override { return "MockDexedSynth"; }
+        void prepareToPlay(double, int) override {}
+        void releaseResources() override {}
+        void processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) override
+        {
+            lastMidiEventsReceived = midi.getNumEvents();
+            for (const auto meta : midi)
+            {
+                auto m = meta.getMessage();
+                if (m.isNoteOn()) noteOnReceived = true;
+                if (m.isNoteOff()) noteOffReceived = true;
+            }
+            // Generate non-silent audio on note on
+            if (noteOnReceived && !noteOffReceived)
+            {
+                buffer.clear();
+                for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+                {
+                    auto* w = buffer.getWritePointer(ch);
+                    for (int i = 0; i < buffer.getNumSamples(); ++i)
+                        w[i] = 0.5f * std::sin(static_cast<float>(i) * 0.1f);
+                }
+            }
+        }
+        double getTailLengthSeconds() const override { return 0.0; }
+        bool acceptsMidi() const override { return true; }
+        bool producesMidi() const override { return false; }
+        juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+        bool hasEditor() const override { return false; }
+        int getNumPrograms() override { return 1; }
+        int getCurrentProgram() override { return 0; }
+        void setCurrentProgram(int) override {}
+        const juce::String getProgramName(int) override { return {}; }
+        void changeProgramName(int, const juce::String&) override {}
+        void getStateInformation(juce::MemoryBlock&) override {}
+        void setStateInformation(const void*, int) override {}
+        void fillInPluginDescription(juce::PluginDescription& desc) const override
+        {
+            desc.name = "MockDexedSynth";
+            desc.pluginFormatName = "VST3";
+            desc.isInstrument = true;
+        }
+
+        int lastMidiEventsReceived { 0 };
+        bool noteOnReceived { false };
+        bool noteOffReceived { false };
+    };
+
+    MockSynthProcessor synth;
+    juce::PluginDescription desc;
+    desc.name = "MockDexedSynth";
+    desc.pluginFormatName = "VST3";
+    desc.isInstrument = true;
+    desc.fileOrIdentifier = "d:/plugins/MockDexed.vst3";
+
+    // 1. Contract generation with explicit ExcitationMode::MidiNotes
+    auto contract = core::PluginHardwareContractAdapter::createContractFromPlugin(synth, desc);
+    REQUIRE(contract.functions.size() == 1);
+    REQUIRE(contract.functions[0].excitationMode == core::ExcitationMode::MidiNotes);
+    REQUIRE(contract.functions[0].measurementRecipe.excitationMode == core::ExcitationMode::MidiNotes);
+
+    // 2. HardwareManager autonomous synth recognition
+    core::HardwareManager hwManager;
+    hwManager.getContractRegistry().registerContract(contract);
+    REQUIRE(hwManager.isAutonomousSynth(juce::String(contract.id), juce::String(contract.functions[0].id)));
+
+    // 3. AudioEngine & Dispatcher MIDI Sink Integration
+    audio::LabAudioEngine engine;
+    engine.setActivePluginInstance(&synth, 48000.0, 512);
+
+    core::ProfilingHardwareDispatcher dispatcher;
+    dispatcher.setMidiSinkCallback([&engine](const juce::MidiMessage& msg) {
+        engine.postLiveMidiMessage(msg);
+    });
+
+    // Send Note On
+    dispatcher.sendNoteOn(1, 60, 0.8f);
+
+    float outL[512] = { 0.0f };
+    float outR[512] = { 0.0f };
+    float* outChannels[2] = { outL, outR };
+    const float inL[512] = { 0.0f };
+    const float inR[512] = { 0.0f };
+    const float* inChannels[2] = { inL, inR };
+    juce::AudioIODeviceCallbackContext ioCtx;
+
+    engine.audioDeviceIOCallbackWithContext(inChannels, 2, outChannels, 2, 512, ioCtx);
+
+    REQUIRE(synth.noteOnReceived);
+    REQUIRE(engine.getPluginNoteOnCount() == 1);
+    REQUIRE(engine.getLastNoteOnNumber() == 60);
+    REQUIRE(engine.getLastPluginOutputRms() > 0.01f); // Audio is non-silent!
+
+    // Send Note Off
+    dispatcher.sendNoteOff(1, 60, 0.0f);
+    engine.audioDeviceIOCallbackWithContext(inChannels, 2, outChannels, 2, 512, ioCtx);
+
+    REQUIRE(synth.noteOffReceived);
+    REQUIRE(engine.getPluginNoteOffCount() == 1);
+
+    engine.setActivePluginInstance(nullptr);
+}
+
+TEST_CASE("UI Governance: Pause and Cancel Silence Active Notes", "[ui_governance]")
+{
+    int allNotesOffCount = 0;
+    core::ProfilingHardwareDispatcher dispatcher;
+    dispatcher.setMidiSinkCallback([&allNotesOffCount](const juce::MidiMessage& msg) {
+        if (msg.isAllNotesOff())
+            allNotesOffCount++;
+    });
+
+    dispatcher.sendAllNotesOff(1);
+    REQUIRE(allNotesOffCount == 1);
+}
+
 TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojibake)", "[ui_governance]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -376,10 +500,6 @@ TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojib
     gui::ExportReportPanel panel;
     panel.updateMetrics(45.2f, -86.5f, 0.008f, 5, 12.5f);
 
-    // Verify raw UTF-8 bytes of bullet point U+2022
-    // In UTF-8, bullet point '•' is exactly 3 bytes: 0xE2 0x80 0xA2
-    // Mojibake 'â□¢' occurs when 0xE2 0x80 0xA2 is read as Windows-1252 / ANSI and re-encoded,
-    // producing bytes starting with 0xC3 0xA2 ('â').
     juce::String bulletUtf8 = juce::String::fromUTF8(u8"•");
     std::string bulletStd = bulletUtf8.toStdString();
 
@@ -388,8 +508,8 @@ TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojib
     REQUIRE(static_cast<unsigned char>(bulletStd[1]) == 0x80);
     REQUIRE(static_cast<unsigned char>(bulletStd[2]) == 0xA2);
 
-    // Ensure NO mojibake 'â' (0xC3 0xA2) is present in standard UTF-8 string representations
     std::string mojibakeMarker = "\xC3\xA2";
     REQUIRE(bulletStd.find(mojibakeMarker) == std::string::npos);
 }
+
 

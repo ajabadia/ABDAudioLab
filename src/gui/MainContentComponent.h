@@ -211,6 +211,8 @@ private:
     juce::Label lblActionReasonBanner;
     juce::TextButton btnFreeCapture;
     juce::TextButton btnFreeStop;
+    juce::TextButton btnPrimaryAction;
+    juce::TextButton btnCancelAction;
     void updateGovernanceUi();
 
     // Guided Workflow Architecture (Phase 16 & 20.7)

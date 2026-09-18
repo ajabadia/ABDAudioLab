@@ -398,6 +398,25 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
 
         liveMidiCollector.removeNextBlockOfMessages(pluginMidiMessages, samplesToProcess);
 
+        if (!pluginMidiMessages.isEmpty())
+        {
+            pluginMidiEventsDelivered.fetch_add(pluginMidiMessages.getNumEvents(), std::memory_order_relaxed);
+            for (const auto meta : pluginMidiMessages)
+            {
+                auto msg = meta.getMessage();
+                if (msg.isNoteOn())
+                {
+                    pluginNoteOnCount.fetch_add(1, std::memory_order_relaxed);
+                    lastNoteOnNumber.store(msg.getNoteNumber(), std::memory_order_relaxed);
+                    lastNoteOnVelocity.store(msg.getFloatVelocity(), std::memory_order_relaxed);
+                }
+                else if (msg.isNoteOff())
+                {
+                    pluginNoteOffCount.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        }
+
         float* channels[2] = { tempProcessBufferL.data(), tempProcessBufferR.data() };
         juce::AudioBuffer<float> pluginBuf(channels, 2, samplesToProcess);
         
@@ -430,10 +449,12 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
             if (sR > inPeakR) inPeakR = sR;
             inSumSqR += sR * sR;
         }
+        float computedRmsL = std::sqrt(inSumSqL / static_cast<float>(samplesToProcess));
         inputPeakL.store(inPeakL, std::memory_order_relaxed);
         inputPeakR.store(inPeakR, std::memory_order_relaxed);
-        inputRmsL.store(std::sqrt(inSumSqL / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
+        inputRmsL.store(computedRmsL, std::memory_order_relaxed);
         inputRmsR.store(std::sqrt(inSumSqR / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
+        lastPluginOutputRms.store(computedRmsL, std::memory_order_relaxed);
 
         return { tempProcessBufferL.data(), tempProcessBufferR.data() };
     }

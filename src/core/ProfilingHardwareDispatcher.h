@@ -40,6 +40,11 @@ public:
         return targetPlugin;
     }
 
+    void setMidiSinkCallback(std::function<void(const juce::MidiMessage&)> sink)
+    {
+        midiSink = std::move(sink);
+    }
+
     void setParameter(int paramIndex, float normalizedValue);
     void executeLifecycleActions(const std::vector<HardwareSetupAction>& actions);
     void executeMeasurementRecipe(const MeasurementPresetRecipe& recipe);
@@ -59,6 +64,7 @@ public:
 private:
     hardware::IHardwareController* hardware { nullptr };
     juce::AudioPluginInstance* targetPlugin { nullptr };
+    std::function<void(const juce::MidiMessage&)> midiSink;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ProfilingHardwareDispatcher)
 };

@@ -108,6 +108,10 @@ void ProfilingHardwareDispatcher::executeMeasurementRecipe(const MeasurementPres
 
 void ProfilingHardwareDispatcher::sendNoteOn(int channel, int noteNumber, float normalizedVelocity)
 {
+    if (midiSink)
+    {
+        midiSink(juce::MidiMessage::noteOn(channel, noteNumber, normalizedVelocity));
+    }
     if (hardware != nullptr)
     {
         hardware->sendNoteOn(channel, noteNumber, normalizedVelocity);
@@ -116,6 +120,10 @@ void ProfilingHardwareDispatcher::sendNoteOn(int channel, int noteNumber, float 
 
 void ProfilingHardwareDispatcher::sendNoteOff(int channel, int noteNumber, float velocity)
 {
+    if (midiSink)
+    {
+        midiSink(juce::MidiMessage::noteOff(channel, noteNumber, velocity));
+    }
     if (hardware != nullptr)
     {
         hardware->sendNoteOff(channel, noteNumber, velocity);
@@ -124,6 +132,10 @@ void ProfilingHardwareDispatcher::sendNoteOff(int channel, int noteNumber, float
 
 void ProfilingHardwareDispatcher::sendAllNotesOff(int channel)
 {
+    if (midiSink)
+    {
+        midiSink(juce::MidiMessage::allNotesOff(channel));
+    }
     if (hardware != nullptr)
     {
         hardware->sendAllNotesOff(channel);
