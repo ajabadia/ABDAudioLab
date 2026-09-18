@@ -15,6 +15,13 @@ namespace abdaudiolab::gui
 
 SoundIdSuiteList::SoundIdSuiteList()
 {
+    modelManager.onQueueChanged = [this]() {
+        updateSelectionButton();
+        updateCompactViewButtonState();
+        layoutRows();
+        rowsContent.repaint();
+    };
+
     suite::SuiteListEventHandler::Callbacks cb;
     eventHandler = std::make_unique<suite::SuiteListEventHandler>(modelManager, cb);
     syncEventHandlerCallbacks();

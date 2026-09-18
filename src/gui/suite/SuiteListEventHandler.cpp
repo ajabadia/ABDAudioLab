@@ -94,13 +94,11 @@ bool SuiteListEventHandler::handleMouseDown(const juce::MouseEvent& e,
                 if (layout.reorderUpRect.contains(e.position))
                 {
                     model.moveUp(static_cast<int>(i));
-                    if (cb.onQueueChanged) cb.onQueueChanged();
                     return true;
                 }
                 if (layout.reorderDownRect.contains(e.position))
                 {
                     model.moveDown(static_cast<int>(i));
-                    if (cb.onQueueChanged) cb.onQueueChanged();
                     return true;
                 }
                 if (layout.delBtnRect.contains(e.position))
@@ -109,14 +107,11 @@ bool SuiteListEventHandler::handleMouseDown(const juce::MouseEvent& e,
                         cb.onRequestDeleteTest(static_cast<int>(i), item);
                     else
                         model.removeTestDirectly(static_cast<int>(i));
-
-                    if (cb.onQueueChanged) cb.onQueueChanged();
                     return true;
                 }
                 if (layout.copyBtnRect.contains(e.position))
                 {
                     model.duplicateTest(static_cast<int>(i));
-                    if (cb.onQueueChanged) cb.onQueueChanged();
                     return true;
                 }
                 if (layout.editBtnRect.contains(e.position))
@@ -152,13 +147,12 @@ bool SuiteListEventHandler::handleMouseDown(const juce::MouseEvent& e,
             if (layout.bypassPillRect.contains(e.position))
             {
                 model.toggleSkipped(static_cast<int>(i));
-                if (cb.onQueueChanged) cb.onQueueChanged();
                 return true;
             }
 
-            // Expand arrow or title click toggles expansion
+            // Click on row selects the item and toggles expansion
+            model.selectItem(static_cast<int>(i));
             model.toggleExpanded(static_cast<int>(i));
-            if (cb.onQueueChanged) cb.onQueueChanged();
             return true;
         }
 

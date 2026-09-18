@@ -25,15 +25,23 @@ public:
     void ensureNoiseBaselineTestPinned();
     bool isTestInQueue(const juce::String& signature) const noexcept;
     bool addTest(const QueueItem& item);
-    void updateTest(int index, const QueueItem& item);
-    void duplicateTest(int index);
+    bool updateTest(int index, const QueueItem& item);
+    bool duplicateTest(int index);
     bool removeTestDirectly(int index);
-    void invalidateTest(int index);
-    void moveUp(int index);
-    void moveDown(int index);
-    void toggleSkipped(int index);
-    void toggleExpanded(int index);
+    bool invalidateTest(int index);
+    bool moveUp(int index);
+    bool moveDown(int index);
+    bool toggleSkipped(int index);
+    bool toggleExpanded(int index);
     void clear();
+
+    // Item Selection (backed by stable identity)
+    void selectItem(int index);
+    void selectItemById(const juce::String& id);
+    void clearItemSelection() noexcept;
+    [[nodiscard]] int getSelectedItemIndex() const noexcept;
+    [[nodiscard]] const juce::String& getSelectedItemId() const noexcept;
+    [[nodiscard]] const QueueItem* getSelectedItem() const noexcept;
 
     [[nodiscard]] const std::vector<QueueItem>& getQueue() const noexcept { return queue; }
     [[nodiscard]] std::vector<QueueItem>& getQueue() noexcept { return queue; }
@@ -68,8 +76,20 @@ public:
         lastSelectedPointIdx = pIdx;
     }
 
+    /**
+     * @brief Observer callback emitted exactly once per valid queue or selection mutation.
+     */
+    std::function<void()> onQueueChanged;
+
 private:
+    void notifyQueueChanged()
+    {
+        if (onQueueChanged)
+            onQueueChanged();
+    }
+
     std::vector<QueueItem> queue;
+    juce::String selectedItemId;
     int lastSelectedQueueIdx { -1 };
     int lastSelectedPointIdx { -1 };
 

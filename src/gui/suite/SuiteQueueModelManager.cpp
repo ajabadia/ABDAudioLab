@@ -14,7 +14,17 @@ namespace abdaudiolab::gui::suite
 
 void SuiteQueueModelManager::ensureNoiseBaselineTestPinned()
 {
-    if (queue.empty() || !queue[0].isPinned)
+    bool hasPinned = false;
+    for (const auto& item : queue)
+    {
+        if (item.isPinned)
+        {
+            hasPinned = true;
+            break;
+        }
+    }
+
+    if (!hasPinned)
     {
         QueueItem noiseItem;
         noiseItem.id = "system:noise_floor_baseline";
@@ -47,98 +57,244 @@ bool SuiteQueueModelManager::isTestInQueue(const juce::String& signature) const 
 
 bool SuiteQueueModelManager::addTest(const QueueItem& item)
 {
-    if (isTestInQueue(item.id))
+    if (item.id.isEmpty() || isTestInQueue(item.id))
         return false;
 
     queue.push_back(item);
+    notifyQueueChanged();
     return true;
 }
 
-void SuiteQueueModelManager::updateTest(int index, const QueueItem& item)
+bool SuiteQueueModelManager::updateTest(int index, const QueueItem& item)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    if (queue[static_cast<size_t>(index)].isPinned)
+        return false;
+
+    bool wasSelected = (selectedItemId == queue[static_cast<size_t>(index)].id);
+    queue[static_cast<size_t>(index)] = item;
+    if (wasSelected)
+        selectedItemId = item.id;
+
+    if (queue[static_cast<size_t>(index)].status == QueueItemStatus::Completed)
     {
-        queue[static_cast<size_t>(index)] = item;
-        if (queue[static_cast<size_t>(index)].status == QueueItemStatus::Completed)
-        {
-            queue[static_cast<size_t>(index)].status = QueueItemStatus::Invalidated;
-        }
+        queue[static_cast<size_t>(index)].status = QueueItemStatus::Invalidated;
     }
+
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::duplicateTest(int index)
+bool SuiteQueueModelManager::duplicateTest(int index)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    QueueItem cloned = queue[static_cast<size_t>(index)];
+    juce::String baseId = cloned.id;
+    int copyNum = 1;
+    juce::String newId = baseId + "_copy_" + juce::String(copyNum);
+    while (isTestInQueue(newId))
     {
-        QueueItem cloned = queue[static_cast<size_t>(index)];
-        cloned.id = cloned.id + "_copy_" + juce::String(juce::Random::getSystemRandom().nextInt(10000));
-        cloned.title = cloned.title + " (Copy)";
-        cloned.status = QueueItemStatus::Queued;
-        cloned.currentRunningPoint = 0;
-        cloned.isPinned = false;
-        queue.push_back(cloned);
+        ++copyNum;
+        newId = baseId + "_copy_" + juce::String(copyNum);
     }
+    cloned.id = newId;
+    cloned.title = cloned.title + " (Copy)";
+    cloned.status = QueueItemStatus::Queued;
+    cloned.currentRunningPoint = 0;
+    cloned.isPinned = false;
+    cloned.pointStatuses.assign(static_cast<size_t>(cloned.totalPoints), PointStatus::Queued);
+    cloned.pointSelections.assign(static_cast<size_t>(cloned.totalPoints), false);
+
+    queue.push_back(cloned);
+    notifyQueueChanged();
+    return true;
 }
 
 bool SuiteQueueModelManager::removeTestDirectly(int index)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
-    {
-        if (queue[static_cast<size_t>(index)].isPinned)
-            return false;
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
 
-        queue.erase(queue.begin() + index);
-        return true;
+    if (queue[static_cast<size_t>(index)].isPinned)
+        return false;
+
+    auto removedId = queue[static_cast<size_t>(index)].id;
+    queue.erase(queue.begin() + index);
+
+    if (selectedItemId == removedId)
+        selectedItemId.clear();
+
+    if (lastSelectedQueueIdx == index)
+    {
+        lastSelectedQueueIdx = -1;
+        lastSelectedPointIdx = -1;
     }
-    return false;
+    else if (lastSelectedQueueIdx > index)
+    {
+        lastSelectedQueueIdx--;
+    }
+
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::invalidateTest(int index)
+bool SuiteQueueModelManager::invalidateTest(int index)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    if (queue[static_cast<size_t>(index)].isPinned)
+        return false;
+
+    auto& item = queue[static_cast<size_t>(index)];
+    item.status = QueueItemStatus::Invalidated;
+    for (auto& pSt : item.pointStatuses)
     {
-        queue[static_cast<size_t>(index)].status = QueueItemStatus::Invalidated;
+        if (pSt != PointStatus::Annulled)
+            pSt = PointStatus::Invalidated;
     }
+
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::moveUp(int index)
+bool SuiteQueueModelManager::moveUp(int index)
 {
-    if (index > 1 && index < static_cast<int>(queue.size()))
-    {
-        std::swap(queue[static_cast<size_t>(index)], queue[static_cast<size_t>(index - 1)]);
-    }
+    if (index <= 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    if (queue[static_cast<size_t>(index)].isPinned)
+        return false;
+
+    if (queue[static_cast<size_t>(index - 1)].isPinned)
+        return false;
+
+    std::swap(queue[static_cast<size_t>(index)], queue[static_cast<size_t>(index - 1)]);
+
+    if (lastSelectedQueueIdx == index)
+        lastSelectedQueueIdx = index - 1;
+    else if (lastSelectedQueueIdx == index - 1)
+        lastSelectedQueueIdx = index;
+
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::moveDown(int index)
+bool SuiteQueueModelManager::moveDown(int index)
 {
-    if (index >= 1 && index < static_cast<int>(queue.size()) - 1)
-    {
-        std::swap(queue[static_cast<size_t>(index)], queue[static_cast<size_t>(index + 1)]);
-    }
+    if (index < 0 || index >= static_cast<int>(queue.size()) - 1)
+        return false;
+
+    if (queue[static_cast<size_t>(index)].isPinned)
+        return false;
+
+    if (queue[static_cast<size_t>(index + 1)].isPinned)
+        return false;
+
+    std::swap(queue[static_cast<size_t>(index)], queue[static_cast<size_t>(index + 1)]);
+
+    if (lastSelectedQueueIdx == index)
+        lastSelectedQueueIdx = index + 1;
+    else if (lastSelectedQueueIdx == index + 1)
+        lastSelectedQueueIdx = index;
+
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::toggleSkipped(int index)
+bool SuiteQueueModelManager::toggleSkipped(int index)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
-    {
-        queue[static_cast<size_t>(index)].isSkipped = !queue[static_cast<size_t>(index)].isSkipped;
-    }
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    queue[static_cast<size_t>(index)].isSkipped = !queue[static_cast<size_t>(index)].isSkipped;
+    notifyQueueChanged();
+    return true;
 }
 
-void SuiteQueueModelManager::toggleExpanded(int index)
+bool SuiteQueueModelManager::toggleExpanded(int index)
 {
-    if (index >= 0 && index < static_cast<int>(queue.size()))
-    {
-        queue[static_cast<size_t>(index)].isExpanded = !queue[static_cast<size_t>(index)].isExpanded;
-    }
+    if (index < 0 || index >= static_cast<int>(queue.size()))
+        return false;
+
+    queue[static_cast<size_t>(index)].isExpanded = !queue[static_cast<size_t>(index)].isExpanded;
+    notifyQueueChanged();
+    return true;
 }
 
 void SuiteQueueModelManager::clear()
 {
     queue.clear();
     ensureNoiseBaselineTestPinned();
+    selectedItemId.clear();
     lastSelectedQueueIdx = -1;
     lastSelectedPointIdx = -1;
+    notifyQueueChanged();
+}
+
+void SuiteQueueModelManager::selectItem(int index)
+{
+    if (index >= 0 && index < static_cast<int>(queue.size()))
+    {
+        selectedItemId = queue[static_cast<size_t>(index)].id;
+    }
+    else
+    {
+        selectedItemId.clear();
+    }
+    notifyQueueChanged();
+}
+
+void SuiteQueueModelManager::selectItemById(const juce::String& id)
+{
+    if (id.isNotEmpty() && isTestInQueue(id))
+    {
+        selectedItemId = id;
+    }
+    else
+    {
+        selectedItemId.clear();
+    }
+    notifyQueueChanged();
+}
+
+void SuiteQueueModelManager::clearItemSelection() noexcept
+{
+    if (selectedItemId.isNotEmpty())
+    {
+        selectedItemId.clear();
+        notifyQueueChanged();
+    }
+}
+
+int SuiteQueueModelManager::getSelectedItemIndex() const noexcept
+{
+    if (selectedItemId.isEmpty())
+        return -1;
+
+    for (size_t i = 0; i < queue.size(); ++i)
+    {
+        if (queue[i].id == selectedItemId)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+const juce::String& SuiteQueueModelManager::getSelectedItemId() const noexcept
+{
+    return selectedItemId;
+}
+
+const QueueItem* SuiteQueueModelManager::getSelectedItem() const noexcept
+{
+    int idx = getSelectedItemIndex();
+    if (idx >= 0 && idx < static_cast<int>(queue.size()))
+        return &queue[static_cast<size_t>(idx)];
+    return nullptr;
 }
 
 int SuiteQueueModelManager::getTotalPointCount() const noexcept

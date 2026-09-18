@@ -93,6 +93,14 @@ public:
     void toggleTestExpanded(int index);
     void clearQueue();
 
+    // Item Selection (forwarded to SuiteQueueModelManager)
+    void selectItem(int index) { modelManager.selectItem(index); }
+    void selectItemById(const juce::String& id) { modelManager.selectItemById(id); }
+    void clearItemSelection() noexcept { modelManager.clearItemSelection(); }
+    [[nodiscard]] int getSelectedItemIndex() const noexcept { return modelManager.getSelectedItemIndex(); }
+    [[nodiscard]] const juce::String& getSelectedItemId() const noexcept { return modelManager.getSelectedItemId(); }
+    [[nodiscard]] const QueueItem* getSelectedItem() const noexcept { return modelManager.getSelectedItem(); }
+
     [[nodiscard]] const std::vector<QueueItem>& getQueue() const noexcept { return modelManager.getQueue(); }
     [[nodiscard]] int getQueueSize() const noexcept { return modelManager.getQueueSize(); }
     [[nodiscard]] int getTotalPointCount() const noexcept { return modelManager.getTotalPointCount(); }
