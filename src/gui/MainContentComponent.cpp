@@ -572,6 +572,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 updateExportReportMetrics();
                 break;
         }
+        updateGovernanceUi();
         resized();
     };
 
@@ -629,6 +630,14 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
             if (activePluginInstance != nullptr)
             {
+                // Conexión VST3 unificada: crear contrato dinámico de parámetros y registrarlo
+                auto contract = core::PluginHardwareContractAdapter::createContractFromPlugin(
+                    *activePluginInstance, activePluginDescription);
+                hardwareManager.getContractRegistry().registerContract(contract);
+                std::string funcId = contract.functions.empty() ? "" : contract.functions[0].id;
+                onHardwareSelected(juce::String(contract.id), juce::String(funcId));
+                drawer.setSelectedHardwareId(juce::String(contract.id));
+
                 auto imgFile = gui::locateAssetFile(activePluginDescription.isInstrument
                     ? "models/generic-digital-keyboard.png"
                     : "models/generic-audio-rack.png");
@@ -1586,15 +1595,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     guidedWorkflowContainer = std::make_unique<gui::soundid::SoundIdGuidedWorkflowContainer>(profilingSessionController);
     addChildComponent(guidedWorkflowContainer.get());
 
-    btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Cl\u00e1sico (Cambiar a Guiado 3 Pasos)"));
-    btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
-    btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
-    btnWorkflowModeToggle.onClick = [this] {
-        setWorkflowMode(currentWorkflowMode == gui::session::UiWorkflowMode::Classic
-                            ? gui::session::UiWorkflowMode::Guided
-                            : gui::session::UiWorkflowMode::Classic);
-    };
-    addAndMakeVisible(btnWorkflowModeToggle);
+    btnWorkflowModeToggle.setVisible(false);
 
     setupGuidedWorkflowInitialData();
 
@@ -1707,6 +1708,20 @@ bool MainContentComponent::keyPressed(const juce::KeyPress& key, juce::Component
 
 void MainContentComponent::updateGovernanceUi()
 {
+    bool isRunSessionStep = (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::RunSession);
+    if (!isRunSessionStep)
+    {
+        btnModeToggle.setVisible(false);
+        lblHeaderStatusBadge.setVisible(false);
+        btnFreeCapture.setVisible(false);
+        btnFreeStop.setVisible(false);
+        lblActionReasonBanner.setVisible(false);
+        return;
+    }
+
+    btnModeToggle.setVisible(true);
+    lblHeaderStatusBadge.setVisible(true);
+
     auto mode = sessionCoordinator.getWorkspaceInteractionMode();
     auto state = sessionCoordinator.getCoordinatorState();
     int currentPt = sessionCoordinator.getTotalPointsMeasured();
@@ -1894,36 +1909,11 @@ void MainContentComponent::resized()
 {
     auto bounds = getLocalBounds().reduced(20);
 
-    // 1. Top Header Area (Single Coordinated Component) + Mode Toggle
+    // 1. Top Header Area (Single Coordinated Component)
     auto headerRow = bounds.removeFromTop(36);
-    btnWorkflowModeToggle.setBounds(headerRow.removeFromRight(260).withHeight(30).withY(headerRow.getY() + 1));
-    headerRow.removeFromRight(8);
     mainHeader.setBounds(headerRow);
 
-    bounds.removeFromTop(6);
-
-    // 1.1 Measurement Workspace Governance Header Bar (Status badge, mode toggle, free actions, reasons)
-    if (currentWorkflowMode != gui::session::UiWorkflowMode::Guided)
-    {
-        auto govRow = bounds.removeFromTop(26);
-        btnModeToggle.setBounds(govRow.removeFromLeft(100));
-        govRow.removeFromLeft(8);
-        lblHeaderStatusBadge.setBounds(govRow.removeFromLeft(360));
-        govRow.removeFromLeft(8);
-
-        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free)
-        {
-            btnFreeCapture.setBounds(govRow.removeFromLeft(150));
-            govRow.removeFromLeft(6);
-            btnFreeStop.setBounds(govRow.removeFromLeft(75));
-            govRow.removeFromLeft(10);
-        }
-        if (lblActionReasonBanner.isVisible())
-        {
-            lblActionReasonBanner.setBounds(govRow);
-        }
-        bounds.removeFromTop(6);
-    }
+    bounds.removeFromTop(10);
 
     // En modo guiado, el contenedor ocupa todo el canvas central
     if (currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
@@ -1954,6 +1944,29 @@ void MainContentComponent::resized()
     auto rightArea = bounds.removeFromRight(120);
     meterStrip.setBounds(rightArea);
     bounds.removeFromRight(12);
+
+    // 4. In Step::RunSession, show Governance Bar at the top of the central measurement area
+    if (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::RunSession)
+    {
+        auto govRow = bounds.removeFromTop(30);
+        btnModeToggle.setBounds(govRow.removeFromLeft(110));
+        govRow.removeFromLeft(10);
+        lblHeaderStatusBadge.setBounds(govRow.removeFromLeft(360));
+        govRow.removeFromLeft(10);
+
+        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free)
+        {
+            btnFreeCapture.setBounds(govRow.removeFromLeft(160));
+            govRow.removeFromLeft(8);
+            btnFreeStop.setBounds(govRow.removeFromLeft(80));
+            govRow.removeFromLeft(10);
+        }
+        if (lblActionReasonBanner.isVisible())
+        {
+            lblActionReasonBanner.setBounds(govRow);
+        }
+        bounds.removeFromTop(10);
+    }
 
     // Manual Prompt Banner & Error Correction Controls
     if (confirmManualButton.isVisible() && !operatorStepModal.isVisible())

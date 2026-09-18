@@ -421,6 +421,8 @@ std::string CoordinatorStateMachine::getRejectionReasonForAction(const std::stri
     {
         if (currentState == CoordinatorState::Capturing)
             return "Capturar: grabacion en curso";
+        if (currentState == CoordinatorState::SessionCompleted)
+            return "Capturar: sesion ya finalizada";
         if (!context.stimulusReady)
             return "Capturar: prepara primero el estimulo";
         if (!isDirectCaptureAllowed(context.stimulusReady))

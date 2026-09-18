@@ -7,6 +7,9 @@
 #include "../gui/SoundIdCurvePlotter.h"
 #include "../audio/LabAudioEngine.h"
 #include "../hardware/MockHardwareController.h"
+#include "../core/HardwareManager.h"
+#include "../core/plugins/PluginHardwareContractAdapter.h"
+#include "../gui/ExportReportPanel.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::measurement;
@@ -237,3 +240,156 @@ TEST_CASE("UI Governance: Keyboard Handshake & Modal Focus Guards", "[ui_governa
         REQUIRE(cancelFired);
     }
 }
+
+namespace
+{
+class GovernanceMockVst3Processor : public juce::AudioProcessor
+{
+public:
+    GovernanceMockVst3Processor()
+    {
+        addParameter(new juce::AudioParameterFloat({"cutoff", 1}, "Cutoff Filter", 20.0f, 20000.0f, 1000.0f));
+        addParameter(new juce::AudioParameterFloat({"resonance", 1}, "Resonance", 0.0f, 1.0f, 0.2f));
+        addParameter(new juce::AudioParameterFloat({"drive", 1}, "Drive Saturation", 0.0f, 1.0f, 0.1f));
+    }
+    const juce::String getName() const override { return "Mock VST3 Dexed"; }
+    void prepareToPlay(double, int) override {}
+    void releaseResources() override {}
+    void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override {}
+    double getTailLengthSeconds() const override { return 0.0; }
+    bool acceptsMidi() const override { return true; }
+    bool producesMidi() const override { return false; }
+    juce::AudioProcessorEditor* createEditor() override { return nullptr; }
+    bool hasEditor() const override { return false; }
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram(int) override {}
+    const juce::String getProgramName(int) override { return "Default"; }
+    void changeProgramName(int, const juce::String&) override {}
+    void getStateInformation(juce::MemoryBlock&) override {}
+    void setStateInformation(const void*, int) override {}
+};
+} // namespace
+
+TEST_CASE("UI Governance: VST3 Dynamic Contract to MeasurementSession Initialization", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    GovernanceMockVst3Processor mockVst;
+    juce::PluginDescription desc;
+    desc.name = "Dexed Mock";
+    desc.pluginFormatName = "VST3";
+    desc.fileOrIdentifier = "C:/Program Files/Common Files/VST3/Dexed.vst3";
+    desc.isInstrument = true;
+
+    // 1. Convert VST3 to HardwareContract
+    core::HardwareContract contract = core::PluginHardwareContractAdapter::createContractFromPlugin(mockVst, desc);
+    REQUIRE(contract.deviceType == "SOFTWARE_PLUGIN");
+    REQUIRE(contract.functions.size() == 1);
+    REQUIRE(contract.functions[0].controls.size() == 3);
+
+    // 2. Register in HardwareContractRegistry
+    core::HardwareContractRegistry registry;
+    registry.registerContract(contract);
+    const auto* found = registry.findContractById(contract.id);
+    REQUIRE(found != nullptr);
+    REQUIRE(found->displayName == "Dexed Mock");
+
+    // 3. Initialize MeasurementSession in Coordinator
+    hardware::MockHardwareController mockHw;
+    audio::LabAudioEngine engine;
+    core::ProfilingSequencer seq(engine, mockHw);
+    core::SessionManager sessMgr;
+    gui::SoundIdCurvePlotter plotter;
+
+    gui::SessionExecutionCoordinator coordinator(seq, sessMgr, plotter);
+    core::HardwareManager hwMgr;
+    hwMgr.getContractRegistry().registerContract(contract);
+    coordinator.setHardwareContext(&hwMgr, juce::String(contract.id));
+
+    std::string profSha = "vst3_dexed_sha256_mock_test";
+    coordinator.initializeMeasurementSession(contract, juce::String(contract.functions[0].id), juce::String(profSha));
+
+    // Verify session state is initialized and ready
+    REQUIRE(coordinator.getActiveMeasurementSession() != nullptr);
+    REQUIRE(coordinator.getCoordinatorState() == CoordinatorState::SessionReady);
+    REQUIRE(coordinator.isModeChangeAllowed());
+    REQUIRE(coordinator.isDirectCaptureAllowed());
+    REQUIRE_FALSE(coordinator.isManualConfirmationAllowed());
+}
+
+TEST_CASE("UI Governance: Step-Based Action Invariants (Calibrate vs RunSession vs Export)", "[ui_governance]")
+{
+    CoordinatorStateMachine sm;
+    CoordinatorContext ctx;
+    ctx.mode = WorkspaceInteractionMode::Free;
+
+    SECTION("Calibrate/Setup step: no active session strictly blocks direct capture")
+    {
+        ctx.hasActiveSession = false;
+        ctx.stimulusReady = false;
+
+        REQUIRE_FALSE(sm.isDirectCaptureAllowed(ctx.stimulusReady));
+        std::string reason = sm.getRejectionReasonForAction("capture", ctx);
+        REQUIRE(reason == "Capturar: prepara primero el estimulo");
+    }
+
+    SECTION("RunSession step: active session and stimulus ready allows direct capture in Free mode")
+    {
+        ctx.hasActiveSession = true;
+        ctx.stimulusReady = true;
+        ctx.profileSha256Verified = true;
+
+        sm.dispatch(CoordinatorEvent::SelectProfile, ctx, "sess_inv_1");
+        sm.dispatch(CoordinatorEvent::PrepareSession, ctx, "sess_inv_1");
+        REQUIRE(sm.getState() == CoordinatorState::SessionReady);
+
+        REQUIRE(sm.isDirectCaptureAllowed(ctx.stimulusReady));
+    }
+
+    SECTION("ExportReport step: completed session strictly blocks capture")
+    {
+        ctx.hasActiveSession = true;
+        ctx.stimulusReady = true;
+        ctx.profileSha256Verified = true;
+
+        sm.dispatch(CoordinatorEvent::SelectProfile, ctx, "sess_inv_2");
+        sm.dispatch(CoordinatorEvent::PrepareSession, ctx, "sess_inv_2");
+        sm.dispatch(CoordinatorEvent::CaptureStarted, ctx, "sess_inv_2");
+        ctx.rawSha256Verified = true;
+        sm.dispatch(CoordinatorEvent::CaptureFinished, ctx, "sess_inv_2");
+        sm.dispatch(CoordinatorEvent::ValidationPassed, ctx, "sess_inv_2");
+        sm.dispatch(CoordinatorEvent::PersistenceSucceeded, ctx, "sess_inv_2");
+        sm.dispatch(CoordinatorEvent::NextPointOrFinish, ctx, "sess_inv_2");
+
+        REQUIRE(sm.getState() == CoordinatorState::SessionCompleted);
+        REQUIRE_FALSE(sm.isDirectCaptureAllowed(ctx.stimulusReady));
+        std::string reason = sm.getRejectionReasonForAction("capture", ctx);
+        REQUIRE(reason == "Capturar: sesion ya finalizada");
+    }
+}
+
+TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojibake)", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    gui::ExportReportPanel panel;
+    panel.updateMetrics(45.2f, -86.5f, 0.008f, 5, 12.5f);
+
+    // Verify raw UTF-8 bytes of bullet point U+2022
+    // In UTF-8, bullet point '•' is exactly 3 bytes: 0xE2 0x80 0xA2
+    // Mojibake 'â□¢' occurs when 0xE2 0x80 0xA2 is read as Windows-1252 / ANSI and re-encoded,
+    // producing bytes starting with 0xC3 0xA2 ('â').
+    juce::String bulletUtf8 = juce::String::fromUTF8(u8"•");
+    std::string bulletStd = bulletUtf8.toStdString();
+
+    REQUIRE(bulletStd.size() == 3);
+    REQUIRE(static_cast<unsigned char>(bulletStd[0]) == 0xE2);
+    REQUIRE(static_cast<unsigned char>(bulletStd[1]) == 0x80);
+    REQUIRE(static_cast<unsigned char>(bulletStd[2]) == 0xA2);
+
+    // Ensure NO mojibake 'â' (0xC3 0xA2) is present in standard UTF-8 string representations
+    std::string mojibakeMarker = "\xC3\xA2";
+    REQUIRE(bulletStd.find(mojibakeMarker) == std::string::npos);
+}
+

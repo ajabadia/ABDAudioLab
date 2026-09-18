@@ -162,11 +162,11 @@ public:
     void updateMetrics(float avgSnr, float noiseFloor, float avgThd, int totalTakes, float durationSec)
     {
         metricsText = "ACOUSTIC QUALITY METRICS\n\n"
-            + juce::String("• Signal-to-Noise Ratio (Mean SNR): ") + juce::String(avgSnr, 1) + " dB\n"
-            + juce::String("• Residual Noise Floor: ") + juce::String(noiseFloor, 1) + " dBFS\n"
-            + juce::String("• Harmonic Distortion (Mean THD): ") + juce::String(avgThd, 3) + "%\n"
-            + juce::String("• Surgical Takes: ") + juce::String(totalTakes) + " (Catmull-Rom optimized)\n"
-            + juce::String("• Acquisition Duration: ") + juce::String(durationSec, 1) + " seconds";
+            + juce::String::fromUTF8(u8"• Signal-to-Noise Ratio (Mean SNR): ") + juce::String(avgSnr, 1) + " dB\n"
+            + juce::String::fromUTF8(u8"• Residual Noise Floor: ") + juce::String(noiseFloor, 1) + " dBFS\n"
+            + juce::String::fromUTF8(u8"• Harmonic Distortion (Mean THD): ") + juce::String(avgThd, 3) + "%\n"
+            + juce::String::fromUTF8(u8"• Surgical Takes: ") + juce::String(totalTakes) + " (Catmull-Rom optimized)\n"
+            + juce::String::fromUTF8(u8"• Acquisition Duration: ") + juce::String(durationSec, 1) + " seconds";
 
         repaint();
     }
