@@ -1,5 +1,6 @@
 #include "PluginWindowController.h"
 #include "../SoundIdTheme.h"
+#include "../../core/plugins/PluginHostManager.h"
 
 namespace abdaudiolab::gui
 {
@@ -143,11 +144,28 @@ void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin,
         onWindowStateChanged(true);
 }
 
+void PluginWindowController::showPluginWindow(core::PluginHostManager& hostManager, const juce::String& windowTitle)
+{
+    if (!hostManager.hasActivePlugin())
+    {
+        juce::Logger::writeToLog("[PluginWindow WARNING] Cannot show window: PluginHostManager has no active plugin.");
+        closePluginWindow();
+        return;
+    }
+
+    juce::String title = windowTitle.isNotEmpty()
+        ? windowTitle
+        : juce::String(hostManager.getActivePluginIdentity().name);
+
+    showPluginWindow(hostManager.getActivePluginInstance(), title);
+}
+
 void PluginWindowController::closePluginWindow()
 {
     if (activeWindow != nullptr)
     {
         juce::Logger::writeToLog("[PluginWindow] Closing active plugin window.");
+        activeWindow->clearContentComponent();
         activeWindow.reset();
         juce::Logger::writeToLog("[PluginWindow] Active plugin window reset complete.");
 

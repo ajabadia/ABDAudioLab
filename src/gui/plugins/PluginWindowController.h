@@ -3,12 +3,18 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 
+namespace abdaudiolab::core
+{
+class PluginHostManager;
+}
+
 namespace abdaudiolab::gui
 {
 
 /**
  * @class PluginWindowController
  * @brief Manages floating window presentation for hosted audio plugin custom UI editors.
+ *        Guarantees idempotent closing, safe editor destruction, and callback disconnection.
  */
 class PluginWindowController
 {
@@ -20,6 +26,11 @@ public:
      * @brief Displays the GUI editor for the provided plugin instance.
      */
     void showPluginWindow(juce::AudioPluginInstance* plugin, const juce::String& windowTitle = {});
+
+    /**
+     * @brief Displays the GUI editor for the plugin actively hosted by PluginHostManager.
+     */
+    void showPluginWindow(core::PluginHostManager& hostManager, const juce::String& windowTitle = {});
 
     /**
      * @brief Closes and releases the active plugin window.

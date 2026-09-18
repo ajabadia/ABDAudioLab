@@ -803,6 +803,7 @@ add_executable(ABDAudioLab_Tests
     src/core/SharedHardwareContractAdapter.cpp
     src/core/plugins/PluginHostManager.cpp
     src/core/plugins/PluginHardwareContractAdapter.cpp
+    src/gui/plugins/PluginWindowController.cpp
     src/gui/HardwareControlRenderer.cpp
     src/gui/SoundIdCurvePlotter.cpp
     src/gui/SoundIdMeterStrip.cpp

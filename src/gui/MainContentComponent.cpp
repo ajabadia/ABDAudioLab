@@ -637,7 +637,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             pluginWindowController.closePluginWindow();
             audioEngine.setActivePluginInstance(nullptr);
             sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
-            activePluginInstance.reset();
+            pluginHostManager.unloadPlugin();
+            activePluginInstance = nullptr;
             activePluginDescription = {};
         }
 
@@ -743,89 +744,18 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
                 juce::Logger::writeToLog("[MainComponent] Calling pluginHostManager.loadPluginFromFileAsync for: " + result.getFileName());
                 pluginHostManager.loadPluginFromFileAsync(result, sr, bs,
-                    [this, result, sr, bs](std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error) {
+                    [this, result, sr, bs](const core::PluginLoadResult& loadResult) {
                         juce::Logger::writeToLog("[MainComponent] loadPluginFromFileAsync returned for: " + result.getFileName());
-                        // Wrap in shared_ptr so the lambda is copyable for MessageManager::callAsync
-                        auto sharedInst = std::make_shared<std::unique_ptr<juce::AudioPluginInstance>>(std::move(instance));
-                        juce::MessageManager::callAsync([this, sharedInst, error, result, sr, bs]() {
-                            if (error.isNotEmpty() || *sharedInst == nullptr)
+                        juce::MessageManager::callAsync([this, result, loadResult, sr, bs]() {
+                            if (!loadResult.succeeded || !pluginHostManager.hasActivePlugin())
                             {
-                                juce::Logger::writeToLog("[PluginHost ERROR] Failed to load plugin from file: " + error);
+                                juce::Logger::writeToLog("[PluginHost ERROR] Failed to load plugin from file: " + juce::String(loadResult.userMessage));
                                 juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon,
-                                    "Error al cargar plugin", error.isEmpty() ? "Plugin no compatible" : error);
+                                    "Error al cargar plugin", loadResult.userMessage.empty() ? "Plugin no compatible" : juce::String(loadResult.userMessage));
                                 return;
                             }
 
-                            juce::Logger::writeToLog("[MainComponent] Safely disconnecting previous plugin instance...");
-                            pluginWindowController.closePluginWindow();
-                            audioEngine.setActivePluginInstance(nullptr);
-                            sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
-
-                            // Store the instance and connect to audio engine & dispatcher
-                            activePluginInstance = std::move(*sharedInst);
-                            audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
-                            audioEngine.setPluginMonitoringEnabled(true);
-                            sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
-
-                            juce::PluginDescription desc;
-                            activePluginInstance->fillInPluginDescription(desc);
-                            activePluginDescription = desc;
-
-                            // Create and register dynamic hardware contract for custom tests and parameters
-                            auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);
-                            hardwareManager.getContractRegistry().registerContract(dynContract);
-                            drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
-                            drawer.setSelectedHardwareId(juce::String(dynContract.id));
-
-                            hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
-                            hardwareRoutingPanel.setPluginVirtualRouting(desc.name, desc.pluginFormatName, desc.isInstrument);
-
-                            suiteList.setStandardTestAvailable(true);
-
-                            // Load plugin default image for Header and Setup
-                            auto imgFile = gui::locateAssetFile(desc.isInstrument
-                                ? "models/generic-digital-keyboard.png"
-                                : "models/generic-audio-rack.png");
-                            juce::Image pluginImg;
-                            if (imgFile.existsAsFile())
-                                pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
-
-                            // Update Header and Stepper
-                            juce::String plugTitle = desc.name + (desc.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
-                            mainHeader.setHardwareInfo(
-                                plugTitle,
-                                desc.pluginFormatName + " Virtual Bus",
-                                pluginImg,
-                                gui::HardwareConnectionStatus::Connected
-                            );
-
-                            // Update Step 0 (Información) and Drawer Setup Tab
-                            setupInfoTab.setTargetHardwareInfo(
-                                plugTitle,
-                                desc.pluginFormatName + " Virtual Bus",
-                                "Internal Digital Bus (Zero Converter Coloration)",
-                                pluginImg,
-                                nullptr,
-                                "PLUGIN_VIRTUAL"
-                            );
-                            drawer.getSetupTab().setTargetHardwareInfo(
-                                plugTitle,
-                                desc.pluginFormatName + " Virtual Bus",
-                                "Internal Digital Bus (Zero Converter Coloration)",
-                                pluginImg,
-                                nullptr,
-                                "PLUGIN_VIRTUAL"
-                            );
-                            updateSetupDrawerInfo();
-
-                            auto summary = sidebarStepper.getSessionSummary();
-                            summary.hardwareName = plugTitle;
-                            summary.hardwareCategory = "PLUGIN_VIRTUAL";
-                            sidebarStepper.setSessionSummary(summary);
-
-                            juce::Logger::writeToLog("[PluginHost] Plugin loaded from file & ready: " + activePluginInstance->getName());
-
-                            // Refresh the catalog selector with scanned plugins
+                            applyActivePluginRoutingAndUi(pluginHostManager.getActivePluginDescription(), sr, bs);
                             catalogSelector.setAvailablePlugins(pluginHostManager.getAvailablePlugins());
                         });
                     });
@@ -836,18 +766,18 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         loadPluginInstance(desc, nullptr);
     };
     catalogSelector.onShowPluginGuiRequested = [this] {
-        juce::Logger::writeToLog("[MainComponent] onShowPluginGuiRequested. activePluginInstance is "
-            + juce::String(activePluginInstance != nullptr ? "valid" : "nullptr"));
-        if (activePluginInstance != nullptr)
+        juce::Logger::writeToLog("[MainComponent] onShowPluginGuiRequested. hasActivePlugin is "
+            + juce::String(pluginHostManager.hasActivePlugin() ? "valid" : "nullptr"));
+        if (pluginHostManager.hasActivePlugin())
         {
-            pluginWindowController.showPluginWindow(activePluginInstance.get(), activePluginInstance->getName());
+            pluginWindowController.showPluginWindow(pluginHostManager);
         }
         else if (auto* desc = catalogSelector.getSelectedPluginDescription())
         {
             juce::Logger::writeToLog("[MainComponent] Loading plugin first before showing GUI: " + desc->name);
             loadPluginInstance(*desc, [this](bool success) {
-                if (success && activePluginInstance != nullptr)
-                    pluginWindowController.showPluginWindow(activePluginInstance.get(), activePluginInstance->getName());
+                if (success && pluginHostManager.hasActivePlugin())
+                    pluginWindowController.showPluginWindow(pluginHostManager);
             });
         }
         else
@@ -860,6 +790,11 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     pluginWindowController.onOpenKeyboardRequested = [this] {
         toggleVirtualKeyboardWindow();
+    };
+
+    // Disconnect plugin window safely if plugin is unloading
+    pluginHostManager.onPluginUnloading = [this] {
+        pluginWindowController.closePluginWindow();
     };
 
     // Initialize plugin host cache
@@ -1708,7 +1643,8 @@ MainContentComponent::~MainContentComponent()
     pluginWindowController.closePluginWindow();
     audioEngine.setActivePluginInstance(nullptr);
     sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
-    activePluginInstance.reset();
+    pluginHostManager.unloadPlugin();
+    activePluginInstance = nullptr;
 
     audioEngine.getDeviceManager().removeChangeListener(this);
 
@@ -3802,7 +3738,8 @@ void MainContentComponent::performNewSessionReset()
         pluginWindowController.closePluginWindow();
         audioEngine.setActivePluginInstance(nullptr);
         sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
-        activePluginInstance.reset();
+        pluginHostManager.unloadPlugin();
+        activePluginInstance = nullptr;
         activePluginDescription = {};
     }
 
@@ -3932,6 +3869,72 @@ void MainContentComponent::openAudioABVerificationModal()
 // Owns async plugin instance instantiation and bus configuration for UI host.
 // Plugin scanning and cache management delegated to PluginHostManager.
 // ==============================================================================
+void MainContentComponent::applyActivePluginRoutingAndUi(const juce::PluginDescription& desc, double sr, int bs)
+{
+    activePluginInstance = pluginHostManager.getActivePluginInstance();
+    if (activePluginInstance == nullptr)
+        return;
+
+    activePluginDescription = desc;
+    audioEngine.setActivePluginInstance(activePluginInstance, sr, bs);
+    audioEngine.setPluginMonitoringEnabled(true);
+    sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance);
+
+    // Create and register dynamic hardware contract for custom tests and parameters
+    auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);
+    hardwareManager.getContractRegistry().registerContract(dynContract);
+    drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
+    drawer.setSelectedHardwareId(juce::String(dynContract.id));
+
+    hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
+    hardwareRoutingPanel.setPluginVirtualRouting(desc.name, desc.pluginFormatName, desc.isInstrument);
+
+    suiteList.setStandardTestAvailable(true);
+
+    // Load plugin default image for Header and Setup
+    auto imgFile = gui::locateAssetFile(desc.isInstrument
+        ? "models/generic-digital-keyboard.png"
+        : "models/generic-audio-rack.png");
+    juce::Image pluginImg;
+    if (imgFile.existsAsFile())
+        pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
+
+    // Update Header and Stepper
+    juce::String plugTitle = desc.name + (desc.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
+    mainHeader.setHardwareInfo(
+        plugTitle,
+        desc.pluginFormatName + " Virtual Bus",
+        pluginImg,
+        gui::HardwareConnectionStatus::Connected
+    );
+
+    // Update Step 0 (Información) and Drawer Setup Tab
+    setupInfoTab.setTargetHardwareInfo(
+        plugTitle,
+        desc.pluginFormatName + " Virtual Bus",
+        "Internal Digital Bus (Zero Converter Coloration)",
+        pluginImg,
+        nullptr,
+        "PLUGIN_VIRTUAL"
+    );
+    drawer.getSetupTab().setTargetHardwareInfo(
+        plugTitle,
+        desc.pluginFormatName + " Virtual Bus",
+        "Internal Digital Bus (Zero Converter Coloration)",
+        pluginImg,
+        nullptr,
+        "PLUGIN_VIRTUAL"
+    );
+    updateSetupDrawerInfo();
+
+    auto summary = sidebarStepper.getSessionSummary();
+    summary.hardwareName = plugTitle;
+    summary.hardwareCategory = "PLUGIN_VIRTUAL";
+    sidebarStepper.setSessionSummary(summary);
+
+    juce::Logger::writeToLog("[PluginHost] Plugin instantiated & ready: " + activePluginInstance->getName());
+}
+
 void MainContentComponent::loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded)
 {
     juce::Logger::writeToLog("[MainComponent] loadPluginInstance called for: '" + desc.name
@@ -3946,84 +3949,18 @@ void MainContentComponent::loadPluginInstance(const juce::PluginDescription& des
     }
     juce::Logger::writeToLog("[MainComponent] Audio settings -> SR: " + juce::String(sr) + ", BS: " + juce::String(bs));
 
-    activePluginDescription = desc;
-
-    juce::Logger::writeToLog("[MainComponent] Calling pluginHostManager.instantiatePluginAsync for: " + desc.name);
-    pluginHostManager.instantiatePluginAsync(desc, sr, bs,
-        [this, desc, onLoaded, sr, bs](std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error) {
-            juce::Logger::writeToLog("[MainComponent] instantiatePluginAsync returned callback for: " + desc.name);
-            auto sharedInst = std::make_shared<std::unique_ptr<juce::AudioPluginInstance>>(std::move(instance));
-            juce::MessageManager::callAsync([this, desc, sharedInst, error, onLoaded, sr, bs]() {
-                if (error.isNotEmpty() || *sharedInst == nullptr)
+    pluginHostManager.loadPluginAsync(desc, sr, bs,
+        [this, desc, onLoaded, sr, bs](const core::PluginLoadResult& loadResult) {
+            juce::MessageManager::callAsync([this, desc, loadResult, onLoaded, sr, bs]() {
+                if (!loadResult.succeeded || !pluginHostManager.hasActivePlugin())
                 {
-                    juce::Logger::writeToLog("[PluginHost ERROR] Failed to instantiate plugin '" + desc.name + "': " + error);
+                    juce::Logger::writeToLog("[PluginHost ERROR] Failed to instantiate plugin '" + desc.name + "': "
+                        + juce::String(loadResult.userMessage));
                     if (onLoaded) onLoaded(false);
                     return;
                 }
 
-                juce::Logger::writeToLog("[MainComponent] Safely disconnecting previous plugin instance before assignment...");
-                pluginWindowController.closePluginWindow();
-                audioEngine.setActivePluginInstance(nullptr);
-                sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
-
-                activePluginInstance = std::move(*sharedInst);
-                audioEngine.setActivePluginInstance(activePluginInstance.get(), sr, bs);
-                audioEngine.setPluginMonitoringEnabled(true);
-                sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance.get());
-
-                // Generate dynamic HardwareContract and register it
-                auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);
-                hardwareManager.getContractRegistry().registerContract(dynContract);
-                drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
-                drawer.setSelectedHardwareId(juce::String(dynContract.id));
-
-                hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
-                hardwareRoutingPanel.setPluginVirtualRouting(desc.name, desc.pluginFormatName, desc.isInstrument);
-
-                suiteList.setStandardTestAvailable(true);
-
-                // Load plugin default image for Header and Setup
-                auto imgFile = gui::locateAssetFile(desc.isInstrument
-                    ? "models/generic-digital-keyboard.png"
-                    : "models/generic-audio-rack.png");
-                juce::Image pluginImg;
-                if (imgFile.existsAsFile())
-                    pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
-
-                // Update Header and Stepper
-                juce::String plugTitle = desc.name + (desc.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
-                mainHeader.setHardwareInfo(
-                    plugTitle,
-                    desc.pluginFormatName + " Virtual Bus",
-                    pluginImg,
-                    gui::HardwareConnectionStatus::Connected
-                );
-
-                // Update Step 0 (Información) and Drawer Setup Tab
-                setupInfoTab.setTargetHardwareInfo(
-                    plugTitle,
-                    desc.pluginFormatName + " Virtual Bus",
-                    "Internal Digital Bus (Zero Converter Coloration)",
-                    pluginImg,
-                    nullptr,
-                    "PLUGIN_VIRTUAL"
-                );
-                drawer.getSetupTab().setTargetHardwareInfo(
-                    plugTitle,
-                    desc.pluginFormatName + " Virtual Bus",
-                    "Internal Digital Bus (Zero Converter Coloration)",
-                    pluginImg,
-                    nullptr,
-                    "PLUGIN_VIRTUAL"
-                );
-                updateSetupDrawerInfo();
-
-                auto summary = sidebarStepper.getSessionSummary();
-                summary.hardwareName = plugTitle;
-                summary.hardwareCategory = "PLUGIN_VIRTUAL";
-                sidebarStepper.setSessionSummary(summary);
-
-                juce::Logger::writeToLog("[PluginHost] Plugin instantiated & ready: " + activePluginInstance->getName());
+                applyActivePluginRoutingAndUi(desc, sr, bs);
                 if (onLoaded) onLoaded(true);
             });
         });

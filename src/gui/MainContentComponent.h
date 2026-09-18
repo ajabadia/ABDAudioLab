@@ -149,9 +149,10 @@ private:
     core::PluginHostManager pluginHostManager;
     gui::PluginWindowController pluginWindowController;
     gui::PluginScanDirectoriesModal pluginScanModal;
-    std::unique_ptr<juce::AudioPluginInstance> activePluginInstance;
+    juce::AudioPluginInstance* activePluginInstance { nullptr };
     juce::PluginDescription activePluginDescription;
     void loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded = nullptr);
+    void applyActivePluginRoutingAndUi(const juce::PluginDescription& desc, double sr, int bs);
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
