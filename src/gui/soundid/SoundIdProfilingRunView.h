@@ -20,6 +20,10 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+    std::function<void()> onStartClicked;
+    std::function<void()> onPauseClicked;
+    std::function<void()> onCancelClicked;
+
 private:
     session::IProfilingSessionCommands& commands_;
 

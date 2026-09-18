@@ -82,6 +82,8 @@ public:
 
         // 1. Hardware Thumbnail icon on the left (or vector plug icon if software plugin)
         bool isPlugin = hwDisplayName.containsIgnoreCase("Plugin") ||
+                        hwDisplayName.containsIgnoreCase("[Instrument") ||
+                        hwDisplayName.containsIgnoreCase("[Effect") ||
                         hwDisplayName.containsIgnoreCase("[Instrumento]") ||
                         hwDisplayName.containsIgnoreCase("[Efecto]") ||
                         hwFunctionName.containsIgnoreCase("Virtual");

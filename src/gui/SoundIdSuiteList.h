@@ -124,7 +124,8 @@ public:
     void updateTheme();
     void setStandardTestAvailable(bool available);
     void updateCompactViewButtonState();
-    void setRunButtonVisible(bool visible) { btnRunSession.setVisible(visible); resized(); }
+    void setRunButtonVisible(bool visible) noexcept { isRunButtonVisible_ = visible; btnRunSession.setVisible(visible); resized(); }
+    [[nodiscard]] bool isRunButtonVisible() const noexcept { return isRunButtonVisible_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -157,6 +158,7 @@ private:
     bool isSessionRunning { false };
     bool isCollapsed { false };
     bool isCompactView { false };
+    bool isRunButtonVisible_ { false };
 
     juce::TextButton btnRunSession { "RUN SESSION TESTS" };
     ReMeasureButton btnRerunSelected;

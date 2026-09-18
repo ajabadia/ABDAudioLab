@@ -33,8 +33,8 @@ MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     addAndMakeVisible(btnScope);
 
     // 2b. Virtual Keyboard Button (NO emojis, clean text)
-    btnVirtualKeyboard.setButtonText("Teclado");
-    btnVirtualKeyboard.setTooltip("Teclado Virtual MIDI - Abrir ventana flotante de teclado interactivo para interpretar plugins.");
+    btnVirtualKeyboard.setButtonText("Keyboard");
+    btnVirtualKeyboard.setTooltip("Virtual MIDI Keyboard - Open interactive on-screen keyboard to play plugins.");
     btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
     btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
     btnVirtualKeyboard.onClick = [this] { if (onVirtualKeyboardToggle) onVirtualKeyboardToggle(); };
@@ -192,7 +192,7 @@ void MainHeaderController::showFileMenu()
     menu.addItem(11, "Open Experiments Folder");
     menu.addSeparator();
     menu.addItem(9, "Scan Plugin Directories...");
-    menu.addItem(10, "Teclado Virtual MIDI...");
+    menu.addItem(10, "Virtual MIDI Keyboard...");
     menu.addSeparator();
     menu.addItem(8, "Exit ABDAudioLab");
 

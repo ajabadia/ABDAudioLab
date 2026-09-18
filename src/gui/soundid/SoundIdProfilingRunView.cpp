@@ -11,25 +11,25 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     : commands_(commands),
       progressBar_(currentProgress_)
 {
-    headerTitle_.setText(juce::String::fromUTF8(u8"Paso 2: Ejecutar Perfilado Adaptativo"), juce::dontSendNotification);
+    headerTitle_.setText("Step 3: Automated Recipe Profiling", juce::dontSendNotification);
     headerTitle_.setFont(juce::Font(20.0f, juce::Font::bold));
     headerTitle_.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(headerTitle_);
 
-    headerSubtitle_.setText(juce::String::fromUTF8(u8"El sistema excita el target, mide respuestas acústicas y sintetiza el modelo óptimo."), juce::dontSendNotification);
+    headerSubtitle_.setText("System excites the target instrument or effect, acquires acoustic responses, and synthesizes the model.", juce::dontSendNotification);
     headerSubtitle_.setFont(juce::Font(13.0f, juce::Font::plain));
     headerSubtitle_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addAndMakeVisible(headerSubtitle_);
 
-    // Etiqueta de Modo Demo/Sintético claramente visible
-    modeBadgeLabel_.setText(juce::String::fromUTF8(u8"SyntheticFixture / DemoMode"), juce::dontSendNotification);
+    // Mode Badge
+    modeBadgeLabel_.setText("Measurement Session", juce::dontSendNotification);
     modeBadgeLabel_.setFont(juce::Font(12.0f, juce::Font::bold));
     modeBadgeLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentBlue);
     modeBadgeLabel_.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(modeBadgeLabel_);
 
-    // Tarjeta Pre-Vuelo
-    preflightCard_.setText(juce::String::fromUTF8(u8"Revisión Pre-Vuelo"));
+    // Pre-Flight Review Card
+    preflightCard_.setText("Pre-Flight Review");
     preflightCard_.setColour(juce::GroupComponent::outlineColourId, SoundIdTheme::borderCard);
     preflightCard_.setColour(juce::GroupComponent::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(preflightCard_);
@@ -41,22 +41,27 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
         addAndMakeVisible(lbl);
     };
 
-    setupInfo(preflightRecipeLabel_, juce::String::fromUTF8(u8"Receta seleccionada: Excitación de Parámetros y VCF Sweep"));
-    setupInfo(preflightTimeLabel_, juce::String::fromUTF8(u8"Duración estimada: ~45 segundos (20 ensayos adaptativos)"));
-    setupInfo(preflightWarningsLabel_, juce::String::fromUTF8(u8"Instrucciones: Requiere reset de fase entre notas"));
+    setupInfo(preflightRecipeLabel_, "Selected Recipe: Standard Profiling & VCF Sweep");
+    setupInfo(preflightTimeLabel_, "Estimated Duration: ~30 seconds");
+    setupInfo(preflightWarningsLabel_, "Acoustic Condition: Target verified and armed for execution");
 
-    // Botón gigante de inicio
-    startButton_.setButtonText(juce::String::fromUTF8(u8"INICIAR PERFILADO"));
+    // Primary Giant Start Button
+    startButton_.setButtonText("▶  START MEASUREMENT");
     startButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     startButton_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     startButton_.onClick = [this]() {
+        if (onStartClicked)
+        {
+            onStartClicked();
+            return;
+        }
         commands_.recordUserClick();
         commands_.startProfiling();
     };
     addAndMakeVisible(startButton_);
 
-    // Botón directo para cargar o elegir evaluaciones de ejemplo
-    loadEvaluationButton_.setButtonText(juce::String::fromUTF8(u8"📂 Cargar Evaluación... ▼"));
+    // Load Evaluation Button
+    loadEvaluationButton_.setButtonText("📂 Load Evaluation... ▼");
     loadEvaluationButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
     loadEvaluationButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     loadEvaluationButton_.onClick = [this]() {
@@ -111,7 +116,8 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     addAndMakeVisible(loadEvaluationButton_);
 
     // Botón de salto directo al Paso 3
-    viewResultsButton_.setButtonText(juce::String::fromUTF8(u8"Ver Resultados (Paso 3) ➔"));
+    // Direct Navigation to Results
+    viewResultsButton_.setButtonText("View Results ➔");
     viewResultsButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     viewResultsButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     viewResultsButton_.onClick = [this]() {
@@ -120,7 +126,7 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     };
     addAndMakeVisible(viewResultsButton_);
 
-    advancedSettingsLink_.setButtonText(juce::String::fromUTF8(u8"Opciones avanzadas de medición..."));
+    advancedSettingsLink_.setButtonText("Advanced Measurement Parameters...");
     advancedSettingsLink_.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     advancedSettingsLink_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     advancedSettingsLink_.onClick = [this]() {
@@ -128,20 +134,19 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
         commands_.setOpenedAdvancedMode(true);
         juce::AlertWindow::showMessageBoxAsync(
             juce::AlertWindow::InfoIcon,
-            juce::String::fromUTF8(u8"Opciones Avanzadas de Medición"),
-            juce::String::fromUTF8(u8"• Protocolo Metrológico: Fast-Acoustic Profiler (RFC 8785)\n"
-                                  u8"• Modo de Ejecución: SyntheticFixture / DemoMode\n"
-                                  u8"• Malla de Muestreo: 20 ensayos adaptativos con optimización bayesiana\n"
-                                  u8"• Criterio de Aceptación: ESR < -30 dB, Correlación rho > 0.95\n"
-                                  u8"• Partición de Datos: 80% Entrenamiento, 20% Holdout reservado\n"
-                                  u8"• Calibración: Headroom de -3.0 dBFS con protección anticliping\n"
-                                  u8"• Estimulación Acústica: Sweeps logarítmicos y modulación de parámetros"),
-            juce::String::fromUTF8(u8"Aceptar"));
+            "Advanced Measurement Parameters",
+            "• Metrological Protocol: Fast-Acoustic Profiler (RFC 8785)\n"
+            "• Execution Domain: Real-Time Audio Engine / VST3 Event Pipeline\n"
+            "• Sampling Matrix: Adaptive trials with Bayesian search\n"
+            "• Acceptance Criteria: RMS > -60 dBFS, Clean SNR, Zero Underruns\n"
+            "• Phase Alignment: Note-on synchronized stimulus\n"
+            "• Headroom: -3.0 dBFS safety margin",
+            "OK");
     };
     addAndMakeVisible(advancedSettingsLink_);
 
-    // Monitor activo
-    activeMonitorCard_.setText(juce::String::fromUTF8(u8"Telemetría en Tiempo Real (Coordinador Desacoplado)"));
+    // Active Monitor Card
+    activeMonitorCard_.setText("Real-Time Telemetry & Progress");
     activeMonitorCard_.setColour(juce::GroupComponent::outlineColourId, SoundIdTheme::borderCard);
     activeMonitorCard_.setColour(juce::GroupComponent::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(activeMonitorCard_);
@@ -150,34 +155,40 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     progressBar_.setColour(juce::ProgressBar::backgroundColourId, SoundIdTheme::surfaceSubtle);
     addAndMakeVisible(progressBar_);
 
-    setupInfo(trialCounterLabel_, juce::String::fromUTF8(u8"Punto: 0 de 0 (0%)"));
+    setupInfo(trialCounterLabel_, "Point: 0 of 0 (0%)");
     trialCounterLabel_.setFont(juce::Font(16.0f, juce::Font::bold));
     trialCounterLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
 
-    setupInfo(timeRemainingLabel_, juce::String::fromUTF8(u8"Tiempo transcurrido: 0 s | Restante: 0 s"));
-    setupInfo(stimulusLabel_, juce::String::fromUTF8(u8"Estímulo: En espera de inicio"));
-    setupInfo(signalHealthLabel_, juce::String::fromUTF8(u8"Salud acústica: RMS -120.0 dB | Peak -120.0 dB [OK]"));
+    setupInfo(timeRemainingLabel_, "Elapsed: 0 s | Remaining: 0 s");
+    setupInfo(stimulusLabel_, "Stimulus: Awaiting start");
+    setupInfo(signalHealthLabel_, "Signal Health: RMS -120.0 dBFS | Peak -120.0 dBFS [OK]");
 
-    pauseButton_.setButtonText(juce::String::fromUTF8(u8"Pausar"));
+    pauseButton_.setButtonText("PAUSE");
     pauseButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
     pauseButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     pauseButton_.onClick = [this]() {
+        if (onPauseClicked)
+        {
+            onPauseClicked();
+            return;
+        }
         commands_.recordUserClick();
         if (isPaused_)
-        {
             commands_.resumeProfiling();
-        }
         else
-        {
             commands_.pauseProfiling();
-        }
     };
     addAndMakeVisible(pauseButton_);
 
-    cancelButton_.setButtonText(juce::String::fromUTF8(u8"Cancelar"));
+    cancelButton_.setButtonText("CANCEL");
     cancelButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentRed.withAlpha(0.2f));
     cancelButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentRed);
     cancelButton_.onClick = [this]() {
+        if (onCancelClicked)
+        {
+            onCancelClicked();
+            return;
+        }
         commands_.recordUserClick();
         commands_.cancelProfiling();
     };
@@ -197,66 +208,58 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
     currentProgress_ = snapshot.progress.progressPercent / 100.0;
     progressBar_.repaint();
 
-    // Actualizar Preflight con advertencias críticas visibles
+    // Update Preflight with warnings if any
     std::string warningText;
     if (snapshot.audit.requiresResetBeforeEachTrial)
-    {
-        warningText += "[!] Requiere reset de fase antes de cada ensayo. ";
-    }
+        warningText += "[!] Phase reset required before each trial. ";
     if (snapshot.audit.recommendedSettlingTimeMs > 200.0)
-    {
-        warningText += "[!] Settling prolongado (" + std::to_string(static_cast<int>(snapshot.audit.recommendedSettlingTimeMs)) + " ms). ";
-    }
+        warningText += "[!] Prolonged settling (" + std::to_string(static_cast<int>(snapshot.audit.recommendedSettlingTimeMs)) + " ms). ";
     if (!snapshot.audit.operationalWarnings.empty())
-    {
         warningText += snapshot.audit.operationalWarnings.front();
-    }
     else if (!snapshot.audit.humanGuidance.empty())
-    {
         warningText += snapshot.audit.humanGuidance;
-    }
 
     if (!warningText.empty())
     {
-        preflightWarningsLabel_.setText(juce::String::fromUTF8(u8"Advertencias de medición: ") + juce::String::fromUTF8(warningText.c_str()), juce::dontSendNotification);
+        preflightWarningsLabel_.setText("Measurement Notice: " + juce::String(warningText), juce::dontSendNotification);
         preflightWarningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
     }
     else
     {
-        preflightWarningsLabel_.setText(juce::String::fromUTF8(u8"Condición acústica: Target verificado y óptimo para perfilado"), juce::dontSendNotification);
+        preflightWarningsLabel_.setText("Acoustic Condition: Target verified and armed for execution", juce::dontSendNotification);
         preflightWarningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     }
 
-    // Actualizar Monitor con telemetría real del coordinador
+    // Update Monitor with real-time telemetry
     std::ostringstream ssCounter;
-    ssCounter << "Punto: " << snapshot.progress.currentTrial << " de "
+    ssCounter << "Point: " << snapshot.progress.currentTrial << " of "
               << snapshot.progress.totalTrials << " ("
               << static_cast<int>(snapshot.progress.progressPercent) << "%)";
-    trialCounterLabel_.setText(juce::String::fromUTF8(ssCounter.str().c_str()), juce::dontSendNotification);
+    trialCounterLabel_.setText(ssCounter.str(), juce::dontSendNotification);
 
     std::ostringstream ssTime;
-    ssTime << "Tiempo transcurrido: " << static_cast<int>(snapshot.progress.elapsedTimeSec)
-           << " s | Restante: " << static_cast<int>(snapshot.progress.estimatedRemainingSec) << " s";
-    timeRemainingLabel_.setText(juce::String::fromUTF8(ssTime.str().c_str()), juce::dontSendNotification);
+    ssTime << "Elapsed: " << static_cast<int>(snapshot.progress.elapsedTimeSec)
+           << " s | Remaining: " << static_cast<int>(snapshot.progress.estimatedRemainingSec) << " s";
+    timeRemainingLabel_.setText(ssTime.str(), juce::dontSendNotification);
 
     if (isPaused_)
     {
-        stimulusLabel_.setText(juce::String::fromUTF8(u8"Estímulo: [PAUSADO] Ensayo en espera"), juce::dontSendNotification);
+        stimulusLabel_.setText("Stimulus: [PAUSED] Trial waiting", juce::dontSendNotification);
     }
     else if (!snapshot.progress.currentStimulusDescription.empty())
     {
-        stimulusLabel_.setText(juce::String::fromUTF8(u8"Estímulo: ") + juce::String::fromUTF8(snapshot.progress.currentStimulusDescription.c_str()), juce::dontSendNotification);
+        stimulusLabel_.setText("Stimulus: " + juce::String(snapshot.progress.currentStimulusDescription), juce::dontSendNotification);
     }
     else
     {
-        stimulusLabel_.setText(juce::String::fromUTF8(u8"Estímulo: En espera de inicio"), juce::dontSendNotification);
+        stimulusLabel_.setText("Stimulus: Awaiting start", juce::dontSendNotification);
     }
 
     std::ostringstream ssHealth;
-    ssHealth << "Salud acústica: RMS " << std::fixed << std::setprecision(1) << snapshot.observation.lastRmsDb
-             << " dB | Peak " << snapshot.observation.lastPeakDb << " dB"
-             << (snapshot.observation.clippingDetected ? " [CLIPPING DETECTADO]" : " [OK]");
-    signalHealthLabel_.setText(juce::String::fromUTF8(ssHealth.str().c_str()), juce::dontSendNotification);
+    ssHealth << "Signal Health: RMS " << std::fixed << std::setprecision(1) << snapshot.observation.lastRmsDb
+             << " dBFS | Peak " << snapshot.observation.lastPeakDb << " dBFS"
+             << (snapshot.observation.clippingDetected ? " [CLIPPING DETECTED]" : " [OK]");
+    signalHealthLabel_.setText(ssHealth.str(), juce::dontSendNotification);
     if (snapshot.observation.clippingDetected)
         signalHealthLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
     else

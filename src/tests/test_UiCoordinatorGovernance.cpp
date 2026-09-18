@@ -5,6 +5,7 @@
 #include "../core/ProfilingSequencer.h"
 #include "../core/SessionManager.h"
 #include "../gui/SoundIdCurvePlotter.h"
+#include "../gui/SoundIdSuiteList.h"
 #include "../audio/LabAudioEngine.h"
 #include "../hardware/MockHardwareController.h"
 #include "../core/HardwareManager.h"
@@ -510,6 +511,89 @@ TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojib
 
     std::string mojibakeMarker = "\xC3\xA2";
     REQUIRE(bulletStd.find(mojibakeMarker) == std::string::npos);
+}
+
+TEST_CASE("UI Governance: SuiteList Resized Never Shows Run Button When Hidden", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    gui::SoundIdSuiteList suiteList;
+    suiteList.setRunButtonVisible(false);
+    REQUIRE_FALSE(suiteList.isRunButtonVisible());
+
+    // Trigger multiple resized events
+    suiteList.setSize(800, 600);
+    REQUIRE_FALSE(suiteList.isRunButtonVisible());
+
+    suiteList.setSize(1200, 400);
+    REQUIRE_FALSE(suiteList.isRunButtonVisible());
+
+    suiteList.setCollapsed(true);
+    suiteList.setSize(600, 300);
+    REQUIRE_FALSE(suiteList.isRunButtonVisible());
+
+    suiteList.setCollapsed(false);
+    suiteList.setSize(1000, 700);
+    REQUIRE_FALSE(suiteList.isRunButtonVisible());
+}
+
+TEST_CASE("UI Governance: Session Cancelled Rearms Back to SessionReady", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    audio::LabAudioEngine engine;
+    hardware::MockHardwareController mockHardware;
+    core::ProfilingSequencer sequencer(engine, mockHardware);
+    core::SessionManager sessionManager;
+    gui::SoundIdCurvePlotter plotter;
+
+    gui::SessionExecutionCoordinator coordinator(sequencer, sessionManager, plotter);
+
+    core::HardwareContract contract;
+    contract.id = "dexed_synth";
+    contract.displayName = "Dexed VST3";
+    coordinator.initializeMeasurementSession(contract, "main_proc", "sha256_mock");
+
+    REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::SessionReady);
+
+    // Cancel the session
+    coordinator.triggerStopSession();
+    REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::Aborted);
+
+    // Rearm session
+    coordinator.rearmSession();
+    REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::SessionReady);
+}
+
+TEST_CASE("UI Governance: Mode Change Between Guided and Lab Blocked During Capture", "[ui_governance]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+
+    audio::LabAudioEngine engine;
+    hardware::MockHardwareController mockHardware;
+    core::ProfilingSequencer sequencer(engine, mockHardware);
+    core::SessionManager sessionManager;
+    gui::SoundIdCurvePlotter plotter;
+
+    gui::SessionExecutionCoordinator coordinator(sequencer, sessionManager, plotter);
+
+    core::HardwareContract contract;
+    contract.id = "dexed_synth";
+    contract.displayName = "Dexed VST3";
+    coordinator.initializeMeasurementSession(contract, "main_proc", "sha256_mock");
+
+    REQUIRE(coordinator.isModeChangeAllowed());
+    REQUIRE(coordinator.switchWorkspaceInteractionMode(measurement::WorkspaceInteractionMode::Free));
+    REQUIRE(coordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free);
+
+    // Trigger capture in free mode
+    coordinator.triggerFreeCapture();
+    REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::Capturing);
+
+    // While capturing, mode change MUST be blocked
+    REQUIRE_FALSE(coordinator.isModeChangeAllowed());
+    REQUIRE_FALSE(coordinator.switchWorkspaceInteractionMode(measurement::WorkspaceInteractionMode::Guided));
+    REQUIRE(coordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free);
 }
 
 

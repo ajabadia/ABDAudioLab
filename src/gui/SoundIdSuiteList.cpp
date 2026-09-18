@@ -51,7 +51,8 @@ SoundIdSuiteList::SoundIdSuiteList()
         if (onToggleSessionRunClicked)
             onToggleSessionRunClicked(!isSessionRunning);
     };
-    addAndMakeVisible(btnRunSession);
+    addChildComponent(btnRunSession);
+    btnRunSession.setVisible(isRunButtonVisible_);
 
     btnRerunSelected.setButtonText("Re-Measure (0)");
     btnRerunSelected.setTooltip("Re-Measure Selected Points - Launch profiling only for selected or invalidated points and patch session");
@@ -495,7 +496,7 @@ void SoundIdSuiteList::resized()
     btnViewMode.setVisible(true);
     btnRerunSelected.setVisible(true);
     btnClear.setVisible(true);
-    btnRunSession.setVisible(true);
+    btnRunSession.setVisible(isRunButtonVisible_);
 
     topBar.removeFromLeft(4);
     btnAddStandard.setBounds(topBar.removeFromLeft(130).reduced(2, 4));

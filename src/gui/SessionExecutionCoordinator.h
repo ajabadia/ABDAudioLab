@@ -83,6 +83,8 @@ public:
     void togglePauseSession();
     /** Re-run a single point by its global index. */
     void rerunSelectedPoint(int globalPointIndex);
+    /** Rearm state machine back to SessionReady after cancellation or completion. */
+    void rearmSession();
     [[nodiscard]] bool isSessionPaused() const noexcept;
 
     void triggerStartSession(const core::ProfilingSession& session,

@@ -326,6 +326,24 @@ bool SessionExecutionCoordinator::isSessionPaused() const noexcept
     return sequencer.isSessionPaused();
 }
 
+void SessionExecutionCoordinator::rearmSession()
+{
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.profileSha256Verified = (activeMeasurementSession != nullptr && !activeMeasurementSession->profileSha256.empty());
+    ctx.stimulusReady = true;
+    ctx.actor = "system";
+
+    transitionTo(measurement::CoordinatorEvent::Reset, ctx);
+    if (activeMeasurementSession != nullptr)
+    {
+        transitionTo(measurement::CoordinatorEvent::SelectProfile, ctx);
+        transitionTo(measurement::CoordinatorEvent::PrepareSession, ctx);
+    }
+    totalPointsMeasured = 0;
+}
+
 void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSession& session,
                                                       const juce::File& exportDir,
                                                       const juce::String& baseName,
@@ -333,6 +351,15 @@ void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSessi
 {
     isPatchingSession = isPatching;
     wireSequencerCallbacks();
+
+    auto st = stateMachine.getState();
+    if (st == measurement::CoordinatorState::Aborted
+        || st == measurement::CoordinatorState::SessionCompleted
+        || st == measurement::CoordinatorState::Error
+        || st == measurement::CoordinatorState::NoSession)
+    {
+        rearmSession();
+    }
 
     if (onExecutionStateChanged)
         onExecutionStateChanged(true);
