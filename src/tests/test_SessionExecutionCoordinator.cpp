@@ -8,6 +8,7 @@
 
 using namespace abdaudiolab;
 
+// SessionExecutionCoordinator Suite
 TEST_CASE("SessionExecutionCoordinator - Initialization & Callback Wiring", "[SessionExecutionCoordinator]")
 {
     juce::ScopedJuceInitialiser_GUI juceInit;

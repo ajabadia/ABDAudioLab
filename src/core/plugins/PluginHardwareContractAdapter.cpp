@@ -1,7 +1,21 @@
 #include "PluginHardwareContractAdapter.h"
+#include "../../synth/Sha256.h"
 
 namespace abdaudiolab::core
 {
+
+nlohmann::ordered_json Vst3SessionDescriptor::toJson() const
+{
+    nlohmann::ordered_json j;
+    j["automationMode"] = automationMode;
+    j["blockSize"] = blockSize;
+    j["parameterListHash"] = parameterListHash;
+    j["pluginIdentifier"] = pluginIdentifier;
+    j["pluginVersion"] = pluginVersion;
+    j["sampleRate"] = sampleRate;
+    j["statePresetHash"] = statePresetHash;
+    return j;
+}
 
 HardwareContract PluginHardwareContractAdapter::createContractFromPlugin(juce::AudioProcessor& plugin,
                                                                         const juce::PluginDescription& desc)
@@ -86,6 +100,71 @@ float PluginHardwareContractAdapter::getParameterNormalized(const juce::AudioPro
         return params[zeroBased]->getValue();
     }
     return 0.0f;
+}
+
+void PluginHardwareContractAdapter::beginParameterEdit(juce::AudioProcessor& plugin, int controlIndex)
+{
+    const auto& params = plugin.getParameters();
+    int zeroBased = controlIndex - 1;
+    if (zeroBased >= 0 && zeroBased < params.size() && params[zeroBased] != nullptr)
+    {
+        params[zeroBased]->beginChangeGesture();
+    }
+}
+
+void PluginHardwareContractAdapter::performParameterEdit(juce::AudioProcessor& plugin, int controlIndex, float normVal)
+{
+    setParameterNormalized(plugin, controlIndex, normVal);
+}
+
+void PluginHardwareContractAdapter::endParameterEdit(juce::AudioProcessor& plugin, int controlIndex)
+{
+    const auto& params = plugin.getParameters();
+    int zeroBased = controlIndex - 1;
+    if (zeroBased >= 0 && zeroBased < params.size() && params[zeroBased] != nullptr)
+    {
+        params[zeroBased]->endChangeGesture();
+    }
+}
+
+std::string PluginHardwareContractAdapter::computeParameterListHash(const juce::AudioProcessor& plugin)
+{
+    std::string acc;
+    const auto& params = plugin.getParameters();
+    for (int i = 0; i < params.size(); ++i)
+    {
+        if (auto* p = params[i])
+        {
+            acc += std::to_string(i) + ":" + p->getName(64).toStdString() + ";";
+        }
+    }
+    return synth::Sha256::computeHex(acc);
+}
+
+std::string PluginHardwareContractAdapter::computeStateHash(juce::AudioProcessor& plugin)
+{
+    juce::MemoryBlock block;
+    plugin.getStateInformation(block);
+    if (block.getSize() == 0)
+        return synth::Sha256::computeHex("empty_state");
+    return synth::Sha256::computeHex(std::string_view(static_cast<const char*>(block.getData()), block.getSize()));
+}
+
+Vst3SessionDescriptor PluginHardwareContractAdapter::createSessionDescriptor(
+    juce::AudioProcessor& plugin,
+    const juce::PluginDescription& desc,
+    double sampleRate,
+    int blockSize)
+{
+    Vst3SessionDescriptor descOut;
+    descOut.pluginIdentifier = desc.fileOrIdentifier.toStdString();
+    descOut.pluginVersion = desc.version.isNotEmpty() ? desc.version.toStdString() : "1.0.0";
+    descOut.parameterListHash = computeParameterListHash(plugin);
+    descOut.statePresetHash = computeStateHash(plugin);
+    descOut.sampleRate = sampleRate;
+    descOut.blockSize = blockSize;
+    descOut.automationMode = "sample_accurate_gesture";
+    return descOut;
 }
 
 } // namespace abdaudiolab::core

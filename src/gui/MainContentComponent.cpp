@@ -11,6 +11,7 @@
 #include "core/LabDataDirectories.h"
 #include "gui/measurement/MeasurementViewerPanel.h"
 #include "gui/measurement/MeasurementComparisonPanel.h"
+#include "synth/Sha256.h"
 #include <cmath>
 
 namespace abdaudiolab
@@ -2345,6 +2346,10 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
         item.id = "test_standard_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
         suiteList.addTestToQueue(item);
     }
+
+    // Inicializar formalmente la MeasurementSession en el coordinador
+    std::string profSha = synth::Sha256::computeHex(contract->id + ":" + contract->displayName);
+    sessionCoordinator.initializeMeasurementSession(*contract, funcId, juce::String(profSha));
 }
 
 void MainContentComponent::hidePromptAfterDelay(int delayMs)

@@ -7,12 +7,15 @@
 #include "../core/ProfilingSequencer.h"
 #include "../math/ModulationMatrixProfile.h"
 #include "SoundIdCurvePlotter.h"
+#include "../measurement/CoordinatorStateMachine.h"
+#include "../measurement/MeasurementSessionContracts.h"
 
 namespace abdaudiolab {
 namespace core {
     class SessionManager;
     class HardwareManager;
     class ProfilingSession;
+    struct HardwareContract;
 }
 namespace gui {
     class SoundIdSuiteList;
@@ -39,6 +42,21 @@ public:
 
     void wireSequencerCallbacks();
     void unbindSequencerCallbacks();
+
+    // Measurement Workspace Interaction Mode & State Machine Queries
+    void setWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode) noexcept;
+    [[nodiscard]] measurement::WorkspaceInteractionMode getWorkspaceInteractionMode() const noexcept;
+    [[nodiscard]] measurement::CoordinatorState getCoordinatorState() const noexcept;
+    [[nodiscard]] const measurement::MeasurementSession* getActiveMeasurementSession() const noexcept;
+    [[nodiscard]] const std::vector<measurement::CoordinatorTransitionRecord>& getTransitionHistory() const noexcept;
+
+    /**
+     * @brief Formally initializes a MeasurementSession linked to the selected device profile and target function.
+     */
+    void initializeMeasurementSession(const core::HardwareContract& contract,
+                                      const juce::String& targetFunctionId,
+                                      const juce::String& profileSha256,
+                                      const std::optional<nlohmann::ordered_json>& pluginMeta = std::nullopt);
 
     void confirmOperatorStep();
     void repeatCurrentStep();
@@ -68,6 +86,10 @@ public:
     std::function<void()> onSessionAutoSaveRequested;
     /** Fired when pause state changes: true = paused, false = running. */
     std::function<void(bool isPaused)> onSessionPauseStateChanged;
+    /** Fired whenever the coordinator state machine advances with audit reason. */
+    std::function<void(measurement::CoordinatorState oldState,
+                       measurement::CoordinatorState newState,
+                       const juce::String& auditMessage)> onCoordinatorStateChanged;
 
 private:
     core::ProfilingSequencer& sequencer;
@@ -88,6 +110,13 @@ private:
 
     int totalPointsMeasured { 0 };
     bool isPatchingSession  { false };
+
+    measurement::CoordinatorStateMachine stateMachine;
+    measurement::WorkspaceInteractionMode currentInteractionMode { measurement::WorkspaceInteractionMode::Guided };
+    std::unique_ptr<measurement::MeasurementSession> activeMeasurementSession;
+    std::vector<measurement::ControlStateSnapshot> currentPointSnapshots;
+
+    void transitionTo(measurement::CoordinatorEvent event, const measurement::CoordinatorContext& ctx);
 
     void handleOperatorStep(const core::TestCase& tc, int stepIndex, int totalSteps);
     void handleProgress(float progress, const juce::String& task, core::SequencerState state);

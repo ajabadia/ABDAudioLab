@@ -131,6 +131,7 @@ struct MeasurementSession
     std::vector<ControlStateSnapshot> controlStates;
     std::vector<RawCaptureReference> rawCaptures;
     std::vector<DerivedArtifactReference> derivedArtifacts;
+    std::optional<nlohmann::ordered_json> pluginMetadata;
 
     [[nodiscard]] nlohmann::ordered_json toJson() const
     {
@@ -150,6 +151,8 @@ struct MeasurementSession
 
         j["deviceType"] = deviceType;
         j["excitationPlanId"] = excitationPlanId;
+        if (pluginMetadata.has_value())
+            j["pluginMetadata"] = *pluginMetadata;
         j["profileId"] = profileId;
         j["profileSha256"] = profileSha256;
 

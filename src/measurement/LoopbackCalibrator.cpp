@@ -203,6 +203,8 @@ LoopbackCalibrationRecord LoopbackCalibrator::analyzeLoopback(const std::vector<
     // Medir piso de ruido en el lead-in previo a la llegada del estímulo detectado
     size_t signalArrival = static_cast<size_t>(std::lround(record.roundTripLatencySamples + static_cast<double>(stimStart)));
     size_t noiseLeadInSamples = (signalArrival > 32) ? (signalArrival - 16) : 0;
+    if (noiseLeadInSamples > responseAudio.size())
+        noiseLeadInSamples = responseAudio.size();
 
     double noisePower = 0.0;
     if (noiseLeadInSamples >= 32)
@@ -220,14 +222,15 @@ LoopbackCalibrationRecord LoopbackCalibrator::analyzeLoopback(const std::vector<
     size_t respRem = (responseAudio.size() > signalArrival) ? (responseAudio.size() - signalArrival) : 0;
     size_t signalDurationSamples = std::min(stimRem, respRem);
     double signalPower = 0.0;
-    if (signalDurationSamples > 64)
+    if (signalArrival < responseAudio.size() && signalDurationSamples > 64)
     {
-        for (size_t i = 0; i < signalDurationSamples; ++i)
+        size_t safeDuration = std::min(signalDurationSamples, responseAudio.size() - signalArrival);
+        for (size_t i = 0; i < safeDuration; ++i)
         {
             double s = static_cast<double>(responseAudio[signalArrival + i]);
             signalPower += s * s;
         }
-        signalPower /= static_cast<double>(signalDurationSamples);
+        signalPower /= static_cast<double>(safeDuration);
     }
 
     if (noisePower > 1e-12 && signalPower > 1e-12)

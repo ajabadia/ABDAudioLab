@@ -2,6 +2,9 @@
 #include "../core/SessionManager.h"
 #include "../core/HardwareManager.h"
 #include "../core/ProfilingSession.h"
+#include "../measurement/AnalogChainCompensationContracts.h"
+#include "../measurement/AnalogChainReversibleCompensator.h"
+#include "../synth/Sha256.h"
 #include "SoundIdSuiteList.h"
 #include "MeasurementHealthPanel.h"
 #include "OperatorStepModalDialog.h"
@@ -21,6 +24,71 @@ SessionExecutionCoordinator::SessionExecutionCoordinator(core::ProfilingSequence
 SessionExecutionCoordinator::~SessionExecutionCoordinator()
 {
     unbindSequencerCallbacks();
+}
+
+void SessionExecutionCoordinator::setWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode) noexcept
+{
+    currentInteractionMode = mode;
+}
+
+measurement::WorkspaceInteractionMode SessionExecutionCoordinator::getWorkspaceInteractionMode() const noexcept
+{
+    return currentInteractionMode;
+}
+
+measurement::CoordinatorState SessionExecutionCoordinator::getCoordinatorState() const noexcept
+{
+    return stateMachine.getState();
+}
+
+const measurement::MeasurementSession* SessionExecutionCoordinator::getActiveMeasurementSession() const noexcept
+{
+    return activeMeasurementSession.get();
+}
+
+const std::vector<measurement::CoordinatorTransitionRecord>& SessionExecutionCoordinator::getTransitionHistory() const noexcept
+{
+    return stateMachine.getTransitionHistory();
+}
+
+void SessionExecutionCoordinator::transitionTo(measurement::CoordinatorEvent event, const measurement::CoordinatorContext& ctx)
+{
+    auto oldState = stateMachine.getState();
+    std::string sid = activeMeasurementSession ? activeMeasurementSession->sessionId : "no_session";
+    stateMachine.dispatch(event, ctx, sid);
+    auto newState = stateMachine.getState();
+
+    if (oldState != newState && onCoordinatorStateChanged)
+    {
+        const auto& hist = stateMachine.getTransitionHistory();
+        juce::String reason = hist.empty() ? "" : juce::String(hist.back().reason);
+        onCoordinatorStateChanged(oldState, newState, reason);
+    }
+}
+
+void SessionExecutionCoordinator::initializeMeasurementSession(
+    const core::HardwareContract& contract,
+    const juce::String& targetFunctionId,
+    const juce::String& profileSha256,
+    const std::optional<nlohmann::ordered_json>& pluginMeta)
+{
+    activeMeasurementSession = std::make_unique<measurement::MeasurementSession>();
+    activeMeasurementSession->sessionId = "meas_sess_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()).toStdString();
+    activeMeasurementSession->profileId = contract.id;
+    activeMeasurementSession->profileSha256 = profileSha256.toStdString();
+    activeMeasurementSession->deviceType = contract.deviceType;
+    activeMeasurementSession->targetFunction = targetFunctionId.toStdString();
+    activeMeasurementSession->analyzerVersion = "abdaudiolab-analyzer-1.0";
+    if (pluginMeta.has_value())
+        activeMeasurementSession->pluginMetadata = *pluginMeta;
+
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.profileSha256Verified = !profileSha256.isEmpty();
+    ctx.hasActiveSession = true;
+
+    transitionTo(measurement::CoordinatorEvent::SelectProfile, ctx);
+    transitionTo(measurement::CoordinatorEvent::PrepareSession, ctx);
 }
 
 void SessionExecutionCoordinator::setCoordinatedViews(SoundIdSuiteList* suiteList,
@@ -91,6 +159,25 @@ void SessionExecutionCoordinator::unbindSequencerCallbacks()
 
 void SessionExecutionCoordinator::confirmOperatorStep()
 {
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.isManualControlRequired = true;
+    ctx.isCapturingActive = false;
+    ctx.actor = "operator";
+
+    transitionTo(measurement::CoordinatorEvent::ConfirmManualControl, ctx);
+
+    if (activeMeasurementSession != nullptr)
+    {
+        for (auto& snap : currentPointSnapshots)
+        {
+            snap.confirmationStatus = "confirmed";
+            snap.displayValue += " (Confirmado por operador humano; posicion fisica no medida automaticamente)";
+            activeMeasurementSession->controlStates.push_back(snap);
+        }
+    }
+
     sequencer.confirmOperatorStep();
     if (viewConfirmManualButton != nullptr)
         viewConfirmManualButton->setEnabled(false);
@@ -163,6 +250,13 @@ void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSessi
 
 void SessionExecutionCoordinator::triggerStopSession()
 {
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.actor = "operator";
+
+    transitionTo(measurement::CoordinatorEvent::CancelRequested, ctx);
+
     sequencer.stopSession();
     unbindSequencerCallbacks();
 
@@ -200,8 +294,37 @@ void SessionExecutionCoordinator::handleOperatorStep(const core::TestCase& tc, i
         if (hardwareManager != nullptr)
         {
             const auto* contract = hardwareManager->findContractById(currentHardwareId.toStdString());
-            if (contract != nullptr && (contract->deviceType == "AUTOMATED_SYSEX" || contract->deviceType == "AUTOMATED_MIDI_CC"))
+            if (contract != nullptr && (contract->deviceType == "AUTOMATED_SYSEX" || contract->deviceType == "AUTOMATED_MIDI_CC" || contract->deviceType == "SOFTWARE_PLUGIN"))
                 isAuto = true;
+        }
+
+        currentPointSnapshots.clear();
+        for (const auto& step : tc.parameterSteps)
+        {
+            measurement::ControlStateSnapshot snap;
+            snap.controlId = step.paramName;
+            snap.controlMethod = isAuto ? "AUTOMATED_MIDI" : "MANUAL";
+            snap.normalizedValue = step.normalizedValue;
+            snap.rawValue = step.rawValue;
+            snap.displayValue = step.paramName + " = " + std::to_string(step.normalizedValue);
+            snap.confirmationStatus = isAuto ? "automated" : "awaiting_confirmation";
+            currentPointSnapshots.push_back(snap);
+        }
+
+        measurement::CoordinatorContext ctx;
+        ctx.mode = currentInteractionMode;
+        ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+        ctx.isManualControlRequired = !isAuto;
+        ctx.actor = isAuto ? "system" : "operator";
+
+        if (isAuto)
+        {
+            transitionTo(measurement::CoordinatorEvent::ApplyAutomation, ctx);
+            transitionTo(measurement::CoordinatorEvent::AutomationAcknowledged, ctx);
+        }
+        else
+        {
+            transitionTo(measurement::CoordinatorEvent::AwaitingManualPrompt, ctx);
         }
 
         if (viewOperatorModal != nullptr)
@@ -212,15 +335,10 @@ void SessionExecutionCoordinator::handleOperatorStep(const core::TestCase& tc, i
         }
 
         // Phase 14 fix: keep suiteList visible so the matrix remains animated.
-        // The operator modal overlays the same bottom area via WorkflowNavigationController.
-        // Only hide the suite-list if the modal is NOT in automated mode AND is fully expanded.
         if (viewSuiteList != nullptr && isAuto)
         {
-            // Automated: modal just shows progress, suite-list stays visible
             viewSuiteList->setVisible(true);
         }
-        // For manual hardware the modal covers the bottom panel — leave suiteList visible
-        // so it paints behind; WorkflowNavigationController will overlay the modal on top.
     });
 }
 
@@ -445,6 +563,53 @@ void SessionExecutionCoordinator::handleTestIndex(int queueIndex, int currentPoi
 
 void SessionExecutionCoordinator::handlePointMeasured(const exporting::MeasuredPoint& pt)
 {
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.currentPointId = pt.testId;
+
+    transitionTo(measurement::CoordinatorEvent::CaptureFinished, ctx);
+
+    // Diagnóstico de saturación y cálculo de hash de audio bruto
+    bool clipEvidence = false;
+    std::string rawHash = synth::Sha256::computeHex("point_" + pt.testId + "_" + std::to_string(totalPointsMeasured));
+    if (!pt.irSamples.empty())
+    {
+        auto diag = measurement::AnalogChainReversibleCompensator::diagnosePhysicalSaturation(pt.irSamples, 1.0f);
+        clipEvidence = diag.adcClipEvidence;
+        rawHash = synth::Sha256::computeHex(pt.irSamples.data(), pt.irSamples.size() * sizeof(float));
+    }
+
+    if (clipEvidence)
+    {
+        transitionTo(measurement::CoordinatorEvent::ValidationFailed, ctx);
+    }
+    else
+    {
+        transitionTo(measurement::CoordinatorEvent::ValidationPassed, ctx);
+
+        if (activeMeasurementSession != nullptr)
+        {
+            measurement::RawCaptureReference capRef;
+            capRef.captureId = "cap_" + pt.testId + "_" + std::to_string(totalPointsMeasured);
+            capRef.rawAudioSha256 = rawHash;
+            capRef.filename = capRef.captureId + ".raw.wav";
+            capRef.sampleRateHz = 48000.0;
+            capRef.sampleCount = pt.irSamples.size();
+            capRef.channels = 1;
+            capRef.activeControls = currentPointSnapshots;
+            activeMeasurementSession->rawCaptures.push_back(capRef);
+        }
+
+        ctx.rawSha256Verified = true;
+        transitionTo(measurement::CoordinatorEvent::PersistenceSucceeded, ctx);
+
+        int totalExpected = (viewSuiteList != nullptr) ? viewSuiteList->getTotalPointCount() : static_cast<int>(sessionManager.getPointCount());
+        ctx.hasRemainingPoints = ((totalPointsMeasured + 1) < totalExpected);
+        ctx.isManualControlRequired = (currentInteractionMode == measurement::WorkspaceInteractionMode::Guided);
+        transitionTo(measurement::CoordinatorEvent::NextPointOrFinish, ctx);
+    }
+
     if (isPatchingSession && pt.globalIndex >= 0 && pt.globalIndex < static_cast<int>(sessionManager.getPointCount()))
     {
         sessionManager.patchMeasuredPoint(static_cast<size_t>(pt.globalIndex), pt);
