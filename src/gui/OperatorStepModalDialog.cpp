@@ -151,6 +151,9 @@ OperatorStepModalDialog::OperatorStepModalDialog()
     cardsViewport.setScrollBarsShown(false, true);
     cardsViewport.setViewedComponent(cardsContainer.get(), false);
 
+    setWantsKeyboardFocus(true);
+    addKeyListener(this);
+
     setVisible(false);
 }
 
@@ -374,16 +377,23 @@ void OperatorStepModalDialog::showStepPrompt(juce::Component* parent,
     setVisible(true);
     resized();
     repaint();
+    grabKeyboardFocus();
 }
 
 bool OperatorStepModalDialog::keyPressed(const juce::KeyPress& key, juce::Component* /*originatingComponent*/)
 {
-    if (!isVisible()) return false;
+    if (!isVisible() || isMeasuring) return false;
 
     if (key == juce::KeyPress::spaceKey || key == juce::KeyPress::returnKey)
     {
-        btnAccept.triggerClick();
-        return true;
+        if (!isAutomatedMode && !isInspectorMode && btnAccept.isVisible() && btnAccept.isEnabled())
+        {
+            if (btnAccept.onClick != nullptr)
+                btnAccept.onClick();
+            else
+                btnAccept.triggerClick();
+            return true;
+        }
     }
     else if (key == juce::KeyPress::escapeKey)
     {
@@ -392,18 +402,30 @@ bool OperatorStepModalDialog::keyPressed(const juce::KeyPress& key, juce::Compon
             setMetronomeMode(false);
             return true;
         }
-        btnCancel.triggerClick();
-        return true;
+        if (btnCancel.isVisible() && btnCancel.isEnabled())
+        {
+            if (btnCancel.onClick != nullptr)
+                btnCancel.onClick();
+            else
+                btnCancel.triggerClick();
+            return true;
+        }
     }
     else if (key == juce::KeyPress::backspaceKey)
     {
-        btnStepBack.triggerClick();
-        return true;
+        if (btnStepBack.isVisible() && btnStepBack.isEnabled())
+        {
+            btnStepBack.triggerClick();
+            return true;
+        }
     }
     else if (key == juce::KeyPress('r', juce::ModifierKeys::noModifiers, 0))
     {
-        btnRepeat.triggerClick();
-        return true;
+        if (btnRepeat.isVisible() && btnRepeat.isEnabled())
+        {
+            btnRepeat.triggerClick();
+            return true;
+        }
     }
     return false;
 }

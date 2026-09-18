@@ -390,4 +390,70 @@ bool CoordinatorStateMachine::isReanalysisAllowed() const noexcept
     return currentState == CoordinatorState::SessionCompleted || currentState == CoordinatorState::ReanalysisAvailable;
 }
 
+bool CoordinatorStateMachine::isModeChangeAllowed() const noexcept
+{
+    return currentState != CoordinatorState::ApplyingAutomation &&
+           currentState != CoordinatorState::Capturing &&
+           currentState != CoordinatorState::Validating &&
+           currentState != CoordinatorState::Persisting;
+}
+
+bool CoordinatorStateMachine::isDirectCaptureAllowed(bool stimulusReady) const noexcept
+{
+    if (!stimulusReady)
+        return false;
+
+    return currentState == CoordinatorState::SessionReady ||
+           currentState == CoordinatorState::PointCompleted;
+}
+
+std::string CoordinatorStateMachine::getRejectionReasonForAction(const std::string& action, const CoordinatorContext& context) const
+{
+    if (action == "confirm")
+    {
+        if (isManualConfirmationAllowed())
+            return "";
+        if (currentState == CoordinatorState::Capturing)
+            return "Confirmar: no se puede confirmar mientras la grabacion esta activa";
+        return "Confirmar: no hay paso manual pendiente";
+    }
+    if (action == "capture")
+    {
+        if (currentState == CoordinatorState::Capturing)
+            return "Capturar: grabacion en curso";
+        if (!context.stimulusReady)
+            return "Capturar: prepara primero el estimulo";
+        if (!isDirectCaptureAllowed(context.stimulusReady))
+            return "Capturar: sesion no lista para captura directa";
+        return "";
+    }
+    if (action == "change_profile")
+    {
+        if (isProfileChangeAllowed())
+            return "";
+        return "Cambiar perfil: no disponible durante la grabacion o medicion activa";
+    }
+    if (action == "reanalyze")
+    {
+        if (!context.rawSha256Verified)
+            return "Reanalizar: la captura no ha superado la verificacion SHA-256";
+        if (!isReanalysisAllowed())
+            return "Reanalizar: sesion no completada o sin tomas validas";
+        return "";
+    }
+    if (action == "cancel")
+    {
+        if (isCancellationAllowed())
+            return "";
+        return "Cancelar: no hay sesion activa que cancelar";
+    }
+    if (action == "change_mode")
+    {
+        if (isModeChangeAllowed())
+            return "";
+        return "Cambiar modo: no disponible durante la captura o validacion activa";
+    }
+    return "Accion no disponible en el estado actual";
+}
+
 } // namespace abdaudiolab::measurement

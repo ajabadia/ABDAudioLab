@@ -221,6 +221,14 @@ public:
     [[nodiscard]] bool isProfileChangeAllowed() const noexcept;
     [[nodiscard]] bool isCancellationAllowed() const noexcept;
     [[nodiscard]] bool isReanalysisAllowed() const noexcept;
+    [[nodiscard]] bool isModeChangeAllowed() const noexcept;
+    [[nodiscard]] bool isDirectCaptureAllowed(bool stimulusReady) const noexcept;
+
+    /**
+     * @brief Returns a localized human-readable reason why a given UI action is currently blocked.
+     * @param action "confirm", "capture", "change_profile", "reanalyze", "cancel", "change_mode"
+     */
+    [[nodiscard]] std::string getRejectionReasonForAction(const std::string& action, const CoordinatorContext& context) const;
 
     void reset() noexcept
     {

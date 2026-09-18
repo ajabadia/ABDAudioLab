@@ -1277,6 +1277,64 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     confirmManualButton.onClick = [this] { confirmManualStep(); };
     addChildComponent(confirmManualButton);
 
+    // Measurement Workspace Governance & Dual Mode UI
+    btnModeToggle.setButtonText("Modo: Guiado");
+    btnModeToggle.setTooltip("Alternar entre Modo Guiado (asistente paso a paso) y Modo Libre (captura ad-hoc)");
+    btnModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
+    btnModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
+    btnModeToggle.onClick = [this] {
+        auto currentMode = sessionCoordinator.getWorkspaceInteractionMode();
+        auto targetMode = (currentMode == measurement::WorkspaceInteractionMode::Guided)
+                              ? measurement::WorkspaceInteractionMode::Free
+                              : measurement::WorkspaceInteractionMode::Guided;
+        if (!sessionCoordinator.switchWorkspaceInteractionMode(targetMode))
+        {
+            lblActionReasonBanner.setText(sessionCoordinator.getRejectionReasonForAction("change_mode"), juce::dontSendNotification);
+            lblActionReasonBanner.setVisible(true);
+            return;
+        }
+        updateGovernanceUi();
+    };
+    addAndMakeVisible(btnModeToggle);
+
+    lblHeaderStatusBadge.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    lblHeaderStatusBadge.setJustificationType(juce::Justification::centred);
+    lblHeaderStatusBadge.setColour(juce::Label::backgroundColourId, gui::SoundIdTheme::bgCard);
+    addAndMakeVisible(lblHeaderStatusBadge);
+
+    lblActionReasonBanner.setFont(juce::FontOptions(12.0f));
+    lblActionReasonBanner.setJustificationType(juce::Justification::centredLeft);
+    lblActionReasonBanner.setVisible(false);
+    addChildComponent(lblActionReasonBanner);
+
+    btnFreeCapture.setButtonText(juce::String::fromUTF8(u8"Capturar Toma Libre"));
+    btnFreeCapture.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen.withAlpha(0.2f));
+    btnFreeCapture.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentGreen);
+    btnFreeCapture.onClick = [this] {
+        if (!sessionCoordinator.isDirectCaptureAllowed())
+        {
+            lblActionReasonBanner.setText(sessionCoordinator.getRejectionReasonForAction("capture"), juce::dontSendNotification);
+            lblActionReasonBanner.setVisible(true);
+            return;
+        }
+        sessionCoordinator.triggerFreeCapture();
+    };
+    addChildComponent(btnFreeCapture);
+
+    btnFreeStop.setButtonText("Detener");
+    btnFreeStop.setColour(juce::TextButton::buttonColourId, juce::Colours::coral.withAlpha(0.2f));
+    btnFreeStop.setColour(juce::TextButton::textColourOffId, juce::Colours::coral);
+    btnFreeStop.onClick = [this] {
+        if (!sessionCoordinator.isCancellationAllowed())
+        {
+            lblActionReasonBanner.setText(sessionCoordinator.getRejectionReasonForAction("cancel"), juce::dontSendNotification);
+            lblActionReasonBanner.setVisible(true);
+            return;
+        }
+        sessionCoordinator.triggerStopSession();
+    };
+    addChildComponent(btnFreeStop);
+
     // 7. Slide-In Drawer & Modals (Overlays on top)
     drawer.onHardwareSelected = [this](const juce::String& hwId, const juce::String& funcId) {
         onHardwareSelected(hwId, funcId);
@@ -1454,6 +1512,15 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         sessionManager.triggerAutoSave(buildCurrentSessionManifest());
     };
 
+    sessionCoordinator.onCoordinatorStateChanged = [this](measurement::CoordinatorState /*oldSt*/,
+                                                         measurement::CoordinatorState /*newSt*/,
+                                                         const juce::String& /*reason*/) {
+        juce::MessageManager::callAsync([this]() {
+            updateGovernanceUi();
+        });
+    };
+    updateGovernanceUi();
+
     // Phase 14: Pause/Resume — master button cycles; LED state synced back to strip
     meterStrip.onPauseResumeClicked = [this] {
         sessionCoordinator.togglePauseSession();
@@ -1620,15 +1687,172 @@ bool MainContentComponent::keyPressed(const juce::KeyPress& key, juce::Component
     }
     else if (key.isKeyCode(juce::KeyPress::spaceKey))
     {
-        if ((confirmManualButton.isEnabled() && confirmManualButton.isVisible())
-            || (operatorStepModal.isVisible() && !operatorStepModal.isMeasuring))
+        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Guided &&
+            sessionCoordinator.isManualConfirmationAllowed())
         {
             confirmManualStep();
             return true;
         }
     }
+    else if (key.isKeyCode(juce::KeyPress::escapeKey))
+    {
+        if (sessionCoordinator.isCancellationAllowed())
+        {
+            sessionCoordinator.triggerStopSession();
+            return true;
+        }
+    }
     return false;
 }
+
+void MainContentComponent::updateGovernanceUi()
+{
+    auto mode = sessionCoordinator.getWorkspaceInteractionMode();
+    auto state = sessionCoordinator.getCoordinatorState();
+    int currentPt = sessionCoordinator.getTotalPointsMeasured();
+    int totalPts = suiteList.getQueueSize();
+
+    // 1. Texto de Modo
+    juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? "Guiado" : "Libre";
+    btnModeToggle.setButtonText("Modo: " + modeStr);
+    btnModeToggle.setEnabled(sessionCoordinator.isModeChangeAllowed());
+    if (!sessionCoordinator.isModeChangeAllowed())
+        btnModeToggle.setTooltip(sessionCoordinator.getRejectionReasonForAction("change_mode"));
+    else
+        btnModeToggle.setTooltip("Alternar entre Modo Guiado (asistente paso a paso) y Modo Libre (captura ad-hoc)");
+
+    // 2. Texto y Color de Estado
+    juce::String stateStr;
+    juce::Colour stateCol;
+
+    switch (state)
+    {
+        case measurement::CoordinatorState::NoSession:
+            stateStr = "Sin Sesion";
+            stateCol = juce::Colours::grey;
+            break;
+        case measurement::CoordinatorState::ProfileSelected:
+            stateStr = "Perfil Seleccionado";
+            stateCol = juce::Colour(0xff3498db);
+            break;
+        case measurement::CoordinatorState::SessionReady:
+            stateStr = "Listo";
+            stateCol = juce::Colour(0xff2ecc71);
+            break;
+        case measurement::CoordinatorState::AwaitingManualConfirmation:
+            stateStr = "Esperando Operador (Espacio)";
+            stateCol = juce::Colour(0xfff39c12);
+            break;
+        case measurement::CoordinatorState::ApplyingAutomation:
+            stateStr = "Automatizando";
+            stateCol = juce::Colour(0xff3498db);
+            break;
+        case measurement::CoordinatorState::Capturing:
+            stateStr = "Capturando Audio";
+            stateCol = juce::Colour(0xff3498db);
+            break;
+        case measurement::CoordinatorState::Validating:
+            stateStr = "Validando Toma";
+            stateCol = juce::Colour(0xff3498db);
+            break;
+        case measurement::CoordinatorState::Persisting:
+            stateStr = "Sellando en Disco";
+            stateCol = juce::Colour(0xff3498db);
+            break;
+        case measurement::CoordinatorState::PointCompleted:
+            stateStr = "Toma Completada";
+            stateCol = juce::Colour(0xff2ecc71);
+            break;
+        case measurement::CoordinatorState::SessionCompleted:
+            stateStr = "Sesion Completada";
+            stateCol = juce::Colour(0xff2ecc71);
+            break;
+        case measurement::CoordinatorState::ReanalysisAvailable:
+            stateStr = "Reanalisis Disponible";
+            stateCol = juce::Colour(0xff2ecc71);
+            break;
+        case measurement::CoordinatorState::Error:
+            stateStr = "Error";
+            stateCol = juce::Colour(0xffe74c3c);
+            break;
+        case measurement::CoordinatorState::Aborted:
+            stateStr = "Sesion Cancelada";
+            stateCol = juce::Colours::grey;
+            break;
+    }
+
+    // 3. Texto del Punto
+    juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
+                             ? ("Punto: " + juce::String(currentPt) + " de " + juce::String(std::max(currentPt, totalPts)))
+                             : ("Tomas registradas: " + juce::String(currentPt));
+
+    lblHeaderStatusBadge.setText("  " + modeStr + "  |  " + stateStr + "  |  " + ptStr + "  ", juce::dontSendNotification);
+    lblHeaderStatusBadge.setColour(juce::Label::textColourId, stateCol);
+    lblHeaderStatusBadge.setColour(juce::Label::outlineColourId, stateCol.withAlpha(0.6f));
+
+    // 4. Habilitación de Botones y Tooltips Explicativos
+    bool canConfirm = sessionCoordinator.isManualConfirmationAllowed();
+    confirmManualButton.setEnabled(canConfirm);
+    if (!canConfirm)
+        confirmManualButton.setTooltip(sessionCoordinator.getRejectionReasonForAction("confirm"));
+    else
+        confirmManualButton.setTooltip("Confirmar posicion fisica del mando (Barra espaciadora)");
+
+    bool canCapture = sessionCoordinator.isDirectCaptureAllowed();
+    btnFreeCapture.setEnabled(canCapture);
+    if (!canCapture)
+        btnFreeCapture.setTooltip(sessionCoordinator.getRejectionReasonForAction("capture"));
+    else
+        btnFreeCapture.setTooltip("Disparar captura inmediata ad-hoc en modo libre");
+
+    bool canCancel = sessionCoordinator.isCancellationAllowed();
+    btnFreeStop.setEnabled(canCancel);
+    if (!canCancel)
+        btnFreeStop.setTooltip(sessionCoordinator.getRejectionReasonForAction("cancel"));
+    else
+        btnFreeStop.setTooltip("Detener o cancelar la sesion de medicion actual");
+
+    // 5. Visibilidad en Modo Libre vs Guiado
+    bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
+    btnFreeCapture.setVisible(isFreeMode);
+    btnFreeStop.setVisible(isFreeMode);
+
+    // 6. Banner persistente de motivo / instrucciones para el operador
+    if (state == measurement::CoordinatorState::AwaitingManualConfirmation)
+    {
+        lblActionReasonBanner.setText("Paso de alineacion manual pendiente. Ajuste el control fisico y pulse Confirmar o la barra espaciadora.", juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
+        lblActionReasonBanner.setVisible(true);
+    }
+    else if (state == measurement::CoordinatorState::Capturing)
+    {
+        lblActionReasonBanner.setText("Capturando audio inmutable: Cambio de perfil y controles bloqueados durante la grabacion.", juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, juce::Colour(0xff3498db));
+        lblActionReasonBanner.setVisible(true);
+    }
+    else if (state == measurement::CoordinatorState::Error)
+    {
+        const auto& hist = sessionCoordinator.getTransitionHistory();
+        juce::String errReason = hist.empty() ? "Error en el flujo de medicion" : juce::String(hist.back().reason);
+        lblActionReasonBanner.setText("Alerta: " + errReason, juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, juce::Colour(0xffe74c3c));
+        lblActionReasonBanner.setVisible(true);
+    }
+    else if (state == measurement::CoordinatorState::Aborted)
+    {
+        lblActionReasonBanner.setText("Sesion cancelada. Las tomas previas selladas se han preservado.", juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, juce::Colours::grey);
+        lblActionReasonBanner.setVisible(true);
+    }
+    else
+    {
+        lblActionReasonBanner.setVisible(false);
+    }
+
+    resized();
+    repaint();
+}
+
 void MainContentComponent::updateSplitLayout()
 {
     switch (centerSplitMode)
@@ -1676,7 +1900,30 @@ void MainContentComponent::resized()
     headerRow.removeFromRight(8);
     mainHeader.setBounds(headerRow);
 
-    bounds.removeFromTop(10);
+    bounds.removeFromTop(6);
+
+    // 1.1 Measurement Workspace Governance Header Bar (Status badge, mode toggle, free actions, reasons)
+    if (currentWorkflowMode != gui::session::UiWorkflowMode::Guided)
+    {
+        auto govRow = bounds.removeFromTop(26);
+        btnModeToggle.setBounds(govRow.removeFromLeft(100));
+        govRow.removeFromLeft(8);
+        lblHeaderStatusBadge.setBounds(govRow.removeFromLeft(360));
+        govRow.removeFromLeft(8);
+
+        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Free)
+        {
+            btnFreeCapture.setBounds(govRow.removeFromLeft(150));
+            govRow.removeFromLeft(6);
+            btnFreeStop.setBounds(govRow.removeFromLeft(75));
+            govRow.removeFromLeft(10);
+        }
+        if (lblActionReasonBanner.isVisible())
+        {
+            lblActionReasonBanner.setBounds(govRow);
+        }
+        bounds.removeFromTop(6);
+    }
 
     // En modo guiado, el contenedor ocupa todo el canvas central
     if (currentWorkflowMode == gui::session::UiWorkflowMode::Guided)

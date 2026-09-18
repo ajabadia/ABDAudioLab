@@ -205,6 +205,14 @@ private:
     juce::TextButton btnRepeatStep;
     juce::TextButton confirmManualButton;
 
+    // Measurement Workspace Governance & Dual Mode UI
+    juce::TextButton btnModeToggle;
+    juce::Label lblHeaderStatusBadge;
+    juce::Label lblActionReasonBanner;
+    juce::TextButton btnFreeCapture;
+    juce::TextButton btnFreeStop;
+    void updateGovernanceUi();
+
     // Guided Workflow Architecture (Phase 16 & 20.7)
     gui::session::ProfilingSessionController profilingSessionController;
     std::unique_ptr<gui::soundid::SoundIdGuidedWorkflowContainer> guidedWorkflowContainer;

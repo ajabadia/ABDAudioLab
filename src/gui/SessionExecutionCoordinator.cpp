@@ -31,9 +31,65 @@ void SessionExecutionCoordinator::setWorkspaceInteractionMode(measurement::Works
     currentInteractionMode = mode;
 }
 
+bool SessionExecutionCoordinator::switchWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode)
+{
+    if (mode == currentInteractionMode)
+        return true;
+
+    if (!isModeChangeAllowed())
+        return false;
+
+    currentInteractionMode = mode;
+    return true;
+}
+
 measurement::WorkspaceInteractionMode SessionExecutionCoordinator::getWorkspaceInteractionMode() const noexcept
 {
     return currentInteractionMode;
+}
+
+bool SessionExecutionCoordinator::isManualConfirmationAllowed() const noexcept
+{
+    return stateMachine.isManualConfirmationAllowed();
+}
+
+bool SessionExecutionCoordinator::isProfileChangeAllowed() const noexcept
+{
+    return stateMachine.isProfileChangeAllowed();
+}
+
+bool SessionExecutionCoordinator::isCancellationAllowed() const noexcept
+{
+    return stateMachine.isCancellationAllowed();
+}
+
+bool SessionExecutionCoordinator::isReanalysisAllowed() const noexcept
+{
+    return stateMachine.isReanalysisAllowed();
+}
+
+bool SessionExecutionCoordinator::isModeChangeAllowed() const noexcept
+{
+    return stateMachine.isModeChangeAllowed();
+}
+
+bool SessionExecutionCoordinator::isDirectCaptureAllowed() const noexcept
+{
+    // El estímulo se considera listo si hay un audio cargado o disponible en el motor
+    bool stimulusReady = true;
+    return stateMachine.isDirectCaptureAllowed(stimulusReady);
+}
+
+juce::String SessionExecutionCoordinator::getRejectionReasonForAction(const juce::String& action) const
+{
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.stimulusReady = true;
+    ctx.rawSha256Verified = (activeMeasurementSession != nullptr && !activeMeasurementSession->rawCaptures.empty());
+
+    std::string reason = stateMachine.getRejectionReasonForAction(action.toStdString(), ctx);
+    return juce::String(reason);
 }
 
 measurement::CoordinatorState SessionExecutionCoordinator::getCoordinatorState() const noexcept
@@ -191,6 +247,42 @@ void SessionExecutionCoordinator::repeatCurrentStep()
 void SessionExecutionCoordinator::stepBack()
 {
     sequencer.stepBack();
+}
+
+void SessionExecutionCoordinator::triggerFreeCapture(const std::vector<measurement::ControlStateSnapshot>& customSnapshots)
+{
+    measurement::CoordinatorContext ctx;
+    ctx.mode = currentInteractionMode;
+    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+    ctx.stimulusReady = true;
+    ctx.isCapturingActive = false;
+    ctx.actor = "operator";
+
+    transitionTo(measurement::CoordinatorEvent::CaptureStarted, ctx);
+
+    if (stateMachine.getState() != measurement::CoordinatorState::Capturing)
+        return;
+
+    currentPointSnapshots.clear();
+    if (customSnapshots.empty())
+    {
+        measurement::ControlStateSnapshot unknownSnap;
+        unknownSnap.controlId = "unspecified_param";
+        unknownSnap.confirmationStatus = "unknown";
+        unknownSnap.displayValue = "Posición no declarada";
+        unknownSnap.normalizedValue = std::nullopt;
+        currentPointSnapshots.push_back(unknownSnap);
+    }
+    else
+    {
+        currentPointSnapshots = customSnapshots;
+    }
+
+    if (activeMeasurementSession != nullptr)
+    {
+        for (const auto& snap : currentPointSnapshots)
+            activeMeasurementSession->controlStates.push_back(snap);
+    }
 }
 
 void SessionExecutionCoordinator::togglePauseSession()

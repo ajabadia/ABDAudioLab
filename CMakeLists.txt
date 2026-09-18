@@ -847,6 +847,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_HoldoutSequence.cpp
     src/tests/test_ModelHoldoutValidation.cpp
     src/tests/test_CertificationReportExport.cpp
+    src/tests/test_UiCoordinatorGovernance.cpp
 )
 
 # ------------------------------------------------------------------------------

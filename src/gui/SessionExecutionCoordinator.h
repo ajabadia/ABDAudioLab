@@ -45,10 +45,20 @@ public:
 
     // Measurement Workspace Interaction Mode & State Machine Queries
     void setWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode) noexcept;
+    [[nodiscard]] bool switchWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode);
     [[nodiscard]] measurement::WorkspaceInteractionMode getWorkspaceInteractionMode() const noexcept;
     [[nodiscard]] measurement::CoordinatorState getCoordinatorState() const noexcept;
     [[nodiscard]] const measurement::MeasurementSession* getActiveMeasurementSession() const noexcept;
     [[nodiscard]] const std::vector<measurement::CoordinatorTransitionRecord>& getTransitionHistory() const noexcept;
+
+    // Action Permission Queries and Rejection Explanations
+    [[nodiscard]] bool isManualConfirmationAllowed() const noexcept;
+    [[nodiscard]] bool isProfileChangeAllowed() const noexcept;
+    [[nodiscard]] bool isCancellationAllowed() const noexcept;
+    [[nodiscard]] bool isReanalysisAllowed() const noexcept;
+    [[nodiscard]] bool isModeChangeAllowed() const noexcept;
+    [[nodiscard]] bool isDirectCaptureAllowed() const noexcept;
+    [[nodiscard]] juce::String getRejectionReasonForAction(const juce::String& action) const;
 
     /**
      * @brief Formally initializes a MeasurementSession linked to the selected device profile and target function.
@@ -57,6 +67,13 @@ public:
                                       const juce::String& targetFunctionId,
                                       const juce::String& profileSha256,
                                       const std::optional<nlohmann::ordered_json>& pluginMeta = std::nullopt);
+
+    /**
+     * @brief Executes a single direct ad-hoc capture in Free Mode.
+     * If customSnapshots is empty or controls are unspecified, registers confirmationStatus = "unknown"
+     * and displayValue = "Posición no declarada" without inventing values.
+     */
+    void triggerFreeCapture(const std::vector<measurement::ControlStateSnapshot>& customSnapshots = {});
 
     void confirmOperatorStep();
     void repeatCurrentStep();
