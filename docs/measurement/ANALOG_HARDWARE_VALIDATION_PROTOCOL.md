@@ -2,101 +2,129 @@
 
 ## Propósito y Alcance
 
-Este documento establece el protocolo formal y auditable para la caracterización analógica de hardware real (interfaces de audio, preamplificadores, procesadores y sintetizadores analógicos) en **ABDAudioLab**, garantizando:
-1. Desacoplamiento riguroso de la tarjeta de sonido mediante calibración previa por loopback.
-2. Preservación estricta de capturas crudas inmutables (`.raw.wav`) selladas con SHA-256.
-3. Compensación reversible regularizada sin amplificación excesiva de ruido ni singularidades.
-4. Segregación inequívoca entre saturación digital del convertidor ADC y compresión analógica del DUT.
+Este documento establece el protocolo formal y auditable para la caracterización analógica de hardware real en **ABDAudioLab**. Regula la ejecución de ensayos de laboratorio mediante la segregación en tres capas físicas:
+1. **Capa 1: Referencia de Cadena (`loopback_reference`)**: Calibración previa del trayecto directo DAC $\to$ cable $\to$ ADC.
+2. **Capa 2: DUT + Cadena (`dut_plus_chain`)**: Preservación de capturas crudas inmutables selladas con SHA-256 sin alteración.
+3. **Capa 3: Compensación Reversible (`compensated_result`)**: Desacoplamiento matemático regularizado con máscara de validez y cota de ganancia inversa.
 
 ---
 
-## 1. Registro de Hardware y Entorno
+## 1. Registro de Hardware y Entorno (Parametrización Obligatoria)
 
-Toda sesión de caracterización física debe registrar en los metadatos de conexión (`HardwareConnectionMetadata`):
+El protocolo es agnóstico respecto a marcas o modelos de convertidores. Toda sesión debe registrar obligatoriamente los datos reales del banco antes de procesar o interpretar resultados (`HardwareConnectionMetadata`):
 
-| Campo | Descripción | Ejemplo / Valores Válidos |
-| :--- | :--- | :--- |
-| `interfaceModel` | Marca, modelo y revisión del hardware de audio | `"RME Babyface Pro FS"` |
-| `firmwareVersion` | Versión del firmware del dispositivo | `"v1.24"` |
-| `sampleRateHz` | Frecuencia de muestreo fijada | `48000.0`, `96000.0` |
-| `blockSize` | Tamaño de buffer ASIO / CoreAudio | `128`, `256`, `512` |
-| `dutOutputImpedance` | Impedancia de salida del DUT y fuente del dato | `{"valueOhms": 100.0, "source": "datasheet"}` |
-| `interfaceInputImpedance`| Impedancia de entrada del canal ADC | `{"valueOhms": 10000.0, "source": "datasheet"}` |
-| `cableDescription` | Longitud, apantallamiento y tipo de conector | `"Mogami 2534, 1.5m, Neutrik Gold TRS"` |
-| `wiringTopology` | Configuración eléctrica de conexión | `"Balanced"`, `"Unbalanced"`, `"PseudoBalanced"` |
-| `padGainDb` | Atenuador o ganancia analógica de previo fijada | `0.0 dB` (o valor nominal calibrado) |
-| `phantomPowerActive` | Alimentación phantom +48V | `false` (OBLIGATORIO desactivar para entradas de línea/DUT) |
-| `ambientTemperatureCelsius`| Temperatura ambiente del banco de prueba | `22.5` (si está disponible) |
+| Parámetro | Tipo | Descripción | Estado Inicial |
+| :--- | :--- | :--- | :--- |
+| `interfaceModel` | String | Marca, modelo y revisión del hardware de audio | `[Pendiente de declarar]` |
+| `firmwareVersion` | String | Versión del firmware del dispositivo | `[Pendiente de declarar]` |
+| `driverBackend` | String | Controlador o backend de audio (ASIO, WASAPI Exclusive, CoreAudio) | `[Pendiente de declarar]` |
+| `sampleRateHz` | Float | Frecuencia de muestreo fijada (48000.0, 96000.0) | `[Pendiente de fijar]` |
+| `blockSize` | Integer | Tamaño de buffer fijado (128, 256, 512) | `[Pendiente de fijar]` |
+| `inputMode` / `outputMode` | String | Modo de entrada/salida (Line In / Line Out, +4 dBu / -10 dBV) | `[Pendiente de fijar]` |
+| `dutOutputImpedance` | Object | Impedancia de salida del DUT con fuente: `datasheet`, `measured`, `user_supplied` | `{"valueOhms": null, "source": "unknown"}` |
+| `interfaceInputImpedance` | Object | Impedancia de entrada ADC con fuente: `datasheet`, `measured`, `user_supplied` | `{"valueOhms": null, "source": "unknown"}` |
+| `cableDescription` | String | Longitud, apantallamiento y tipo de conector | `[Pendiente de declarar]` |
+| `wiringTopology` | Enum | Topología eléctrica (`Balanced`, `Unbalanced`, `PseudoBalanced`) | `[Pendiente de declarar]` |
+| `padGainDb` | Float | Atenuador o ganancia analógica de previo fijada (nominal 0.0 dB) | `0.0` |
+| `phantomPowerActive` | Boolean | Estado de alimentación phantom +48V | `false` (OBLIGATORIO) |
+| `ambientTemperatureCelsius`| Float | Temperatura ambiente del banco de prueba | `[Opcional / Medida]` |
+
+> [!CAUTION]
+> **Alimentación Phantom (+48V)**:
+> Debe verificarse físicamente que la alimentación phantom esté desactivada antes de conectar el loopback o cualquier DUT de línea. Ciertas interfaces aplican +48V de forma global a varios canales; la presencia de DC residual puede dañar las etapas de salida y falsear severamente las mediciones.
 
 ---
 
-## 2. Fases Operativas del Protocolo
+## 2. Progresión Gradual de Ensayos
+
+Para aislar variables y garantizar que la compensación no introduce artefactos, la campaña de validación física debe seguir una progresión estricta en 4 etapas:
 
 ```mermaid
-sequenceDiagram
-    participant Op as Operador / Banco
-    participant HW as Hardware Interfaz
-    participant Capa1 as Capa 1: Loopback
-    participant DUT as DUT Físico
-    participant Capa2 as Capa 2: DUT + Cadena
-    participant Capa3 as Capa 3: Compensación
+graph TD
+    ETAPA1["Etapa 1: Loopback Puro (DAC -> Cable Ref -> ADC)"]
+    ETAPA2["Etapa 2: Control Lineal Pasivo (Atenuador Resistivo o Cable Largo)"]
+    ETAPA3["Etapa 3: Control Lineal con Curva Conocida (Filtro RC Pasivo)"]
+    ETAPA4["Etapa 4: DUT Analógico No Lineal (Sintetizador / Previo / Filtro Activo)"]
 
-    Note over Op,HW: Fase A: Preparación
-    Op->>HW: Fijar Fs=48kHz, buffer=512, AGC=Off, DirectMonitor=Off
-    Op->>HW: Calentamiento térmico (15 min)
-
-    Note over Op,Capa1: Fase B: Calibración Loopback
-    Op->>HW: Conectar DAC Out -> Cable Ref -> ADC In
-    HW-->>Capa1: Captura 2 tomas (stimulus + response)
-    Capa1->>Capa1: Evaluar THD residual, rizado y ausencia de clip
-    alt Loopback inválido (clip o THD > -40 dBFS)
-        Capa1-->>Op: RECHAZO: chain_invalid (Bloquear compensación)
-    else Loopback válido
-        Capa1-->>Capa1: Status: valid (Sellado SHA-256)
-    end
-
-    Note over Op,Capa2: Fase C: Inserción del DUT
-    Op->>DUT: Conectar DAC Out -> DUT -> ADC In
-    DUT-->>Capa2: Captura cruda dut_plus_chain.raw.wav
-    Capa2->>Capa2: Sellado SHA-256 inmutable inmediato
-    Capa2->>Capa2: Diagnosticar saturación: ¿ADC rail >= 0.999?
-    alt ADC Clipping detectado
-        Capa2-->>Op: RECHAZO: measurement_invalid_due_to_adc_clipping
-    else Rango lineal ADC
-        Capa2-->>Capa3: Proceder a análisis y desacoplamiento
-    end
-
-    Note over Capa3: Fase D: Validación y Exportación
-    Capa3->>Capa3: Deconvolución regularizada (Tikhonov λ) con gain cap (+12 dB)
-    Capa3->>Capa3: Generar compensated_result y manifest.json FAIR
+    ETAPA1 -->|Certificación Capa 1: valid| ETAPA2
+    ETAPA2 -->|Compensación suprime cable sin ruido| ETAPA3
+    ETAPA3 -->|Respuesta de filtro coincide con teoría| ETAPA4
 ```
 
-### Fase A: Preparación del Banco
-1. **Configuración de Interfaz**: Fijar frecuencia de muestreo (48 kHz o 96 kHz) y buffer constante (512 muestras). Desactivar cualquier limitador de hardware, DSP interno, monitorización directa o ecualización del mezclador del fabricante.
-2. **Estabilidad Térmica**: Permitir un periodo de encendido previo de al menos 15 minutos para estabilizar la deriva térmica de los osciladores y componentes analógicos.
-3. **Verificación de Protecciones**: Comprobar visualmente que la alimentación phantom (+48V) esté apagada en todos los canales de medición.
+1. **Etapa 1 (Loopback Puro)**: Caracteriza el suelo de ruido, rizado de la tarjeta, latencia $\tau_0$ y deriva de reloj. Si no se certifica como `valid`, la campaña se detiene.
+2. **Etapa 2 (Control Lineal Pasivo)**: Conectar un atenuador resistivo puro o un tramo de cable conocido. Verifica que la compensación regularizada suprime la atenuación o pérdidas sin alterar la fase ni amplificar ruido.
+3. **Etapa 3 (Control Lineal con Curva Conocida)**: Conectar un filtro pasivo $RC$ de frecuencia de corte conocida. Verifica que la máscara de validez y la deconvolución recuperan la curva teórica del filtro sin singularidades.
+4. **Etapa 4 (DUT Analógico No Lineal)**: Solo tras superar los tres controles lineales previos, se conecta el sintetizador analógico o previo para medir THD, IMD y umbrales de compresión.
 
-### Fase B: Calibración de Cadena (Capa 1 — Loopback de Referencia)
-1. **Conexión Directa**: Conectar la salida del DAC directamente a la entrada del ADC con un cable corto balanceado de referencia.
-2. **Emisión de Estímulo**: Emitir log-sweep canónico a nivel nominal $-6.0\text{ dBFS}$.
-3. **Criterios de Aceptación/Rechazo**:
-   - $\text{SNR} \ge 18\text{ dB}$ (nominal $\ge 80\text{ dB}$ en interfaces profesionales).
-   - $\text{Rizado de Frecuencia} \le 1.0\text{ dB}$ (estado `valid`) o $\le 3.0\text{ dB}$ (estado `degraded`).
-   - $\text{THD Residual} \le -60\text{ dBFS}$.
-   - **Cero Muestras en Rail**: Si existe alguna muestra $\ge 0.999$, la calibración se marca como `chain_invalid`.
-4. **Bloqueo Preventivo**: Si la calibración es `chain_invalid`, queda estrictamente prohibido utilizarla para compensar mediciones de DUT.
+---
 
-### Fase C: Caracterización del DUT (Capa 2 — DUT + Cadena)
-1. **Inserción**: Interpolar el dispositivo bajo prueba (DUT) entre el DAC y el ADC.
-2. **Ajuste de Niveles**: Configurar el nivel de entrada al ADC para asegurar que los picos máximos no superen $-1.0\text{ dBFS}$, dejando al menos $1.0\text{ dB}$ de margen dinámico.
-3. **Captura y Sellado Inmediato**: Grabar la señal cruda y computar inmediatamente su hash criptográfico SHA-256. El archivo queda marcado como solo lectura y jamás se modifica.
-4. **Diagnóstico Físico de Saturación**:
-   - Si se detecta saturación en el ADC ($\ge 3$ muestras en rail): la medición queda invalidada para THD/IMD (`measurement_invalid_due_to_adc_clipping`).
-   - Si el DUT comprime a niveles donde el ADC está en rango lineal: registrar `dut_saturating` con la compresión observada en dB.
+## 3. Criterios Metrológicos de Aceptación y Rechazo
 
-### Fase D: Compensación Reversible y Validación (Capa 3)
-1. **Deconvolución Regularizada de Tikhonov**:
-   $$H_{\text{comp}}(f) = \frac{H_{\text{dut+chain}}(f) \cdot H_{\text{chain}}^*(f)}{|H_{\text{chain}}(f)|^2 + \lambda}$$
-2. **Cota de Ganancia Inversa**: Aplicar la política configurada (`maxInverseGainDb = +12 dB` por defecto) para prevenir que notches o caídas de banda de la tarjeta disparen el ruido térmico.
-3. **Contrato de Reversibilidad**: La compensación solo se marca como `isReversible = true` si conserva la cadena completa de hashes: `rawCaptureSha256`, `chainReferenceSha256`, `compensationModelSha256`, $\lambda$ y la máscara de validez.
-4. **Empaquetado FAIR / LNL**: Generar el contenedor reproducible con los audios crudos, los resultados analizados, el informe HTML/SVG y el archivo `manifest.json`.
+### A. Diagnóstico Segregado de Clipping
+Se distinguen dos niveles de evidencia de saturación:
+- `railEvidenceDetected`: Una o más muestras en el riel del convertidor ($|s| \ge 0.999$).
+- `hardClipConfirmed`: Patrón temporal sostenido ($\ge 3$ muestras consecutivas en riel).
+
+**Regla de Decisión**:
+- **Capa 1 (Loopback)**: Rechazo incondicional ante cualquier `railEvidenceDetected` $\to$ estado `chain_invalid`.
+- **Capa 2 (DUT + Cadena)**: Si `railEvidenceDetected == true`, se marca `status = "measurement_invalid_due_to_adc_clipping"` y se **bloquea el cálculo de THD, IMD y métricas de distorsión compensadas**, para evitar atribuir al DUT los armónicos espurios del ADC.
+
+### B. Umbrales de SNR Específicos por Medición
+No existe un umbral único de SNR. Se registran `snrRequiredForMeasurement`, `snrMeasured` y `snrMargin`:
+- **Respuesta en Frecuencia (Sweep)**: $\text{SNR}_{\text{req}} \ge 18.0\text{ dB}$.
+- **Distorsión Armónica (THD hasta 0.1%)**: $\text{SNR}_{\text{req}} \ge 40.0\text{ dB}$.
+- **Intermodulación (IMD CCIF/SMPTE de alto orden)**: $\text{SNR}_{\text{req}} \ge 50.0\text{ dB}$.
+- **Rizado de Frecuencia en Loopback**: $\le 1.0\text{ dB}$ para `valid`, $\le 3.0\text{ dB}$ para `degraded`.
+
+### C. Criterios de Abortar Sesión Inmediatamente
+La sesión se suspende e invalida automáticamente si ocurre cualquiera de los siguientes eventos:
+1. Detección o sospecha de alimentación phantom activa.
+2. Cualquier muestra en rail de ADC en la calibración de loopback.
+3. Dropout o discontinuidad temporal detectada por `FineLatencyAnalyzer` (`jumpSamples != 0`).
+4. Conmutación inesperada de frecuencia de muestreo o tamaño de buffer del driver.
+5. Detección de monitorización directa analógica o AGC/DSP activo en el panel de control de la tarjeta.
+6. Calibración degradada cuando la sesión exige `allowDegraded = false`.
+7. Temperatura ambiente fuera del rango declarado ($> \pm 5^\circ\text{C}$ de variación durante la sesión).
+
+---
+
+## 4. Protocolo de Repetición y Estadística ($N \ge 3$)
+
+Toda medición física (tanto loopback como DUT) debe ejecutarse con un mínimo de **$N = 3$ tomas independientes**.
+
+> [!IMPORTANT]
+> **Prohibición Estricta de Pre-Promediado**:
+> Queda estrictamente prohibido promediar las ondas WAV crudas antes de sellarlas. Cada toma cruda se graba, se almacena de forma independiente y se sella con su propio hash SHA-256 inmutable.
+
+Por cada toma individual $k \in \{1..N\}$ se registra:
+- `captureId`, `rawSha256`, `latencySamples`, `driftPpm`, `noiseFloorDbfs`, `residualThdDbfs`, `responseRippleDb`, `clipSampleCount`.
+
+Posteriormente, el motor calcula las estadísticas consolidadas:
+- $\text{Media } (\mu)$ y $\text{Desviación Estándar } (\sigma)$ de latencia, THD y respuesta.
+- $\text{Rango } (\max - \min)$ y $\text{Máxima Diferencia Inter-Toma}$.
+- Incertidumbre combinada de la medición $u_c$.
+
+---
+
+## 5. Artefactos Obligatorios por Sesión Experimental
+
+Toda sesión completada en el laboratorio debe generar un directorio autocontenido con los siguientes 8 artefactos canónicos:
+
+```
+session_<id>_<timestamp>/
+├── session_manifest.json          # Manifiesto canónico RFC 8785 con inventario y SHA-256
+├── loopback_reference.raw.wav     # Audio crudo inmutable de la calibración DAC->ADC
+├── dut_plus_chain.raw.wav         # Audio crudo inmutable con el DUT insertado
+├── calibration_record.json        # Capa 1: Registro formal de loopback (SNR, rizado, estado)
+├── dut_measurement.json           # Capa 2: Métricas directas del crudo + diagnóstico saturación
+├── compensated_result.json        # Capa 3: Respuesta regularizada desacoplada + máscara
+├── hardware_metadata.json         # Interfaz, firmware, impedancias, cables y conexiones
+├── environment.json               # Driver, OS, temperatura y fecha/hora UTC
+└── diagnostics.json               # Conteo de clips, residuos de latencia y evaluación de aborto
+```
+
+El archivo `session_manifest.json` debe clasificar explícitamente cada artefacto según su estatus:
+- `"raw"`: Captura original inmutable garantizada por SHA-256.
+- `"derived"`: Resultado computado reproduciblemente a partir de los raws.
+- `"rejected"`: Medición descartada por clipping, SNR insuficiente o violación de protocolo.
+- `"not_available"`: Metadato o toma no provista por el operador.
