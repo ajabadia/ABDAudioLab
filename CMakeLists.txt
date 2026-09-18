@@ -266,6 +266,13 @@ target_sources(ABDAudioLab
         src/measurement/ObservableComparisonEngine.cpp
         src/measurement/ComplexEnvelopeOrchestrator.h
         src/measurement/ComplexEnvelopeOrchestrator.cpp
+        src/measurement/ComplexEnvelopeExportContracts.h
+        src/measurement/ComplexEnvelopeSvgRenderer.h
+        src/measurement/ComplexEnvelopeSvgRenderer.cpp
+        src/measurement/ComplexEnvelopeHtmlReportGenerator.h
+        src/measurement/ComplexEnvelopeHtmlReportGenerator.cpp
+        src/measurement/ComplexEnvelopeFairExporter.h
+        src/measurement/ComplexEnvelopeFairExporter.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -649,6 +656,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T2.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T3.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T4.cpp
+    src/tests/test_Phase20_11_7_ComplexEnvelopes_T5.cpp
+    src/tests/test_Phase20_11_7_ComplexEnvelopes_T6.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -663,6 +672,9 @@ add_executable(ABDAudioLab_Tests
     src/measurement/TimingReferenceResolver.cpp
     src/measurement/ObservableComparisonEngine.cpp
     src/measurement/ComplexEnvelopeOrchestrator.cpp
+    src/measurement/ComplexEnvelopeSvgRenderer.cpp
+    src/measurement/ComplexEnvelopeHtmlReportGenerator.cpp
+    src/measurement/ComplexEnvelopeFairExporter.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp
