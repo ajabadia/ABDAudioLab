@@ -284,6 +284,8 @@ target_sources(ABDAudioLab
         src/measurement/AnalogChainCompensationContracts.h
         src/measurement/AnalogChainReversibleCompensator.h
         src/measurement/AnalogChainReversibleCompensator.cpp
+        src/measurement/MeasurementSessionContracts.h
+        src/measurement/MeasurementSessionContracts.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -672,6 +674,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_12_FineLatency_T1.cpp
     src/tests/test_Phase20_12_AnalogDutCharacterization_T2.cpp
     src/tests/test_Phase20_12_ReversibleCompensation_T3.cpp
+    src/tests/test_Integration_SmokeTest_SessionWorkflow.cpp
     src/tests/test_MeasurementDspUtils.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
@@ -694,6 +697,7 @@ add_executable(ABDAudioLab_Tests
     src/measurement/MeasurementDspUtils.cpp
     src/measurement/AnalogDutCharacterizer.cpp
     src/measurement/AnalogChainReversibleCompensator.cpp
+    src/measurement/MeasurementSessionContracts.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp
