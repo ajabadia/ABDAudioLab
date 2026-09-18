@@ -17,6 +17,12 @@
 namespace abdaudiolab
 {
 
+// ==============================================================================
+// SECTION 1: AUDIO ENGINE, TELEMETRY & FFT BRIDGE
+// Owns UI-side audio device initialization, telemetry stream subscriptions, and auxiliary floating window host.
+// Real-time audio processing delegated to AudioEngine; FFT computation to AudioBridge/SpectrumAnalyzer.
+// ==============================================================================
+
 namespace
 {
 class MeasurementFloatingWindow : public juce::DocumentWindow
@@ -66,6 +72,11 @@ hardware::AiraModel mapHardwareIdToAiraModel(const juce::String& hwId)
     return hardware::AiraModel::GenericModular;
 }
 
+// ==============================================================================
+// SECTION 4: CONSTRUCTOR, UI WIRING & DRAWER BINDINGS
+// Owns component tree instantiation, child component hierarchy assembly, sidebar stepper wireup, and drawer slide-in binding.
+// Individual component internals delegated to their respective GUI classes (MainHeader, SoundIdSuiteList, SetupDrawer).
+// ==============================================================================
 MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 : sequencer(audioEngine, *hardwareManager.getMockController()),
   mainHeader(audioEngine)
@@ -581,6 +592,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     addAndMakeVisible(sidebarStepper);
 
+    // ==============================================================================
+    // SECTION 2: VST3 HOSTING & CONTRACT BINDING
+    // Owns UI-facing plugin selection, host scanner integration, and editor window lifecycle.
+    // Dynamic parameter contract creation delegated to PluginHardwareContractAdapter; processing to AudioEngine.
+    // ==============================================================================
+
     // Wire cascading catalog selector
     catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
     catalogSelector.onSelectionChanged = [this](const juce::String& hwId, const juce::String& funcId) {
@@ -645,7 +662,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 if (imgFile.existsAsFile())
                     pluginThumb = juce::ImageFileFormat::loadFrom(imgFile);
 
-                juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? " [Instrumento]" : " [Efecto]");
+                juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
                 mainHeader.setHardwareInfo(
                     plugTitle,
                     activePluginDescription.pluginFormatName + " Virtual Bus",
@@ -761,7 +778,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                                 pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
 
                             // Update Header and Stepper
-                            juce::String plugTitle = desc.name + (desc.isInstrument ? " [Instrumento]" : " [Efecto]");
+                            juce::String plugTitle = desc.name + (desc.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
                             mainHeader.setHardwareInfo(
                                 plugTitle,
                                 desc.pluginFormatName + " Virtual Bus",
@@ -836,6 +853,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     pluginHostManager.loadCache(core::PluginHostManager::getDefaultCacheFile());
 
     addChildComponent(catalogSelector);
+
+    // ==============================================================================
+    // SECTION 3: TEST SUITE QUEUE & EVENT DELEGATION
+    // Owns suite list UI event wireup, table selection dispatch, and real-time curve display bridging.
+    // Queue item state mutations delegated to SuiteQueueModelManager; event business logic to SuiteListEventHandler.
+    // ==============================================================================
 
     // 5. Center Curve Plotter & Real-Time Visualization
     addAndMakeVisible(healthPanel);
@@ -1644,6 +1667,21 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     guidedWorkflowContainer = std::make_unique<gui::soundid::SoundIdGuidedWorkflowContainer>(profilingSessionController);
     addChildComponent(guidedWorkflowContainer.get());
 
+    profilingRunView = std::make_unique<gui::soundid::SoundIdProfilingRunView>(profilingSessionController);
+    profilingRunView->onStartClicked = [this] {
+        startProfilingSession(false);
+    };
+    profilingRunView->onPauseClicked = [this] {
+        if (sequencer.isSessionPaused())
+            sequencer.resumeSession();
+        else
+            sequencer.pauseSession();
+    };
+    profilingRunView->onCancelClicked = [this] {
+        stopProfilingSession();
+    };
+    addChildComponent(profilingRunView.get());
+
     btnWorkflowModeToggle.setVisible(false);
 
     setupGuidedWorkflowInitialData();
@@ -1755,6 +1793,11 @@ bool MainContentComponent::keyPressed(const juce::KeyPress& key, juce::Component
     return false;
 }
 
+// ==============================================================================
+// SECTION 5: UI GOVERNANCE & INTERACTION MODES (GUIDED / LAB BENCH)
+// Owns studio step state machine UI representation, view mode toggling (Guided vs Lab Bench), and action guards.
+// Session execution state delegated to SessionExecutionCoordinator; hardware capability validation to ContractRegistry.
+// ==============================================================================
 void MainContentComponent::updateGovernanceUi()
 {
     bool isRunSessionStep = (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::RunSession);
@@ -1781,79 +1824,79 @@ void MainContentComponent::updateGovernanceUi()
     int currentPt = sessionCoordinator.getTotalPointsMeasured();
     int totalPts = suiteList.getQueueSize();
 
-    // 1. Texto de Modo
-    juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? "Guiado" : "Libre";
-    btnModeToggle.setButtonText("Modo: " + modeStr);
+    // 1. Mode Text
+    juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? gui::strings::MODE_GUIDED : gui::strings::MODE_LAB;
+    btnModeToggle.setButtonText(modeStr);
     btnModeToggle.setEnabled(sessionCoordinator.isModeChangeAllowed());
     if (!sessionCoordinator.isModeChangeAllowed())
         btnModeToggle.setTooltip(sessionCoordinator.getRejectionReasonForAction("change_mode"));
     else
-        btnModeToggle.setTooltip("Alternar entre Modo Guiado (asistente paso a paso) y Modo Libre (captura ad-hoc)");
+        btnModeToggle.setTooltip(gui::strings::TOOLTIP_MODE_TOGGLE);
 
-    // 2. Texto y Color de Estado
+    // 2. Lifecycle State Text and Colors
     juce::String stateStr;
     juce::Colour stateCol;
 
     switch (state)
     {
         case measurement::CoordinatorState::NoSession:
-            stateStr = "Sin Sesion";
+            stateStr = gui::strings::STATE_NO_SESSION;
             stateCol = juce::Colours::grey;
             break;
         case measurement::CoordinatorState::ProfileSelected:
-            stateStr = "Perfil Seleccionado";
+            stateStr = gui::strings::STATE_PROFILE_SELECTED;
             stateCol = juce::Colour(0xff3498db);
             break;
         case measurement::CoordinatorState::SessionReady:
-            stateStr = "Listo";
+            stateStr = gui::strings::STATE_READY;
             stateCol = juce::Colour(0xff2ecc71);
             break;
         case measurement::CoordinatorState::AwaitingManualConfirmation:
-            stateStr = "Esperando Operador (Espacio)";
+            stateStr = gui::strings::STATE_AWAITING_OP;
             stateCol = juce::Colour(0xfff39c12);
             break;
         case measurement::CoordinatorState::ApplyingAutomation:
-            stateStr = "Automatizando";
+            stateStr = gui::strings::STATE_AUTOMATING;
             stateCol = juce::Colour(0xff3498db);
             break;
         case measurement::CoordinatorState::Capturing:
-            stateStr = "Capturando Audio";
+            stateStr = gui::strings::STATE_CAPTURING;
             stateCol = juce::Colour(0xff3498db);
             break;
         case measurement::CoordinatorState::Validating:
-            stateStr = "Validando Toma";
+            stateStr = gui::strings::STATE_VALIDATING;
             stateCol = juce::Colour(0xff3498db);
             break;
         case measurement::CoordinatorState::Persisting:
-            stateStr = "Sellando en Disco";
+            stateStr = gui::strings::STATE_PERSISTING;
             stateCol = juce::Colour(0xff3498db);
             break;
         case measurement::CoordinatorState::PointCompleted:
-            stateStr = "Toma Completada";
+            stateStr = gui::strings::STATE_POINT_COMPLETED;
             stateCol = juce::Colour(0xff2ecc71);
             break;
         case measurement::CoordinatorState::SessionCompleted:
-            stateStr = "Sesion Completada";
+            stateStr = gui::strings::STATE_SESSION_COMPLETED;
             stateCol = juce::Colour(0xff2ecc71);
             break;
         case measurement::CoordinatorState::ReanalysisAvailable:
-            stateStr = "Reanalisis Disponible";
+            stateStr = gui::strings::STATE_REANALYSIS_AVAIL;
             stateCol = juce::Colour(0xff2ecc71);
             break;
         case measurement::CoordinatorState::Error:
-            stateStr = "Error";
+            stateStr = gui::strings::STATE_ERROR;
             stateCol = juce::Colour(0xffe74c3c);
             break;
         case measurement::CoordinatorState::Aborted:
-            stateStr = "Sesion Cancelada";
+            stateStr = gui::strings::STATE_ABORTED;
             stateCol = juce::Colours::grey;
             break;
     }
 
-    // 3. Texto del Punto y Telemetría en Vivo
+    // 3. Point Progress & Live Telemetry Text
     juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
-                             ? ("Punto: " + juce::String(currentPt) + " de " + juce::String(std::max(currentPt, totalPts)))
-                             : ("Tomas registradas: " + juce::String(currentPt));
+                             ? ("Point: " + juce::String(currentPt) + " of " + juce::String(std::max(currentPt, totalPts)))
+                             : ("Recorded takes: " + juce::String(currentPt));
 
     float liveRms = audioEngine.getLastPluginOutputRms();
     int lastNote = audioEngine.getLastNoteOnNumber();
@@ -1870,13 +1913,13 @@ void MainContentComponent::updateGovernanceUi()
     lblHeaderStatusBadge.setColour(juce::Label::textColourId, stateCol);
     lblHeaderStatusBadge.setColour(juce::Label::outlineColourId, stateCol.withAlpha(0.6f));
 
-    // 4. Habilitación de Botones y Tooltips Explicativos
+    // 4. Button Enablement & Explanatory Tooltips
     bool canConfirm = sessionCoordinator.isManualConfirmationAllowed();
     confirmManualButton.setEnabled(canConfirm);
     if (!canConfirm)
         confirmManualButton.setTooltip(sessionCoordinator.getRejectionReasonForAction("confirm"));
     else
-        confirmManualButton.setTooltip("Confirmar posicion fisica del mando (Barra espaciadora)");
+        confirmManualButton.setTooltip(gui::strings::TOOLTIP_CONFIRM_MANUAL);
 
     bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
     bool isRunning = sequencer.isRunningSession();
@@ -1888,21 +1931,23 @@ void MainContentComponent::updateGovernanceUi()
         btnPrimaryAction.setVisible(false);
         btnCancelAction.setVisible(false);
 
+        btnFreeCapture.setButtonText(gui::strings::FREE_CAPTURE);
         btnFreeCapture.setVisible(true);
         bool canCapture = sessionCoordinator.isDirectCaptureAllowed();
         btnFreeCapture.setEnabled(canCapture);
         if (!canCapture)
             btnFreeCapture.setTooltip(sessionCoordinator.getRejectionReasonForAction("capture"));
         else
-            btnFreeCapture.setTooltip("Disparar captura inmediata ad-hoc en modo libre");
+            btnFreeCapture.setTooltip(gui::strings::TOOLTIP_FREE_CAPTURE);
 
+        btnFreeStop.setButtonText(gui::strings::STOP);
         btnFreeStop.setVisible(true);
         bool canCancel = sessionCoordinator.isCancellationAllowed();
         btnFreeStop.setEnabled(canCancel);
         if (!canCancel)
             btnFreeStop.setTooltip(sessionCoordinator.getRejectionReasonForAction("cancel"));
         else
-            btnFreeStop.setTooltip("Detener o cancelar la sesion de medicion actual");
+            btnFreeStop.setTooltip(gui::strings::TOOLTIP_FREE_STOP);
     }
     else
     {
@@ -1912,38 +1957,39 @@ void MainContentComponent::updateGovernanceUi()
 
         if (isCompleted)
         {
-            btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"✓  VER RESULTADOS / EXPORTAR"));
+            btnPrimaryAction.setButtonText(gui::strings::VIEW_RESULTS_EXPORT);
             btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentPurple);
             btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
             btnPrimaryAction.setEnabled(true);
-            btnPrimaryAction.setTooltip("Ver resultados y generar informe de exportacion");
+            btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_VIEW_RESULTS);
             btnCancelAction.setVisible(false);
         }
         else if (isRunning)
         {
             if (isPaused)
             {
-                btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  REANUDAR"));
+                btnPrimaryAction.setButtonText(gui::strings::RESUME);
                 btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
                 btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-                btnPrimaryAction.setTooltip("Reanudar la medicion desde el punto pausado");
+                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_RESUME);
             }
             else
             {
-                btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"❚❚  PAUSAR"));
+                btnPrimaryAction.setButtonText(gui::strings::PAUSE);
                 btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentAmber.withAlpha(0.35f));
                 btnPrimaryAction.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentAmber);
-                btnPrimaryAction.setTooltip("Pausar temporalmente la medicion y silenciar notas activas");
+                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_PAUSE);
             }
             btnPrimaryAction.setEnabled(true);
 
+            btnCancelAction.setButtonText(gui::strings::CANCEL);
             btnCancelAction.setVisible(true);
             btnCancelAction.setEnabled(true);
-            btnCancelAction.setTooltip("Cancelar la sesion actual de medicion");
+            btnCancelAction.setTooltip(gui::strings::TOOLTIP_CANCEL);
         }
         else
         {
-            btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  INICIAR MEDICIÓN"));
+            btnPrimaryAction.setButtonText(gui::strings::START_MEASUREMENT);
             btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
             btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
 
@@ -1952,9 +1998,9 @@ void MainContentComponent::updateGovernanceUi()
                              || (state != measurement::CoordinatorState::NoSession && suiteList.getQueueSize() > 0));
             btnPrimaryAction.setEnabled(canStart);
             if (!canStart)
-                btnPrimaryAction.setTooltip("Prepara o selecciona un hardware o plugin con receta antes de iniciar");
+                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_BLOCKED);
             else
-                btnPrimaryAction.setTooltip("Iniciar la ejecucion automatica de la receta de medicion");
+                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_READY);
 
             btnCancelAction.setVisible(false);
         }
@@ -1996,6 +2042,11 @@ void MainContentComponent::updateGovernanceUi()
     repaint();
 }
 
+// ==============================================================================
+// SECTION 6: COMPONENT SIZING, SPLITTER & STEP LAYOUT
+// Owns component bounds calculation, responsive splitter positioning, paint dispatch, and UI refresh timer.
+// Child element internal layout delegated to individual view components.
+// ==============================================================================
 void MainContentComponent::updateSplitLayout()
 {
     switch (centerSplitMode)
@@ -2126,6 +2177,32 @@ void MainContentComponent::resized()
                                (std::abs(targetBottomH - currentBottomH) < 2.0f);
     workflowNavController.layoutStepViews(bounds, currentBottomH, isSplittingBalanced);
 
+    if (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::RunSession)
+    {
+        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Guided)
+        {
+            if (profilingRunView != nullptr)
+            {
+                profilingRunView->setVisible(true);
+                profilingRunView->setBounds(bounds);
+            }
+            curvePlotter.setVisible(false);
+            suiteList.setVisible(false);
+            centerSplitterBar.setVisible(false);
+            healthPanel.setVisible(false);
+        }
+        else
+        {
+            if (profilingRunView != nullptr)
+                profilingRunView->setVisible(false);
+        }
+    }
+    else
+    {
+        if (profilingRunView != nullptr)
+            profilingRunView->setVisible(false);
+    }
+
     // 6. Slide-in Drawer & Modals fill full window bounds
     drawer.setBounds(getLocalBounds());
     aboutModal.setBounds(getLocalBounds());
@@ -2152,6 +2229,31 @@ void MainContentComponent::timerCallback()
         bool isSkipped = (stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback) == gui::WorkflowStepperBar::StepStatus::Skipped);
 
         mainHeader.updateCalibrationStatus(isCalibrated, calSr, isSkipped);
+    }
+
+    if (profilingRunView != nullptr && profilingRunView->isVisible())
+    {
+        auto snap = profilingSessionController.getCurrentSnapshot();
+        snap.progress.currentTrial = sessionCoordinator.getTotalPointsMeasured();
+        snap.progress.totalTrials = suiteList.getQueueSize();
+        if (snap.progress.totalTrials > 0)
+            snap.progress.progressPercent = (static_cast<double>(snap.progress.currentTrial) / snap.progress.totalTrials) * 100.0;
+        float rms = audioEngine.getLastPluginOutputRms();
+        snap.observation.lastRmsDb = (rms > 0.00001f) ? juce::Decibels::gainToDecibels(rms) : -120.0;
+        int note = audioEngine.getLastNoteOnNumber();
+        if (note >= 0)
+            snap.progress.currentStimulusDescription = "MIDI " + juce::MidiMessage::getMidiNoteName(note, true, true, 3).toStdString() + " (Note #" + std::to_string(note) + ")";
+
+        if (sequencer.isRunningSession())
+            snap.sessionStatus = sequencer.isSessionPaused() ? gui::session::ProfilingSessionStatus::Paused : gui::session::ProfilingSessionStatus::Profiling;
+        else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted)
+            snap.sessionStatus = gui::session::ProfilingSessionStatus::Completed;
+        else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::Aborted)
+            snap.sessionStatus = gui::session::ProfilingSessionStatus::Cancelled;
+        else
+            snap.sessionStatus = gui::session::ProfilingSessionStatus::ReadyToProfile;
+
+        profilingRunView->updateFromSnapshot(snap);
     }
 
     if (guidedWorkflowContainer != nullptr && currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
@@ -2192,6 +2294,11 @@ void MainContentComponent::timerCallback()
     // Status updates
 }
 
+// ==============================================================================
+// SECTION 7: TARGET HARDWARE SELECTION & WORKSPACE NAVIGATION
+// Owns hardware target selection UI dispatch, setup drawer interactions, and auxiliary tool window triggers.
+// Hardware discovery delegated to AudioMidiInterfaceDetector; contract resolution to HardwareProfileManager.
+// ==============================================================================
 void MainContentComponent::preWarmScopeWindow()
 {
     if (scopeWebWindow == nullptr)
@@ -2480,7 +2587,7 @@ void MainContentComponent::updateSetupDrawerInfo()
         if (fullImgFile.existsAsFile())
             pluginFullImg = juce::ImageFileFormat::loadFrom(fullImgFile);
 
-        juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? " [Instrumento]" : " [Efecto]");
+        juce::String plugTitle = activePluginDescription.name + (activePluginDescription.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
         setupInfoTab.setTargetHardwareInfo(
             plugTitle,
             activePluginDescription.pluginFormatName + " Virtual Bus",
@@ -2797,6 +2904,11 @@ void MainContentComponent::handleClearPoint(int queueIdx, int pointIdx)
     hidePromptAfterDelay(3500);
 }
 
+// ==============================================================================
+// SECTION 8: PROFILING SESSION ORCHESTRATION (EXECUTION & GUARDS)
+// Owns UI profiling triggers (Start/Pause/Cancel), manual step prompts, and session progress dispatch.
+// Execution state machine, cancellation, and re-arming delegated to SessionExecutionCoordinator; test stimuli to Sequencer.
+// ==============================================================================
 void MainContentComponent::startProfilingSession(bool resumeFromExisting)
 {
     if (sequencer.isRunningSession())
@@ -2812,12 +2924,21 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
 
     if (!resumeFromExisting)
     {
+        // Silence any lingering active notes from previous session
+        for (int ch = 1; ch <= 16; ++ch)
+        {
+            sequencer.getHardwareDispatcher().sendAllNotesOff(ch);
+            audioEngine.postLiveMidiMessage(juce::MidiMessage::allNotesOff(ch));
+        }
+
         suiteList.resetAllStatuses();
         suiteList.updateItemStatus(0, gui::QueueItemStatus::Running, 0);
         curvePlotter.clear();
         curvePlotter.clearPreScanData();
         sessionManager.clearMeasuredPoints();
         totalPointsMeasured = 0;
+
+        sessionCoordinator.rearmSession();
     }
 
     suiteList.setSessionRunning(true);
@@ -2857,13 +2978,24 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
     }
 
     meterStrip.setProfilingActive(true);
-    sequencer.startSession(currentProfilingSession, exportDirectory, baseName);
+    sessionCoordinator.triggerStartSession(currentProfilingSession, exportDirectory, baseName, resumeFromExisting);
+    updateGovernanceUi();
+    resized();
 }
 
 void MainContentComponent::stopProfilingSession()
 {
     sessionCoordinator.triggerStopSession();
+
+    // Silence any active notes immediately
+    for (int ch = 1; ch <= 16; ++ch)
+    {
+        sequencer.getHardwareDispatcher().sendAllNotesOff(ch);
+        audioEngine.postLiveMidiMessage(juce::MidiMessage::allNotesOff(ch));
+    }
+
     meterStrip.setProfilingActive(false);
+    updateGovernanceUi();
     resized();
 }
 
@@ -3345,6 +3477,11 @@ core::ProfilingSession MainContentComponent::buildPatchProfilingSession(const st
     return profSession;
 }
 
+// ==============================================================================
+// SECTION 9: REPORT GENERATION & DATASET EXPORT DELEGATION
+// Owns UI export action triggers, report format selection modals, and export progress display.
+// Report compilation delegated to SessionReportManager; certification rendering to CertificationReportExporter.
+// ==============================================================================
 core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
 {
     core::SessionManifest sm;
@@ -3534,45 +3671,46 @@ void MainContentComponent::exportCertificationReport()
 {
     juce::String hwId = drawer.getSelectedHardwareId();
     juce::String funcId = drawer.getSelectedFunctionId();
+    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
+    if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
 
-    exporting::SessionManifestData manifest;
-    manifest.hardwareId = hwId.toStdString();
-    manifest.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-    manifest.functionId = funcId.toStdString();
-    manifest.functionName = drawer.getActiveFunctionDisplayName().toStdString();
-    manifest.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
-    manifest.sampleRate = audioEngine.getCurrentSampleRate();
+    gui::ReportExportRequest req;
+    req.format = gui::ReportFormat::HtmlCertification;
+    req.destination = sessionIoController.getExportDirectory();
+    req.hardwareId = hwId;
+    req.hardwareName = drawer.getActiveHardwareDisplayName();
+    req.functionId = funcId;
+    req.functionName = drawer.getActiveFunctionDisplayName();
+    req.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
+    req.sampleRate = audioEngine.getCurrentSampleRate();
 
-    sessionIoController.exportCertificationReport(hwId, funcId, manifest);
+    auto result = sessionReportManager.exportReport(req, sessionManager.getMeasuredPoints());
+    if (result.succeeded)
+    {
+        manualPromptLabel.setText("Certification Report exported: " + result.outputPath.getFileName(), juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(4000);
+        result.outputPath.startAsProcess();
+    }
+    else
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon,
+            "Export Failed",
+            result.userMessage.isNotEmpty() ? result.userMessage : "Could not generate HTML Certification Report.",
+            "OK"
+        );
+    }
 }
 
 void MainContentComponent::updateExportReportMetrics()
 {
-    float avgSnr = 0.0f;
-    float avgThd = 0.0f;
-    int count = static_cast<int>(sessionManager.getPointCount());
-
-    if (count > 0)
-    {
-        float sumSnr = 0.0f;
-        float sumThd = 0.0f;
-        for (const auto& p : sessionManager.getMeasuredPoints())
-        {
-            sumSnr += p.snrDb;
-            sumThd += p.thdPercent;
-        }
-        avgSnr = sumSnr / static_cast<float>(count);
-        avgThd = sumThd / static_cast<float>(count);
-    }
-    else
-    {
-        avgSnr = 38.5f;
-        avgThd = 0.015f;
-    }
-
-    float noiseFloor = (audioEngine.getInputAutoTrim() > 1e-4f) ? -84.2f : -90.0f;
-    float durationSec = static_cast<float>(count) * 2.5f;
-    if (durationSec < 1.0f) durationSec = 10.0f;
+    float avgSnr = 0.0f, noiseFloor = 0.0f, avgThd = 0.0f, durationSec = 0.0f;
+    int count = 0;
+    gui::SessionReportManager::calculateSessionMetrics(
+        sessionManager.getMeasuredPoints(),
+        audioEngine.getInputAutoTrim(),
+        avgSnr, noiseFloor, avgThd, count, durationSec);
 
     exportReportPanel.updateMetrics(avgSnr, noiseFloor, avgThd, std::max(1, count), durationSec);
 }
@@ -3584,34 +3722,44 @@ void MainContentComponent::exportProductionPackage()
     if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
     if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
 
-    core::ProfilingMetadata meta;
-    meta.hardwareName = drawer.getActiveHardwareDisplayName().toStdString();
-    if (meta.hardwareName.empty())
+    gui::ReportExportRequest req;
+    req.format = gui::ReportFormat::ProductionPackage;
+    req.destination = sessionIoController.getExportDirectory();
+    req.hardwareId = hwId;
+    req.hardwareName = drawer.getActiveHardwareDisplayName();
+    if (req.hardwareName.isEmpty())
     {
         const auto* contract = hardwareManager.findContractById(hwId.toStdString());
-        if (contract != nullptr) meta.hardwareName = contract->displayName;
-        else meta.hardwareName = hwId.toStdString();
+        if (contract != nullptr) req.hardwareName = contract->displayName;
+        else req.hardwareName = hwId;
     }
-    meta.targetModule = funcId.toStdString();
-    meta.operatorMode = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL";
-    meta.sampleRate = audioEngine.getCurrentSampleRate();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
+    req.functionId = funcId;
+    req.functionName = drawer.getActiveFunctionDisplayName();
+    if (req.functionName.isEmpty()) req.functionName = funcId;
+    req.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
+    req.sampleRate = audioEngine.getCurrentSampleRate();
+    req.operatorNotes = drawer.getOperatorNotes();
+    req.ambientTemperatureC = drawer.getAmbientTemperature();
+    req.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
 
-    exporting::SessionManifestData manifest;
-    manifest.hardwareId = hwId.toStdString();
-    manifest.hardwareName = meta.hardwareName;
-    manifest.functionId = funcId.toStdString();
-    manifest.functionName = drawer.getActiveFunctionDisplayName().toStdString();
-    if (manifest.functionName.empty()) manifest.functionName = funcId.toStdString();
-    manifest.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
-    manifest.sampleRate = audioEngine.getCurrentSampleRate();
-    manifest.operatorNotes = drawer.getOperatorNotes().toStdString();
-    manifest.ambientTemperatureC = drawer.getAmbientTemperature();
-    manifest.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-    sessionIoController.exportProductionPackage(hwId, funcId, meta, manifest);
+    auto result = sessionReportManager.exportReport(req, sessionManager.getMeasuredPoints());
+    if (result.succeeded)
+    {
+        juce::String base = req.baseName.isNotEmpty() ? req.baseName : (hwId.toLowerCase() + "_" + funcId.toLowerCase());
+        exportReportPanel.showExportSuccess(req.destination.getFullPathName(), base);
+        manualPromptLabel.setText(juce::String::fromUTF8(u8"⚡ Paquete de producción exportado con éxito (C++ alignas(16), JSON, HTML)"), juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(4000);
+    }
+    else
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon,
+            "Production Export Failed",
+            result.userMessage.isNotEmpty() ? result.userMessage : "Failed to generate production package.",
+            "OK"
+        );
+    }
 }
 
 void MainContentComponent::openCertificationReportHtml()
@@ -3626,47 +3774,8 @@ void MainContentComponent::openCertificationReportHtml()
 
 void MainContentComponent::prepareAuditionLut()
 {
-    const auto& sessionPoints = sessionManager.getMeasuredPoints();
     const int gridSize = 8;
-    std::vector<dsp::AbdBatchedPoint> lut(gridSize * gridSize);
-
-    if (!sessionPoints.empty())
-    {
-        for (int y = 0; y < gridSize; ++y)
-        {
-            for (int x = 0; x < gridSize; ++x)
-            {
-                int idx = y * gridSize + x;
-                float normX = static_cast<float>(x) / static_cast<float>(gridSize - 1);
-                float normY = static_cast<float>(y) / static_cast<float>(gridSize - 1);
-
-                size_t pointIdx = std::min(sessionPoints.size() - 1, static_cast<size_t>(normX * static_cast<float>(sessionPoints.size() - 1)));
-                const auto& sp = sessionPoints[pointIdx];
-
-                lut[idx].p1 = normX;
-                lut[idx].p2 = normY;
-                float gainLin = std::pow(10.0f, static_cast<float>(sp.secondaryValue.mean) / 20.0f);
-                lut[idx].mu = juce::jlimit(0.01f, 1.0f, gainLin * (1.0f - normY * 0.3f));
-                lut[idx].sigma = static_cast<float>(sp.thdPercent) * 0.01f;
-            }
-        }
-    }
-    else
-    {
-        for (int y = 0; y < gridSize; ++y)
-        {
-            for (int x = 0; x < gridSize; ++x)
-            {
-                int idx = y * gridSize + x;
-                float normX = static_cast<float>(x) / static_cast<float>(gridSize - 1);
-                float normY = static_cast<float>(y) / static_cast<float>(gridSize - 1);
-                lut[idx].p1 = normX;
-                lut[idx].p2 = normY;
-                lut[idx].mu = juce::jlimit(0.05f, 1.0f, 0.15f + 0.85f * normX * (1.0f - 0.25f * normY));
-            }
-        }
-    }
-
+    auto lut = gui::SessionReportManager::buildAuditionLutGrid(sessionManager.getMeasuredPoints(), gridSize);
     audioEngine.loadAuditionLut(lut, gridSize);
 }
 
@@ -3676,6 +3785,11 @@ void MainContentComponent::publishCertificationToCloud()
     sessionIoController.publishCertificationToCloud();
 }
 
+// ==============================================================================
+// SECTION 10: SESSION PERSISTENCE & FILE I/O DELEGATION
+// Owns session file chooser dialogs (Save, Save As, Open, New) and session reset confirmations.
+// JSON serialization/deserialization delegated to SessionSerializer and SessionIoController.
+// ==============================================================================
 void MainContentComponent::promptNewSession()
 {
     if (sessionManager.isDirty() && sessionManager.hasPoints())
@@ -3895,6 +4009,11 @@ void MainContentComponent::openAudioABVerificationModal()
     abVerificationModal.showDialog(this);
 }
 
+// ==============================================================================
+// SECTION 2 (AUXILIARY IMPLEMENTATION): VST3 PLUGIN INSTANCE LIFECYCLE
+// Owns async plugin instance instantiation and bus configuration for UI host.
+// Plugin scanning and cache management delegated to PluginHostManager.
+// ==============================================================================
 void MainContentComponent::loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded)
 {
     juce::Logger::writeToLog("[MainComponent] loadPluginInstance called for: '" + desc.name
@@ -3954,7 +4073,7 @@ void MainContentComponent::loadPluginInstance(const juce::PluginDescription& des
                     pluginImg = juce::ImageFileFormat::loadFrom(imgFile);
 
                 // Update Header and Stepper
-                juce::String plugTitle = desc.name + (desc.isInstrument ? " [Instrumento]" : " [Efecto]");
+                juce::String plugTitle = desc.name + (desc.isInstrument ? gui::strings::BADGE_INSTRUMENT : gui::strings::BADGE_EFFECT);
                 mainHeader.setHardwareInfo(
                     plugTitle,
                     desc.pluginFormatName + " Virtual Bus",
@@ -3992,6 +4111,11 @@ void MainContentComponent::loadPluginInstance(const juce::PluginDescription& des
         });
 }
 
+// ==============================================================================
+// SECTION 5 (AUXILIARY IMPLEMENTATION): WORKFLOW MODE SWITCHING & FIXTURE PRELOAD
+// Owns switching visibility between 3-step Guided container and Lab Bench surfaces.
+// Guided workflow state machine delegated to ProfilingSessionController.
+// ==============================================================================
 void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
 {
     if (currentWorkflowMode == mode)

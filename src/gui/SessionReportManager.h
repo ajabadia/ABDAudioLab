@@ -18,9 +18,69 @@
 #include "../core/SessionManager.h"
 #include "../export/LutExporter.h"
 #include "../export/CertificationReportExporter.h"
+#include "../dsp/LutEvaluatorSimd.h"
 
 namespace abdaudiolab {
 namespace gui {
+
+/**
+ * @brief Output formats supported by SessionReportManager.
+ */
+enum class ReportFormat
+{
+    HtmlCertification,
+    CppLutHeader,
+    JsonTelemetry,
+    ProductionPackage,   // Atomic multi-target export (C++, JSON, HTML, Manifest with SHA-256)
+    AuditionLutGrid      // 8x8 evaluation LUT
+};
+
+/**
+ * @brief Explicit status outcomes for report export operations.
+ */
+enum class ExportStatus
+{
+    Succeeded,
+    Cancelled,
+    ValidationFailed,
+    WriteFailed,
+    UnsupportedFormat
+};
+
+/**
+ * @brief Structured request describing an export target.
+ */
+struct ReportExportRequest
+{
+    ReportFormat format{ ReportFormat::HtmlCertification };
+    juce::File destination;
+    juce::String baseName;
+    juce::String hardwareId;
+    juce::String hardwareName;
+    juce::String functionId;
+    juce::String functionName;
+    juce::String deviceType;
+    double sampleRate{ 44100.0 };
+    juce::String operatorNotes;
+    double ambientTemperatureC{ 21.0 };
+    double warmupTimeMinutes{ 15.0 };
+    bool includeRawAudio{ false };
+    bool includeDerivedData{ true };
+};
+
+/**
+ * @brief Rich result describing export outcome, artifacts produced, and SHA-256 fixity.
+ */
+struct ReportExportResult
+{
+    ExportStatus status{ ExportStatus::ValidationFailed };
+    bool succeeded{ false };
+    juce::File outputPath;
+    std::string manifestSha256;
+    std::vector<juce::File> artifactPaths;
+    juce::String errorCode;
+    juce::String userMessage;
+};
 
 /**
  * @class SessionReportManager
@@ -32,6 +92,39 @@ class SessionReportManager
 public:
     SessionReportManager() = default;
     ~SessionReportManager() = default;
+
+    /**
+     * @brief Exports report artifacts synchronously according to the request.
+     * Uses atomic staging for multi-file exports (ProductionPackage).
+     */
+    ReportExportResult exportReport(const ReportExportRequest& request,
+                                    const std::vector<exporting::MeasuredPoint>& points);
+
+    /**
+     * @brief Asynchronously launches export on a worker thread with progress/completion callback.
+     */
+    void exportReportAsync(const ReportExportRequest& request,
+                           const std::vector<exporting::MeasuredPoint>& points,
+                           std::function<void(const ReportExportResult&)> onComplete);
+
+    /**
+     * @brief Computes 8x8 audition LUT table from measured points.
+     */
+    static std::vector<dsp::AbdBatchedPoint> buildAuditionLutGrid(
+        const std::vector<exporting::MeasuredPoint>& sessionPoints,
+        int gridSize = 8);
+
+    /**
+     * @brief Computes SNR, THD, noise floor and duration statistics for export display.
+     */
+    static void calculateSessionMetrics(
+        const std::vector<exporting::MeasuredPoint>& points,
+        float inputTrim,
+        float& outAvgSnr,
+        float& outNoiseFloor,
+        float& outAvgThd,
+        int& outCount,
+        float& outDurationSec);
 
     /**
      * @brief Asynchronously launches native FileChooser to save session package (.abdlabtest).

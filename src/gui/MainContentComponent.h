@@ -61,7 +61,9 @@
 #include "gui/plugins/PluginScanDirectoriesModal.h"
 #include <MidiKeyboard/MidiKeyboardFloatingWindow.h>
 #include "gui/session/ProfilingSessionController.h"
+#include "gui/session/UiStrings.h"
 #include "gui/soundid/SoundIdGuidedWorkflowContainer.h"
+#include "gui/soundid/SoundIdProfilingRunView.h"
 
 namespace abdaudiolab
 {
@@ -218,6 +220,7 @@ private:
     // Guided Workflow Architecture (Phase 16 & 20.7)
     gui::session::ProfilingSessionController profilingSessionController;
     std::unique_ptr<gui::soundid::SoundIdGuidedWorkflowContainer> guidedWorkflowContainer;
+    std::unique_ptr<gui::soundid::SoundIdProfilingRunView> profilingRunView;
     gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };
     juce::TextButton btnWorkflowModeToggle;
     void setWorkflowMode(gui::session::UiWorkflowMode mode);
