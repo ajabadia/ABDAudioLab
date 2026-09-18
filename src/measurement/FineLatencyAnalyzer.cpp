@@ -7,6 +7,7 @@
 
 #include "FineLatencyAnalyzer.h"
 #include "synth/Sha256.h"
+#include "MeasurementDspUtils.h"
 #include <juce_core/juce_core.h>
 #include <algorithm>
 #include <numeric>
@@ -84,18 +85,6 @@ std::string FineLatencyAnalyzer::computeAudioSha256(std::span<const float> audio
 
 namespace
 {
-    // Helper to compute RMS in dBFS
-    double computeRmsDbfs(std::span<const float> audio) noexcept
-    {
-        if (audio.empty()) return -120.0;
-        double sumSq = 0.0;
-        for (float s : audio)
-            sumSq += static_cast<double>(s) * static_cast<double>(s);
-        const double rms = std::sqrt(sumSq / static_cast<double>(audio.size()));
-        if (rms <= 1e-9) return -120.0;
-        return 20.0 * std::log10(rms);
-    }
-
     // Helper to compute normalized cross-correlation for a given lag
     double computeNormalizedCorrelationAtLag(
         std::span<const float> x,

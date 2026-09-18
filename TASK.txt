@@ -118,7 +118,17 @@
   * Motor DSP analítico FineLatencyAnalyzer: correlación cruzada normalizada con refinamiento parabólico de 3 puntos en el pico, estimación de incertidumbre acotada según SNR y curvatura, regresión lineal de deriva con rechazo robusto de outliers por MAD, detección formal de saltos/dropouts (TimingDiscontinuity) y análisis de skew multicanal relativo al canal de referencia 0.
   * Vistas de compensación no destructivas LatencyCompensationView (TimeAxisOnly con inmutabilidad absoluta de memoria y punteros, IntegerShift con buffer derivado).
   * Suite Catch2 dedicada en test_Phase20_12_FineLatency_T1.cpp con tag [fine_latency]. Certificación: 419/419 tests verdes (225.532 aserciones, 0 fallos; sub-suite [fine_latency]: 71/71 aserciones en 6 test cases).
-- T20.12-2 (Futuro): Caracterización analógica de DUT (respuesta en frecuencia, distorsión armónica THD/IMD y umbrales de clipping).
+- [COMPLETADO] Consolidación Previa de Primitivas DSP (Etapa 1):
+  * Creado MeasurementDspUtils (h/cpp): Funciones puras y desacopladas para cálculo de RMS y dBFS (computeRms, computeRmsDbfs con fullScale = 1.0 y piso en -120 dBFS), ventanas con ganancia coherente teórica y corrección de energía (MeasurementWindow: Hann, Blackman, FlatTop ISO, Rectangular), FFT de magnitudes one-sided rigurosa (performFftMagnitudes: duplicación de bins intermedios, DC y Nyquist 1x, corrección coherente), interpolación log-parabólica de picos con cota de incertidumbre (refineSubbinPeak) e integración en cuadratura de lóbulo/banda (integrateBandEnergy).
+  * Migración limpia de FineLatencyAnalyzer eliminando duplicación local de RMS/dBFS.
+  * Suite de equivalencia en test_MeasurementDspUtils.cpp con tag [dsp_utils] (27/27 aserciones en verde).
+- [COMPLETADO] T20.12-2: Caracterización Analógica de DUT (Respuesta en Frecuencia, THD/IMD Paramétrico y Umbrales de Clipping):
+  * Contratos metrológicos canónicos en AnalogDutCharacterizationContracts.h: ThdConvention (FundamentalReferenced [IEEE], TotalRmsReferenced [IEC]), ImdConvention (Smpte, Din, Ccif, ItuR, Custom), HarmonicDistortionResult con armónicos individuales H2..H10 en dBc y banda de integración configurable, IntermodulationResult con productos f2-f1, 2f1-f2, 2f2-f1, etc. en dBc con referencia declarada, LevelSweepPoint con diagnósticos segregados (hardClipDetectedInCapture, nonlinearDistortionDetected, gainCompressionDetected), ClippingThresholdResult con umbrales de THD 1%, THD 3% y compresión P1dB por interpolación monótona de cruces, FrequencyResponseResult con metadatos de muestreo y barrido, y serialización determinista RFC 8785 (toCanonicalJson).
+  * Adaptador no invasivo de math::FarinaDeconvolver: Conversión de resultados de deconvolución log-sweep a FrequencyResponseResult preservando el núcleo matemático sin duplicación.
+  * Adaptador formal de math::IntermodulationAnalyzer: Orquestación de estímulos de dos tonos (SMPTE 60 Hz + 7 kHz 4:1 y CCIF 19 kHz + 20 kHz 1:1) y cálculo estructurado de productos de intermodulación de 2º y 3º orden con denominadores normalizados.
+  * Motor analítico unificado AnalogDutCharacterizer (h/cpp): Cálculo paramétrico de THD (IEEE vs IEC), refinamiento espectral y energía integrada de lóbulo vía MeasurementDspUtils, análisis de compresión y umbrales de saturación, y orquestador metrológico de caracterización integral.
+  * Suite Catch2 dedicada en test_Phase20_12_AnalogDutCharacterization_T2.cpp con tag [analog_dut] (56/56 aserciones en verde en 5 test cases).
+  * Certificación global del sistema: 429/429 tests verdes (225.615 aserciones, 0 fallos).
 - T20.12-3 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
 
 
