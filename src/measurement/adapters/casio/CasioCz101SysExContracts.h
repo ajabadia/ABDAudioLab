@@ -269,17 +269,7 @@ struct CasioCzDcwMappingResult
     std::string sourceSysExSha256;
 };
 
-/**
- * @brief Generic binding associating a native parameter path to an observable envelope domain.
- */
-struct NativeEnvelopeBinding
-{
-    std::string nativePath;
-    EnvelopeDomain observableDomain { EnvelopeDomain::Unknown };
-    std::string parameterization { "rate_level" };
-    std::string sourceModel { "CZ-101" };
-    std::string sourceStateSha256;
-};
+using abdaudiolab::measurement::NativeEnvelopeBinding;
 
 /**
  * @brief Comparison result between native intent and observed acoustic trajectory.

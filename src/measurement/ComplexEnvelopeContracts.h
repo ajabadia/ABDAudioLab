@@ -302,6 +302,18 @@ struct EnvelopeSpectralMetadata
 };
 
 /**
+ * @brief Generic binding associating a native parameter path to an observable envelope domain.
+ */
+struct NativeEnvelopeBinding
+{
+    std::string nativePath;
+    EnvelopeDomain observableDomain { EnvelopeDomain::Unknown };
+    std::string parameterization { "rate_level" };
+    std::string sourceModel { "Generic" };
+    std::string sourceStateSha256;
+};
+
+/**
  * @brief Complete trajectory record of an observable physical envelope domain.
  */
 struct EnvelopeTrajectory

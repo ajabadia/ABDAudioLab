@@ -257,6 +257,15 @@ target_sources(ABDAudioLab
         src/measurement/ComplexEnvelopeContracts.h
         src/measurement/ComplexEnvelopeAnalyzer.h
         src/measurement/ComplexEnvelopeAnalyzer.cpp
+        src/measurement/ComplexEnvelopeOrchestratorContracts.h
+        src/measurement/ComplexEnvelopeCaptureSession.h
+        src/measurement/ComplexEnvelopeCaptureSession.cpp
+        src/measurement/TimingReferenceResolver.h
+        src/measurement/TimingReferenceResolver.cpp
+        src/measurement/ObservableComparisonEngine.h
+        src/measurement/ObservableComparisonEngine.cpp
+        src/measurement/ComplexEnvelopeOrchestrator.h
+        src/measurement/ComplexEnvelopeOrchestrator.cpp
         src/measurement/MeasurementContainerExporter.h
         src/measurement/MeasurementContainerExporter.cpp
         src/measurement/MeasurementSvgGenerator.h
@@ -283,6 +292,8 @@ target_sources(ABDAudioLab
         src/measurement/adapters/casio/CasioCz101PatchEncoder.cpp
         src/measurement/adapters/casio/CasioCz101ObservableBinding.h
         src/measurement/adapters/casio/CasioCz101ObservableBinding.cpp
+        src/measurement/adapters/casio/CasioCz101NativeStateProvider.h
+        src/measurement/adapters/casio/CasioCz101NativeStateProvider.cpp
         # Measurement GUI (Phase 20.10.1 & Phase 20.11.1)
         src/gui/measurement/MeasurementViewModel.h
         src/gui/measurement/MeasurementViewModelLoader.h
@@ -637,6 +648,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T1.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T2.cpp
     src/tests/test_Phase20_11_7_ComplexEnvelopes_T3.cpp
+    src/tests/test_Phase20_11_7_ComplexEnvelopes_T4.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
     src/tests/test_FilterViewerPanelAndUI.cpp
     src/measurement/MeasurementSerialization.cpp
@@ -647,6 +659,10 @@ add_executable(ABDAudioLab_Tests
     src/measurement/DexedVerticalCampaign.cpp
     src/measurement/DexedParametricCampaignCoordinator.cpp
     src/measurement/ComplexEnvelopeAnalyzer.cpp
+    src/measurement/ComplexEnvelopeCaptureSession.cpp
+    src/measurement/TimingReferenceResolver.cpp
+    src/measurement/ObservableComparisonEngine.cpp
+    src/measurement/ComplexEnvelopeOrchestrator.cpp
     src/measurement/MeasurementContainerExporter.cpp
     src/measurement/MeasurementSvgGenerator.cpp
     src/measurement/MeasurementReportGenerator.cpp
@@ -659,6 +675,7 @@ add_executable(ABDAudioLab_Tests
     src/measurement/adapters/casio/CasioCz101PatchDecoder.cpp
     src/measurement/adapters/casio/CasioCz101PatchEncoder.cpp
     src/measurement/adapters/casio/CasioCz101ObservableBinding.cpp
+    src/measurement/adapters/casio/CasioCz101NativeStateProvider.cpp
     src/gui/measurement/MeasurementViewModelLoader.cpp
     src/gui/measurement/MeasurementTemporalCurveComponent.cpp
     src/gui/measurement/MeasurementFrequencyCurveComponent.cpp
