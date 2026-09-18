@@ -147,6 +147,8 @@ struct HarmonicDistortionResult
         j["windowType"] = windowType;
         return j;
     }
+
+    [[nodiscard]] nlohmann::ordered_json toJson() const { return toCanonicalJson(); }
 };
 
 /**
@@ -329,6 +331,8 @@ struct FrequencyResponseResult
         j["sweepDurationSec"] = sweepDurationSec;
         return j;
     }
+
+    [[nodiscard]] nlohmann::ordered_json toJson() const { return toCanonicalJson(); }
 };
 
 /**

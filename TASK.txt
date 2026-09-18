@@ -112,7 +112,7 @@
 - [COMPLETADO] T20.11.7-6: Pruebas de repetibilidad, suite integrada y sellado: auditoría E2E unificada T1->T5, repetibilidad estricta bit-a-bit comprobada (Pass 1 == Pass 2 con hashes SHA-256 idénticos en todos los artefactos), enriquecimiento de metadatos FAIR de gobernanza y licencia segregada (dataLicense, softwareLicense, audioLicense, thirdPartyNotice), ambiente reproducible normalizado, verificación de inmutabilidad y suite Catch2 dedicada (test_Phase20_11_7_ComplexEnvelopes_T6.cpp). Certificación: 413/413 tests verdes (225.461 aserciones, 0 fallos; sub-suite [complex_envelopes]: 1.735/1.735 aserciones en 28 test cases; sub-suite [e2e_repeatability]: 54/54 aserciones en 3 test cases).
 - Certificación formal sellada en tag anotado: phase-20.11.7-certified (413/413 tests en verde, 225.461 aserciones).
 
-[EN PROGRESO] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
+[COMPLETADO] Fase 20.12: Cadena Analógica Avanzada y Calibración DUT en Hardware en Vivo.
 - [COMPLETADO] T20.12-1: Latencia fina sub-muestra, deriva de reloj (clock drift) y sincronización multicanal.
   * Contratos canónicos metrológicos en FineLatencyContracts.h: modelado explícito de latencia fija entera/fraccional, ClockDriftObservation con semántica de unidades rigurosa (offsetUnit, timeUnit, slopeUnit), ChannelSkewObservation con fase angular opcional y detección de polaridad invertida, ClockTopology (SharedClock, IndependentClocks), DriftInterpretation (RelativeClockDrift, ResidualJitter), y diagnóstico exhaustivo de residuos (residualMedianAbsoluteDeviation, maxResidualSamples, inlierCount, outlierCount, fitStatus).
   * Motor DSP analítico FineLatencyAnalyzer: correlación cruzada normalizada con refinamiento parabólico de 3 puntos en el pico, estimación de incertidumbre acotada según SNR y curvatura, regresión lineal de deriva con rechazo robusto de outliers por MAD, detección formal de saltos/dropouts (TimingDiscontinuity) y análisis de skew multicanal relativo al canal de referencia 0.
@@ -129,7 +129,16 @@
   * Motor analítico unificado AnalogDutCharacterizer (h/cpp): Cálculo paramétrico de THD (IEEE vs IEC), refinamiento espectral y energía integrada de lóbulo vía MeasurementDspUtils, análisis de compresión y umbrales de saturación, y orquestador metrológico de caracterización integral.
   * Suite Catch2 dedicada en test_Phase20_12_AnalogDutCharacterization_T2.cpp con tag [analog_dut] (56/56 aserciones en verde en 5 test cases).
   * Certificación global del sistema: 429/429 tests verdes (225.615 aserciones, 0 fallos).
-- T20.12-3 (Futuro): Compensación analógica reversible de 3 capas y exportación metrológica con DUT real.
+- [COMPLETADO] T20.12-3: Compensación Analógica Reversible de 3 Capas y Protocolo de Verificación Física:
+  * Contratos canónicos en AnalogChainCompensationContracts.h: HardwareConnectionMetadata con modelo de interfaz, firmware, descriptor explícito de impedancia (ImpedanceDescriptor con source: datasheet/measured/user_supplied/unknown y sin usar 0.0 para unknown), topología de cableado y protecciones; ChainCalibrationRecord (Capa 1) con evaluación de rizado, THD residual y latencia; PhysicalSaturationDiagnosis (Capa 2) con evidencia de clipping en rail positivo/negativo y conteo de muestras; CompensationValidity y CompensatedDutMeasurementRecord (Capa 3) con máscara de validez espectral y procedencia completa.
+  * Criterio estricto de saturación física: La presencia de muestras en rail del ADC marca el estado measurement_invalid_due_to_adc_clipping, bloqueando el cálculo de THD/IMD espurios.
+  * Motor analítico unificado AnalogChainReversibleCompensator (h/cpp): Deconvolución regularizada de Tikhonov con cota máxima de ganancia inversa configurable (configuredMaxInverseGainDb, appliedMaxInverseGainDb con política capped), rechazo de sistemas mal condicionados con lambda=0, bloqueo por defecto ante calibración degradada (allowDegraded=false) y bloqueo incondicional ante loopback inválido.
+  * Idempotencia y Reversibilidad formal: Verificación estricta de hashes de procedencia (rawCaptureSha256, chainReferenceSha256, compensationModelSha256) antes de emitir isReversible=true, y detección de registros ya compensados.
+  * Protocolo auditable en docs/measurement/ANALOG_HARDWARE_VALIDATION_PROTOCOL.md detallando las Fases A (Preparación), B (Loopback), C (DUT) y D (Validación).
+  * Suite Catch2 dedicada en test_Phase20_12_ReversibleCompensation_T3.cpp con tag [chain_compensation] (59/59 aserciones en verde en 4 test cases).
+  * Certificación global del sistema: 433/433 tests verdes (225.674 aserciones, 0 fallos).
+- Certificación formal de la Fase 20.12 sellada: 433/433 tests en verde, 225.674 aserciones.
+
 
 
 
