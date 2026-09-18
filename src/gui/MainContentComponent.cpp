@@ -636,7 +636,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         {
             pluginWindowController.closePluginWindow();
             audioEngine.setActivePluginInstance(nullptr);
-            sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+            sessionCoordinator.setTargetPluginInstance(nullptr);
             pluginHostManager.unloadPlugin();
             activePluginInstance = nullptr;
             activePluginDescription = {};
@@ -1236,14 +1236,14 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     btnStepBack.setButtonText("<- STEP BACK");
     btnStepBack.setTooltip("Return to previous measurement step to redo or adjust physical knob");
-    btnStepBack.onClick = [this] { sequencer.stepBack(); };
+    btnStepBack.onClick = [this] { sessionCoordinator.stepBack(); };
     btnStepBack.setEnabled(false);
     btnStepBack.setVisible(false);
     addChildComponent(btnStepBack);
 
     btnRepeatStep.setButtonText("REPEAT STEP");
     btnRepeatStep.setTooltip("Re-measure current knob position in case of audio glitch or misadjustment");
-    btnRepeatStep.onClick = [this] { sequencer.repeatCurrentStep(); };
+    btnRepeatStep.onClick = [this] { sessionCoordinator.repeatCurrentStep(); };
     btnRepeatStep.setEnabled(false);
     btnRepeatStep.setVisible(false);
     addChildComponent(btnRepeatStep);
@@ -1329,8 +1329,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnPrimaryAction.onClick = [this] {
         auto state = sessionCoordinator.getCoordinatorState();
-        bool isRunning = sequencer.isRunningSession();
-        bool isPaused = sequencer.isSessionPaused();
+        bool isRunning = sessionCoordinator.isRunningSession();
 
         if (state == measurement::CoordinatorState::SessionCompleted)
         {
@@ -1340,14 +1339,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         if (isRunning)
         {
-            if (isPaused)
-            {
-                sequencer.resumeSession();
-            }
-            else
-            {
-                sequencer.pauseSession();
-            }
+            sessionCoordinator.togglePauseSession();
         }
         else
         {
@@ -1494,8 +1486,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     addChildComponent(abVerificationModal);
 
     operatorStepModal.onAccept = [this] { confirmManualStep(); };
-    operatorStepModal.onRepeat = [this] { sequencer.repeatCurrentStep(); };
-    operatorStepModal.onStepBack = [this] { sequencer.stepBack(); };
+    operatorStepModal.onRepeat = [this] { sessionCoordinator.repeatCurrentStep(); };
+    operatorStepModal.onStepBack = [this] { sessionCoordinator.stepBack(); };
     operatorStepModal.onCancel = [this] { stopProfilingSession(); };
     operatorStepModal.onCollapseToggled = [this](bool isCollapsed) {
         juce::ignoreUnused(isCollapsed);
@@ -1560,7 +1552,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Phase 14: Single-point live re-run from context menu
     suiteList.onRerunPointRequested = [this](int queueIndex, int pointIndex) {
-        if (!sequencer.isRunningSession()) return;
+        if (!sessionCoordinator.isRunningSession()) return;
         // Compute the flat globalPointIndex by walking the queue up to (queueIndex, pointIndex)
         int globalIdx = 0;
         const auto& queue = suiteList.getQueue();
@@ -1620,10 +1612,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         startProfilingSession(false);
     };
     profilingRunView->onPauseClicked = [this] {
-        if (sequencer.isSessionPaused())
-            sequencer.resumeSession();
-        else
-            sequencer.pauseSession();
+        sessionCoordinator.togglePauseSession();
     };
     profilingRunView->onCancelClicked = [this] {
         stopProfilingSession();
@@ -1642,7 +1631,7 @@ MainContentComponent::~MainContentComponent()
     juce::Logger::writeToLog("[MainComponent] Destructor: closing plugin window and resetting active plugin.");
     pluginWindowController.closePluginWindow();
     audioEngine.setActivePluginInstance(nullptr);
-    sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+    sessionCoordinator.setTargetPluginInstance(nullptr);
     pluginHostManager.unloadPlugin();
     activePluginInstance = nullptr;
 
@@ -1678,7 +1667,7 @@ MainContentComponent::~MainContentComponent()
     setLookAndFeel(nullptr);
     removeKeyListener(this);
     stopTimer();
-    sequencer.stopSession();
+    sessionCoordinator.triggerStopSession();
     audioEngine.saveAudioSettings(settingsFile);
 }
 
@@ -1871,8 +1860,8 @@ void MainContentComponent::updateGovernanceUi()
         confirmManualButton.setTooltip(gui::strings::TOOLTIP_CONFIRM_MANUAL);
 
     bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
-    bool isRunning = sequencer.isRunningSession();
-    bool isPaused = sequencer.isSessionPaused();
+    bool isRunning = sessionCoordinator.isRunningSession();
+    bool isPaused = sessionCoordinator.isSessionPaused();
     bool isCompleted = (state == measurement::CoordinatorState::SessionCompleted);
 
     if (isFreeMode)
@@ -2193,8 +2182,8 @@ void MainContentComponent::timerCallback()
         if (note >= 0)
             snap.progress.currentStimulusDescription = "MIDI " + juce::MidiMessage::getMidiNoteName(note, true, true, 3).toStdString() + " (Note #" + std::to_string(note) + ")";
 
-        if (sequencer.isRunningSession())
-            snap.sessionStatus = sequencer.isSessionPaused() ? gui::session::ProfilingSessionStatus::Paused : gui::session::ProfilingSessionStatus::Profiling;
+        if (sessionCoordinator.isRunningSession())
+            snap.sessionStatus = sessionCoordinator.isSessionPaused() ? gui::session::ProfilingSessionStatus::Paused : gui::session::ProfilingSessionStatus::Profiling;
         else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted)
             snap.sessionStatus = gui::session::ProfilingSessionStatus::Completed;
         else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::Aborted)
@@ -2837,7 +2826,7 @@ void MainContentComponent::hidePromptAfterDelay(int delayMs)
 {
     juce::Component::SafePointer<MainContentComponent> safeThis(this);
     juce::Timer::callAfterDelay(delayMs, [safeThis] {
-        if (safeThis != nullptr && safeThis->sequencer.getCurrentState() != core::SequencerState::WaitingForOperator)
+        if (safeThis != nullptr && safeThis->sessionCoordinator.getSequencerState() != core::SequencerState::WaitingForOperator)
             safeThis->manualPromptLabel.setVisible(false);
     });
 }
@@ -2860,7 +2849,7 @@ void MainContentComponent::handleClearPoint(int queueIdx, int pointIdx)
 // ==============================================================================
 void MainContentComponent::startProfilingSession(bool resumeFromExisting)
 {
-    if (sequencer.isRunningSession())
+    if (sessionCoordinator.isRunningSession())
         return;
 
     if (suiteList.getQueueSize() <= 0)
@@ -2874,9 +2863,9 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
     if (!resumeFromExisting)
     {
         // Silence any lingering active notes from previous session
+        sessionCoordinator.silenceAllNotes();
         for (int ch = 1; ch <= 16; ++ch)
         {
-            sequencer.getHardwareDispatcher().sendAllNotesOff(ch);
             audioEngine.postLiveMidiMessage(juce::MidiMessage::allNotesOff(ch));
         }
 
@@ -2896,7 +2885,6 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
     juce::String selectedFuncId = drawer.getSelectedFunctionId();
     const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
 
-    hardware::IHardwareController* activeHw = hardwareManager.getActiveController();
     std::string modeStr = "MOCK_DSP";
     std::string hwName = "MOCK_VA_SYNTH";
 
@@ -2910,7 +2898,7 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
         audioEngine.setMockHardware(nullptr);
     }
 
-    sequencer.setHardwareController(activeHw);
+    sessionCoordinator.setHardwareContext(&hardwareManager, selectedHwId);
 
     core::ProfilingSession currentProfilingSession = buildProfilingSessionFromQueue(hwName, modeStr);
     juce::String baseName = juce::String(hwName) + "_" + selectedFuncId;
@@ -2936,10 +2924,9 @@ void MainContentComponent::stopProfilingSession()
 {
     sessionCoordinator.triggerStopSession();
 
-    // Silence any active notes immediately
+    // Silence any active live notes
     for (int ch = 1; ch <= 16; ++ch)
     {
-        sequencer.getHardwareDispatcher().sendAllNotesOff(ch);
         audioEngine.postLiveMidiMessage(juce::MidiMessage::allNotesOff(ch));
     }
 
@@ -3186,7 +3173,7 @@ core::ProfilingSession MainContentComponent::buildProfilingSessionFromQueue(cons
 
 void MainContentComponent::startTargetedPatchSession(const std::vector<std::pair<int, int>>& pointsToPatch)
 {
-    if (sequencer.isRunningSession())
+    if (sessionCoordinator.isRunningSession())
     {
         manualPromptLabel.setText("A profiling session is already running. Please wait or stop it first.", juce::dontSendNotification);
         manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
@@ -3221,7 +3208,6 @@ void MainContentComponent::startTargetedPatchSession(const std::vector<std::pair
     juce::String selectedFuncId = drawer.getSelectedFunctionId();
     const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
 
-    hardware::IHardwareController* activeHw = hardwareManager.getActiveController();
     std::string modeStr = "MOCK_DSP";
     std::string hwName = "MOCK_VA_SYNTH";
 
@@ -3235,7 +3221,7 @@ void MainContentComponent::startTargetedPatchSession(const std::vector<std::pair
         audioEngine.setMockHardware(nullptr);
     }
 
-    sequencer.setHardwareController(activeHw);
+    sessionCoordinator.setHardwareContext(&hardwareManager, selectedHwId);
 
     core::ProfilingSession patchSession = buildPatchProfilingSession(pointsToPatch, hwName, modeStr);
     patchSession.setIsPatchSession(true);
@@ -3243,7 +3229,7 @@ void MainContentComponent::startTargetedPatchSession(const std::vector<std::pair
     juce::String baseName = juce::String(hwName) + "_" + selectedFuncId;
 
     meterStrip.setProfilingActive(true);
-    sequencer.startSession(patchSession, exportDirectory, baseName);
+    sessionCoordinator.triggerStartSession(patchSession, exportDirectory, baseName, true);
 }
 
 core::ProfilingSession MainContentComponent::buildPatchProfilingSession(const std::vector<std::pair<int, int>>& pointsToPatch,
@@ -3737,7 +3723,7 @@ void MainContentComponent::performNewSessionReset()
         juce::Logger::writeToLog("[NewSession] Releasing active plugin instance: " + activePluginDescription.name);
         pluginWindowController.closePluginWindow();
         audioEngine.setActivePluginInstance(nullptr);
-        sequencer.getHardwareDispatcher().setTargetPluginInstance(nullptr);
+        sessionCoordinator.setTargetPluginInstance(nullptr);
         pluginHostManager.unloadPlugin();
         activePluginInstance = nullptr;
         activePluginDescription = {};
@@ -3878,7 +3864,7 @@ void MainContentComponent::applyActivePluginRoutingAndUi(const juce::PluginDescr
     activePluginDescription = desc;
     audioEngine.setActivePluginInstance(activePluginInstance, sr, bs);
     audioEngine.setPluginMonitoringEnabled(true);
-    sequencer.getHardwareDispatcher().setTargetPluginInstance(activePluginInstance);
+    sessionCoordinator.setTargetPluginInstance(activePluginInstance);
 
     // Create and register dynamic hardware contract for custom tests and parameters
     auto dynContract = core::PluginHardwareContractAdapter::createContractFromPlugin(*activePluginInstance, desc);

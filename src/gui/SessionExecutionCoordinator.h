@@ -22,6 +22,60 @@ namespace gui {
     class MeasurementHealthPanel;
     class OperatorStepModalDialog;
 
+enum class SessionState
+{
+    Idle,
+    Starting,
+    Running,
+    Paused,
+    Capturing,
+    CancelRequested,
+    Aborted,
+    Completed,
+    Failed
+};
+
+[[nodiscard]] inline std::string sessionStateToString(SessionState s) noexcept
+{
+    switch (s)
+    {
+        case SessionState::Idle:            return "Idle";
+        case SessionState::Starting:        return "Starting";
+        case SessionState::Running:         return "Running";
+        case SessionState::Paused:          return "Paused";
+        case SessionState::Capturing:       return "Capturing";
+        case SessionState::CancelRequested: return "CancelRequested";
+        case SessionState::Aborted:         return "Aborted";
+        case SessionState::Completed:       return "Completed";
+        case SessionState::Failed:          return "Failed";
+    }
+    return "Unknown";
+}
+
+struct ExecutionToken
+{
+    uint64_t runId { 0 };
+    uint64_t pointExecutionId { 0 };
+
+    bool operator==(const ExecutionToken& other) const noexcept
+    {
+        return runId == other.runId && pointExecutionId == other.pointExecutionId;
+    }
+    bool operator!=(const ExecutionToken& other) const noexcept
+    {
+        return !(*this == other);
+    }
+};
+
+struct CoordinatorDiagnostics
+{
+    std::atomic<uint64_t> staleCallbacksDiscarded { 0 };
+    std::atomic<uint64_t> duplicateStartsRejected { 0 };
+    std::atomic<uint64_t> duplicateStopsIgnored { 0 };
+    std::atomic<uint64_t> pointsPersisted { 0 };
+    std::atomic<uint64_t> duplicatePersistsPrevented { 0 };
+};
+
 class SessionExecutionCoordinator : public juce::Component
 {
 public:
@@ -48,6 +102,7 @@ public:
     [[nodiscard]] bool switchWorkspaceInteractionMode(measurement::WorkspaceInteractionMode mode);
     [[nodiscard]] measurement::WorkspaceInteractionMode getWorkspaceInteractionMode() const noexcept;
     [[nodiscard]] measurement::CoordinatorState getCoordinatorState() const noexcept;
+    [[nodiscard]] SessionState getSessionState() const noexcept;
     [[nodiscard]] const measurement::MeasurementSession* getActiveMeasurementSession() const noexcept;
     [[nodiscard]] const std::vector<measurement::CoordinatorTransitionRecord>& getTransitionHistory() const noexcept;
 
@@ -79,19 +134,30 @@ public:
     void repeatCurrentStep();
     void stepBack();
 
+    /** Explicit pause & resume lifecycle API. */
+    bool pauseSession();
+    bool resumeSession();
     /** Toggle session pause / resume. */
-    void togglePauseSession();
+    bool togglePauseSession();
     /** Re-run a single point by its global index. */
     void rerunSelectedPoint(int globalPointIndex);
     /** Rearm state machine back to SessionReady after cancellation or completion. */
     void rearmSession();
     [[nodiscard]] bool isSessionPaused() const noexcept;
+    [[nodiscard]] bool isRunningSession() const noexcept;
 
-    void triggerStartSession(const core::ProfilingSession& session,
+    bool triggerStartSession(const core::ProfilingSession& session,
                              const juce::File& exportDir,
                              const juce::String& baseName,
                              bool isPatching = false);
     void triggerStopSession();
+
+    [[nodiscard]] ExecutionToken getCurrentToken() const noexcept;
+    [[nodiscard]] const CoordinatorDiagnostics& getDiagnostics() const noexcept { return diagnostics; }
+    [[nodiscard]] core::SequencerState getSequencerState() const noexcept;
+
+    void setTargetPluginInstance(juce::AudioPluginInstance* instance);
+    void silenceAllNotes();
 
     [[nodiscard]] int getTotalPointsMeasured() const noexcept { return totalPointsMeasured; }
     void setTotalPointsMeasured(int count) noexcept { totalPointsMeasured = count; }
@@ -105,6 +171,8 @@ public:
     std::function<void()> onSessionAutoSaveRequested;
     /** Fired when pause state changes: true = paused, false = running. */
     std::function<void(bool isPaused)> onSessionPauseStateChanged;
+    /** Fired whenever the session execution state machine advances. */
+    std::function<void(SessionState oldState, SessionState newState)> onSessionStateChanged;
     /** Fired whenever the coordinator state machine advances with audit reason. */
     std::function<void(measurement::CoordinatorState oldState,
                        measurement::CoordinatorState newState,
@@ -130,19 +198,26 @@ private:
     int totalPointsMeasured { 0 };
     bool isPatchingSession  { false };
 
+    std::atomic<SessionState> currentSessionState { SessionState::Idle };
+    std::atomic<uint64_t> currentRunIdCounter     { 0 };
+    ExecutionToken activeToken;
+    uint64_t lastPersistedPointExecutionId        { 0 };
+    CoordinatorDiagnostics diagnostics;
+
     measurement::CoordinatorStateMachine stateMachine;
     measurement::WorkspaceInteractionMode currentInteractionMode { measurement::WorkspaceInteractionMode::Guided };
     std::unique_ptr<measurement::MeasurementSession> activeMeasurementSession;
     std::vector<measurement::ControlStateSnapshot> currentPointSnapshots;
 
+    void setSessionState(SessionState newState);
     void transitionTo(measurement::CoordinatorEvent event, const measurement::CoordinatorContext& ctx);
 
-    void handleOperatorStep(const core::TestCase& tc, int stepIndex, int totalSteps);
-    void handleProgress(float progress, const juce::String& task, core::SequencerState state);
-    void handlePreScan(const math::PreScanResult& preScan);
-    void handleTestIndex(int queueIndex, int currentPoint, int totalPoints);
-    void handlePointMeasured(const exporting::MeasuredPoint& pt);
-    void handleModulationNodeMeasured(const math::ModulationNode& node);
+    void handleOperatorStep(ExecutionToken token, const core::TestCase& tc, int stepIndex, int totalSteps);
+    void handleProgress(ExecutionToken token, float progress, const juce::String& task, core::SequencerState state);
+    void handlePreScan(ExecutionToken token, const math::PreScanResult& preScan);
+    void handleTestIndex(ExecutionToken token, int queueIndex, int currentPoint, int totalPoints);
+    void handlePointMeasured(ExecutionToken token, const exporting::MeasuredPoint& pt);
+    void handleModulationNodeMeasured(ExecutionToken token, const math::ModulationNode& node);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SessionExecutionCoordinator)
 };

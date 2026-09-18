@@ -23,6 +23,7 @@ SessionExecutionCoordinator::SessionExecutionCoordinator(core::ProfilingSequence
 
 SessionExecutionCoordinator::~SessionExecutionCoordinator()
 {
+    triggerStopSession();
     unbindSequencerCallbacks();
 }
 
@@ -97,6 +98,31 @@ measurement::CoordinatorState SessionExecutionCoordinator::getCoordinatorState()
     return stateMachine.getState();
 }
 
+SessionState SessionExecutionCoordinator::getSessionState() const noexcept
+{
+    return currentSessionState.load(std::memory_order_acquire);
+}
+
+ExecutionToken SessionExecutionCoordinator::getCurrentToken() const noexcept
+{
+    return activeToken;
+}
+
+bool SessionExecutionCoordinator::isRunningSession() const noexcept
+{
+    auto st = currentSessionState.load(std::memory_order_acquire);
+    return (st == SessionState::Starting || st == SessionState::Running || st == SessionState::Paused || st == SessionState::Capturing);
+}
+
+void SessionExecutionCoordinator::setSessionState(SessionState newState)
+{
+    auto oldState = currentSessionState.exchange(newState, std::memory_order_acq_rel);
+    if (oldState != newState && onSessionStateChanged)
+    {
+        onSessionStateChanged(oldState, newState);
+    }
+}
+
 const measurement::MeasurementSession* SessionExecutionCoordinator::getActiveMeasurementSession() const noexcept
 {
     return activeMeasurementSession.get();
@@ -168,38 +194,60 @@ void SessionExecutionCoordinator::setHardwareContext(core::HardwareManager* hwMg
 {
     hardwareManager = hwMgr;
     currentHardwareId = selectedHwId;
+    if (hardwareManager != nullptr)
+        sequencer.setHardwareController(hardwareManager->getActiveController());
+}
+
+void SessionExecutionCoordinator::setTargetPluginInstance(juce::AudioPluginInstance* instance)
+{
+    sequencer.getHardwareDispatcher().setTargetPluginInstance(instance);
+}
+
+void SessionExecutionCoordinator::silenceAllNotes()
+{
+    for (int ch = 1; ch <= 16; ++ch)
+    {
+        sequencer.getHardwareDispatcher().sendAllNotesOff(ch);
+    }
+}
+
+core::SequencerState SessionExecutionCoordinator::getSequencerState() const noexcept
+{
+    return sequencer.getCurrentState();
 }
 
 void SessionExecutionCoordinator::wireSequencerCallbacks()
 {
+    auto token = activeToken;
+
     // 1. Operator Step Callback
-    sequencer.setOperatorStepCallback([this](const core::TestCase& tc, int stepIndex, int totalSteps) {
-        handleOperatorStep(tc, stepIndex, totalSteps);
+    sequencer.setOperatorStepCallback([this, token](const core::TestCase& tc, int stepIndex, int totalSteps) {
+        handleOperatorStep(token, tc, stepIndex, totalSteps);
     });
 
     // 2. Progress and State Transition Callback
-    sequencer.setProgressCallback([this](float progress, const juce::String& task, core::SequencerState state) {
-        handleProgress(progress, task, state);
+    sequencer.setProgressCallback([this, token](float progress, const juce::String& task, core::SequencerState state) {
+        handleProgress(token, progress, task, state);
     });
 
     // 3. PreScan Callback
-    sequencer.setPreScanCallback([this](const math::PreScanResult& preScan) {
-        handlePreScan(preScan);
+    sequencer.setPreScanCallback([this, token](const math::PreScanResult& preScan) {
+        handlePreScan(token, preScan);
     });
 
     // 4. Test Index Progress Callback
-    sequencer.setTestIndexCallback([this](int queueIndex, int currentPoint, int totalPoints) {
-        handleTestIndex(queueIndex, currentPoint, totalPoints);
+    sequencer.setTestIndexCallback([this, token](int queueIndex, int currentPoint, int totalPoints) {
+        handleTestIndex(token, queueIndex, currentPoint, totalPoints);
     });
 
     // 5. Point Measured Callback
-    sequencer.setPointMeasuredCallback([this](const exporting::MeasuredPoint& pt) {
-        handlePointMeasured(pt);
+    sequencer.setPointMeasuredCallback([this, token](const exporting::MeasuredPoint& pt) {
+        handlePointMeasured(token, pt);
     });
 
     // 6. Modulation Node Measured Callback
-    sequencer.setModulationNodeMeasuredCallback([this](const math::ModulationNode& node) {
-        handleModulationNodeMeasured(node);
+    sequencer.setModulationNodeMeasuredCallback([this, token](const math::ModulationNode& node) {
+        handleModulationNodeMeasured(token, node);
     });
 }
 
@@ -285,20 +333,36 @@ void SessionExecutionCoordinator::triggerFreeCapture(const std::vector<measureme
     }
 }
 
-void SessionExecutionCoordinator::togglePauseSession()
+bool SessionExecutionCoordinator::pauseSession()
 {
-    if (sequencer.isSessionPaused())
-    {
-        sequencer.resumeSession();
-        if (onSessionPauseStateChanged)
-            onSessionPauseStateChanged(false);
-    }
+    if (isSessionPaused())
+        return false;
+
+    sequencer.pauseSession();
+    setSessionState(SessionState::Paused);
+    if (onSessionPauseStateChanged)
+        onSessionPauseStateChanged(true);
+    return true;
+}
+
+bool SessionExecutionCoordinator::resumeSession()
+{
+    if (!isSessionPaused())
+        return false;
+
+    sequencer.resumeSession();
+    setSessionState(sequencer.isRunningSession() ? SessionState::Running : SessionState::Idle);
+    if (onSessionPauseStateChanged)
+        onSessionPauseStateChanged(false);
+    return true;
+}
+
+bool SessionExecutionCoordinator::togglePauseSession()
+{
+    if (isSessionPaused())
+        return resumeSession();
     else
-    {
-        sequencer.pauseSession();
-        if (onSessionPauseStateChanged)
-            onSessionPauseStateChanged(true);
-    }
+        return pauseSession();
 }
 
 void SessionExecutionCoordinator::rerunSelectedPoint(int globalPointIndex)
@@ -313,9 +377,8 @@ void SessionExecutionCoordinator::rerunSelectedPoint(int globalPointIndex)
         {
             for (int pi = 0; pi < static_cast<int>(queue[static_cast<size_t>(qi)].pointStatuses.size()); ++pi)
             {
-                // Compute the global index for (qi, pi): walk from the start of the first test
-                // The easiest approach is to scan sessionManager
-                break; // handled via suiteList.setPointStatus from the caller
+                // Handled via suiteList.setPointStatus from the caller
+                break;
             }
         }
     }
@@ -323,7 +386,7 @@ void SessionExecutionCoordinator::rerunSelectedPoint(int globalPointIndex)
 
 bool SessionExecutionCoordinator::isSessionPaused() const noexcept
 {
-    return sequencer.isSessionPaused();
+    return currentSessionState.load(std::memory_order_acquire) == SessionState::Paused || sequencer.isSessionPaused();
 }
 
 void SessionExecutionCoordinator::rearmSession()
@@ -342,14 +405,29 @@ void SessionExecutionCoordinator::rearmSession()
         transitionTo(measurement::CoordinatorEvent::PrepareSession, ctx);
     }
     totalPointsMeasured = 0;
+    setSessionState(SessionState::Idle);
 }
 
-void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSession& session,
+bool SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSession& session,
                                                       const juce::File& exportDir,
                                                       const juce::String& baseName,
                                                       bool isPatching)
 {
+    // 1. Validar precondición: rechazar arranques duplicados si ya está en ejecución
+    if (isRunningSession() || sequencer.isRunningSession())
+    {
+        diagnostics.duplicateStartsRejected.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
+
     isPatchingSession = isPatching;
+    setSessionState(SessionState::Starting);
+
+    // 2. Generar nuevo ExecutionToken único
+    activeToken.runId = ++currentRunIdCounter;
+    activeToken.pointExecutionId = 1;
+    lastPersistedPointExecutionId = 0;
+
     wireSequencerCallbacks();
 
     auto st = stateMachine.getState();
@@ -364,11 +442,39 @@ void SessionExecutionCoordinator::triggerStartSession(const core::ProfilingSessi
     if (onExecutionStateChanged)
         onExecutionStateChanged(true);
 
-    sequencer.startSession(session, exportDir, baseName);
+    bool started = sequencer.startSession(session, exportDir, baseName);
+    if (started)
+    {
+        setSessionState(SessionState::Running);
+        return true;
+    }
+    else
+    {
+        setSessionState(SessionState::Failed);
+        if (onExecutionStateChanged)
+            onExecutionStateChanged(false);
+        return false;
+    }
 }
 
 void SessionExecutionCoordinator::triggerStopSession()
 {
+    auto st = currentSessionState.load(std::memory_order_acquire);
+    auto coordSt = stateMachine.getState();
+    if ((st == SessionState::Idle && coordSt == measurement::CoordinatorState::NoSession)
+        || st == SessionState::Aborted
+        || coordSt == measurement::CoordinatorState::Aborted)
+    {
+        diagnostics.duplicateStopsIgnored.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+
+    setSessionState(SessionState::CancelRequested);
+
+    // Invalidar inmediatamente el token activo para que cualquier callback encolado se descarte
+    activeToken.runId = 0;
+    activeToken.pointExecutionId = 0;
+
     measurement::CoordinatorContext ctx;
     ctx.mode = currentInteractionMode;
     ctx.hasActiveSession = (activeMeasurementSession != nullptr);
@@ -376,8 +482,11 @@ void SessionExecutionCoordinator::triggerStopSession()
 
     transitionTo(measurement::CoordinatorEvent::CancelRequested, ctx);
 
+    silenceAllNotes();
     sequencer.stopSession();
     unbindSequencerCallbacks();
+
+    setSessionState(SessionState::Aborted);
 
     if (viewConfirmManualButton != nullptr) viewConfirmManualButton->setVisible(false);
     if (viewBtnStepBack != nullptr)         viewBtnStepBack->setVisible(false);
@@ -406,9 +515,15 @@ void SessionExecutionCoordinator::triggerStopSession()
         onExecutionStateChanged(false);
 }
 
-void SessionExecutionCoordinator::handleOperatorStep(const core::TestCase& tc, int stepIndex, int totalSteps)
+void SessionExecutionCoordinator::handleOperatorStep(ExecutionToken token, const core::TestCase& tc, int stepIndex, int totalSteps)
 {
-    juce::MessageManager::callAsync([this, tc, stepIndex, totalSteps] {
+    juce::MessageManager::callAsync([this, token, tc, stepIndex, totalSteps] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
+        {
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+
         bool isAuto = false;
         if (hardwareManager != nullptr)
         {
@@ -461,9 +576,15 @@ void SessionExecutionCoordinator::handleOperatorStep(const core::TestCase& tc, i
     });
 }
 
-void SessionExecutionCoordinator::handleProgress(float progress, const juce::String& task, core::SequencerState state)
+void SessionExecutionCoordinator::handleProgress(ExecutionToken token, float progress, const juce::String& task, core::SequencerState state)
 {
-    juce::MessageManager::callAsync([this, progress, task, state] {
+    juce::MessageManager::callAsync([this, token, progress, task, state] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
+        {
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+
         juce::ignoreUnused(progress);
 
         if (state == core::SequencerState::WaitingForOperator)
@@ -507,6 +628,9 @@ void SessionExecutionCoordinator::handleProgress(float progress, const juce::Str
                  state == core::SequencerState::InjectStimulus ||
                  state == core::SequencerState::InitiateTestCase)
         {
+            if (state == core::SequencerState::CaptureAndAnalyze)
+                setSessionState(SessionState::Capturing);
+
             if (viewOperatorModal != nullptr)
                 viewOperatorModal->setMeasuringState(true);
 
@@ -528,6 +652,8 @@ void SessionExecutionCoordinator::handleProgress(float progress, const juce::Str
         }
         else if (state == core::SequencerState::Finished)
         {
+            setSessionState(SessionState::Completed);
+
             if (viewOperatorModal != nullptr)
                 viewOperatorModal->dismiss();
 
@@ -607,6 +733,8 @@ void SessionExecutionCoordinator::handleProgress(float progress, const juce::Str
         }
         else if (state == core::SequencerState::ErrorState)
         {
+            setSessionState(SessionState::Failed);
+
             juce::String errorMsg = task.isNotEmpty() ? task : "Session Halted: Insufficient Audio Signal. Connect patch cable (DAC Out 1 -> ADC In 1) & retry.";
 
             if (viewManualPromptLabel != nullptr)
@@ -641,16 +769,29 @@ void SessionExecutionCoordinator::handleProgress(float progress, const juce::Str
     });
 }
 
-void SessionExecutionCoordinator::handlePreScan(const math::PreScanResult& preScan)
+void SessionExecutionCoordinator::handlePreScan(ExecutionToken token, const math::PreScanResult& preScan)
 {
-    juce::MessageManager::callAsync([this, preScan] {
+    juce::MessageManager::callAsync([this, token, preScan] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
+        {
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
         curvePlotter.setPreScanTrajectory(preScan);
     });
 }
 
-void SessionExecutionCoordinator::handleTestIndex(int queueIndex, int currentPoint, int totalPoints)
+void SessionExecutionCoordinator::handleTestIndex(ExecutionToken token, int queueIndex, int currentPoint, int totalPoints)
 {
-    juce::MessageManager::callAsync([this, queueIndex, currentPoint, totalPoints] {
+    juce::MessageManager::callAsync([this, token, queueIndex, currentPoint, totalPoints] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
+        {
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+
+        activeToken.pointExecutionId = static_cast<uint64_t>(currentPoint);
+
         if (!isPatchingSession && viewSuiteList != nullptr)
         {
             for (int i = 0; i < queueIndex; ++i)
@@ -680,8 +821,23 @@ void SessionExecutionCoordinator::handleTestIndex(int queueIndex, int currentPoi
     });
 }
 
-void SessionExecutionCoordinator::handlePointMeasured(const exporting::MeasuredPoint& pt)
+void SessionExecutionCoordinator::handlePointMeasured(ExecutionToken token, const exporting::MeasuredPoint& pt)
 {
+    if (token.runId == 0 || token.runId != activeToken.runId)
+    {
+        diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+
+    uint64_t pointExecId = activeToken.pointExecutionId;
+    if (pointExecId != 0 && pointExecId <= lastPersistedPointExecutionId)
+    {
+        diagnostics.duplicatePersistsPrevented.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    lastPersistedPointExecutionId = pointExecId;
+    diagnostics.pointsPersisted.fetch_add(1, std::memory_order_relaxed);
+
     measurement::CoordinatorContext ctx;
     ctx.mode = currentInteractionMode;
     ctx.hasActiveSession = (activeMeasurementSession != nullptr);
@@ -761,8 +917,13 @@ void SessionExecutionCoordinator::handlePointMeasured(const exporting::MeasuredP
         onSessionAutoSaveRequested();
 }
 
-void SessionExecutionCoordinator::handleModulationNodeMeasured(const math::ModulationNode& node)
+void SessionExecutionCoordinator::handleModulationNodeMeasured(ExecutionToken token, const math::ModulationNode& node)
 {
+    if (token.runId == 0 || token.runId != activeToken.runId)
+    {
+        diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
     curvePlotter.updateModulationNode(node);
 }
 
