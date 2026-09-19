@@ -18,6 +18,7 @@
 #include "../core/SessionManager.h"
 #include "../export/LutExporter.h"
 #include "../export/CertificationReportExporter.h"
+#include "../export/ReportExportService.h"
 #include "../dsp/LutEvaluatorSimd.h"
 
 namespace abdaudiolab {

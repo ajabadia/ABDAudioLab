@@ -524,6 +524,8 @@ target_sources(ABDAudioLab
         src/export/LutExporter.cpp
         src/export/CertificationReportExporter.h
         src/export/CertificationReportExporter.cpp
+        src/export/ReportExportService.h
+        src/export/ReportExportService.cpp
         src/export/NamDatasetExporter.h
         src/export/NamDatasetExporter.cpp
         src/export/ModulationPresetExporter.h
@@ -637,6 +639,8 @@ add_executable(ABDAudioLab_Tests
     src/core/SessionPersistenceService.cpp
     src/tests/test_LoadedSessionApplier.cpp
     src/gui/controllers/LoadedSessionApplier.cpp
+    src/tests/test_ReportExportService.cpp
+    src/export/ReportExportService.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp

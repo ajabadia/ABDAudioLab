@@ -52,6 +52,18 @@ struct ControlGridManifest
 };
 
 /**
+ * @struct PackageArtifactFixity
+ * @brief Cryptographic fixity entry for an exported package artifact.
+ */
+struct PackageArtifactFixity
+{
+    std::string name;      /**< Canonical relative filename (e.g., profile_lut.h). */
+    std::string type;      /**< Artifact classification (e.g., cpp_header, telemetry_json). */
+    uint64_t size { 0 };   /**< Exact size in bytes. */
+    std::string sha256;    /**< SHA-256 digest in lowercase hexadecimal. */
+};
+
+/**
  * @struct SessionManifestData
  * @brief Detailed profiling session manifest dataset.
  */
@@ -72,6 +84,8 @@ struct SessionManifestData
     std::vector<ControlGridManifest> gridConfig; /**< Control grid configuration vector. */
     std::string cppHeaderFilename;       /**< Generated C++ header filename. */
     std::string jsonReportFilename;      /**< Generated JSON report filename. */
+    std::vector<PackageArtifactFixity> packageArtifacts; /**< Cryptographic fixity entries for all package artifacts. */
+    std::string timestamp;               /**< Deterministic session timestamp. If empty, defaults to system clock. */
 
     // 1.7.12 Laboratory observations and environmental parameters
     std::string operatorNotes;           /**< Free-form operator notes and laboratory observations. */

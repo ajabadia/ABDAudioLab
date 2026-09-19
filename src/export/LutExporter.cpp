@@ -174,12 +174,19 @@ bool LutExporter::exportSessionManifest(const std::string& destinationManifestPa
     root["sessionManifestVersion"] = "2.0";
     
     // Timestamp
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-    char buf[100];
-    if (std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now_c)))
+    if (!manifest.timestamp.empty())
     {
-        root["timestamp"] = std::string(buf);
+        root["timestamp"] = manifest.timestamp;
+    }
+    else
+    {
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        char buf[100];
+        if (std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now_c)))
+        {
+            root["timestamp"] = std::string(buf);
+        }
     }
 
     // Hardware Details
@@ -220,6 +227,20 @@ bool LutExporter::exportSessionManifest(const std::string& destinationManifestPa
     nlohmann::json artJson;
     artJson["cppHeaderTable"] = manifest.cppHeaderFilename;
     artJson["jsonReport"] = manifest.jsonReportFilename;
+    if (!manifest.packageArtifacts.empty())
+    {
+        nlohmann::json fixityList = nlohmann::json::array();
+        for (const auto& a : manifest.packageArtifacts)
+        {
+            nlohmann::json item;
+            item["name"] = a.name;
+            item["type"] = a.type;
+            item["size"] = a.size;
+            item["sha256"] = a.sha256;
+            fixityList.push_back(item);
+        }
+        artJson["packageArtifacts"] = fixityList;
+    }
     root["outputArtifacts"] = artJson;
 
     // 1.7.12 Laboratory Observations & Environmental Conditions
