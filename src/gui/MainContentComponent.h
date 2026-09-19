@@ -50,6 +50,8 @@
 #include "gui/controllers/SessionIoController.h"
 #include "gui/controllers/WorkflowNavigationController.h"
 #include "gui/controllers/LoadedSessionApplier.h"
+#include "gui/controllers/IReportExportHost.h"
+#include "gui/controllers/ReportExportUiController.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include <StudioTopology/StudioTopologyController.h>
@@ -74,7 +76,8 @@ class MainContentComponent : public juce::Component,
                              public juce::Timer,
                              public juce::KeyListener,
                              public juce::ChangeListener,
-                             public gui::ILoadedSessionTarget
+                             public gui::ILoadedSessionTarget,
+                             public gui::IReportExportHost
 {
 public:
     using StartupProgressCallback = std::function<void(const juce::String& statusText, float progress)>;
@@ -130,6 +133,16 @@ public:
     void rebuildTestSuiteQueue(const std::vector<core::SessionManifest>& manifests,
                                const std::vector<gui::QueueItem>& items) override;
     void updateWorkflowAndNavigation(const gui::WorkflowStepState& workflowState) override;
+
+    // IReportExportHost interface
+    gui::ReportExportSnapshot createReportExportSnapshot() const override;
+    void showStatusBanner(const juce::String& message, bool isError) override;
+    void showMessageBox(const juce::String& title, const juce::String& message, bool isError) override;
+    void updateExportReportMetrics(const exporting::CalculatedSessionMetrics& metrics) override;
+    void notifyExportSuccess(const juce::File& destinationDir, const juce::String& baseName) override;
+    void showPanelStatus(const juce::String& statusMessage, bool isWarning = false) override;
+    void launchProcess(const juce::File& file) override;
+    void revealInFolder(const juce::File& folder) override;
 
     void handleSaveSession();
     void handleSaveSessionAs();
@@ -215,6 +228,7 @@ private:
     // Sub-controllers
     gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
+    gui::ReportExportUiController reportExportController { *this };
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

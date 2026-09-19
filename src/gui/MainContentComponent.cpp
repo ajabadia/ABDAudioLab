@@ -253,12 +253,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     mainHeader.onSaveSession = [this] { handleSaveSession(); };
     mainHeader.onSaveSessionAs = [this] { handleSaveSessionAs(); };
     mainHeader.onReanalyzeOffline = [this] { performOfflineReanalysis(); };
-    mainHeader.onExportCertificationReport = [this] { exportCertificationReport(); };
+    mainHeader.onExportCertificationReport = [this] { reportExportController.requestExportCertificationReport(); };
     mainHeader.onOpenExportFolder = [this] {
-        auto dirs = core::resolveLabDataDirectories();
-        if (!dirs.exports.exists())
-            dirs.exports.createDirectory();
-        dirs.exports.revealToUser();
+        reportExportController.openExportFolderInExplorer();
     };
     mainHeader.onOpenExperimentsFolder = [this] {
         auto dirs = core::resolveLabDataDirectories();
@@ -426,17 +423,13 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     exportReportPanel.setVisible(false);
 
     exportReportPanel.onExportRequested = [this] {
-        exportProductionPackage();
+        reportExportController.requestExportProductionPackage();
     };
     exportReportPanel.onOpenFolderRequested = [this] {
-        if (!exportDirectory.exists())
-            exportDirectory.createDirectory();
-        if (!exportDirectory.startAsProcess())
-            exportDirectory.revealToUser();
-        exportReportPanel.showStatusMessage(juce::String::fromUTF8(u8"✓ Carpeta de exportación abierta en el Explorador."));
+        reportExportController.openExportFolderInExplorer();
     };
     exportReportPanel.onViewHtmlRequested = [this] {
-        openCertificationReportHtml();
+        reportExportController.openCertificationReportHtml();
     };
     exportReportPanel.onPublishCloudRequested = [this] {
         publishCertificationToCloud();
@@ -1390,12 +1383,10 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         performOfflineReanalysis();
     };
     drawer.onRevealExportFolderClicked = [this] {
-        if (!exportDirectory.exists())
-            exportDirectory.createDirectory();
-        exportDirectory.revealToUser();
+        reportExportController.openExportFolderInExplorer();
     };
     drawer.onExportReportClicked = [this] {
-        exportCertificationReport();
+        reportExportController.requestExportCertificationReport();
     };
     drawer.onExitAppClicked = [this] {
         confirmAndExit();
@@ -3235,107 +3226,116 @@ void MainContentComponent::saveSessionToFile(const juce::File& file)
 
 void MainContentComponent::exportCertificationReport()
 {
-    juce::String hwId = drawer.getSelectedHardwareId();
-    juce::String funcId = drawer.getSelectedFunctionId();
-    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-    if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
-
-    gui::ReportExportRequest req;
-    req.format = gui::ReportFormat::HtmlCertification;
-    req.destination = sessionIoController.getExportDirectory();
-    req.hardwareId = hwId;
-    req.hardwareName = drawer.getActiveHardwareDisplayName();
-    req.functionId = funcId;
-    req.functionName = drawer.getActiveFunctionDisplayName();
-    req.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
-    req.sampleRate = audioEngine.getCurrentSampleRate();
-
-    auto result = sessionReportManager.exportReport(req, sessionManager.getMeasuredPoints());
-    if (result.succeeded)
-    {
-        manualPromptLabel.setText("Certification Report exported: " + result.outputPath.getFileName(), juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-        hidePromptAfterDelay(4000);
-        result.outputPath.startAsProcess();
-    }
-    else
-    {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon,
-            "Export Failed",
-            result.userMessage.isNotEmpty() ? result.userMessage : "Could not generate HTML Certification Report.",
-            "OK"
-        );
-    }
+    reportExportController.requestExportCertificationReport();
 }
 
 void MainContentComponent::updateExportReportMetrics()
 {
-    float avgSnr = 0.0f, noiseFloor = 0.0f, avgThd = 0.0f, durationSec = 0.0f;
-    int count = 0;
-    gui::SessionReportManager::calculateSessionMetrics(
-        sessionManager.getMeasuredPoints(),
-        audioEngine.getInputAutoTrim(),
-        avgSnr, noiseFloor, avgThd, count, durationSec);
-
-    exportReportPanel.updateMetrics(avgSnr, noiseFloor, avgThd, std::max(1, count), durationSec);
+    reportExportController.updateMetricsPreview();
 }
 
 void MainContentComponent::exportProductionPackage()
 {
-    juce::String hwId = drawer.getSelectedHardwareId();
-    juce::String funcId = drawer.getSelectedFunctionId();
-    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-    if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
-
-    gui::ReportExportRequest req;
-    req.format = gui::ReportFormat::ProductionPackage;
-    req.destination = sessionIoController.getExportDirectory();
-    req.hardwareId = hwId;
-    req.hardwareName = drawer.getActiveHardwareDisplayName();
-    if (req.hardwareName.isEmpty())
-    {
-        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
-        if (contract != nullptr) req.hardwareName = contract->displayName;
-        else req.hardwareName = hwId;
-    }
-    req.functionId = funcId;
-    req.functionName = drawer.getActiveFunctionDisplayName();
-    if (req.functionName.isEmpty()) req.functionName = funcId;
-    req.deviceType = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
-    req.sampleRate = audioEngine.getCurrentSampleRate();
-    req.operatorNotes = drawer.getOperatorNotes();
-    req.ambientTemperatureC = drawer.getAmbientTemperature();
-    req.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-
-    auto result = sessionReportManager.exportReport(req, sessionManager.getMeasuredPoints());
-    if (result.succeeded)
-    {
-        juce::String base = req.baseName.isNotEmpty() ? req.baseName : (hwId.toLowerCase() + "_" + funcId.toLowerCase());
-        exportReportPanel.showExportSuccess(req.destination.getFullPathName(), base);
-        manualPromptLabel.setText(juce::String::fromUTF8(u8"⚡ Paquete de producción exportado con éxito (C++ alignas(16), JSON, HTML)"), juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-        hidePromptAfterDelay(4000);
-    }
-    else
-    {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon,
-            "Production Export Failed",
-            result.userMessage.isNotEmpty() ? result.userMessage : "Failed to generate production package.",
-            "OK"
-        );
-    }
+    reportExportController.requestExportProductionPackage();
 }
 
 void MainContentComponent::openCertificationReportHtml()
 {
+    reportExportController.openCertificationReportHtml();
+}
+
+// ==============================================================================
+// IReportExportHost Implementation
+// ==============================================================================
+gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() const
+{
+    gui::ReportExportSnapshot snapshot;
+
     juce::String hwId = drawer.getSelectedHardwareId();
     juce::String funcId = drawer.getSelectedFunctionId();
     if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
     if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
 
-    sessionIoController.openCertificationReportHtml(hwId, funcId);
+    snapshot.manifest.hardwareId = hwId.toStdString();
+    juce::String hwName = drawer.getActiveHardwareDisplayName();
+    if (hwName.isEmpty())
+    {
+        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        if (contract != nullptr) hwName = contract->displayName;
+        else hwName = hwId;
+    }
+    snapshot.manifest.hardwareDisplayName = hwName.toStdString();
+    snapshot.manifest.hardwareName = hwName.toStdString();
+
+    snapshot.manifest.activeFunctionId = funcId.toStdString();
+    juce::String funcName = drawer.getActiveFunctionDisplayName();
+    if (funcName.isEmpty()) funcName = funcId;
+    snapshot.manifest.activeFunctionName = funcName.toStdString();
+
+    snapshot.manifest.targetModule = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
+
+    snapshot.measuredPoints = sessionManager.getMeasuredPoints();
+    snapshot.exportDirectory = sessionIoController.getExportDirectory().getFullPathName().toStdString();
+
+    juce::String base = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
+    snapshot.baseFileName = base.toStdString();
+
+    snapshot.sampleRate = audioEngine.getCurrentSampleRate();
+    snapshot.inputTrimDb = audioEngine.getInputAutoTrim();
+    snapshot.operatorNotes = drawer.getOperatorNotes().toStdString();
+    snapshot.ambientTemperatureC = drawer.getAmbientTemperature();
+    snapshot.warmupMinutes = drawer.getWarmupTimeMinutes();
+
+    return snapshot;
+}
+
+void MainContentComponent::showStatusBanner(const juce::String& message, bool /*isError*/)
+{
+    manualPromptLabel.setText(message, juce::dontSendNotification);
+    manualPromptLabel.setVisible(true);
+    hidePromptAfterDelay(4000);
+}
+
+void MainContentComponent::showMessageBox(const juce::String& title, const juce::String& message, bool isError)
+{
+    juce::AlertWindow::showMessageBoxAsync(
+        isError ? juce::AlertWindow::WarningIcon : juce::AlertWindow::InfoIcon,
+        title,
+        message,
+        "OK"
+    );
+}
+
+void MainContentComponent::updateExportReportMetrics(const exporting::CalculatedSessionMetrics& metrics)
+{
+    exportReportPanel.updateMetrics(
+        metrics.avgSnrDb,
+        metrics.noiseFloorDb,
+        metrics.avgThdPercent,
+        std::max(1, metrics.validPointCount),
+        metrics.totalDurationSec
+    );
+}
+
+void MainContentComponent::notifyExportSuccess(const juce::File& destinationDir, const juce::String& baseName)
+{
+    exportReportPanel.showExportSuccess(destinationDir.getFullPathName(), baseName);
+}
+
+void MainContentComponent::showPanelStatus(const juce::String& statusMessage, bool isWarning)
+{
+    exportReportPanel.showStatusMessage(statusMessage, isWarning);
+}
+
+void MainContentComponent::launchProcess(const juce::File& file)
+{
+    file.startAsProcess();
+}
+
+void MainContentComponent::revealInFolder(const juce::File& folder)
+{
+    if (!folder.startAsProcess())
+        folder.revealToUser();
 }
 
 void MainContentComponent::prepareAuditionLut()

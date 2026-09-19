@@ -14,8 +14,6 @@
 
 #include "../../core/SessionManager.h"
 #include "../../core/ProfilingSession.h"
-#include "../../export/LutExporter.h"
-#include "../../export/CertificationReportExporter.h"
 #include "../SessionReportManager.h"
 #include "../ConfirmationModalDialog.h"
 #include "../ExportReportPanel.h"
@@ -84,16 +82,6 @@ public:
                           std::function<void(int)> onInvalidate);
 
     // Production & Report Export
-    void exportProductionPackage(const juce::String& hwId,
-                                 const juce::String& funcId,
-                                 const core::ProfilingMetadata& meta,
-                                 const exporting::SessionManifestData& manifestData);
-
-    void exportCertificationReport(const juce::String& hwId,
-                                   const juce::String& funcId,
-                                   const exporting::SessionManifestData& manifestData);
-
-    void openCertificationReportHtml(const juce::String& hwId, const juce::String& funcId);
     void publishCertificationToCloud();
 
     // Callbacks
