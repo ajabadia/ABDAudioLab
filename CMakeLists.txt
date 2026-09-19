@@ -417,6 +417,8 @@ target_sources(ABDAudioLab
         src/gui/suite/SuiteRowRenderer.cpp
         src/gui/CenterSplitterBar.h
         src/gui/TopHeaderWidgets.h
+        src/gui/presentation/SessionStatusPresenter.h
+        src/gui/presentation/SessionStatusPresenter.cpp
         src/gui/MainContentComponent.h
         src/gui/MainContentComponent.cpp
         src/gui/LabApplication.h
@@ -825,6 +827,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/controllers/SessionIoController.cpp
     src/gui/MainHeaderController.cpp
     src/gui/SessionExecutionCoordinator.cpp
+    src/gui/presentation/SessionStatusPresenter.cpp
     src/gui/Waterfall3DComponent.cpp
     src/gui/PlotterModulationTableRenderer.cpp
     src/gui/PlotterHeatmapRenderer.cpp

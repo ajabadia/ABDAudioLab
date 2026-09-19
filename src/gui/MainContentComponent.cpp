@@ -1762,6 +1762,10 @@ void MainContentComponent::updateGovernanceUi()
     int currentPt = sessionCoordinator.getTotalPointsMeasured();
     int totalPts = suiteList.getQueueSize();
 
+    auto sessState = sessionCoordinator.getSessionState();
+    unsigned progressPct = totalPts > 0 ? static_cast<unsigned>(currentPt * 100 / totalPts) : 0;
+    const auto presentation = presentation::SessionStatusPresenter::present(sessState, progressPct);
+
     // 1. Mode Text
     juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? gui::strings::MODE_GUIDED : gui::strings::MODE_LAB;
     btnModeToggle.setButtonText(modeStr);
@@ -1921,7 +1925,7 @@ void MainContentComponent::updateGovernanceUi()
             btnPrimaryAction.setEnabled(true);
 
             btnCancelAction.setButtonText(gui::strings::CANCEL);
-            btnCancelAction.setVisible(true);
+            btnCancelAction.setVisible(presentation.cancelVisible);
             btnCancelAction.setEnabled(true);
             btnCancelAction.setTooltip(gui::strings::TOOLTIP_CANCEL);
         }
@@ -1940,7 +1944,7 @@ void MainContentComponent::updateGovernanceUi()
             else
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_READY);
 
-            btnCancelAction.setVisible(false);
+            btnCancelAction.setVisible(presentation.cancelVisible);
         }
     }
 

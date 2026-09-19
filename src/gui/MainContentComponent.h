@@ -46,6 +46,7 @@
 #include "gui/SessionReportManager.h"
 #include "gui/MainHeaderController.h"
 #include "gui/SessionExecutionCoordinator.h"
+#include "gui/presentation/SessionStatusPresenter.h"
 #include "gui/controllers/SessionIoController.h"
 #include "gui/controllers/WorkflowNavigationController.h"
 #include "gui/AudioABVerificationModal.h"

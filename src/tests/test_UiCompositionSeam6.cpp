@@ -20,6 +20,7 @@
 #include "../gui/SessionExecutionCoordinator.h"
 #include "../core/SessionManager.h"
 #include "../core/plugins/PluginHostManager.h"
+#include "../gui/presentation/SessionStatusPresenter.h"
 #include "../gui/session/UiStrings.h"
 
 namespace abdaudiolab::test::seam6
@@ -525,3 +526,157 @@ TEST_CASE("Seam 6 Architectural Invariants: Ownership, Audio, and Sovereignty", 
                       "UiSnapshot must have standard layout for lock-free pure presentation");
     }
 }
+
+// ==============================================================================
+// 5. SessionStatusPresenter Dedicated Verification ([SessionStatusPresenter])
+// ==============================================================================
+
+TEST_CASE("SessionStatusPresenter: Pure Presentation Mapping", "[SessionStatusPresenter]")
+{
+    using namespace abdaudiolab::gui::presentation;
+
+    SECTION("Idle presentation matches characterization")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Idle, 0);
+        REQUIRE(p.badge == "IDLE");
+        REQUIRE(p.statusText == "Ready");
+        REQUIRE(p.primaryEnabled == true);
+        REQUIRE(p.sessionRunning == false);
+        REQUIRE(p.pauseVisible == false);
+        REQUIRE(p.cancelVisible == false);
+        REQUIRE(p.bannerVisible == false);
+        REQUIRE(p.getBadgeRgba() == 0x808080FFu);
+    }
+
+    SECTION("Starting presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Starting, 0);
+        REQUIRE(p.badge == "STARTING");
+        REQUIRE(p.statusText == "Starting session");
+        REQUIRE(p.sessionRunning == true);
+        REQUIRE(p.primaryEnabled == false);
+        REQUIRE(p.getBadgeRgba() == 0x4682B4FFu);
+    }
+
+    SECTION("Running presentation with progress clamping")
+    {
+        auto p1 = SessionStatusPresenter::present(SessionState::Running, 42);
+        REQUIRE(p1.badge == "RUNNING");
+        REQUIRE(p1.statusText == "Session running");
+        REQUIRE(p1.progressPercent == 42);
+        REQUIRE(p1.sessionRunning == true);
+        REQUIRE(p1.pauseVisible == true);
+        REQUIRE(p1.cancelVisible == true);
+        REQUIRE(p1.primaryEnabled == true);
+        REQUIRE(p1.getBadgeRgba() == 0x2E8B57FFu);
+
+        auto p2 = SessionStatusPresenter::present(SessionState::Running, 150);
+        REQUIRE(p2.progressPercent == 100);
+    }
+
+    SECTION("Paused presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Paused, 50);
+        REQUIRE(p.badge == "PAUSED");
+        REQUIRE(p.statusText == "Session paused");
+        REQUIRE(p.sessionRunning == true);
+        REQUIRE(p.pauseVisible == true);
+        REQUIRE(p.cancelVisible == true);
+        REQUIRE(p.primaryEnabled == true);
+        REQUIRE(p.getBadgeRgba() == 0xD39E00FFu);
+    }
+
+    SECTION("Capturing presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Capturing, 60);
+        REQUIRE(p.badge == "CAPTURING");
+        REQUIRE(p.statusText == "Capturing measurement");
+        REQUIRE(p.sessionRunning == true);
+        REQUIRE(p.pauseVisible == false);
+        REQUIRE(p.cancelVisible == true);
+        REQUIRE(p.primaryEnabled == false);
+        REQUIRE(p.getBadgeRgba() == 0x4169E1FFu);
+    }
+
+    SECTION("CancelRequested presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::CancelRequested, 65);
+        REQUIRE(p.badge == "STOPPING");
+        REQUIRE(p.statusText == "Stopping session");
+        REQUIRE(p.sessionRunning == true);
+        REQUIRE(p.cancelVisible == false);
+        REQUIRE(p.primaryEnabled == false);
+        REQUIRE(p.getBadgeRgba() == 0xCC8400FFu);
+    }
+
+    SECTION("Aborted presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Aborted, 65);
+        REQUIRE(p.badge == "ABORTED");
+        REQUIRE(p.statusText == "Session aborted");
+        REQUIRE(p.sessionRunning == false);
+        REQUIRE(p.primaryEnabled == true);
+        REQUIRE(p.getBadgeRgba() == 0xB22222FFu);
+    }
+
+    SECTION("Completed presentation")
+    {
+        auto p = SessionStatusPresenter::present(SessionState::Completed, 100);
+        REQUIRE(p.badge == "COMPLETED");
+        REQUIRE(p.statusText == "Session completed");
+        REQUIRE(p.progressPercent == 100);
+        REQUIRE(p.sessionRunning == false);
+        REQUIRE(p.primaryEnabled == true);
+        REQUIRE(p.getBadgeRgba() == 0x228B22FFu);
+    }
+
+    SECTION("Failed presentation with error text and null fallback")
+    {
+        auto p1 = SessionStatusPresenter::present(SessionState::Failed, 20, "Plugin disconnected");
+        REQUIRE(p1.badge == "FAILED");
+        REQUIRE(p1.statusText == "Session failed");
+        REQUIRE(p1.bannerText == "Plugin disconnected");
+        REQUIRE(p1.bannerVisible == true);
+        REQUIRE(p1.primaryEnabled == true);
+        REQUIRE(p1.getBadgeRgba() == 0x8B0000FFu);
+        REQUIRE(p1.getBannerRgba() == 0xFFCCCCFFu);
+
+        auto p2 = SessionStatusPresenter::present(SessionState::Failed, 0, {});
+        REQUIRE(p2.bannerText == "Unknown error");
+        REQUIRE(p2.bannerVisible == true);
+    }
+
+    SECTION("Golden Master Equivalence: Presenter vs Fixtures")
+    {
+        for (int stateInt = 0; stateInt <= static_cast<int>(SessionState::Failed); ++stateInt)
+        {
+            auto st = static_cast<SessionState>(stateInt);
+            unsigned prog = 0;
+            if (st == SessionState::Running) prog = 42;
+            else if (st == SessionState::Completed) prog = 100;
+            else if (st == SessionState::Paused) prog = 50;
+            else if (st == SessionState::Capturing) prog = 60;
+            else if (st == SessionState::Aborted || st == SessionState::CancelRequested) prog = 65;
+            else if (st == SessionState::Failed) prog = 20;
+
+            juce::String err = (st == SessionState::Failed) ? "Plugin disconnected" : "";
+
+            auto pres = SessionStatusPresenter::present(st, prog, err);
+
+            UiSnapshot snap;
+            ui_build_snapshot(st, prog, (st == SessionState::Failed) ? "Plugin disconnected" : nullptr, &snap);
+
+            REQUIRE(pres.badge.toStdString() == std::string(snap.badge));
+            REQUIRE(pres.statusText.toStdString() == std::string(snap.status_text));
+            REQUIRE(pres.getBadgeRgba() == snap.badge_rgba);
+            REQUIRE(pres.getBannerRgba() == snap.banner_rgba);
+            REQUIRE(pres.primaryEnabled == snap.primary_enabled);
+            REQUIRE(pres.pauseVisible == snap.pause_visible);
+            REQUIRE(pres.cancelVisible == snap.cancel_visible);
+            REQUIRE(pres.bannerVisible == snap.banner_visible);
+            REQUIRE(pres.sessionRunning == snap.session_running);
+            REQUIRE(pres.progressPercent == snap.progress_percent);
+        }
+    }
+}
+

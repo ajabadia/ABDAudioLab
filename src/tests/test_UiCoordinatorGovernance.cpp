@@ -303,9 +303,10 @@ TEST_CASE("UI Governance: VST3 Dynamic Contract to MeasurementSession Initializa
     core::SessionManager sessMgr;
     gui::SoundIdCurvePlotter plotter;
 
-    gui::SessionExecutionCoordinator coordinator(seq, sessMgr, plotter);
     core::HardwareManager hwMgr;
     hwMgr.getContractRegistry().registerContract(contract);
+
+    gui::SessionExecutionCoordinator coordinator(seq, sessMgr, plotter);
     coordinator.setHardwareContext(&hwMgr, juce::String(contract.id));
 
     std::string profSha = "vst3_dexed_sha256_mock_test";
