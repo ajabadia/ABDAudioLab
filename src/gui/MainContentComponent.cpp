@@ -11,6 +11,7 @@
 #include "core/LabDataDirectories.h"
 #include "gui/measurement/MeasurementViewerPanel.h"
 #include "gui/measurement/MeasurementComparisonPanel.h"
+#include "core/ProfilingSessionBuilder.h"
 #include "synth/Sha256.h"
 #include <cmath>
 
@@ -51,17 +52,6 @@ public:
     }
 };
 } // namespace
-
-std::string mapBadgeToBlockType(const juce::String& badgeText)
-{
-    if (badgeText == "FLT") return "SpectrumFilter";
-    if (badgeText == "ENV") return "TimeDynamic";
-    if (badgeText == "SAT") return "WaveShaper";
-    if (badgeText == "MOD") return "CyclicModulator";
-    if (badgeText == "WNH") return "WienerHammerstein";
-    if (badgeText == "NAM") return "NeuralCalibration";
-    return "AmplitudeGain";
-}
 
 hardware::AiraModel mapHardwareIdToAiraModel(const juce::String& hwId)
 {
@@ -1764,7 +1754,14 @@ void MainContentComponent::updateGovernanceUi()
 
     auto sessState = sessionCoordinator.getSessionState();
     unsigned progressPct = totalPts > 0 ? static_cast<unsigned>(currentPt * 100 / totalPts) : 0;
-    const auto presentation = presentation::SessionStatusPresenter::present(sessState, progressPct);
+
+    juce::String errMessage;
+    if (sessState == gui::SessionState::Failed || state == measurement::CoordinatorState::Error)
+    {
+        const auto& hist = sessionCoordinator.getTransitionHistory();
+        errMessage = hist.empty() ? juce::String("Error en el flujo de medicion") : juce::String(hist.back().reason);
+    }
+    const auto presentation = presentation::SessionStatusPresenter::present(sessState, progressPct, errMessage);
 
     // 1. Mode Text
     juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? gui::strings::MODE_GUIDED : gui::strings::MODE_LAB;
@@ -1775,65 +1772,9 @@ void MainContentComponent::updateGovernanceUi()
     else
         btnModeToggle.setTooltip(gui::strings::TOOLTIP_MODE_TOGGLE);
 
-    // 2. Lifecycle State Text and Colors
-    juce::String stateStr;
-    juce::Colour stateCol;
-
-    switch (state)
-    {
-        case measurement::CoordinatorState::NoSession:
-            stateStr = gui::strings::STATE_NO_SESSION;
-            stateCol = juce::Colours::grey;
-            break;
-        case measurement::CoordinatorState::ProfileSelected:
-            stateStr = gui::strings::STATE_PROFILE_SELECTED;
-            stateCol = juce::Colour(0xff3498db);
-            break;
-        case measurement::CoordinatorState::SessionReady:
-            stateStr = gui::strings::STATE_READY;
-            stateCol = juce::Colour(0xff2ecc71);
-            break;
-        case measurement::CoordinatorState::AwaitingManualConfirmation:
-            stateStr = gui::strings::STATE_AWAITING_OP;
-            stateCol = juce::Colour(0xfff39c12);
-            break;
-        case measurement::CoordinatorState::ApplyingAutomation:
-            stateStr = gui::strings::STATE_AUTOMATING;
-            stateCol = juce::Colour(0xff3498db);
-            break;
-        case measurement::CoordinatorState::Capturing:
-            stateStr = gui::strings::STATE_CAPTURING;
-            stateCol = juce::Colour(0xff3498db);
-            break;
-        case measurement::CoordinatorState::Validating:
-            stateStr = gui::strings::STATE_VALIDATING;
-            stateCol = juce::Colour(0xff3498db);
-            break;
-        case measurement::CoordinatorState::Persisting:
-            stateStr = gui::strings::STATE_PERSISTING;
-            stateCol = juce::Colour(0xff3498db);
-            break;
-        case measurement::CoordinatorState::PointCompleted:
-            stateStr = gui::strings::STATE_POINT_COMPLETED;
-            stateCol = juce::Colour(0xff2ecc71);
-            break;
-        case measurement::CoordinatorState::SessionCompleted:
-            stateStr = gui::strings::STATE_SESSION_COMPLETED;
-            stateCol = juce::Colour(0xff2ecc71);
-            break;
-        case measurement::CoordinatorState::ReanalysisAvailable:
-            stateStr = gui::strings::STATE_REANALYSIS_AVAIL;
-            stateCol = juce::Colour(0xff2ecc71);
-            break;
-        case measurement::CoordinatorState::Error:
-            stateStr = gui::strings::STATE_ERROR;
-            stateCol = juce::Colour(0xffe74c3c);
-            break;
-        case measurement::CoordinatorState::Aborted:
-            stateStr = gui::strings::STATE_ABORTED;
-            stateCol = juce::Colours::grey;
-            break;
-    }
+    // 2. Lifecycle State Text and Colors (from pure SessionStatusPresenter)
+    juce::String stateStr = presentation.statusText;
+    juce::Colour stateCol = presentation.badgeColour;
 
     // 3. Point Progress & Live Telemetry Text
     juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
@@ -1866,7 +1807,7 @@ void MainContentComponent::updateGovernanceUi()
     bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
     bool isRunning = sessionCoordinator.isRunningSession();
     bool isPaused = sessionCoordinator.isSessionPaused();
-    bool isCompleted = (state == measurement::CoordinatorState::SessionCompleted);
+    bool isCompleted = (sessState == gui::SessionState::Completed || state == measurement::CoordinatorState::SessionCompleted);
 
     if (isFreeMode)
     {
@@ -1922,7 +1863,7 @@ void MainContentComponent::updateGovernanceUi()
                 btnPrimaryAction.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentAmber);
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_PAUSE);
             }
-            btnPrimaryAction.setEnabled(true);
+            btnPrimaryAction.setEnabled(presentation.primaryEnabled);
 
             btnCancelAction.setButtonText(gui::strings::CANCEL);
             btnCancelAction.setVisible(presentation.cancelVisible);
@@ -1938,7 +1879,7 @@ void MainContentComponent::updateGovernanceUi()
             bool canStart = (state == measurement::CoordinatorState::SessionReady
                              || state == measurement::CoordinatorState::ProfileSelected
                              || (state != measurement::CoordinatorState::NoSession && suiteList.getQueueSize() > 0));
-            btnPrimaryAction.setEnabled(canStart);
+            btnPrimaryAction.setEnabled(canStart && presentation.primaryEnabled);
             if (!canStart)
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_BLOCKED);
             else
@@ -1948,8 +1889,14 @@ void MainContentComponent::updateGovernanceUi()
         }
     }
 
-    // 6. Banner persistente de motivo / instrucciones para el operador
-    if (state == measurement::CoordinatorState::AwaitingManualConfirmation)
+    // 6. Persistent Operator Instructions & Error Banners
+    if (presentation.bannerVisible)
+    {
+        lblActionReasonBanner.setText(presentation.bannerText, juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, presentation.bannerColour);
+        lblActionReasonBanner.setVisible(true);
+    }
+    else if (state == measurement::CoordinatorState::AwaitingManualConfirmation)
     {
         lblActionReasonBanner.setText("Paso de alineacion manual pendiente. Ajuste el control fisico y pulse Confirmar o la barra espaciadora.", juce::dontSendNotification);
         lblActionReasonBanner.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
@@ -1959,14 +1906,6 @@ void MainContentComponent::updateGovernanceUi()
     {
         lblActionReasonBanner.setText("Capturando audio inmutable: Cambio de perfil y controles bloqueados durante la grabacion.", juce::dontSendNotification);
         lblActionReasonBanner.setColour(juce::Label::textColourId, juce::Colour(0xff3498db));
-        lblActionReasonBanner.setVisible(true);
-    }
-    else if (state == measurement::CoordinatorState::Error)
-    {
-        const auto& hist = sessionCoordinator.getTransitionHistory();
-        juce::String errReason = hist.empty() ? "Error en el flujo de medicion" : juce::String(hist.back().reason);
-        lblActionReasonBanner.setText("Alerta: " + errReason, juce::dontSendNotification);
-        lblActionReasonBanner.setColour(juce::Label::textColourId, juce::Colour(0xffe74c3c));
         lblActionReasonBanner.setVisible(true);
     }
     else if (state == measurement::CoordinatorState::Aborted)
@@ -3002,177 +2941,26 @@ void MainContentComponent::showAboutDialog()
 
 core::ProfilingSession MainContentComponent::buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr)
 {
-    core::ProfilingSession profSession;
-    core::ProfilingMetadata meta;
-    meta.hardwareName = hwName;
-    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-    meta.operatorMode = modeStr;
-    meta.sampleRate = audioEngine.getSampleRate();
-    meta.bitDepth = 24;
-    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-    profSession.setMetadata(meta);
+    core::SessionMetadataConfig metaConfig;
+    metaConfig.hardwareName = hwName;
+    metaConfig.targetModule = drawer.getSelectedFunctionId().toStdString();
+    metaConfig.operatorMode = modeStr;
+    metaConfig.sampleRate = audioEngine.getSampleRate();
+    metaConfig.bitDepth = 24;
+    metaConfig.timestampIso8601 = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+    metaConfig.operatorNotes = drawer.getOperatorNotes().toStdString();
+    metaConfig.ambientTemperatureC = drawer.getAmbientTemperature();
+    metaConfig.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
+
+    core::HardwareContractSnapshot hwSnapshot;
+    hwSnapshot.selectedHardwareId = drawer.getSelectedHardwareId().toStdString();
+    hwSnapshot.selectedFunctionId = drawer.getSelectedFunctionId().toStdString();
+    hwSnapshot.isAutonomousSynth = hardwareManager.isAutonomousSynth(drawer.getSelectedHardwareId(), drawer.getSelectedFunctionId());
+    hwSnapshot.contracts = hardwareManager.getContractRegistry().getContracts();
 
     const auto& queue = suiteList.getQueue();
-    bool isAutonomousSynth = hardwareManager.isAutonomousSynth(drawer.getSelectedHardwareId(), drawer.getSelectedFunctionId());
-    int globalPointCounter = 0;
-
-    for (int qIdx = 0; qIdx < static_cast<int>(queue.size()); ++qIdx)
-    {
-        const auto& item = queue[static_cast<size_t>(qIdx)];
-        if (item.isSkipped) continue;
-
-        if (item.stimulusType == audio::StimulusType::Silence)
-        {
-            core::TestCase tc;
-            tc.queueItemIndex = qIdx;
-            tc.pointIndexInTest = 1;
-            tc.totalPointsInTest = 1;
-            tc.globalPointIndex = globalPointCounter++;
-            tc.pointId = "P_" + juce::String::formatted("%03d", tc.globalPointIndex + 1).toStdString();
-            tc.testId = item.title.toStdString();
-            tc.functionalBlockType = "NoiseFloor";
-            tc.stimulusType = audio::StimulusType::Silence;
-            tc.stimulusDurationSec = (item.burstDurationSec > 0.1f) ? item.burstDurationSec : 0.8;
-            tc.numPasses = 1;
-            tc.stabilizationWaitMs = 50.0;
-            profSession.addTestCase(tc);
-            continue;
-        }
-
-        size_t numControls = item.controls.size();
-
-        // 1.7.16 Resolve measurement recipe from active hardware contract
-        core::MeasurementPresetRecipe itemRecipe;
-        const auto* itemContract = item.hwId.isNotEmpty() ? hardwareManager.getContractRegistry().findContractById(item.hwId.toStdString()) : nullptr;
-        if (itemContract == nullptr && !hardwareManager.getContractRegistry().getContracts().empty())
-        {
-            itemContract = &hardwareManager.getContractRegistry().getContracts().front();
-        }
-        if (itemContract != nullptr)
-        {
-            for (const auto& fn : itemContract->functions)
-            {
-                if (fn.id == item.funcId.toStdString() || fn.name == item.title.toStdString())
-                {
-                    itemRecipe = fn.measurementRecipe;
-                    break;
-                }
-            }
-        }
-
-        if (numControls == 0)
-        {
-            core::TestCase tc;
-            tc.queueItemIndex = qIdx;
-            tc.pointIndexInTest = 1;
-            tc.totalPointsInTest = 1;
-            tc.globalPointIndex = globalPointCounter++;
-            tc.pointId = "P_" + juce::String::formatted("%03d", tc.globalPointIndex + 1).toStdString();
-            tc.testId = item.title.toStdString();
-            tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
-            tc.presetRecipe = itemRecipe;
-            core::ExcitationMode excMode = itemRecipe.excitationMode;
-            if (isAutonomousSynth) excMode = core::ExcitationMode::MidiNotes;
-            tc.excitationMode = excMode;
-            tc.isAutonomousSynth = (excMode == core::ExcitationMode::MidiNotes);
-            tc.stimulusType = (excMode == core::ExcitationMode::MidiNotes) ? audio::StimulusType::Silence : item.stimulusType;
-            tc.midiNoteNumber = 60;
-            tc.midiVelocity = 0.8f;
-            tc.noteGateDurationSec = item.burstDurationSec;
-            tc.stimulusDurationSec = item.burstDurationSec;
-            tc.startFreqHz = 20.0f;
-            tc.endFreqHz = 20000.0f;
-            tc.numPasses = 1;
-            tc.stabilizationWaitMs = 50.0;
-            profSession.addTestCase(tc);
-            continue;
-        }
-
-        std::vector<int> stepsPerControl(numControls);
-        std::vector<std::string> controlNames(numControls);
-        std::vector<std::string> controlTypes(numControls);
-        std::vector<float> minNorms(numControls);
-        std::vector<float> maxNorms(numControls);
-
-        int totalTestPoints = 1;
-        for (size_t k = 0; k < numControls; ++k)
-        {
-            const auto& c = item.controls[k];
-            stepsPerControl[k] = std::max(1, c.steps);
-            controlNames[k] = c.name.toStdString();
-            controlTypes[k] = c.type.isEmpty() ? "Knob" : c.type.toStdString();
-            minNorms[k] = std::clamp(c.minPct / 100.0f, 0.0f, 1.0f);
-            maxNorms[k] = std::clamp(c.maxPct / 100.0f, minNorms[k], 1.0f);
-            totalTestPoints *= stepsPerControl[k];
-        }
-
-        for (int p = 0; p < totalTestPoints; ++p)
-        {
-            int temp = p;
-            std::vector<int> stepIndices(numControls);
-            for (int k = static_cast<int>(numControls) - 1; k >= 0; --k)
-            {
-                stepIndices[static_cast<size_t>(k)] = temp % stepsPerControl[static_cast<size_t>(k)];
-                temp /= stepsPerControl[static_cast<size_t>(k)];
-            }
-
-            core::TestCase tc;
-            tc.queueItemIndex = qIdx;
-            tc.pointIndexInTest = p + 1;
-            tc.totalPointsInTest = totalTestPoints;
-            tc.globalPointIndex = globalPointCounter++;
-            tc.pointId = "P_" + juce::String::formatted("%03d", tc.globalPointIndex + 1).toStdString();
-            tc.testId = item.title.toStdString();
-
-            tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
-            tc.presetRecipe = itemRecipe;
-            core::ExcitationMode excMode = itemRecipe.excitationMode;
-            if (isAutonomousSynth) excMode = core::ExcitationMode::MidiNotes;
-            tc.excitationMode = excMode;
-            tc.isAutonomousSynth = (excMode == core::ExcitationMode::MidiNotes);
-            tc.stimulusType = (excMode == core::ExcitationMode::MidiNotes) ? audio::StimulusType::Silence : item.stimulusType;
-            tc.midiNoteNumber = 60;
-            tc.midiVelocity = 0.8f;
-            tc.noteGateDurationSec = item.burstDurationSec;
-            tc.stimulusDurationSec = item.burstDurationSec;
-            tc.startFreqHz = 20.0f;
-            tc.endFreqHz = 20000.0f;
-            tc.numPasses = 1;
-            tc.stabilizationWaitMs = 50.0;
-
-            for (size_t k = 0; k < numControls; ++k)
-            {
-                int stepIdx = stepIndices[k];
-                int sCount = stepsPerControl[k];
-                float minN = minNorms[k];
-                float maxN = maxNorms[k];
-
-                float normVal = (sCount > 1)
-                    ? (minN + (static_cast<float>(stepIdx) / static_cast<float>(sCount - 1)) * (maxN - minN))
-                    : (minN + maxN) * 0.5f;
-
-                int rawVal = static_cast<int>(std::round(normVal * 127.0f));
-
-                core::ParameterStep ps;
-                ps.paramIndex = static_cast<int>(k) + 1;
-                ps.paramName = controlNames[k];
-                ps.controlType = controlTypes[k];
-                ps.minNormalized = minN;
-                ps.maxNormalized = maxN;
-                ps.normalizedValue = normVal;
-                ps.rawValue = rawVal;
-                ps.id = item.controls[k].id.isNotEmpty() ? item.controls[k].id.toStdString() : ("ctrl_" + std::to_string(k + 1));
-                ps.sortOrder = item.controls[k].sortOrder;
-                tc.parameterSteps.push_back(ps);
-            }
-
-            profSession.addTestCase(tc);
-        }
-    }
-    return profSession;
+    auto result = core::ProfilingSessionBuilder::buildFromQueue(queue, hwSnapshot, metaConfig);
+    return result.session;
 }
 
 void MainContentComponent::startTargetedPatchSession(const std::vector<std::pair<int, int>>& pointsToPatch)
@@ -3240,180 +3028,33 @@ core::ProfilingSession MainContentComponent::buildPatchProfilingSession(const st
                                                                         const std::string& hwName,
                                                                         const std::string& modeStr)
 {
-    core::ProfilingSession profSession;
-    core::ProfilingMetadata meta;
-    meta.hardwareName = hwName;
-    meta.targetModule = drawer.getSelectedFunctionId().toStdString();
-    meta.operatorMode = modeStr;
-    meta.sampleRate = audioEngine.getSampleRate();
-    meta.bitDepth = 24;
-    meta.timestamp = juce::Time::getCurrentTime().toISO8601(true).toStdString();
-    meta.operatorNotes = drawer.getOperatorNotes().toStdString();
-    meta.ambientTemperatureC = drawer.getAmbientTemperature();
-    meta.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
-    profSession.setMetadata(meta);
+    core::SessionMetadataConfig metaConfig;
+    metaConfig.hardwareName = hwName;
+    metaConfig.targetModule = drawer.getSelectedFunctionId().toStdString();
+    metaConfig.operatorMode = modeStr;
+    metaConfig.sampleRate = audioEngine.getSampleRate();
+    metaConfig.bitDepth = 24;
+    metaConfig.timestampIso8601 = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+    metaConfig.operatorNotes = drawer.getOperatorNotes().toStdString();
+    metaConfig.ambientTemperatureC = drawer.getAmbientTemperature();
+    metaConfig.warmupTimeMinutes = drawer.getWarmupTimeMinutes();
 
-    const auto& queue = suiteList.getQueue();
-    bool isAutonomousSynth = hardwareManager.isAutonomousSynth(drawer.getSelectedHardwareId(), drawer.getSelectedFunctionId());
+    core::HardwareContractSnapshot hwSnapshot;
+    hwSnapshot.selectedHardwareId = drawer.getSelectedHardwareId().toStdString();
+    hwSnapshot.selectedFunctionId = drawer.getSelectedFunctionId().toStdString();
+    hwSnapshot.isAutonomousSynth = hardwareManager.isAutonomousSynth(drawer.getSelectedHardwareId(), drawer.getSelectedFunctionId());
+    hwSnapshot.contracts = hardwareManager.getContractRegistry().getContracts();
 
-    for (const auto& target : pointsToPatch)
+    std::vector<core::PatchPoint> patchPoints;
+    patchPoints.reserve(pointsToPatch.size());
+    for (const auto& pt : pointsToPatch)
     {
-        int qIdx = target.first;
-        int pIdx = target.second;
-
-        if (qIdx < 0 || qIdx >= static_cast<int>(queue.size()))
-            continue;
-
-        const auto& item = queue[static_cast<size_t>(qIdx)];
-        if (pIdx < 0 || pIdx >= item.totalPoints)
-            continue;
-
-        // Calculate global point index in full session
-        int sessionOffset = 0;
-        for (int k = 0; k < qIdx; ++k)
-            sessionOffset += queue[static_cast<size_t>(k)].totalPoints;
-        int globalPointIdx = sessionOffset + pIdx;
-
-        if (item.stimulusType == audio::StimulusType::Silence)
-        {
-            core::TestCase tc;
-            tc.queueItemIndex = qIdx;
-            tc.pointIndexInTest = pIdx + 1;
-            tc.totalPointsInTest = item.totalPoints;
-            tc.globalPointIndex = globalPointIdx;
-            tc.pointId = "P_" + juce::String::formatted("%03d", globalPointIdx + 1).toStdString();
-            tc.testId = item.title.toStdString();
-            tc.functionalBlockType = "NoiseFloor";
-            tc.stimulusType = audio::StimulusType::Silence;
-            tc.stimulusDurationSec = (item.burstDurationSec > 0.1f) ? item.burstDurationSec : 0.8;
-            tc.numPasses = 1;
-            tc.stabilizationWaitMs = 50.0;
-            profSession.addTestCase(tc);
-            continue;
-        }
-
-        size_t numControls = item.controls.size();
-
-        // 1.7.16 Resolve measurement recipe from active hardware contract
-        core::MeasurementPresetRecipe itemRecipe;
-        const auto* itemContract = item.hwId.isNotEmpty() ? hardwareManager.getContractRegistry().findContractById(item.hwId.toStdString()) : nullptr;
-        if (itemContract == nullptr && !hardwareManager.getContractRegistry().getContracts().empty())
-        {
-            itemContract = &hardwareManager.getContractRegistry().getContracts().front();
-        }
-        if (itemContract != nullptr)
-        {
-            for (const auto& fn : itemContract->functions)
-            {
-                if (fn.id == item.funcId.toStdString() || fn.name == item.title.toStdString())
-                {
-                    itemRecipe = fn.measurementRecipe;
-                    break;
-                }
-            }
-        }
-
-        if (numControls == 0)
-        {
-            core::TestCase tc;
-            tc.queueItemIndex = qIdx;
-            tc.pointIndexInTest = pIdx + 1;
-            tc.totalPointsInTest = item.totalPoints;
-            tc.globalPointIndex = globalPointIdx;
-            tc.pointId = "P_" + juce::String::formatted("%03d", globalPointIdx + 1).toStdString();
-            tc.testId = item.title.toStdString();
-            tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
-            tc.presetRecipe = itemRecipe;
-            tc.stimulusType = isAutonomousSynth ? audio::StimulusType::Silence : item.stimulusType;
-            tc.isAutonomousSynth = isAutonomousSynth;
-            tc.midiNoteNumber = 60;
-            tc.midiVelocity = 0.8f;
-            tc.noteGateDurationSec = item.burstDurationSec;
-            tc.stimulusDurationSec = item.burstDurationSec;
-            tc.startFreqHz = 20.0f;
-            tc.endFreqHz = 20000.0f;
-            tc.numPasses = 1;
-            tc.stabilizationWaitMs = 50.0;
-            profSession.addTestCase(tc);
-            continue;
-        }
-
-        std::vector<int> stepsPerControl(numControls);
-        std::vector<std::string> controlNames(numControls);
-        std::vector<std::string> controlTypes(numControls);
-        std::vector<float> minNorms(numControls);
-        std::vector<float> maxNorms(numControls);
-
-        int totalTestPoints = 1;
-        for (size_t k = 0; k < numControls; ++k)
-        {
-            const auto& c = item.controls[k];
-            stepsPerControl[k] = std::max(1, c.steps);
-            controlNames[k] = c.name.toStdString();
-            controlTypes[k] = c.type.isEmpty() ? "Knob" : c.type.toStdString();
-            minNorms[k] = std::clamp(c.minPct / 100.0f, 0.0f, 1.0f);
-            maxNorms[k] = std::clamp(c.maxPct / 100.0f, minNorms[k], 1.0f);
-            totalTestPoints *= stepsPerControl[k];
-        }
-
-        int temp = pIdx;
-        std::vector<int> stepIndices(numControls);
-        for (int k = static_cast<int>(numControls) - 1; k >= 0; --k)
-        {
-            stepIndices[static_cast<size_t>(k)] = temp % stepsPerControl[static_cast<size_t>(k)];
-            temp /= stepsPerControl[static_cast<size_t>(k)];
-        }
-
-        core::TestCase tc;
-        tc.queueItemIndex = qIdx;
-        tc.pointIndexInTest = pIdx + 1;
-        tc.totalPointsInTest = totalTestPoints;
-        tc.globalPointIndex = globalPointIdx;
-        tc.pointId = "P_" + juce::String::formatted("%03d", globalPointIdx + 1).toStdString();
-        tc.testId = item.title.toStdString();
-        tc.functionalBlockType = mapBadgeToBlockType(item.badgeText);
-        tc.presetRecipe = itemRecipe;
-        tc.stimulusType = isAutonomousSynth ? audio::StimulusType::Silence : item.stimulusType;
-        tc.isAutonomousSynth = isAutonomousSynth;
-        tc.midiNoteNumber = 60;
-        tc.midiVelocity = 0.8f;
-        tc.noteGateDurationSec = item.burstDurationSec;
-        tc.stimulusDurationSec = item.burstDurationSec;
-        tc.startFreqHz = 20.0f;
-        tc.endFreqHz = 20000.0f;
-        tc.numPasses = 1;
-        tc.stabilizationWaitMs = 50.0;
-
-        for (size_t k = 0; k < numControls; ++k)
-        {
-            int stepIdx = stepIndices[k];
-            int sCount = stepsPerControl[k];
-            float minN = minNorms[k];
-            float maxN = maxNorms[k];
-
-            float normVal = (sCount > 1)
-                ? (minN + (static_cast<float>(stepIdx) / static_cast<float>(sCount - 1)) * (maxN - minN))
-                : (minN + maxN) * 0.5f;
-
-            int rawVal = static_cast<int>(std::round(normVal * 127.0f));
-
-            core::ParameterStep ps;
-            ps.paramIndex = static_cast<int>(k) + 1;
-            ps.paramName = controlNames[k];
-            ps.controlType = controlTypes[k];
-            ps.minNormalized = minN;
-            ps.maxNormalized = maxN;
-            ps.normalizedValue = normVal;
-            ps.rawValue = rawVal;
-            ps.id = item.controls[k].id.isNotEmpty() ? item.controls[k].id.toStdString() : ("ctrl_" + std::to_string(k + 1));
-            ps.sortOrder = item.controls[k].sortOrder;
-            tc.parameterSteps.push_back(ps);
-        }
-
-        profSession.addTestCase(tc);
+        patchPoints.push_back({ pt.first, pt.second });
     }
 
-    return profSession;
+    const auto& queue = suiteList.getQueue();
+    auto result = core::ProfilingSessionBuilder::buildPatch(patchPoints, queue, hwSnapshot, metaConfig);
+    return result.session;
 }
 
 // ==============================================================================

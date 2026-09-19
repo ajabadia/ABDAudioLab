@@ -121,6 +121,8 @@ target_sources(ABDAudioLab
         # Core Architecture
         src/core/ProfilingSession.h
         src/core/ProfilingSession.cpp
+        src/core/ProfilingSessionBuilder.h
+        src/core/ProfilingSessionBuilder.cpp
         src/core/ProfilingHardwareDispatcher.h
         src/core/ProfilingHardwareDispatcher.cpp
         src/core/ProfilingAudioCapture.h
@@ -625,6 +627,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_MainHeaderController.cpp
     src/tests/test_SessionExecutionCoordinator.cpp
     src/tests/test_UiCompositionSeam6.cpp
+    src/tests/test_ProfilingSessionBuilder.cpp
+    src/core/ProfilingSessionBuilder.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp
