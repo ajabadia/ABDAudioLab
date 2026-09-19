@@ -31,13 +31,19 @@ bool SessionManager::saveSessionToPackage(const juce::File& file)
     manifest.totalMeasuredPoints = static_cast<int>(measuredPoints.size());
     manifest.totalPointsMeasured = manifest.totalMeasuredPoints;
 
-    bool ok = serializer.saveSessionToPackage(file, manifest, measuredPoints);
-    if (ok)
+    SessionSaveRequest req;
+    req.manifest = manifest;
+    req.points = measuredPoints;
+    req.destination = file;
+
+    auto result = SessionPersistenceService::save(req);
+    if (result.succeeded())
     {
         serializer.setActiveSessionFile(file);
         isSessionDirty = false;
+        return true;
     }
-    return ok;
+    return false;
 }
 
 bool SessionManager::saveSessionToPackage(const juce::File& file, const SessionManifest& newManifest)
@@ -48,18 +54,21 @@ bool SessionManager::saveSessionToPackage(const juce::File& file, const SessionM
 
 bool SessionManager::loadSessionFromPackage(const juce::File& file, juce::String& outErrorMessage)
 {
-    SessionManifest loadedManifest;
-    std::vector<exporting::MeasuredPoint> loadedPoints;
+    SessionLoadRequest req;
+    req.source = file;
 
-    bool ok = serializer.loadSessionFromPackage(file, loadedManifest, loadedPoints, outErrorMessage);
-    if (ok)
+    auto result = SessionPersistenceService::load(req);
+    if (result.succeeded())
     {
-        manifest = loadedManifest;
-        measuredPoints = loadedPoints;
+        manifest = std::move(result.manifest);
+        measuredPoints = std::move(result.points);
         serializer.setActiveSessionFile(file);
         isSessionDirty = false;
+        return true;
     }
-    return ok;
+
+    outErrorMessage = result.message;
+    return false;
 }
 
 void SessionManager::triggerAutoSave()

@@ -8,6 +8,7 @@
 #pragma once
 
 #include "SessionSerializer.h"
+#include "SessionPersistenceService.h"
 #include "ProfilingSession.h"
 #include "../export/LutExporter.h"
 #include <juce_core/juce_core.h>

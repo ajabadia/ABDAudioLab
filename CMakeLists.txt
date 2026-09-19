@@ -133,6 +133,8 @@ target_sources(ABDAudioLab
         src/core/HardwareContractRegistry.cpp
         src/core/SessionSerializer.h
         src/core/SessionSerializer.cpp
+        src/core/SessionPersistenceService.h
+        src/core/SessionPersistenceService.cpp
         src/core/ExperimentRecord.h
         src/core/ExperimentStorage.h
         src/core/ExperimentStorage.cpp
@@ -629,6 +631,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_UiCompositionSeam6.cpp
     src/tests/test_ProfilingSessionBuilder.cpp
     src/core/ProfilingSessionBuilder.cpp
+    src/tests/test_SessionPersistenceService.cpp
+    src/core/SessionPersistenceService.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp
