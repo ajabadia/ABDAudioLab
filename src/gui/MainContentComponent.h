@@ -54,6 +54,9 @@
 #include "gui/controllers/ReportExportUiController.h"
 #include "gui/controllers/IPluginUiHost.h"
 #include "gui/controllers/PluginUiCoordinator.h"
+#include "gui/controllers/IDiagnosticsTelemetryHost.h"
+#include "gui/controllers/DiagnosticsTelemetryPoller.h"
+#include "gui/controllers/MainContentTelemetrySource.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include <StudioTopology/StudioTopologyController.h>
@@ -79,7 +82,8 @@ class MainContentComponent : public juce::Component,
                              public juce::ChangeListener,
                              public gui::ILoadedSessionTarget,
                              public gui::IReportExportHost,
-                             public gui::IPluginUiHost
+                             public gui::IPluginUiHost,
+                             public gui::IDiagnosticsTelemetryHost
 {
 public:
     using StartupProgressCallback = std::function<void(const juce::String& statusText, float progress)>;
@@ -153,6 +157,9 @@ public:
     void showPluginError(const juce::String& title, const juce::String& message) override;
     void notifyPluginUnloaded() override;
 
+    // IDiagnosticsTelemetryHost interface
+    void applyTelemetrySnapshot(const gui::TelemetrySnapshot& snapshot) override;
+
     void handleSaveSession();
     void handleSaveSessionAs();
     void saveSessionToFile(const juce::File& file);
@@ -200,7 +207,6 @@ private:
 
     // UI Widgets & Visualizers
     gui::MainHeaderController mainHeader;
-    int statusUpdateCounter { 0 };
 
     gui::WorkflowStepperBar stepperBar;
     gui::SoundIdSidebarStepper sidebarStepper;
@@ -235,6 +241,10 @@ private:
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
     gui::ReportExportUiController reportExportController { *this };
     gui::PluginUiCoordinator pluginUiCoordinator { pluginHostManager, pluginWindowController, audioEngine, hardwareManager, sessionCoordinator, *this };
+    gui::MainContentTelemetrySource telemetrySource { audioEngine, sessionCoordinator, suiteList, loopbackModal, stepperBar };
+    gui::DiagnosticsTelemetryPoller diagnosticsTelemetryPoller { telemetrySource, *this };
+
+    void animateSplitter();
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

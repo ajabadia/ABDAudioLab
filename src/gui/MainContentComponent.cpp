@@ -2011,60 +2011,12 @@ void MainContentComponent::resized()
 
 void MainContentComponent::timerCallback()
 {
-    meterStrip.setLevels(audioEngine.getInputPeakL(), audioEngine.getInputPeakR(), audioEngine.getInputRmsL(),
-                         audioEngine.getOutputPeakL(), audioEngine.getOutputPeakR(), audioEngine.getOutputRmsL());
+    diagnosticsTelemetryPoller.pollNow();
+    animateSplitter();
+}
 
-    if (audioEngine.isSpectrumReady())
-    {
-        std::array<float, audio::LabAudioEngine::kSpectrumBins> fftData;
-        audioEngine.getSpectrumMagnitudes(fftData);
-        curvePlotter.getSpectrumAnalyzer().pushSpectrumData(fftData, audioEngine.getCurrentSampleRate());
-    }
-
-    if ((statusUpdateCounter++ % 15) == 0)
-    {
-        bool isCalibrated = loopbackModal.getCalibrationData().isCalibrated;
-        double calSr = loopbackModal.getCalibrationData().sampleRate;
-        bool isSkipped = (stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback) == gui::WorkflowStepperBar::StepStatus::Skipped);
-
-        mainHeader.updateCalibrationStatus(isCalibrated, calSr, isSkipped);
-    }
-
-    if (profilingRunView != nullptr && profilingRunView->isVisible())
-    {
-        auto snap = profilingSessionController.getCurrentSnapshot();
-        snap.progress.currentTrial = sessionCoordinator.getTotalPointsMeasured();
-        snap.progress.totalTrials = suiteList.getQueueSize();
-        if (snap.progress.totalTrials > 0)
-            snap.progress.progressPercent = (static_cast<double>(snap.progress.currentTrial) / snap.progress.totalTrials) * 100.0;
-        float rms = audioEngine.getLastPluginOutputRms();
-        snap.observation.lastRmsDb = (rms > 0.00001f) ? juce::Decibels::gainToDecibels(rms) : -120.0;
-        int note = audioEngine.getLastNoteOnNumber();
-        if (note >= 0)
-            snap.progress.currentStimulusDescription = "MIDI " + juce::MidiMessage::getMidiNoteName(note, true, true, 3).toStdString() + " (Note #" + std::to_string(note) + ")";
-
-        if (sessionCoordinator.isRunningSession())
-            snap.sessionStatus = sessionCoordinator.isSessionPaused() ? gui::session::ProfilingSessionStatus::Paused : gui::session::ProfilingSessionStatus::Profiling;
-        else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted)
-            snap.sessionStatus = gui::session::ProfilingSessionStatus::Completed;
-        else if (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::Aborted)
-            snap.sessionStatus = gui::session::ProfilingSessionStatus::Cancelled;
-        else
-            snap.sessionStatus = gui::session::ProfilingSessionStatus::ReadyToProfile;
-
-        profilingRunView->updateFromSnapshot(snap);
-    }
-
-    if (guidedWorkflowContainer != nullptr && currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
-    {
-        double sr = audioEngine.getCurrentSampleRate();
-        int bs = 256;
-        if (auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice())
-            bs = dev->getCurrentBufferSizeSamples();
-        double cpu = audioEngine.getDeviceManager().getCpuUsage() * 100.0;
-        guidedWorkflowContainer->updateTelemetry(sr, bs, cpu);
-    }
-
+void MainContentComponent::animateSplitter()
+{
     // Slower, smooth and relaxed chevron/split animation
     if (std::abs(targetBottomH - currentBottomH) > 0.5f)
     {
@@ -2089,8 +2041,48 @@ void MainContentComponent::timerCallback()
             curvePlotter.setCollapsed(true);
         resized();
     }
+}
 
-    // Status updates
+void MainContentComponent::applyTelemetrySnapshot(const gui::TelemetrySnapshot& snap)
+{
+    meterStrip.setLevels(snap.inputPeakL, snap.inputPeakR, snap.inputRmsL,
+                         snap.outputPeakL, snap.outputPeakR, snap.outputRmsL);
+
+    if (snap.spectrumReady)
+    {
+        curvePlotter.getSpectrumAnalyzer().pushSpectrumData(snap.fftMagnitudes, snap.sampleRate);
+    }
+
+    if (snap.calibrationTickDue)
+    {
+        mainHeader.updateCalibrationStatus(snap.isCalibrated, snap.calibrationSampleRate, snap.isCalibrationSkipped);
+    }
+
+    if (profilingRunView != nullptr && profilingRunView->isVisible())
+    {
+        auto profileSnap = profilingSessionController.getCurrentSnapshot();
+        profileSnap.progress.currentTrial = snap.currentTrial;
+        profileSnap.progress.totalTrials = snap.totalTrials;
+        profileSnap.progress.progressPercent = snap.progressPercent;
+        profileSnap.observation.lastRmsDb = snap.lastPluginOutputRmsDb;
+        profileSnap.progress.currentStimulusDescription = snap.stimulusDescription;
+
+        switch (snap.sessionStateCode)
+        {
+            case 1: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Profiling; break;
+            case 2: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Paused; break;
+            case 3: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Completed; break;
+            case 4: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Cancelled; break;
+            default: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::ReadyToProfile; break;
+        }
+
+        profilingRunView->updateFromSnapshot(profileSnap);
+    }
+
+    if (guidedWorkflowContainer != nullptr && currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
+    {
+        guidedWorkflowContainer->updateTelemetry(snap.sampleRate, snap.bufferSizeSamples, snap.cpuUsagePercent);
+    }
 }
 
 // ==============================================================================

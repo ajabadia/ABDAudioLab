@@ -532,6 +532,13 @@ target_sources(ABDAudioLab
         src/gui/controllers/IPluginUiHost.h
         src/gui/controllers/PluginUiCoordinator.h
         src/gui/controllers/PluginUiCoordinator.cpp
+        src/gui/controllers/DiagnosticsTelemetrySnapshot.h
+        src/gui/controllers/IDiagnosticsTelemetryHost.h
+        src/gui/controllers/IDiagnosticsTelemetrySource.h
+        src/gui/controllers/DiagnosticsTelemetryPoller.h
+        src/gui/controllers/DiagnosticsTelemetryPoller.cpp
+        src/gui/controllers/MainContentTelemetrySource.h
+        src/gui/controllers/MainContentTelemetrySource.cpp
         src/export/NamDatasetExporter.h
         src/export/NamDatasetExporter.cpp
         src/export/ModulationPresetExporter.h
@@ -651,6 +658,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ReportExportUiController.cpp
     src/gui/controllers/PluginUiCoordinator.cpp
     src/tests/test_PluginUiCoordinator.cpp
+    src/gui/controllers/DiagnosticsTelemetryPoller.cpp
+    src/tests/test_DiagnosticsTelemetryPoller.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp
