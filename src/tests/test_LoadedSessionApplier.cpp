@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file test_LoadedSessionApplier.cpp
  * @brief Characterization and regression test suite for LoadedSessionApplier.
  * @author ABDSynths
@@ -365,5 +365,149 @@ TEST_CASE("LoadedSessionApplier: Contract Completeness", "[LoadedSessionApplier]
     {
         auto state = LoadedSessionApplier::computeWorkflowState(2, 5);
         REQUIRE(state.isSessionComplete == true);
+    }
+}
+
+// ============================================================
+// computeWorkflowState: operator-precedence regression (0/1/N)
+// and policy contract for stop-at-first / projection ordering
+// ============================================================
+
+TEST_CASE("LoadedSessionApplier: computeWorkflowState Regression", "[LoadedSessionApplier]")
+{
+    // --- Regression for the '!actualPointsCount == 0' bug ---
+    // The fix changed the expression to 'actualPointsCount > 0 && ...'.
+    // These three sections pin all branches of the corrected predicate.
+
+    SECTION("0 measured points -> isSessionComplete = false (no progress)")
+    {
+        auto state = LoadedSessionApplier::computeWorkflowState(3, 0);
+        REQUIRE(state.isSessionComplete == false);
+        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        REQUIRE(state.targetSidebarStep == SoundIdSidebarStepper::Step::RunSession);
+        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Current);
+    }
+
+    SECTION("1 measured point when totalMeasuredPoints=1 -> isSessionComplete = true")
+    {
+        auto state = LoadedSessionApplier::computeWorkflowState(1, 1);
+        REQUIRE(state.isSessionComplete == true);
+        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+        REQUIRE(state.targetSidebarStep == SoundIdSidebarStepper::Step::ExportReport);
+        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+    }
+
+    SECTION("N measured points when totalMeasuredPoints=N -> isSessionComplete = true")
+    {
+        for (int n : {2, 5, 10, 100})
+        {
+            auto state = LoadedSessionApplier::computeWorkflowState(n, static_cast<size_t>(n));
+            REQUIRE(state.isSessionComplete == true);
+        }
+    }
+
+    // --- Combined state + point count matrix ---
+
+    SECTION("points>0 AND session complete (points >= totalMeasuredPoints > 0) -> ExportReport")
+    {
+        auto state = LoadedSessionApplier::computeWorkflowState(4, 4);
+        REQUIRE(state.isSessionComplete == true);
+        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+    }
+
+    SECTION("points>0 AND session partial (points < totalMeasuredPoints) -> RunSession/Completed")
+    {
+        // Some progress but not all points collected yet.
+        auto state = LoadedSessionApplier::computeWorkflowState(10, 3);
+        REQUIRE(state.isSessionComplete == false);
+        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        // runSessionStatus is Completed because there is *some* measured progress
+        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+    }
+
+    SECTION("points==0 AND totalMeasuredPoints>0 -> RunSession/Current (no progress at all)")
+    {
+        auto state = LoadedSessionApplier::computeWorkflowState(10, 0);
+        REQUIRE(state.isSessionComplete == false);
+        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Current);
+    }
+}
+
+// ============================================================
+// Stop-at-first contract: pre-condition boundary and ordering
+// ============================================================
+
+TEST_CASE("LoadedSessionApplier: Stop-at-First Policy Contract", "[LoadedSessionApplier]")
+{
+    // Contract:
+    //   Preconditions checked BEFORE any target mutation.
+    //   Invalid manifest  -> InvalidManifest, 0 target calls.
+    //   Valid manifest    -> 6 ordered target calls, no rollback.
+    //   Target methods are void; the applier considers them infallible
+    //   after the pre-condition gate. Partial application is impossible
+    //   given a valid manifest: either all 6 phases run or none.
+
+    SECTION("Invalid manifest: formatVersion empty -> 0 calls, InvalidManifest status")
+    {
+        core::SessionManifest m;
+        m.formatVersion = "";            // explicitly clear the default "1.0"
+        m.hardwareDisplayName = "Korg";  // displayName present; formatVersion is the failing field
+        std::vector<exporting::MeasuredPoint> pts;
+
+        MockLoadedSessionTarget target;
+        auto res = LoadedSessionApplier::apply(m, pts, false, target);
+
+        REQUIRE(res.status == SessionApplicationStatus::InvalidManifest);
+        REQUIRE(target.callOrder.empty());
+    }
+
+    SECTION("Invalid manifest: hardwareDisplayName empty -> 0 calls, InvalidManifest status")
+    {
+        core::SessionManifest m;
+        m.formatVersion = "1.0";         // formatVersion present; displayName is the failing field
+        m.hardwareDisplayName = "";      // explicitly empty
+        std::vector<exporting::MeasuredPoint> pts;
+
+        MockLoadedSessionTarget target;
+        auto res = LoadedSessionApplier::apply(m, pts, false, target);
+
+        REQUIRE(res.status == SessionApplicationStatus::InvalidManifest);
+        REQUIRE(target.callOrder.empty());
+    }
+
+    SECTION("Valid manifest: exactly 6 calls in deterministic order, regardless of point count")
+    {
+        const std::vector<std::string> expectedOrder = {
+            "setSessionData",
+            "clearPlotterAndAddPoints",
+            "updateDrawerAndEnvironment",
+            "updateHardwarePanels",
+            "rebuildTestSuiteQueue",
+            "updateWorkflowAndNavigation"
+        };
+
+        // Sub-case A: zero points
+        {
+            core::SessionManifest m;
+            m.formatVersion = "1.0";
+            m.hardwareDisplayName = "Device A";
+            MockLoadedSessionTarget target;
+            LoadedSessionApplier::apply(m, {}, false, target);
+            REQUIRE(target.callOrder == expectedOrder);
+        }
+
+        // Sub-case B: non-zero points
+        {
+            core::SessionManifest m;
+            m.formatVersion = "1.0";
+            m.hardwareDisplayName = "Device B";
+            m.totalMeasuredPoints = 3;
+            auto pts = makePoints(3);
+            MockLoadedSessionTarget target;
+            LoadedSessionApplier::apply(m, pts, false, target);
+            REQUIRE(target.callOrder == expectedOrder);
+        }
     }
 }

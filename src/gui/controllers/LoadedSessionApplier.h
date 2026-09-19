@@ -96,6 +96,31 @@ public:
 /**
  * @class LoadedSessionApplier
  * @brief Pure presentation coordinator that validates a loaded session and applies it to UI targets.
+ *
+ * ## Application Contract
+ *
+ * ### Pre-condition gate (stop-at-first)
+ * Validation of the manifest occurs **before** any target method is called.
+ * If the manifest is invalid (`formatVersion` or `hardwareDisplayName` empty),
+ * the result is `InvalidManifest` and **zero** target methods are invoked.
+ *
+ * ### Projection ordering (all-or-nothing after the gate)
+ * Given a valid manifest, all six phases execute in strict deterministic order:
+ *   1. `setSessionData`            — session manager state reset
+ *   2. `clearPlotterAndAddPoints`  — plotter projection
+ *   3. `updateDrawerAndEnvironment`— drawer + environment card
+ *   4. `updateHardwarePanels`      — routing panels + catalog + header
+ *   5. `rebuildTestSuiteQueue`     — queue rebuild from pre-built QueueItems
+ *   6. `updateWorkflowAndNavigation` — steppers + navigation controller
+ *
+ * ### Rollback
+ * Not available. Target methods are `void` and are considered infallible after
+ * the pre-condition gate. Partial application is impossible given a valid manifest:
+ * either all six phases run or none do.
+ *
+ * ### Responsibility of targets
+ * Implementations of `ILoadedSessionTarget` must not throw or produce observable
+ * side-effects beyond the projection described in their interface contract.
  */
 class LoadedSessionApplier
 {
@@ -116,3 +141,4 @@ public:
 };
 
 } // namespace abdaudiolab::gui
+
