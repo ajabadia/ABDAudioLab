@@ -49,6 +49,7 @@
 #include "gui/presentation/SessionStatusPresenter.h"
 #include "gui/controllers/SessionIoController.h"
 #include "gui/controllers/WorkflowNavigationController.h"
+#include "gui/controllers/LoadedSessionApplier.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include <StudioTopology/StudioTopologyController.h>
@@ -72,7 +73,8 @@ namespace abdaudiolab
 class MainContentComponent : public juce::Component,
                              public juce::Timer,
                              public juce::KeyListener,
-                             public juce::ChangeListener
+                             public juce::ChangeListener,
+                             public gui::ILoadedSessionTarget
 {
 public:
     using StartupProgressCallback = std::function<void(const juce::String& statusText, float progress)>;
@@ -118,6 +120,16 @@ public:
     core::ProfilingSession buildPatchProfilingSession(const std::vector<std::pair<int, int>>& pointsToPatch, const std::string& hwName, const std::string& modeStr);
     core::SessionManifest buildCurrentSessionManifest();
     void applyLoadedSession(const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points);
+
+    // ILoadedSessionTarget interface
+    void setSessionData(const core::SessionManifest& manifest,
+                        const std::vector<exporting::MeasuredPoint>& points) override;
+    void clearPlotterAndAddPoints(const std::vector<exporting::MeasuredPoint>& points) override;
+    void updateDrawerAndEnvironment(const gui::SessionUiPresentationData& data) override;
+    void updateHardwarePanels(const gui::SessionUiPresentationData& data) override;
+    void rebuildTestSuiteQueue(const std::vector<core::SessionManifest>& manifests,
+                               const std::vector<gui::QueueItem>& items) override;
+    void updateWorkflowAndNavigation(const gui::WorkflowStepState& workflowState) override;
 
     void handleSaveSession();
     void handleSaveSessionAs();

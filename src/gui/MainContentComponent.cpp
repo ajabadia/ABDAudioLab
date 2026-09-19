@@ -1761,7 +1761,7 @@ void MainContentComponent::updateGovernanceUi()
         const auto& hist = sessionCoordinator.getTransitionHistory();
         errMessage = hist.empty() ? juce::String("Error en el flujo de medicion") : juce::String(hist.back().reason);
     }
-    const auto presentation = presentation::SessionStatusPresenter::present(sessState, progressPct, errMessage);
+    const auto sessionStatus = gui::presentation::SessionStatusPresenter::present(sessState, progressPct, errMessage);
 
     // 1. Mode Text
     juce::String modeStr = (mode == measurement::WorkspaceInteractionMode::Guided) ? gui::strings::MODE_GUIDED : gui::strings::MODE_LAB;
@@ -1773,8 +1773,8 @@ void MainContentComponent::updateGovernanceUi()
         btnModeToggle.setTooltip(gui::strings::TOOLTIP_MODE_TOGGLE);
 
     // 2. Lifecycle State Text and Colors (from pure SessionStatusPresenter)
-    juce::String stateStr = presentation.statusText;
-    juce::Colour stateCol = presentation.badgeColour;
+    juce::String stateStr = sessionStatus.statusText;
+    juce::Colour stateCol = sessionStatus.badgeColour;
 
     // 3. Point Progress & Live Telemetry Text
     juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
@@ -1863,10 +1863,10 @@ void MainContentComponent::updateGovernanceUi()
                 btnPrimaryAction.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentAmber);
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_PAUSE);
             }
-            btnPrimaryAction.setEnabled(presentation.primaryEnabled);
+            btnPrimaryAction.setEnabled(sessionStatus.primaryEnabled);
 
             btnCancelAction.setButtonText(gui::strings::CANCEL);
-            btnCancelAction.setVisible(presentation.cancelVisible);
+            btnCancelAction.setVisible(sessionStatus.cancelVisible);
             btnCancelAction.setEnabled(true);
             btnCancelAction.setTooltip(gui::strings::TOOLTIP_CANCEL);
         }
@@ -1879,21 +1879,21 @@ void MainContentComponent::updateGovernanceUi()
             bool canStart = (state == measurement::CoordinatorState::SessionReady
                              || state == measurement::CoordinatorState::ProfileSelected
                              || (state != measurement::CoordinatorState::NoSession && suiteList.getQueueSize() > 0));
-            btnPrimaryAction.setEnabled(canStart && presentation.primaryEnabled);
+            btnPrimaryAction.setEnabled(canStart && sessionStatus.primaryEnabled);
             if (!canStart)
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_BLOCKED);
             else
                 btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_READY);
 
-            btnCancelAction.setVisible(presentation.cancelVisible);
+            btnCancelAction.setVisible(sessionStatus.cancelVisible);
         }
     }
 
     // 6. Persistent Operator Instructions & Error Banners
-    if (presentation.bannerVisible)
+    if (sessionStatus.bannerVisible)
     {
-        lblActionReasonBanner.setText(presentation.bannerText, juce::dontSendNotification);
-        lblActionReasonBanner.setColour(juce::Label::textColourId, presentation.bannerColour);
+        lblActionReasonBanner.setText(sessionStatus.bannerText, juce::dontSendNotification);
+        lblActionReasonBanner.setColour(juce::Label::textColourId, sessionStatus.bannerColour);
         lblActionReasonBanner.setVisible(true);
     }
     else if (state == measurement::CoordinatorState::AwaitingManualConfirmation)
@@ -3094,111 +3094,128 @@ core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
     return sm;
 }
 
-void MainContentComponent::applyLoadedSession(const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points)
+void MainContentComponent::applyLoadedSession(const core::SessionManifest& manifest,
+                                              const std::vector<exporting::MeasuredPoint>& points)
+{
+    const bool hasContract = (hardwareManager.findContractById(manifest.hardwareId) != nullptr);
+    auto result = gui::LoadedSessionApplier::apply(manifest, points, hasContract, *this);
+
+    if (!result.succeeded())
+    {
+        manualPromptLabel.setText("Failed to load session: " + result.message, juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(4000);
+        return;
+    }
+
+    resized();
+    manualPromptLabel.setText(result.message, juce::dontSendNotification);
+    manualPromptLabel.setVisible(true);
+    hidePromptAfterDelay(4000);
+}
+
+// =============================================================================
+// ILoadedSessionTarget implementation
+// =============================================================================
+
+void MainContentComponent::setSessionData(const core::SessionManifest& manifest,
+                                           const std::vector<exporting::MeasuredPoint>& points)
 {
     totalPointsMeasured = 0;
     sessionManager.setManifest(manifest);
     sessionManager.setMeasuredPoints(points);
     sessionManager.setDirty(false);
+}
+
+void MainContentComponent::clearPlotterAndAddPoints(const std::vector<exporting::MeasuredPoint>& points)
+{
     curvePlotter.clear();
     for (const auto& pt : points)
     {
         curvePlotter.addMeasuredPoint(pt);
-        totalPointsMeasured++;
+        ++totalPointsMeasured;
     }
+}
 
-    // Apply Laboratory Conditions & Notes (1.7.12)
-    drawer.setOperatorNotes(juce::String(manifest.operatorNotes));
-    drawer.setAmbientTemperature(manifest.ambientTemperatureC);
-    drawer.setWarmupTimeMinutes(manifest.warmupTimeMinutes);
-
-    // Apply Hardware & Function
-    drawer.setSelectedHardwareId(juce::String(manifest.hardwareId));
-    drawer.setHardwareLocked(true);
-    hardwareRoutingPanel.setSelectedHardware(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
-    hardwareRoutingPanel.setHardwareLocked(true);
-    catalogSelector.setSelectedHardware(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
-    catalogSelector.setHardwareLocked(true);
-
-    const auto* contract = hardwareManager.findContractById(manifest.hardwareId);
-    if (contract != nullptr)
-    {
-        onHardwareSelected(juce::String(manifest.hardwareId), juce::String(manifest.activeFunctionId));
-    }
-    else
-    {
-        mainHeader.setHardwareInfo(juce::String(manifest.hardwareDisplayName),
-                                   juce::String(manifest.activeFunctionId),
-                                   juce::Image(),
-                                   gui::HardwareConnectionStatus::NotApplicable);
-    }
+void MainContentComponent::updateDrawerAndEnvironment(const gui::SessionUiPresentationData& data)
+{
+    drawer.setOperatorNotes(data.operatorNotes);
+    drawer.setAmbientTemperature(data.ambientTemperatureC);
+    drawer.setWarmupTimeMinutes(data.warmupTimeMinutes);
 
     // Synchronize Session Summary card
     auto summary = sidebarStepper.getSessionSummary();
-    summary.hardwareName = juce::String(manifest.hardwareDisplayName);
-    summary.hardwareCategory = juce::String(manifest.targetModule);
-    summary.totalPointsPlanned = static_cast<int>(points.size());
-    summary.pointsMeasured = static_cast<int>(points.size());
+    summary.hardwareName       = data.hardwareDisplayName;
+    summary.hardwareCategory   = data.targetModule;
     summary.loopbackCalibrated = true;
     sidebarStepper.setSessionSummary(summary);
+}
 
-    // Apply Test Queue
-    suiteList.clearQueue();
-    for (const auto& tc : manifest.tests)
+void MainContentComponent::updateHardwarePanels(const gui::SessionUiPresentationData& data)
+{
+    drawer.setSelectedHardwareId(data.hardwareId);
+    drawer.setHardwareLocked(true);
+    hardwareRoutingPanel.setSelectedHardware(data.hardwareId, data.activeFunctionId);
+    hardwareRoutingPanel.setHardwareLocked(true);
+    catalogSelector.setSelectedHardware(data.hardwareId, data.activeFunctionId);
+    catalogSelector.setHardwareLocked(true);
+
+    if (data.hasValidHardwareContract)
     {
-        gui::QueueItem item;
-        item.title = tc.testName;
-        item.stimulusType = tc.stimulusType;
-        item.burstDurationSec = tc.burstDurationSec;
-        item.captureMode = tc.captureMode;
-        item.controls = tc.controls;
-        item.totalPoints = tc.getTotalMeasurementPoints();
-        item.id = "test_" + juce::String(juce::Random::getSystemRandom().nextInt(100000));
-        item.status = (!points.empty()) ? gui::QueueItemStatus::Completed : gui::QueueItemStatus::Queued;
-
-        applyBadgeForStimulus(item, tc.stimulusType);
-
-        suiteList.addTestToQueue(item);
+        onHardwareSelected(data.hardwareId, data.activeFunctionId);
     }
+    else
+    {
+        mainHeader.setHardwareInfo(data.hardwareDisplayName,
+                                   data.activeFunctionId,
+                                   juce::Image(),
+                                   gui::HardwareConnectionStatus::NotApplicable);
+    }
+}
 
-    // Set step statuses for loaded session
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::SystemInfo, false);
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting, false);
+void MainContentComponent::rebuildTestSuiteQueue(const std::vector<core::SessionManifest>& /*manifests*/,
+                                                  const std::vector<gui::QueueItem>& items)
+{
+    suiteList.clearQueue();
+    for (const auto& item : items)
+        suiteList.addTestToQueue(item);
+}
+
+void MainContentComponent::updateWorkflowAndNavigation(const gui::WorkflowStepState& workflowState)
+{
+    // Unlock prerequisites so loaded sessions can re-enter from step 1
+    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::SystemInfo,        false);
+    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting,   false);
     stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::CalibrateLoopback, false);
-    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::SystemInfo, false);
-    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::HardwareRouting, false);
+    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::SystemInfo,        false);
+    sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::HardwareRouting,   false);
     sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, false);
 
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::SystemInfo, gui::WorkflowStepperBar::StepStatus::Completed);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
+    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::SystemInfo,        gui::WorkflowStepperBar::StepStatus::Completed);
+    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting,   gui::WorkflowStepperBar::StepStatus::Completed);
     stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
 
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::SystemInfo, gui::SoundIdSidebarStepper::StepStatus::Completed);
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Completed);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::SystemInfo,        gui::SoundIdSidebarStepper::StepStatus::Completed);
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting,   gui::SoundIdSidebarStepper::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
 
-    bool sessionComplete = (!points.empty() && points.size() >= manifest.totalMeasuredPoints && manifest.totalMeasuredPoints > 0);
-    auto targetStep = sessionComplete ? gui::WorkflowStepperBar::Step::ExportReport : gui::WorkflowStepperBar::Step::RunSession;
-    auto targetSidebarStep = sessionComplete ? gui::SoundIdSidebarStepper::Step::ExportReport : gui::SoundIdSidebarStepper::Step::RunSession;
+    stepperBar.setCurrentStep(workflowState.targetStepperStep);
+    sidebarStepper.setCurrentStep(workflowState.targetSidebarStep);
 
-    stepperBar.setCurrentStep(targetStep);
-    sidebarStepper.setCurrentStep(targetSidebarStep);
+    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, workflowState.runSessionStatus);
+    sidebarStepper.setStepStatus(
+        gui::SoundIdSidebarStepper::Step::RunSession,
+        workflowState.runSessionStatus == gui::WorkflowStepperBar::StepStatus::Completed
+            ? gui::SoundIdSidebarStepper::StepStatus::Completed
+            : gui::SoundIdSidebarStepper::StepStatus::Current);
 
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, (!points.empty()) ? gui::WorkflowStepperBar::StepStatus::Completed : gui::WorkflowStepperBar::StepStatus::Current);
-    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::RunSession, (!points.empty()) ? gui::SoundIdSidebarStepper::StepStatus::Completed : gui::SoundIdSidebarStepper::StepStatus::Current);
-
-    if (sessionComplete)
+    if (workflowState.isSessionComplete)
     {
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Current);
+        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport,    gui::WorkflowStepperBar::StepStatus::Current);
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Current);
     }
 
-    workflowNavController.setStep(targetSidebarStep);
-    resized();
-
-    manualPromptLabel.setText("Session loaded: " + juce::String(manifest.hardwareDisplayName) + " (" + juce::String(points.size()) + " points)", juce::dontSendNotification);
-    manualPromptLabel.setVisible(true);
-    hidePromptAfterDelay(4000);
+    workflowNavController.setStep(workflowState.targetSidebarStep);
 }
 
 void MainContentComponent::handleSaveSession()

@@ -503,6 +503,8 @@ target_sources(ABDAudioLab
         src/gui/SessionExecutionCoordinator.cpp
         src/gui/controllers/SessionIoController.h
         src/gui/controllers/SessionIoController.cpp
+        src/gui/controllers/LoadedSessionApplier.h
+        src/gui/controllers/LoadedSessionApplier.cpp
         src/gui/controllers/WorkflowNavigationController.h
         src/gui/controllers/WorkflowNavigationController.cpp
         src/gui/AudioABVerificationModal.h
@@ -633,6 +635,8 @@ add_executable(ABDAudioLab_Tests
     src/core/ProfilingSessionBuilder.cpp
     src/tests/test_SessionPersistenceService.cpp
     src/core/SessionPersistenceService.cpp
+    src/tests/test_LoadedSessionApplier.cpp
+    src/gui/controllers/LoadedSessionApplier.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp
