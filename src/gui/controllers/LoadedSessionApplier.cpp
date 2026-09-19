@@ -83,7 +83,7 @@ WorkflowStepState LoadedSessionApplier::computeWorkflowState(
     size_t actualPointsCount)
 {
     WorkflowStepState state;
-    state.isSessionComplete = (!actualPointsCount == 0 &&
+    state.isSessionComplete = (actualPointsCount > 0 &&
                                actualPointsCount >= static_cast<size_t>(totalMeasuredPointsInSession) &&
                                totalMeasuredPointsInSession > 0);
 
