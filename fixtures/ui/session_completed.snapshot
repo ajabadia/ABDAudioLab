@@ -1,0 +1,12 @@
+state=7
+progress=100
+session_running=0
+pause_visible=0
+cancel_visible=0
+primary_enabled=1
+banner_visible=0
+badge=COMPLETED
+status_text=Session completed
+banner_text=
+badge_rgba=228B22FF
+banner_rgba=00000000

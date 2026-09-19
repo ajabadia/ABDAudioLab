@@ -622,6 +622,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_SessionIoController.cpp
     src/tests/test_MainHeaderController.cpp
     src/tests/test_SessionExecutionCoordinator.cpp
+    src/tests/test_UiCompositionSeam6.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp

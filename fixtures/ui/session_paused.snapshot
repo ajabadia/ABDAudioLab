@@ -1,0 +1,12 @@
+state=3
+progress=50
+session_running=1
+pause_visible=1
+cancel_visible=1
+primary_enabled=1
+banner_visible=0
+badge=PAUSED
+status_text=Session paused
+banner_text=
+badge_rgba=D39E00FF
+banner_rgba=00000000

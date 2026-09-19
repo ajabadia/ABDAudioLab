@@ -1,0 +1,12 @@
+state=4
+progress=60
+session_running=1
+pause_visible=0
+cancel_visible=1
+primary_enabled=0
+banner_visible=0
+badge=CAPTURING
+status_text=Capturing measurement
+banner_text=
+badge_rgba=4169E1FF
+banner_rgba=00000000

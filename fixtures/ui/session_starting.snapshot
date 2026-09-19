@@ -1,0 +1,12 @@
+state=1
+progress=0
+session_running=1
+pause_visible=0
+cancel_visible=0
+primary_enabled=0
+banner_visible=0
+badge=STARTING
+status_text=Starting session
+banner_text=
+badge_rgba=4682B4FF
+banner_rgba=00000000

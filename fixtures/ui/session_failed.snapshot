@@ -1,0 +1,12 @@
+state=8
+progress=20
+session_running=0
+pause_visible=0
+cancel_visible=0
+primary_enabled=1
+banner_visible=1
+badge=FAILED
+status_text=Session failed
+banner_text=Plugin disconnected
+badge_rgba=8B0000FF
+banner_rgba=FFCCCCFF

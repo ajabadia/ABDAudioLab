@@ -1,0 +1,12 @@
+state=5
+progress=65
+session_running=1
+pause_visible=0
+cancel_visible=0
+primary_enabled=0
+banner_visible=0
+badge=STOPPING
+status_text=Stopping session
+banner_text=
+badge_rgba=CC8400FF
+banner_rgba=00000000

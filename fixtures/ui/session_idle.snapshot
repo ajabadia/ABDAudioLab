@@ -1,0 +1,12 @@
+state=0
+progress=0
+session_running=0
+pause_visible=0
+cancel_visible=0
+primary_enabled=1
+banner_visible=0
+badge=IDLE
+status_text=Ready
+banner_text=
+badge_rgba=808080FF
+banner_rgba=00000000

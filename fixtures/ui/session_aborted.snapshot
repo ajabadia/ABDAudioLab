@@ -1,0 +1,12 @@
+state=6
+progress=65
+session_running=0
+pause_visible=0
+cancel_visible=0
+primary_enabled=1
+banner_visible=0
+badge=ABORTED
+status_text=Session aborted
+banner_text=
+badge_rgba=B22222FF
+banner_rgba=00000000
