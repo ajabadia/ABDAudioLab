@@ -163,6 +163,18 @@ public:
         contracts.push_back(contract);
     }
 
+    bool unregisterContract(const std::string& id)
+    {
+        auto it = std::remove_if(contracts.begin(), contracts.end(),
+            [&](const HardwareContract& c) { return c.id == id; });
+        if (it != contracts.end())
+        {
+            contracts.erase(it, contracts.end());
+            return true;
+        }
+        return false;
+    }
+
 private:
     std::vector<HardwareContract> contracts;
     std::vector<juce::String> warnings;

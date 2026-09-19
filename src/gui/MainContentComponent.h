@@ -52,6 +52,8 @@
 #include "gui/controllers/LoadedSessionApplier.h"
 #include "gui/controllers/IReportExportHost.h"
 #include "gui/controllers/ReportExportUiController.h"
+#include "gui/controllers/IPluginUiHost.h"
+#include "gui/controllers/PluginUiCoordinator.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
 #include <StudioTopology/StudioTopologyController.h>
@@ -60,7 +62,6 @@
 #include "config/AutoUpdaterConfig.h"
 #include <AutoUpdater/AutoUpdater.h>
 #include "core/plugins/PluginHostManager.h"
-#include "core/plugins/PluginHardwareContractAdapter.h"
 #include "gui/plugins/PluginWindowController.h"
 #include "gui/plugins/PluginScanDirectoriesModal.h"
 #include <MidiKeyboard/MidiKeyboardFloatingWindow.h>
@@ -77,7 +78,8 @@ class MainContentComponent : public juce::Component,
                              public juce::KeyListener,
                              public juce::ChangeListener,
                              public gui::ILoadedSessionTarget,
-                             public gui::IReportExportHost
+                             public gui::IReportExportHost,
+                             public gui::IPluginUiHost
 {
 public:
     using StartupProgressCallback = std::function<void(const juce::String& statusText, float progress)>;
@@ -144,6 +146,13 @@ public:
     void launchProcess(const juce::File& file) override;
     void revealInFolder(const juce::File& folder) override;
 
+    // IPluginUiHost interface
+    void updatePluginLoadingState(bool isSuccess, const juce::String& message) override;
+    void updatePluginIdentity(const gui::PluginIdentityPresentation& identity,
+                              const juce::PluginDescription& description) override;
+    void showPluginError(const juce::String& title, const juce::String& message) override;
+    void notifyPluginUnloaded() override;
+
     void handleSaveSession();
     void handleSaveSessionAs();
     void saveSessionToFile(const juce::File& file);
@@ -175,10 +184,6 @@ private:
     core::PluginHostManager pluginHostManager;
     gui::PluginWindowController pluginWindowController;
     gui::PluginScanDirectoriesModal pluginScanModal;
-    juce::AudioPluginInstance* activePluginInstance { nullptr };
-    juce::PluginDescription activePluginDescription;
-    void loadPluginInstance(const juce::PluginDescription& desc, std::function<void(bool success)> onLoaded = nullptr);
-    void applyActivePluginRoutingAndUi(const juce::PluginDescription& desc, double sr, int bs);
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
@@ -229,6 +234,7 @@ private:
     gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
     gui::ReportExportUiController reportExportController { *this };
+    gui::PluginUiCoordinator pluginUiCoordinator { pluginHostManager, pluginWindowController, audioEngine, hardwareManager, sessionCoordinator, *this };
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

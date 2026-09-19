@@ -529,6 +529,9 @@ target_sources(ABDAudioLab
         src/gui/controllers/IReportExportHost.h
         src/gui/controllers/ReportExportUiController.h
         src/gui/controllers/ReportExportUiController.cpp
+        src/gui/controllers/IPluginUiHost.h
+        src/gui/controllers/PluginUiCoordinator.h
+        src/gui/controllers/PluginUiCoordinator.cpp
         src/export/NamDatasetExporter.h
         src/export/NamDatasetExporter.cpp
         src/export/ModulationPresetExporter.h
@@ -646,6 +649,8 @@ add_executable(ABDAudioLab_Tests
     src/export/ReportExportService.cpp
     src/gui/controllers/ReportExportUiController.cpp
     src/tests/test_ReportExportUiController.cpp
+    src/gui/controllers/PluginUiCoordinator.cpp
+    src/tests/test_PluginUiCoordinator.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp

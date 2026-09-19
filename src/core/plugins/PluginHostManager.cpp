@@ -294,6 +294,24 @@ void PluginHostManager::loadPluginAsync(const juce::PluginDescription& desc,
 {
     juce::Logger::writeToLog("[PluginHost] loadPluginAsync requested: '" + desc.name + "'");
 
+    bool formatFound = false;
+    for (auto* format : formatManager.getFormats())
+    {
+        if (format != nullptr && (format->getName() == desc.pluginFormatName
+            || format->fileMightContainThisPluginType(desc.fileOrIdentifier)))
+        {
+            formatFound = true;
+            break;
+        }
+    }
+
+    if (!formatFound)
+    {
+        if (callback)
+            callback({ false, {}, "INCOMPATIBLE_PLUGIN", "No compatible audio plugin format recognized for: " + desc.name.toStdString() });
+        return;
+    }
+
     formatManager.createPluginInstanceAsync(desc, sampleRate, blockSize,
         [this, desc, sampleRate, blockSize, cb = std::move(callback)](std::unique_ptr<juce::AudioPluginInstance> instance, const juce::String& error) {
             PluginLoadResult res;
