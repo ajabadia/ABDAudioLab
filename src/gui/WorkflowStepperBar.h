@@ -39,9 +39,9 @@ public:
         stepStatuses[Step::RunSession]        = StepStatus::Pending;
         stepStatuses[Step::ExportReport]      = StepStatus::Pending;
 
-        stepNames[Step::SystemInfo]        = "0. Información";
-        stepNames[Step::CalibrateLoopback] = "1. Calibrate Loopback";
-        stepNames[Step::HardwareRouting]   = "2. Hardware & Routing";
+        stepNames[Step::SystemInfo]        = "0. Studio Environment";
+        stepNames[Step::HardwareRouting]   = "1. Target & Routing";
+        stepNames[Step::CalibrateLoopback] = "2. Calibration & Setup";
         stepNames[Step::RunSession]        = "3. Run Session";
         stepNames[Step::ExportReport]      = "4. Export & Report";
     }
@@ -122,14 +122,22 @@ protected:
             nodeCenters.push_back({ (static_cast<float>(i) * segmentWidth) + (segmentWidth * 0.5f), centerY });
         }
 
+        static constexpr Step visualOrder[5] = {
+            Step::SystemInfo,
+            Step::HardwareRouting,
+            Step::CalibrateLoopback,
+            Step::RunSession,
+            Step::ExportReport
+        };
+
         // 1. Draw connecting gradient lines respecting text width
         for (size_t i = 0; i < nodeCenters.size() - 1; ++i)
         {
             auto p1 = nodeCenters[i];
             auto p2 = nodeCenters[i + 1];
 
-            Step stepCurrent = static_cast<Step>(i);
-            Step stepNext    = static_cast<Step>(i + 1);
+            Step stepCurrent = visualOrder[i];
+            Step stepNext    = visualOrder[i + 1];
 
             // Measure actual text width of current step
             g.setFont(juce::FontOptions(12.0f, (stepCurrent == currentStep) ? juce::Font::bold : juce::Font::plain));
@@ -162,7 +170,7 @@ protected:
         // 2. Draw nodes and label indications
         for (int i = 0; i < numSteps; ++i)
         {
-            Step step = static_cast<Step>(i);
+            Step step = visualOrder[i];
             auto center = nodeCenters[static_cast<size_t>(i)];
             auto status = getStepStatus(step);
 
@@ -266,12 +274,20 @@ protected:
 
     void mouseMove(const juce::MouseEvent& event) override
     {
+        static constexpr Step visualOrder[5] = {
+            Step::SystemInfo,
+            Step::HardwareRouting,
+            Step::CalibrateLoopback,
+            Step::RunSession,
+            Step::ExportReport
+        };
+
         auto bounds = getLocalBounds().toFloat();
         float segmentWidth = bounds.getWidth() / 5.0f;
         int stepIdx = juce::jlimit(0, 4, static_cast<int>(event.position.getX() / segmentWidth));
-        Step stepUnderMouse = static_cast<Step>(stepIdx);
+        Step stepUnderMouse = visualOrder[stepIdx];
 
-        if (!hoveredStep.has_value() || *hoveredStep != stepUnderMouse)
+        if (hoveredStep != stepUnderMouse)
         {
             hoveredStep = stepUnderMouse;
             setMouseCursor(canNavigateTo(stepUnderMouse)
@@ -290,10 +306,18 @@ protected:
 
     void mouseUp(const juce::MouseEvent& event) override
     {
+        static constexpr Step visualOrder[5] = {
+            Step::SystemInfo,
+            Step::HardwareRouting,
+            Step::CalibrateLoopback,
+            Step::RunSession,
+            Step::ExportReport
+        };
+
         auto bounds = getLocalBounds().toFloat();
         float segmentWidth = bounds.getWidth() / 5.0f;
         int stepIdx = juce::jlimit(0, 4, static_cast<int>(event.position.getX() / segmentWidth));
-        Step targetStep = static_cast<Step>(stepIdx);
+        Step targetStep = visualOrder[stepIdx];
 
         if (canNavigateTo(targetStep))
         {

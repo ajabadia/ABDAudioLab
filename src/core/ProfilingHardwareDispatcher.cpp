@@ -142,6 +142,18 @@ void ProfilingHardwareDispatcher::sendAllNotesOff(int channel)
     }
 }
 
+void ProfilingHardwareDispatcher::sendAllSoundOff(int channel)
+{
+    if (midiSink)
+    {
+        midiSink(juce::MidiMessage::allSoundOff(channel));
+    }
+    if (hardware != nullptr)
+    {
+        hardware->sendMidiMessage(juce::MidiMessage::allSoundOff(channel));
+    }
+}
+
 void ProfilingHardwareDispatcher::injectHardwareModulationValue(ModExcitationType excitationType,
                                                                int channel,
                                                                int controlCCNumber,

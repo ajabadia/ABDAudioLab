@@ -86,6 +86,8 @@ void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, 
         int bs = blockSize > 0 ? blockSize : static_cast<int>(tempProcessBufferL.size());
         if (bs <= 0) bs = 512;
 
+        liveMidiCollector.reset(sr);
+
         juce::Logger::writeToLog("[AudioEngine] Preparing plugin '" + plugin->getName()
             + "' with SR: " + juce::String(sr) + ", BS: " + juce::String(bs));
         plugin->prepareToPlay(sr, bs);

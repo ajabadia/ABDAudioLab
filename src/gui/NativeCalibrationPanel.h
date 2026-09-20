@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../math/LoopbackCalibrator.h"
 #include "../audio/LabAudioEngine.h"
+#include "session/ProfilingSessionContracts.h"
 
 namespace abdaudiolab::gui
 {
@@ -34,9 +35,12 @@ public:
     [[nodiscard]] const math::LoopbackCalibrationData& getCalibrationData() const noexcept { return calibrationData; }
     [[nodiscard]] State getState() const noexcept { return currentState; }
 
+    void updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot);
+
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
     std::function<void()> onCalibrationSkipped;
     std::function<void()> onContinueToSession;
+    std::function<void()> onVerifyDigitalRequested;
 
 private:
     void processCalibrationResult();
@@ -47,8 +51,13 @@ private:
 
     juce::TextButton btnStartMeasure { "Start Loopback Calibration" };
     juce::TextButton btnSkip { "Bypass Calibration (0 dB Nominal Gain)" };
-    juce::TextButton btnContinue { "Proceed to Hardware & Routing (Step 2) \u2192" };
+    juce::TextButton btnContinue { "Proceed to Run Session (Step 3) \u2192" };
     juce::TextButton btnRetry { "Retry Calibration" };
+    juce::TextButton btnVerifyDigital { "Verificar Latencia Digital" };
+
+    bool isDigitalMode_ { false };
+    bool isDigitalVerified_ { false };
+    juce::String digitalStatusText_;
 
     juce::ProgressBar progressBar;
     double progressValue { 0.0 };

@@ -6,6 +6,7 @@
 #include "gui/soundid/SoundIdTargetView.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
 #include "gui/soundid/SoundIdResultsSummaryView.h"
+#include "gui/controllers/WorkflowNavigationController.h"
 #include "synth/ModelEvaluationBuilder.h"
 
 using namespace abdaudiolab;
@@ -540,5 +541,80 @@ TEST_CASE("SoundIdResultsSummaryView: Copia de hash canonico y consistencia exac
     REQUIRE(resView.getFullCanonicalHash() == eval.canonicalEvaluationHash);
     REQUIRE(snap.evaluation.canonicalEvaluationHash == eval.canonicalEvaluationHash);
     REQUIRE(resView.getFullCanonicalHash().size() == 64); // SHA-256 hex string
+}
+
+TEST_CASE("Step 1 Integration: SoundIdTargetView Snapshot and Feature Flag Contracts", "[soundid][step1][integration]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+
+    // 1. Feature flag contract verification
+    REQUIRE(static_cast<int>(TargetViewIntegrationMode::Disabled) == 0);
+    REQUIRE(static_cast<int>(TargetViewIntegrationMode::ClassicStep1) == 1);
+
+    ProfilingSessionController controller;
+    soundid::SoundIdTargetView targetView(controller);
+    targetView.setSize(480, 600);
+
+    // 2. Initial state
+    auto initialSnap = controller.getCurrentSnapshot();
+    REQUIRE_NOTHROW(targetView.updateFromSnapshot(initialSnap));
+
+    // 3. VST3 Dexed Target Snapshot (ST-01 contract)
+    TargetSelectionState dexedTarget;
+    dexedTarget.targetId = "dexed_vst3";
+    dexedTarget.targetName = "Dexed FM Synthesizer";
+    dexedTarget.manufacturer = "Digital Suburban";
+    dexedTarget.version = "1.0.1";
+    dexedTarget.kind = TargetKind::PluginVST3;
+    dexedTarget.isConnected = true;
+    dexedTarget.isDeterministic = true;
+    dexedTarget.availableDomainDescription = "6 Operadores FM, Algoritmos 1-32, Pitch Env, LFO";
+    dexedTarget.parameterCount = 155;
+
+    controller.selectTarget(dexedTarget);
+    controller.updateAuditResult(
+        synth::ApprovalStatus::Approved,
+        "100% Determinista (Digital Host VST3)",
+        "Reset de ciclo instantaneo",
+        0.0,
+        false,
+        {},
+        "Plugin cargado y validado en bus digital interno");
+
+    auto snap = controller.getCurrentSnapshot();
+    REQUIRE_NOTHROW(targetView.updateFromSnapshot(snap));
+    REQUIRE(snap.target.targetName == "Dexed FM Synthesizer");
+    REQUIRE(snap.target.parameterCount == 155);
+    REQUIRE(snap.target.isConnected);
+    REQUIRE(snap.audit.isAudited);
+    REQUIRE(snap.audit.approvalStatus == synth::ApprovalStatus::Approved);
+
+    // 4. Physical Hardware Target Snapshot
+    TargetSelectionState hwTarget;
+    hwTarget.targetId = "hw_korg_ms20";
+    hwTarget.targetName = "Korg MS-20";
+    hwTarget.manufacturer = "Korg";
+    hwTarget.version = "1.0";
+    hwTarget.kind = TargetKind::HardwareAnalogue;
+    hwTarget.isConnected = true;
+    hwTarget.isDeterministic = false;
+    hwTarget.availableDomainDescription = "Audio In/Out Loopback ASIO";
+    hwTarget.parameterCount = 12;
+
+    controller.selectTarget(hwTarget);
+    controller.updateAuditResult(
+        synth::ApprovalStatus::ApprovedWithWarnings,
+        "Repetibilidad analogica / audio loopback",
+        "Reset de compuerta requerido",
+        100.0,
+        true,
+        { "Latencia y calibracion analogica requerida" },
+        "Hardware conectado y validado para ruteo");
+
+    auto hwSnap = controller.getCurrentSnapshot();
+    REQUIRE_NOTHROW(targetView.updateFromSnapshot(hwSnap));
+    REQUIRE(hwSnap.target.targetName == "Korg MS-20");
+    REQUIRE(hwSnap.target.kind == TargetKind::HardwareAnalogue);
+    REQUIRE(hwSnap.audit.approvalStatus == synth::ApprovalStatus::ApprovedWithWarnings);
 }
 

@@ -24,6 +24,22 @@
 namespace abdaudiolab::gui
 {
 
+namespace soundid
+{
+    class SoundIdTargetView;
+    class SoundIdExcitationConfigPanel;
+}
+
+/**
+ * @enum TargetViewIntegrationMode
+ * @brief Runtime feature flag for SoundIdTargetView integration in Step 1 (HardwareRouting).
+ */
+enum class TargetViewIntegrationMode
+{
+    Disabled,
+    ClassicStep1
+};
+
 /**
  * @class WorkflowNavigationController
  * @brief Coordinates the 5 steps of the SoundID workflow (Step 0: Info to Step 4: Export), manages panel visibility and geometry.
@@ -56,6 +72,12 @@ public:
     void resetToNewSession();
     void layoutStepViews(juce::Rectangle<int> centralBounds, float currentBottomH, bool isSplittingBalanced);
 
+    void setTargetView(soundid::SoundIdTargetView* view) noexcept;
+    void setTargetViewIntegrationMode(TargetViewIntegrationMode mode) noexcept;
+    [[nodiscard]] TargetViewIntegrationMode getTargetViewIntegrationMode() const noexcept { return targetViewIntegrationMode; }
+
+    void setExcitationConfigPanel(soundid::SoundIdExcitationConfigPanel* panel) noexcept;
+
     std::function<void(Step newStep)> onStepChanged;
 
 private:
@@ -71,6 +93,10 @@ private:
     SoundIdSuiteList& suiteList;
     OperatorStepModalDialog& operatorStepModal;
     CenterSplitterBar& centerSplitterBar;
+
+    soundid::SoundIdTargetView* targetView { nullptr };
+    soundid::SoundIdExcitationConfigPanel* excitationConfigPanel { nullptr };
+    TargetViewIntegrationMode targetViewIntegrationMode { TargetViewIntegrationMode::ClassicStep1 };
 };
 
 } // namespace abdaudiolab::gui

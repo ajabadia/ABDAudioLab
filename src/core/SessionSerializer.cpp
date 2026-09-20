@@ -76,6 +76,22 @@ nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest&
         j["wienerHammerstein"] = wh;
     }
 
+    if (manifest.hasExcitationRecipe)
+    {
+        nlohmann::json exc;
+        exc["hardwareMethod"] = manifest.hardwareMethod;
+        exc["excitationMode"] = manifest.excitationMode;
+        exc["manualInteractionKind"] = manifest.manualInteractionKind;
+        exc["instruction"] = manifest.excitationInstruction;
+        exc["expectedSetting"] = manifest.expectedSetting;
+        exc["repetitions"] = manifest.excitationRepetitions;
+        exc["settlingMs"] = manifest.excitationSettlingMs;
+        exc["operatorOrigin"] = manifest.operatorOrigin;
+        exc["operatorConfirmations"] = manifest.operatorConfirmations;
+        exc["midiRecipe"] = manifest.midiRecipeJson;
+        j["excitationRecipe"] = exc;
+    }
+
     nlohmann::json testsJson = nlohmann::json::array();
     for (const auto& t : manifest.tests)
     {
@@ -173,6 +189,22 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
             if (wh.contains("residualRms")) outManifest.whResidualErrorRms = wh["residualRms"].get<float>();
             if (wh.contains("preCentroidHz")) outManifest.whPreFilterCentroidHz = wh["preCentroidHz"].get<float>();
             if (wh.contains("postCentroidHz")) outManifest.whPostFilterCentroidHz = wh["postCentroidHz"].get<float>();
+        }
+
+        if (j.contains("excitationRecipe") && j["excitationRecipe"].is_object())
+        {
+            const auto& exc = j["excitationRecipe"];
+            outManifest.hasExcitationRecipe = true;
+            if (exc.contains("hardwareMethod")) outManifest.hardwareMethod = exc["hardwareMethod"].get<std::string>();
+            if (exc.contains("excitationMode")) outManifest.excitationMode = exc["excitationMode"].get<std::string>();
+            if (exc.contains("manualInteractionKind")) outManifest.manualInteractionKind = exc["manualInteractionKind"].get<std::string>();
+            if (exc.contains("instruction")) outManifest.excitationInstruction = exc["instruction"].get<std::string>();
+            if (exc.contains("expectedSetting")) outManifest.expectedSetting = exc["expectedSetting"].get<std::string>();
+            if (exc.contains("repetitions")) outManifest.excitationRepetitions = exc["repetitions"].get<int>();
+            if (exc.contains("settlingMs")) outManifest.excitationSettlingMs = exc["settlingMs"].get<double>();
+            if (exc.contains("operatorOrigin")) outManifest.operatorOrigin = exc["operatorOrigin"].get<std::string>();
+            if (exc.contains("operatorConfirmations")) outManifest.operatorConfirmations = exc["operatorConfirmations"];
+            if (exc.contains("midiRecipe")) outManifest.midiRecipeJson = exc["midiRecipe"];
         }
 
         return true;

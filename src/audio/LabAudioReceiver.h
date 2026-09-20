@@ -77,6 +77,11 @@ public:
         overloadTriggered.store(false, std::memory_order_release);
         consecutiveClippingSamples.store(0, std::memory_order_release);
     }
+    void triggerOverloadForTesting() noexcept
+    {
+        overloadTriggered.store(true, std::memory_order_release);
+        forceFinish();
+    }
 
     /**
      * @brief Early stopping indicator (dynamic silence cutoff < -80 dBfs).

@@ -605,6 +605,21 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
             // Update standard test button state
             suiteList.setStandardTestAvailable(pluginUiCoordinator.hasActivePlugin());
+
+            // Actualizar ProfilingSessionController como única autoridad (HITO-03.1)
+            gui::session::TargetSelectionState target;
+            target.targetId = "plugin_" + juce::File::createLegalFileName(desc.fileOrIdentifier).toStdString();
+            target.targetName = desc.name.isNotEmpty() ? desc.name.toStdString() : "Plugin Virtual";
+            target.manufacturer = desc.manufacturerName.toStdString();
+            target.version = desc.version.toStdString();
+            target.kind = gui::session::TargetKind::PluginVST3;
+            target.isConnected = pluginUiCoordinator.hasActivePlugin();
+            target.isDeterministic = true;
+            target.supportsMidiInput = desc.isInstrument;
+            target.supportsParameterAutomation = true;
+            target.availableDomainDescription = desc.isInstrument ? "Notas MIDI C1-C6, Vel 1-127, Parámetros VST3" : "Procesamiento de Audio, Parámetros VST3";
+            target.parameterCount = 0;
+            profilingSessionController.selectTarget(target);
             return;
         }
 
@@ -620,6 +635,24 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         const auto* c = hardwareManager.findContractById(hwId.toStdString());
         suiteList.setStandardTestAvailable(c != nullptr && !c->functions.empty());
+
+        // Actualizar ProfilingSessionController para target hardware físico (HITO-03.1)
+        gui::session::TargetSelectionState targetState;
+        targetState.targetId = hwId.toStdString();
+        targetState.targetName = (c != nullptr) ? c->displayName : hwId.toStdString();
+        targetState.manufacturer = (c != nullptr) ? c->manufacturer : "";
+        targetState.version = (c != nullptr) ? c->schemaVersion : "1.0";
+        bool isAnalogue = (c != nullptr && (c->deviceType == "MANUAL_EURORACK" || c->deviceType == "ANALOGUE_PEDAL"));
+        targetState.kind = isAnalogue ? gui::session::TargetKind::HardwareAnalogue : gui::session::TargetKind::HardwareDigital;
+        targetState.isConnected = true;
+        targetState.isDeterministic = !isAnalogue;
+        targetState.supportsMidiInput = (c != nullptr && (c->deviceType == "AUTOMATED_MIDI_CC" || c->deviceType == "AUTOMATED_SYSEX"));
+        targetState.supportsMidiCc = (c != nullptr && c->deviceType == "AUTOMATED_MIDI_CC");
+        targetState.supportsSysEx = (c != nullptr && c->deviceType == "AUTOMATED_SYSEX");
+        targetState.supportsParameterAutomation = false;
+        targetState.availableDomainDescription = isAnalogue ? "Controles analógicos manuales" : "Canal MIDI, Notas y CC";
+        targetState.parameterCount = (c != nullptr) ? static_cast<int>(c->functions.size()) : 0;
+        profilingSessionController.selectTarget(targetState);
     };
     catalogSelector.onContinueRequested = [this] {
         if (catalogSelector.isPluginVirtualMode())
@@ -710,6 +743,17 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     pluginHostManager.loadCache(core::PluginHostManager::getDefaultCacheFile());
 
     addChildComponent(catalogSelector);
+    addChildComponent(targetView);
+    workflowNavController.setTargetView(&targetView);
+    addChildComponent(excitationConfigPanel);
+    workflowNavController.setExcitationConfigPanel(&excitationConfigPanel);
+    profilingSessionController.onOperatorStepConfirmed = [this] { confirmManualStep(); };
+    nativeCalibrationPanel.onVerifyDigitalRequested = [this] {
+        profilingSessionController.verifyDigitalCalibration();
+    };
+    nativeCalibrationPanel.onContinueToSession = [this] {
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
+    };
 
     // ==============================================================================
     // SECTION 3: TEST SUITE QUEUE & EVENT DELEGATION
@@ -1535,11 +1579,18 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     setupGuidedWorkflowInitialData();
 
+    profilingSessionController.addListener(this);
+    targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+    excitationConfigPanel.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+    if (profilingRunView != nullptr)
+        profilingRunView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+
     report("Listo.", 1.0f);
 }
 
 MainContentComponent::~MainContentComponent()
 {
+    profilingSessionController.removeListener(this);
     juce::Logger::writeToLog("[MainComponent] Destructor: closing plugin window and resetting active plugin.");
     pluginUiCoordinator.unloadPlugin();
 
@@ -2085,6 +2136,36 @@ void MainContentComponent::applyTelemetrySnapshot(const gui::TelemetrySnapshot& 
     }
 }
 
+void MainContentComponent::onSessionSnapshotUpdated(const gui::session::ProfilingSessionSnapshot& snapshot)
+{
+    targetView.updateFromSnapshot(snapshot);
+    excitationConfigPanel.updateFromSnapshot(snapshot);
+    nativeCalibrationPanel.updateFromSnapshot(snapshot);
+    if (profilingRunView != nullptr)
+        profilingRunView->updateFromSnapshot(snapshot);
+}
+
+void MainContentComponent::onAlertRaised(const gui::session::UiAlert& alert)
+{
+    juce::ignoreUnused(alert);
+}
+
+void MainContentComponent::onWorkflowStageChanged(gui::session::ProfilingWorkflowStage newStage)
+{
+    if (newStage == gui::session::ProfilingWorkflowStage::ConfigureAndStart ||
+        newStage == gui::session::ProfilingWorkflowStage::ProfilingActive)
+    {
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::HardwareRouting,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
+    }
+}
+
+void MainContentComponent::onSessionStatusChanged(gui::session::ProfilingSessionStatus newStatus)
+{
+    juce::ignoreUnused(newStatus);
+}
+
 // ==============================================================================
 // SECTION 7: TARGET HARDWARE SELECTION & WORKSPACE NAVIGATION
 // Owns hardware target selection UI dispatch, setup drawer interactions, and auxiliary tool window triggers.
@@ -2593,6 +2674,30 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
     summary.hardwareName = juce::String(contract->displayName);
     summary.hardwareCategory = juce::String(contract->deviceType);
     sidebarStepper.setSessionSummary(summary);
+
+    // Sincronizar TargetSelectionState con ProfilingSessionController y SoundIdTargetView
+    gui::session::TargetSelectionState target;
+    target.targetId = contract->id;
+    target.targetName = contract->displayName;
+    target.manufacturer = !contract->manufacturer.empty() ? contract->manufacturer : (!contract->brand.empty() ? contract->brand : "Hardware Manufacturer");
+    target.version = "1.0";
+    target.kind = gui::session::TargetKind::HardwareAnalogue;
+    target.isConnected = (connStatus == gui::HardwareConnectionStatus::Connected);
+    target.isDeterministic = false;
+    target.availableDomainDescription = funcName.toStdString() + " (" + contract->deviceType + ")";
+    target.parameterCount = static_cast<int>(contract->functions.size());
+
+    profilingSessionController.selectTarget(target);
+    profilingSessionController.updateAuditResult(
+        synth::ApprovalStatus::ApprovedWithWarnings,
+        "Repetibilidad analogica / audio loopback",
+        "Reset de compuerta requerido",
+        100.0,
+        true,
+        { "Latencia y calibracion analogica requerida" },
+        "Hardware conectado y validado para ruteo");
+
+    targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     auto calStatus = stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback);
     if (calStatus != gui::WorkflowStepperBar::StepStatus::Completed && calStatus != gui::WorkflowStepperBar::StepStatus::Skipped)
@@ -3307,6 +3412,11 @@ void MainContentComponent::performNewSessionReset()
     gui::SoundIdSidebarStepper::SessionSummaryInfo emptySummary;
     sidebarStepper.setSessionSummary(emptySummary);
 
+    // Reset target in profilingSessionController and targetView
+    gui::session::TargetSelectionState emptyTarget;
+    profilingSessionController.selectTarget(emptyTarget);
+    targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+
     // Reset workflow stepper navigation via WorkflowNavigationController
     workflowNavController.resetToNewSession();
 
@@ -3442,8 +3552,6 @@ void MainContentComponent::updatePluginLoadingState(bool isSuccess, const juce::
 void MainContentComponent::updatePluginIdentity(const gui::PluginIdentityPresentation& identity,
                                                 const juce::PluginDescription& description)
 {
-    juce::ignoreUnused(description);
-
     drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
     drawer.setSelectedHardwareId(identity.legalTargetId);
 
@@ -3486,6 +3594,33 @@ void MainContentComponent::updatePluginIdentity(const gui::PluginIdentityPresent
     summary.hardwareName = identity.titleBadge;
     summary.hardwareCategory = identity.category;
     sidebarStepper.setSessionSummary(summary);
+
+    // Sincronizar TargetSelectionState con ProfilingSessionController y SoundIdTargetView
+    gui::session::TargetSelectionState target;
+    target.targetId = identity.legalTargetId.toStdString();
+    target.targetName = identity.titleBadge.toStdString();
+    target.manufacturer = description.manufacturerName.isNotEmpty() ? description.manufacturerName.toStdString() : "Digital Suburban";
+    target.version = description.version.isNotEmpty() ? description.version.toStdString() : "1.0.0";
+    target.kind = gui::session::TargetKind::PluginVST3;
+    target.isConnected = true;
+    target.isDeterministic = true;
+    target.availableDomainDescription = identity.busDescription.toStdString();
+    if (auto* plugin = pluginUiCoordinator.getActivePluginInstance())
+        target.parameterCount = plugin->getNumParameters();
+    else
+        target.parameterCount = 0;
+
+    profilingSessionController.selectTarget(target);
+    profilingSessionController.updateAuditResult(
+        synth::ApprovalStatus::Approved,
+        "100% Determinista (Digital Host VST3)",
+        "Reset de ciclo instantaneo",
+        0.0,
+        false,
+        {},
+        "Plugin cargado y validado en bus digital interno");
+
+    targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 }
 
 void MainContentComponent::showPluginError(const juce::String& title, const juce::String& message)

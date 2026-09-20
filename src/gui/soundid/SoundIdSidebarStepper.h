@@ -70,6 +70,7 @@ public:
     void setStepLocked(Step step, bool locked);
     [[nodiscard]] bool isStepLocked(Step step) const;
     [[nodiscard]] bool canNavigateTo(Step step) const;
+    [[nodiscard]] juce::String getStepTitle(Step step) const { auto it = stepTitles.find(step); return it != stepTitles.end() ? it->second : ""; }
 
     // --- Collapsible Rail Control ---
     void setCollapsed(bool collapsed);

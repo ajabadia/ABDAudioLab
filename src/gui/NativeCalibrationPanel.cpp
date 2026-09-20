@@ -20,8 +20,8 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     btnSkip.onClick = [this] { skipCalibration(); };
     addAndMakeVisible(btnSkip);
 
-    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Hardware & Routing (Paso 2) ➔"));
-    btnContinue.setTooltip("Advance to Step 2: hardware selection and routing");
+    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔"));
+    btnContinue.setTooltip("Advance to Step 3: session excitation and profiling");
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -29,6 +29,16 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
             onContinueToSession();
     };
     addChildComponent(btnContinue);
+
+    btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
+    btnVerifyDigital.setTooltip("Verifica la preparación del bus digital y latencia del plugin");
+    btnVerifyDigital.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.25f));
+    btnVerifyDigital.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnVerifyDigital.onClick = [this] {
+        if (onVerifyDigitalRequested)
+            onVerifyDigitalRequested();
+    };
+    addChildComponent(btnVerifyDigital);
 
     btnRetry.setTooltip("Repeat the calibration sweep after adjusting input levels");
     btnRetry.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber);
@@ -178,6 +188,46 @@ void NativeCalibrationPanel::skipCalibration()
     repaint();
 }
 
+void NativeCalibrationPanel::updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot)
+{
+    isDigitalMode_ = (snapshot.calibration.audio.requirement == session::CalibrationRequirement::NotApplicable);
+    isDigitalVerified_ = snapshot.calibration.digital.verified;
+
+    if (isDigitalMode_)
+    {
+        btnStartMeasure.setVisible(false);
+        btnSkip.setVisible(false);
+        btnRetry.setVisible(false);
+        progressBar.setVisible(false);
+        btnVerifyDigital.setVisible(true);
+        btnContinue.setVisible(true);
+        btnContinue.setEnabled(isDigitalVerified_);
+
+        if (isDigitalVerified_)
+        {
+            digitalStatusText_ = juce::String::fromUTF8(u8"Ruta digital verificada: Buffer 0 dBFS, 0 ms latencia física.\nListo para proceder al perfilado.");
+            btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"✓ Verificación Completa"));
+            btnVerifyDigital.setEnabled(false);
+        }
+        else
+        {
+            digitalStatusText_ = juce::String::fromUTF8(u8"Ruta digital interna directa (Plugin VST3 / Sintetizador Virtual)\nCalibración física de loopback DAC/ADC: No requerida.\nPulse el botón para verificar la latencia del buffer digital.");
+            btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
+            btnVerifyDigital.setEnabled(true);
+        }
+    }
+    else
+    {
+        btnVerifyDigital.setVisible(false);
+        if (currentState == State::ReadyToMeasure)
+        {
+            btnStartMeasure.setVisible(true);
+            btnSkip.setVisible(true);
+        }
+    }
+    repaint();
+}
+
 void NativeCalibrationPanel::paint(juce::Graphics& g)
 {
     auto area = getLocalBounds().toFloat();
@@ -204,11 +254,30 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(32.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("Step 1: Closed-Loop Loopback Calibration", headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
+    g.drawText("Step 2: Calibration & Setup", headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
 
     // Estado Badge
-    auto badgeRect = headerRow.removeFromRight(150.0f).reduced(0.0f, 3.0f);
-    if (currentState == State::Success)
+    auto badgeRect = headerRow.removeFromRight(180.0f).reduced(0.0f, 3.0f);
+    if (isDigitalMode_)
+    {
+        if (isDigitalVerified_)
+        {
+            g.setColour(juce::Colour(0xffd1fae5));
+            g.fillRoundedRectangle(badgeRect, 6.0f);
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
+            g.setColour(juce::Colour(0xff065f46));
+            g.drawText("● DIGITAL PATH VERIFIED", badgeRect, juce::Justification::centred, true);
+        }
+        else
+        {
+            g.setColour(juce::Colour(0xffe0e7ff));
+            g.fillRoundedRectangle(badgeRect, 6.0f);
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
+            g.setColour(juce::Colour(0xff3730a3));
+            g.drawText("⟳ VERIFICATION PENDING", badgeRect, juce::Justification::centred, true);
+        }
+    }
+    else if (currentState == State::Success)
     {
         g.setColour(juce::Colour(0xffd1fae5));
         g.fillRoundedRectangle(badgeRect, 6.0f);
@@ -267,6 +336,64 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto leftCol = content.removeFromLeft(leftW);
     content.removeFromLeft(20.0f);
     auto rightCol = content;
+
+    if (isDigitalMode_)
+    {
+        auto drawDigitalItem = [&](int num, const juce::String& title, const juce::String& desc) {
+            auto stepRow = leftCol.removeFromTop(60.0f);
+            auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
+
+            g.setColour(SoundIdTheme::accentBlue.withAlpha(0.15f));
+            g.fillEllipse(circleBounds);
+            g.setColour(SoundIdTheme::accentBlue);
+            g.drawEllipse(circleBounds, 1.5f);
+
+            g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+            g.drawText(juce::String(num), circleBounds, juce::Justification::centred, false);
+
+            stepRow.removeFromLeft(10.0f);
+            g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::textPrimary);
+            g.drawText(title, stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText(desc, stepRow, juce::Justification::topLeft, true);
+
+            leftCol.removeFromTop(8.0f);
+        };
+
+        drawDigitalItem(1, "1. Bus Virtual Interno",
+                        juce::String::fromUTF8(u8"El plugin se procesa internamente a 32/64-bit float. No hay conversores DAC/ADC."));
+        drawDigitalItem(2, "2. Cero Pérdida Analógica",
+                        juce::String::fromUTF8(u8"Calibración de loopback físico no requerida. Nivel de referencia nominal 0 dBFS."));
+        drawDigitalItem(3, "3. Verificación de Buffer",
+                        juce::String::fromUTF8(u8"Comprueba que el host y el plugin responden a la tasa de muestreo y tamaño de bloque."));
+
+        // Columna derecha
+        g.setColour(SoundIdTheme::bgCardHover);
+        g.fillRoundedRectangle(rightCol.withHeight(200.0f), 8.0f);
+        g.setColour(SoundIdTheme::borderSubtle);
+        g.drawRoundedRectangle(rightCol.withHeight(200.0f).reduced(0.5f), 8.0f, 1.0f);
+
+        auto meterArea = rightCol.withHeight(200.0f).reduced(14.0f, 12.0f);
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textMuted);
+        g.drawText("DIGITAL PATH STATUS", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        meterArea.removeFromTop(8.0f);
+
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+        g.setColour(isDigitalVerified_ ? SoundIdTheme::accentGreen : SoundIdTheme::accentAmber);
+        g.drawText(isDigitalVerified_ ? juce::String::fromUTF8(u8"✓ Ruta digital verificada") : juce::String::fromUTF8(u8"⟳ Pendiente de verificación digital"),
+                   meterArea.removeFromTop(20.0f), juce::Justification::centredLeft, true);
+
+        meterArea.removeFromTop(8.0f);
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Latencia analógica: 0 ms\nNivel nominal: 0 dBFS\nBuffer host/plugin: Sincronizado"),
+                   meterArea, juce::Justification::topLeft, true);
+        return;
+    }
 
     // --- Columna Izquierda: 3 Pasos del protocolo ---
     auto drawStepItem = [&](int num, const juce::String& title, const juce::String& desc) {
@@ -385,12 +512,20 @@ void NativeCalibrationPanel::resized()
 
     progressBar.setBounds(leftX, bottomY - 24, cardRight - leftX, 12);
 
-    // Botones de acción inferiores
-    btnSkip.setBounds(leftX, bottomY, 240, 36);
-    btnRetry.setBounds(leftX, bottomY, 180, 36);
+    if (isDigitalMode_)
+    {
+        btnVerifyDigital.setBounds(leftX, bottomY, 240, 36);
+        btnContinue.setBounds(cardRight - 260, bottomY, 260, 36);
+    }
+    else
+    {
+        // Botones de acción inferiores
+        btnSkip.setBounds(leftX, bottomY, 240, 36);
+        btnRetry.setBounds(leftX, bottomY, 180, 36);
 
-    btnStartMeasure.setBounds(cardRight - 260, bottomY, 260, 36);
-    btnContinue.setBounds(cardRight - 260, bottomY, 260, 36);
+        btnStartMeasure.setBounds(cardRight - 260, bottomY, 260, 36);
+        btnContinue.setBounds(cardRight - 260, bottomY, 260, 36);
+    }
 }
 
 } // namespace abdaudiolab::gui

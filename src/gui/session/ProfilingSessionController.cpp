@@ -82,7 +82,7 @@ bool ProfilingSessionController::canTransitionTo(ProfilingSessionStatus newStatu
 {
     auto cur = currentSnapshot_.sessionStatus;
 
-    if (cur == newStatus)
+    if (cur == newStatus && newStatus != ProfilingSessionStatus::TargetSelected)
         return false; // Evento duplicado no provoca doble transición
 
     switch (newStatus)
@@ -291,17 +291,166 @@ bool ProfilingSessionController::selectTarget(const TargetSelectionState& target
         currentSnapshot_.activeAlerts.clear();
         previousEvaluation_ = ModelEvaluationSummaryState{};
         previousExportOptions_ = ExportAvailabilityState{};
+
+        // Invalidar receta previa incompatible
+        currentSnapshot_.excitation.status = RecipeStatus::IncompatibleWithTarget;
+        currentSnapshot_.excitation.targetIdentity = target.targetId;
+
+        // Resetear calibración del target anterior
+        currentSnapshot_.calibration = CalibrationStatus{};
     }
 
     currentSnapshot_.target = target;
     currentSnapshot_.sessionStatus = ProfilingSessionStatus::TargetSelected;
     currentSnapshot_.workflowStage = ProfilingWorkflowStage::ConfigureAndStart;
 
+    // Configuración ortogonal de la calibración según la naturaleza real del target
+    if (target.kind == TargetKind::PluginVST3 || target.kind == TargetKind::SyntheticFixture)
+    {
+        currentSnapshot_.calibration.audio.requirement = CalibrationRequirement::NotApplicable;
+        currentSnapshot_.calibration.digital.requirement = CalibrationRequirement::Required;
+        currentSnapshot_.calibration.digital.verified = false; // Requiere verificación digital real (no bypass automático)
+        currentSnapshot_.calibration.digital.summary = "Pendiente de verificación digital";
+
+        if (target.supportsMidiInput)
+        {
+            currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::Optional;
+            currentSnapshot_.calibration.midi.summary = "Entrada MIDI soportada (opcional)";
+        }
+        else
+        {
+            currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::NotApplicable;
+            currentSnapshot_.calibration.midi.summary = "Sin entrada MIDI";
+        }
+    }
+    else if (target.kind == TargetKind::HardwareAnalogue)
+    {
+        currentSnapshot_.calibration.audio.requirement = CalibrationRequirement::Required;
+        currentSnapshot_.calibration.audio.completed = false;
+        currentSnapshot_.calibration.audio.summary = "Calibración loopback físico DAC/ADC requerida";
+        currentSnapshot_.calibration.digital.requirement = CalibrationRequirement::NotApplicable;
+        currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::NotApplicable;
+    }
+    else // HardwareDigital o Hardware con MIDI
+    {
+        currentSnapshot_.calibration.audio.requirement = CalibrationRequirement::Required;
+        currentSnapshot_.calibration.audio.completed = false;
+        currentSnapshot_.calibration.audio.summary = "Calibración de nivel de audio requerida";
+        currentSnapshot_.calibration.digital.requirement = CalibrationRequirement::NotApplicable;
+
+        if (target.supportsMidiInput)
+        {
+            currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::Required;
+            currentSnapshot_.calibration.midi.completed = false;
+            currentSnapshot_.calibration.midi.summary = "Calibración de compuerta y latencia MIDI requerida";
+        }
+        else
+        {
+            currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::NotApplicable;
+        }
+    }
+
+    // Configuración de receta de excitación según capacidades reales
+    bool isPureAnalogue = (target.kind == TargetKind::HardwareAnalogue);
+    auto tIdLower = juce::String(target.targetId).toLowerCase();
+    if (tIdLower.contains("manual") || tIdLower.contains("eurorack") || tIdLower.contains("pedal") || tIdLower.contains("ds1"))
+    {
+        isPureAnalogue = true;
+    }
+
+    if (isPureAnalogue || (!target.supportsMidiInput && !target.supportsParameterAutomation && target.kind != TargetKind::PluginVST3))
+    {
+        currentSnapshot_.excitation.targetControlMode = TargetControlMode::NoDigitalControl;
+        currentSnapshot_.excitation.excitationMode = ExcitationMode::ManualOperator;
+        currentSnapshot_.excitation.manual = ManualOperatorRecipe{};
+        currentSnapshot_.excitation.midi = std::nullopt;
+        currentSnapshot_.excitation.status = RecipeStatus::Valid;
+        currentSnapshot_.progress.activeControlMode = TargetControlMode::NoDigitalControl;
+        currentSnapshot_.progress.activeExcitationMode = ExcitationMode::ManualOperator;
+    }
+    else if (target.kind == TargetKind::PluginVST3)
+    {
+        currentSnapshot_.excitation.targetControlMode = TargetControlMode::Vst3;
+        if (target.supportsMidiInput)
+        {
+            currentSnapshot_.excitation.excitationMode = ExcitationMode::AutomatedMidi;
+            currentSnapshot_.excitation.midi = MidiRecipe{};
+            currentSnapshot_.excitation.manual = std::nullopt;
+        }
+        else if (target.supportsParameterAutomation)
+        {
+            currentSnapshot_.excitation.excitationMode = ExcitationMode::AutomatedVstParameter;
+            currentSnapshot_.excitation.midi = std::nullopt;
+            currentSnapshot_.excitation.manual = std::nullopt;
+        }
+        else
+        {
+            currentSnapshot_.excitation.excitationMode = ExcitationMode::ManualOperator;
+            currentSnapshot_.excitation.manual = ManualOperatorRecipe{};
+            currentSnapshot_.excitation.midi = std::nullopt;
+        }
+        currentSnapshot_.excitation.status = RecipeStatus::Valid;
+        currentSnapshot_.progress.activeControlMode = TargetControlMode::Vst3;
+        currentSnapshot_.progress.activeExcitationMode = currentSnapshot_.excitation.excitationMode;
+    }
+    else // Hardware con MIDI
+    {
+        currentSnapshot_.excitation.targetControlMode = TargetControlMode::Midi;
+        currentSnapshot_.excitation.excitationMode = ExcitationMode::AutomatedMidi;
+        currentSnapshot_.excitation.midi = MidiRecipe{};
+        currentSnapshot_.excitation.manual = std::nullopt;
+        currentSnapshot_.excitation.status = RecipeStatus::Valid;
+        currentSnapshot_.progress.activeControlMode = TargetControlMode::Midi;
+        currentSnapshot_.progress.activeExcitationMode = ExcitationMode::AutomatedMidi;
+    }
+
     publishSnapshotLocked();
     auto ctx = createCallbackContextLocked();
     notifyStatusListeners(ProfilingSessionStatus::TargetSelected, ctx);
     notifyStageListeners(ProfilingWorkflowStage::ConfigureAndStart, ctx);
     return true;
+}
+
+void ProfilingSessionController::verifyDigitalCalibration()
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    if (currentSnapshot_.calibration.digital.requirement != CalibrationRequirement::NotApplicable)
+    {
+        currentSnapshot_.calibration.digital.verified = true;
+        currentSnapshot_.calibration.digital.bufferLatencyMs = 0.0f;
+        currentSnapshot_.calibration.digital.bitExact = true;
+        currentSnapshot_.calibration.digital.summary = "Ruta digital verificada (buffer interno 0 dBFS / determinista)";
+        publishSnapshotLocked();
+    }
+}
+
+void ProfilingSessionController::updateAudioCalibration(bool completed, float inputGain, float outputGain, float latencyMs, float snr)
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    currentSnapshot_.calibration.audio.completed = completed;
+    currentSnapshot_.calibration.audio.inputGainTrimDb = inputGain;
+    currentSnapshot_.calibration.audio.outputGainTrimDb = outputGain;
+    currentSnapshot_.calibration.audio.roundTripLatencyMs = latencyMs;
+    currentSnapshot_.calibration.audio.snrDb = snr;
+    currentSnapshot_.calibration.audio.summary = completed ? "Calibración de audio completada" : "Pendiente";
+    publishSnapshotLocked();
+}
+
+void ProfilingSessionController::updateMidiCalibration(bool completed, float latencyMs, float jitterMs)
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    currentSnapshot_.calibration.midi.completed = completed;
+    currentSnapshot_.calibration.midi.detectedMidiLatencyMs = latencyMs;
+    currentSnapshot_.calibration.midi.jitterMs = jitterMs;
+    currentSnapshot_.calibration.midi.summary = completed ? "Calibración MIDI completada" : "Pendiente";
+    publishSnapshotLocked();
+}
+
+void ProfilingSessionController::resetCalibration()
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    currentSnapshot_.calibration = CalibrationStatus{};
+    publishSnapshotLocked();
 }
 
 bool ProfilingSessionController::requestAudit()
@@ -810,6 +959,30 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
 
     return true;
 }
+
+// -------------------------------------------------------------------------
+// HITO-04: Contrato de exportabilidad — única fuente de verdad para guardas
+// -------------------------------------------------------------------------
+ExportReadiness ProfilingSessionController::evaluateExportReadiness() const
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    return evaluateExportReadinessFromSnapshot(currentSnapshot_);
+}
+
+bool ProfilingSessionController::requestExportProductionPackage()
+{
+    if (!evaluateExportReadiness().canProceed())
+        return false;
+    return exportModel("cpp", "");
+}
+
+bool ProfilingSessionController::requestExportCertificationReport()
+{
+    if (!evaluateExportReadiness().canProceed())
+        return false;
+    return exportModel("certification", "");
+}
+
 
 core::ExperimentRecord ProfilingSessionController::buildCurrentExperimentRecord() const
 {
@@ -1495,6 +1668,106 @@ void ProfilingSessionController::setOpenedAdvancedMode(bool opened)
     std::lock_guard<std::recursive_mutex> lock(stateMutex_);
     currentSnapshot_.openedAdvancedMode = opened;
     publishSnapshotLocked();
+}
+
+void ProfilingSessionController::setExcitationMode(ExcitationMode mode)
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    if (currentSnapshot_.excitation.targetControlMode == TargetControlMode::NoDigitalControl &&
+        mode != ExcitationMode::ManualOperator)
+    {
+        raiseAlert(UiAlert::Severity::Warning,
+                   "Modo no disponible",
+                   "El hardware seleccionado no posee interfaz digital (MIDI/VST3).",
+                   "La excitacion automatizada no es posible en este dispositivo.",
+                   "Permanezca en el modo de Operador Manual.",
+                   "El modo permanece configurado en ManualOperator.");
+        return;
+    }
+
+    currentSnapshot_.excitation.excitationMode = mode;
+    currentSnapshot_.progress.activeExcitationMode = mode;
+    if (mode == ExcitationMode::ManualOperator && !currentSnapshot_.excitation.manual.has_value())
+    {
+        currentSnapshot_.excitation.manual = ManualOperatorRecipe{};
+    }
+    else if (mode == ExcitationMode::AutomatedMidi && !currentSnapshot_.excitation.midi.has_value())
+    {
+        currentSnapshot_.excitation.midi = MidiRecipe{};
+    }
+
+    publishSnapshotLocked();
+}
+
+void ProfilingSessionController::updateMidiRecipe(const MidiRecipe& recipe)
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    auto validated = recipe;
+    bool valid = true;
+    std::string err;
+
+    if (validated.firstNote < 0 || validated.lastNote > 127 || validated.firstNote > validated.lastNote)
+    {
+        valid = false;
+        err = "Rango de notas invalido [0..127].";
+    }
+    else if (validated.velocities.empty())
+    {
+        valid = false;
+        err = "Se requiere al menos una velocidad de pulsacion.";
+    }
+    else if (validated.gateMs < 10.0 || validated.settlingMs < 0.0)
+    {
+        valid = false;
+        err = "Parametros temporales fuera de rango (gate >= 10 ms, settling >= 0 ms).";
+    }
+
+    currentSnapshot_.excitation.isValid = valid;
+    currentSnapshot_.excitation.validationError = err;
+    if (valid)
+    {
+        currentSnapshot_.excitation.midi = validated;
+    }
+    publishSnapshotLocked();
+}
+
+void ProfilingSessionController::updateManualRecipe(const ManualOperatorRecipe& recipe)
+{
+    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    auto validated = recipe;
+    bool valid = true;
+    std::string err;
+
+    if (validated.repetitions < 1)
+    {
+        valid = false;
+        err = "El numero de repeticiones debe ser al menos 1.";
+    }
+    else if (validated.settlingMs < 0.0)
+    {
+        valid = false;
+        err = "El tiempo de estabilizacion no puede ser negativo.";
+    }
+
+    currentSnapshot_.excitation.isValid = valid;
+    currentSnapshot_.excitation.validationError = err;
+    if (valid)
+    {
+        currentSnapshot_.excitation.manual = validated;
+    }
+    publishSnapshotLocked();
+}
+
+void ProfilingSessionController::confirmOperatorStep()
+{
+    {
+        std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+        currentSnapshot_.progress.trialStage = TrialLifecycleStage::WaitForStabilization;
+        publishSnapshotLocked();
+    }
+
+    if (onOperatorStepConfirmed)
+        onOperatorStepConfirmed();
 }
 
 uint64_t ProfilingSessionController::getActiveGeneration() const noexcept

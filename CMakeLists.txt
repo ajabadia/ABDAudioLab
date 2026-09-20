@@ -471,6 +471,8 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdTopHeaderStrip.cpp
         src/gui/soundid/SoundIdTargetView.h
         src/gui/soundid/SoundIdTargetView.cpp
+        src/gui/soundid/SoundIdExcitationConfigPanel.h
+        src/gui/soundid/SoundIdExcitationConfigPanel.cpp
         src/gui/soundid/SoundIdProfilingRunView.h
         src/gui/soundid/SoundIdProfilingRunView.cpp
         src/gui/soundid/SoundIdResultsSummaryView.h
@@ -617,6 +619,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PlateauCollapseFilter.cpp
     src/tests/test_MidiDeviceHotplugMonitor.cpp
     src/tests/test_MidiSynthAutomation.cpp
+    src/tests/test_MidiAutomatedExcitation_ST11_ST13.cpp
     src/tests/test_OfflineReanalysis.cpp
     src/tests/test_PointRangePatching.cpp
     src/tests/test_MeasurementPresetRecipes.cpp
@@ -650,6 +653,7 @@ add_executable(ABDAudioLab_Tests
     src/core/ProfilingSessionBuilder.cpp
     src/tests/test_SessionPersistenceService.cpp
     src/core/SessionPersistenceService.cpp
+    src/tests/test_ExportReadiness.cpp
     src/tests/test_LoadedSessionApplier.cpp
     src/gui/controllers/LoadedSessionApplier.cpp
     src/tests/test_ReportExportService.cpp
@@ -660,6 +664,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PluginUiCoordinator.cpp
     src/gui/controllers/DiagnosticsTelemetryPoller.cpp
     src/tests/test_DiagnosticsTelemetryPoller.cpp
+    src/tests/test_AudioABValidationRuns.cpp
     src/tests/test_Waterfall3DComponent.cpp
     src/tests/test_PlotterModulationTableRenderer.cpp
     src/tests/test_PlotterRenderers.cpp
@@ -770,6 +775,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ProfilingSessionCoordinator.cpp
     src/tests/test_SynthTargetLifecycleAdapter.cpp
     src/tests/test_SoundIdViews.cpp
+    src/tests/test_MidiStepperIntegration_ST21_ST46.cpp
+    src/tests/test_StepperCoherence_ST47_ST68.cpp
     
     src/fixtures/reference_vst3/ReferenceSynthProcessor.cpp
     src/synth/SynthPitchEstimator.cpp
@@ -789,6 +796,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/session/ProfilingSessionController.cpp
     src/gui/soundid/SoundIdTopHeaderStrip.cpp
     src/gui/soundid/SoundIdTargetView.cpp
+    src/gui/soundid/SoundIdExcitationConfigPanel.cpp
     src/gui/soundid/SoundIdProfilingRunView.cpp
     src/gui/soundid/SoundIdResultsSummaryView.cpp
     src/gui/soundid/SoundIdGuidedWorkflowContainer.cpp

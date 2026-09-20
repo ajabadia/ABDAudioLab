@@ -1,48 +1,229 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión:** 1.9.3  
-**Fecha de Actualización:** 2026-09-09  
+**Versión:** 2.1.0  
+**Fecha de Actualización:** 2026-09-20  
 
 ---
 
-## Estado General del Proyecto
+---
+
+## 1. Misión y Alcance
+
+**ABDAudioLab** es un entorno de perfilado acústico y modelado caja-negra/gris para instrumentos musicales (hardware analógico, sintetizadores MIDI y plugins VST3/digitales).
+
+### Alcance Estratégico
+Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper clásico del Lab Bench**, consolidando un flujo unificado y continuo de 5 pasos (0 a 4), sin perder capacidades existentes, sin bifurcar el motor de audio y sin duplicar máquinas de estado ni selectores.
+
+---
+
+## 2. Principios No Negociables
+
+1. **Un único target activo**: No pueden convivir dos dispositivos seleccionados simultáneamente.
+2. **`catalogSelector` es la única autoridad de selección**: `SoundIdTargetView` es una ficha pasiva/viva y `HardwareSelectorPill` solo navega a Paso 1.
+3. **`ProfilingSequencer` es la única autoridad de ejecución**: Coordina campañas, adquisición, intermedios y pausas; no se crean secuenciadores paralelos.
+4. **`ProfilingSessionController` es la autoridad de sesión y snapshots**: Publica snapshots inmutables con secuencia monotónica hacia la UI.
+5. **Cero máquinas de estado paralelas**: Se prohíben bucles de ejecución o despachadores duplicados en vistas.
+6. **Instrumentación de audio siempre visible**: Vúmetros y analizador FFT permanecen visibles en todos los pasos.
+7. **No eliminación de código legacy sin auditoría**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` se conservan inactivos hasta auditar la ausencia total de consumidores.
+8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (564 test cases preservados).
+
+---
+
+## 3. Estado de Hitos de Integración
+
+| Hito | Alcance Principal | Estado | Evidencia y Artefactos |
+|---|---|---|---|
+| **HITO-01** | `SoundIdTargetView` integrada en Paso 1 (`HardwareRouting`) | **Certificado** | [ACTA_HITO_01_STEP1_TARGETVIEW.md](audits/ACTA_HITO_01_STEP1_TARGETVIEW.md) + ST-01–ST-03 |
+| **HITO-02** | Núcleo MIDI automatizado, compuertas `gateMs`/`settlingMs`, `sequenceHash` SHA-256, Panic 16ch | **Certificado** | [ACTA_HITO_02_MIDI_AUTOMATED_CORE.md](audits/ACTA_HITO_02_MIDI_AUTOMATED_CORE.md) + ST-11–ST-13 |
+| **HITO-03** | Excitación digital y manual unificada en Pasos 2–3, tarjetas de operador | **Certificado** | [ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md](audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md) + ST-21–ST-46 |
+| **HITO-03.1** | Selector único, orden Stepper (0..4), calibración condicionada e invalidación de recetas | **Certificado** | [ACTA_HITO_03_1_STEPPER_COHERENCE.md](audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md) + ST-47–ST-68 |
+| **HITO-04** | Resultados ricos, exportación unificada y guardas metrológicas en Paso 4 | **Bloqueado** | Esperando cierre de auditoría de divergencia y aprobación de plan |
+| **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Pendiente** | Planificación tras Hito 4 |
+| **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Pendiente** | Planificación tras Hito 5 |
+| **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Pendiente** | Planificación tras Hito 6 |
+| **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Pendiente** | Cierre de ciclo |
+
+---
+
+## 4. Hito Siguiente Desglosado: HITO-04-RESULTS-EXPORT-INTEGRATION
+
+### Objetivo
+Integrar los resultados ricos del modo guiado en el Paso 4 (*Export & Report*) sin duplicar persistencia, evaluación acústica ni exportación a disco.
+
+### Alcance Incluido
+- Integrar `SoundIdResultsSummaryView` como panel informativo oficial del Paso 4.
+- Métricas físicas reproducibles: ESR (dB), correlación espectral $\rho$, latencia/alineación temporal y evaluación contra conjunto holdout.
+- Audición A/B interactiva: reproducción segura de archivos `Target`, `Modelo` y `Residuo`.
+- Verificación criptográfica SHA-256 e integridad RFC 8785 con botón de copiado.
+- Cadena única de exportación: `ReportExportUiController` $\to$ `ReportExportService` $\to$ `CertificationReportExporter` $\to$ `ProductionPackage`.
+- Artefactos producidos: Paquete C++20 (`alignas(16) static const AbdBatchedPoint`), informe HTML (`certification_report.html`), dataset NAM y LUT SIMD.
+- Matriz estricta de guardas de exportación: bloqueo ante resultados inválidos.
+
+### Alcance Excluido (No Incluido)
+- Rediseño del motor DSP o del secuenciador.
+- Nuevos esquemas de persistencia paralelos a `.abdlabtest` / `ExperimentStorage`.
+- Creación de nuevas máquinas de estado.
+- Eliminación de código legacy (`stepperBar`, `loopbackModal`, etc.).
+- Modificaciones en la adquisición o excitación MIDI.
+
+---
+
+## 5. Matriz de Dependencias de HITO-04
 
 ```mermaid
-gantt
-    title Roadmap de Desarrollo ABDAudioLab
-    dateFormat  YYYY-MM-DD
-    section Fase 1 (Core & Profiler MVP)
-    Especificaciones y Contratos           :done, 2026-08-31, 2026-09-01
-    Arquitectura C++20 / JUCE 8 / CMake    :done, 2026-09-01, 2026-09-01
-    Generador de Estímulos & Farina Sweep  :done, 2026-09-01, 2026-09-01
-    Receptor Lock-Free & Trigger           :done, 2026-09-01, 2026-09-01
-    Motor Analítico Estadístico (µ, σ)     :done, 2026-09-01, 2026-09-01
-    Controladores (Mock, AIRA, CC, Manual) :done, 2026-09-01, 2026-09-01
-    Exportador LUT (.h / .json)            :done, 2026-09-01, 2026-09-01
-    Consola GUI con Audio & MIDI Setup     :done, 2026-09-01, 2026-09-01
-    Pre-Roll 3 Tonos y Validador de Ruteo  :done, 2026-09-01, 2026-09-01
-    section Fase 1.5 (Ampliación Core & GUI)
-    Live Plotter & Analizador Espectral FFT:done, 2026-09-02, 2026-09-04
-    SNR Confidence Check (>= 18 dB)        :done, 2026-09-04, 2026-09-06
-    Auto-Trim -3dBfs & Leyenda Conmutable  :done, 2026-09-04, 2026-09-06
-    Editor Visual Perfiles & Cola por Lotes:done, 2026-09-04, 2026-09-05
-    Interpolador 2D & Checkpoints Sesión   :done, 2026-09-05, 2026-09-06
-    section Fase 4 (Refactorización Arquitectónica)
-    Modularización GUI & Two-Tier HW Arch  :done, 2026-09-06, 2026-09-06
-    section Fase 2 (Calibración & Captura Hardware)
-    Calibración Loopback Línea & Wizard    :done, 2026-09-06, 2026-09-06
-    Perfilado Físico Roland AIRA           :active, 2026-09-07, 2026-09-18
-    Perfilado Módulos Eurorack Analógicos  :2026-09-18, 2026-10-02
-    section Fase 3 (Modelado & Exportación DSP)
-    Interpolación 2D & AnalogLutFilter SIMD:done, 2026-09-02, 2026-09-04
-    Modelado LNL Wiener-Hammerstein (Sasai):done, 2026-09-02, 2026-09-04
-    Validación A/B en Plugin DAW           :2026-10-02, 2026-10-12
+graph TD
+    H01[HITO-01: Target & Snapshots] --> H04[HITO-04: Results & Export]
+    H02[HITO-02: MIDI & Overload Guard] --> H04
+    H03[HITO-03: Sesiones & Recetas] --> H04
+    H031[HITO-03.1: Calibración & Selector Único] --> H04
+    SS[SessionSerializer] --> H04
+    PSC[ProfilingSessionController] --> H04
+    ES[ExperimentStorage] --> H04
+    RES[ReportExportService] --> H04
 ```
 
 ---
 
-## Detalle de Fases
+## 6. Criterios de Entrada y Salida (HITO-04)
+
+### Criterios de Entrada
+- [x] Target estable seleccionado vía `catalogSelector`.
+- [x] Sesión finalizada (`ProfilingSessionStatus::Completed` o `EvaluationLoadedForReview`).
+- [x] Calibración compatible y completada según target (`isReadyForProfiling() == true`).
+- [x] Snapshot de evaluación disponible con hash canónico RFC 8785 calculado.
+- [x] Veredicto metrológico emitido (`Approved`, `ApprovedWithWarnings`, `Rejected`, `Inconclusive`, `InvalidMeasurement`).
+
+### Criterios de Salida
+- [ ] `SoundIdResultsSummaryView` integrado visualmente en Paso 4 (`Step::ExportReport`).
+- [ ] Informe HTML generado exclusivamente mediante `ReportExportService`.
+- [ ] `ProductionPackage` C++20 generado con metadatos inmutables y SHA-256 verificado.
+- [ ] Audición A/B funcional y reproducible sin cuelgues.
+- [ ] Exportación bloqueada con diálogo explicativo si el modelo es inválido, rechazado, inconcluso o adulterado.
+- [ ] Exportación bloqueada si el target cambió tras la medición o la calibración pertenece a otro target.
+- [ ] Persistencia de sesión `.abdlabtest` conserva y recarga la evaluación.
+- [ ] Suite de pruebas ST-69 a ST-85 en verde (100% PASS) y suite previa de 564 tests intacta.
+
+---
+
+## 7. Seams y Decisiones de Arquitectura
+
+Un **Seam** (costura arquitectónica) es un punto explícito donde dos subsistemas se conectan a través de un contrato formal, permitiendo variar el comportamiento o probar un componente sin modificar el código consumidor.
+
+### Inventario de Seams
+
+| Seam / Punto de Conexión | Productor | Consumidor | Contrato | Estado |
+|---|---|---|---|---|
+| **Target Selection** | `catalogSelector` | `ProfilingSessionController` | `TargetSelectionState` | **Certificado** (Hito 3.1, ST-47–ST-50) |
+| **Target Display** | `ProfilingSessionController` | `SoundIdTargetView` | `ProfilingSessionSnapshot` (inmutable) | **Certificado** (Hito 1 / 3.1, ST-66) |
+| **Run Projection** | `ProfilingSequencer` | `SoundIdProfilingRunView` | `ProfilingSessionSnapshot` | **Certificado** (Hito 3, ST-28–ST-38) |
+| **Manual Confirmation** | `operatorStepModal` / UI | `ProfilingSequencer` | `confirmManualStep()` / `repeat()` | **Certificado** (Hito 3, ST-39–ST-46) |
+| **Calibration Readiness** | `NativeCalibrationPanel` | `WorkflowNavigationController` | `CalibrationStatus::isReadyForProfiling()` | **Certificado** (Hito 3.1, ST-51–ST-55) |
+| **Results $\to$ Export** | `ProfilingSessionSnapshot` | `SoundIdResultsSummaryView` $\to$ `ReportExportService` | `IProfilingSessionCommands::exportModel()` | **Pendiente** (Hito 4, ST-69+) |
+| **Session Persistence** | `ProfilingSessionSnapshot` | `SessionSerializer` $\leftrightarrow$ `.abdlabtest` | `serializeSession()` / `deserializeSession()` | **Abierto / En evolución** (Hito 4/5) |
+| **Calibration Telemetry (Legacy)** | `loopbackModal` | `MainContentTelemetrySource` | Polling directo | **Legacy / Abierto** (Migración en Hito 6) |
+| **Stepper Telemetry (Legacy)** | `stepperBar` | `MainContentTelemetrySource` | Polling directo | **Legacy / Abierto** (Migración en Hito 6) |
+
+### Definición de Seam Cerrado
+Un seam se declara formalmente **Cerrado** únicamente cuando:
+1. Existe un **único productor** de estado.
+2. Existe un **único consumidor** autorizado.
+3. No hay callbacks duplicados ni eventos espejo.
+4. Posee tests de contrato automatizados.
+5. Posee pruebas de integración end-to-end.
+6. La persistencia conserva íntegramente la información del contrato.
+7. El documento de handoff registra la decisión y las autoridades.
+
+---
+
+## 8. Matriz de Capacidades y Trazabilidad
+
+| ID | Capacidad Funcional | Dónde se Implementa | Quién la Ejecuta | Snapshot que la Representa | Dónde se Persiste | Test de Verificación |
+|---|---|---|---|---|---|---|
+| **F-01** | Selección de Target | `SoundIdHardwareCatalogSelector` | `ProfilingSessionController` | `snapshot.target` | `session.json` (`target`) | ST-47, ST-48, ST-68 |
+| **F-02** | Inspección de Target | `SoundIdTargetView` | `ProfilingSessionController` | `snapshot.target` | `session.json` | ST-01, ST-66 |
+| **F-03** | Excitación MIDI Auto | `ProfilingHardwareDispatcher` | `ProfilingSequencer` | `snapshot.excitation.midi` | `session.json` (`midiRecipe`) | ST-11, ST-23, ST-26 |
+| **F-04** | Parada Segura / Panic | `ProfilingHardwareDispatcher` | `ProfilingSequencer` | `snapshot.sessionStatus` | Audit log | ST-12, ST-27, ST-62 |
+| **F-05** | Hash Criptográfico | `Sha256` / `RFC 8785` | `ProfilingSessionController` | `snapshot.evaluation.canonicalHash` | `manifest.json` | ST-13, ST-65, ST-73 |
+| **F-06** | Operador Manual | `ManualAnalogueController` | Operador / Sequencer | `snapshot.excitation.manual` | `session.json` (`manualRecipe`) | ST-24, ST-39–ST-46 |
+| **F-07** | Calibración Ortogonal | `NativeCalibrationPanel` | `ProfilingSessionController` | `snapshot.calibration` | `session.json` (`calibration`) | ST-50–ST-55, ST-61 |
+| **F-08** | Navegación Stepper 0..4 | `SoundIdSidebarStepper` | `WorkflowNavigationController` | `snapshot.workflowStage` | `session.json` (`step`) | ST-48, ST-49, ST-64 |
+| **F-09** | Resultados Ricos | `SoundIdResultsSummaryView` | `ProfilingSessionController` | `snapshot.evaluation` | `manifest.json` | ST-69, ST-82 (Hito 4) |
+| **F-10** | Exportación Unificada | `ReportExportService` | `ReportExportUiController` | `snapshot.exportOptions` | Carpeta `exports/` | ST-78, ST-80, ST-81 (Hito 4) |
+
+---
+
+## 9. Auditoría de Divergencia Arquitectónica (DR-01 a DR-10)
+
+Antes de iniciar la codificación de HITO-04, se auditó el grafo de llamadas del repositorio para descartar desviaciones entre diseño y código real:
+
+| ID | Área de Auditoría | Hallazgo en el Repositorio | Dictamen |
+|---|---|---|---|
+| **DR-01** | Estados de target duplicados | `catalogSelector.onSelectionChanged` es el único emisor hacia `ProfilingSessionController::selectTarget`. `TargetView` tiene su popup desactivado y `HardwareSelectorPill` solo navega. | **Confirmado Único** |
+| **DR-02** | Clasificadores de capacidades | `ProfilingSessionController::selectTarget()` centraliza la derivación de `TargetControlMode` y requisitos de calibración según `target.kind` y flags reales. | **Confirmado Único** |
+| **DR-03** | Exportación directa desde vista | `SoundIdResultsSummaryView` no escribe archivos en disco directamente; invoca `commands_.exportModel("cpp", "")`. | **Confirmado Único** |
+| **DR-04** | Calibración paralela | `NativeCalibrationPanel` despacha a `ProfilingSessionController` (`updateAudioCalibration`, `verifyDigitalCalibration`) y escucha `onSessionSnapshotUpdated`. | **Confirmado Único** |
+| **DR-05** | Callbacks espejo del stepper | `stepperBar` está oculto (`setVisible(false)`). Sin embargo, `loopbackModal` invoca `stepperBar.onStepSelected(RunSession)` como remanente legacy. | **Duplicado Aparente (Legacy Controlado)** |
+| **DR-06** | Persistencia de recetas | `SessionSerializer` gestiona el estado de sesión interactivo y `ExperimentStorage` los artefactos científicos inmutables. Roles complementarios sin colisión. | **Compatible** |
+| **DR-07** | Alcance de rollback | `TargetViewIntegrationMode::Disabled` desactiva únicamente la vista `TargetView` en Paso 1, no el selector ni el backend. Documentado explícitamente. | **Aclarado** |
+| **DR-08** | Componentes legacy activos | `loopbackModal` y `stepperBar` son leídos por `MainContentTelemetrySource`. No deben eliminarse hasta HITO-06. | **Pospuesto Deliberadamente** |
+| **DR-09** | Generación monotónica | `controllerGeneration` incrementa ante cambio de target, invalidando recetas y renovando `sessionId`. | **Confirmado Único** |
+| **DR-10** | Silenciamiento de emergencia | Silenciamiento dual centralizado en `ProfilingHardwareDispatcher` (CC 123 + CC 120 en 16 canales). | **Confirmado Único** |
+
+### Fitness Functions de Arquitectura (ARCH-01 a ARCH-10)
+- **ARCH-01**: Solo `catalogSelector` emite `selectTarget`. (Verificado por ST-47, ST-67).
+- **ARCH-02**: `TargetView` no posee callback de selección. (Verificado por ST-66).
+- **ARCH-03**: Solo `ProfilingSequencer` ejecuta ensayos de excitación. (Verificado por ST-28, ST-35).
+- **ARCH-04**: Solo `ProfilingSessionController` publica snapshots inmutables. (Verificado por ST-26, ST-56).
+- **ARCH-05**: Ninguna vista de UI escribe directamente en disco; delegan en servicios. (Verificado por ST-80).
+- **ARCH-06**: Toda exportación de producción pasa por `ReportExportService`. (Verificado por ST-81).
+- **ARCH-07**: `TargetControlMode` se resuelve en un único punto normativo. (Verificado por ST-21, ST-59).
+- **ARCH-08**: Componentes legacy no reciben foco ni emiten selecciones divergentes. (Verificado por ST-67).
+- **ARCH-09**: Cambio de target incrementa `controllerGeneration` e invalida recetas. (Verificado por ST-55, ST-56).
+- **ARCH-10**: Parada segura no deja notas MIDI colgadas en ningún canal. (Verificado por ST-12, ST-27).
+
+---
+
+## 10. Roadmap Posterior (Secuencia de Hitos 4 a 8)
+
+```mermaid
+graph LR
+    H031[Hito 3.1: Coherencia] --> H04[Hito 4: Resultados & Export]
+    H04 --> H05[Hito 5: Certificación End-to-End]
+    H05 --> H06[Hito 6: Migración Telemetría Legacy]
+    H06 --> H07[Hito 7: Limpieza de Duplicados]
+    H07 --> H08[Hito 8: Release v2.1.0]
+```
+
+- **HITO-04 (Resultados y Exportación)**: Integración de `SoundIdResultsSummaryView`, persistencia y guardas.
+- **HITO-05 (Certificación End-to-End)**: Ejecución y verificación del ciclo 0 $\to$ 4 sobre los 4 arquetipos:
+  1. Plugin VST3 digital (Dexed).
+  2. Sintetizador MIDI con audio físico.
+  3. Hardware analógico manual (pedal / eurorack).
+  4. Dispositivo híbrido.
+- **HITO-06 (Migración de Telemetría Legacy)**:
+  - Migrar `MainContentTelemetrySource` para leer directamente de `NativeCalibrationPanel` / `CalibrationSnapshot` y `SoundIdSidebarStepper` / `WorkflowNavigationSnapshot`.
+- **HITO-07 (Limpieza de Componentes Duplicados)**:
+  - Retirada segura de `loopbackModal`, `stepperBar`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` tras certificar 0 dependencias.
+- **HITO-08 (Release y Documentación)**:
+  - QA operativo, manual de usuario y cierre de versión.
+
+---
+
+## 11. Definición de Terminado (*Definition of Done*)
+
+Un hito o fase se considera terminado únicamente cuando:
+1. **Código y Compilación**: Compila en Release x64 con MSVC sin advertencias críticas ni dependencias circulares.
+2. **Suite de Tests**: 100% de tests unitarios y de integración en verde, sin regresiones sobre los 564 tests base.
+3. **Seams Verificados**: Contratos entre productor y consumidor demostrados mediante tests específicos.
+4. **Persistencia Validada**: Comprobada la serialización y deserialización sin pérdida de datos (*round-trip*).
+5. **Acta de Certificación**: Documentada en `docs/audits/ACTA_HITO_XX_*.md` con resultados empíricos reproducibles.
+6. **Handoff y Roadmap Sincronizados**: Estado, decisiones y riesgos reflejados fielmente en la documentación maestra.
+
+---
+
+## Detalle Histórico de Fases Precedentes (Fase 1 a 20)
+
 
 ### ✅ FASE 1: Laboratorio Autónomo y Motor de Perfilado MVP (COMPLETADA)
 - [x] **Subfase 1.1: Entorno de Compilación y Configuración**
@@ -986,25 +1167,43 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
     * Suite global estándar (`~[external]`): 187/187 test cases, 144.462 aserciones superadas sin regresiones.
     * Suite externa Dexed (`[dexed]`): 6/6 test cases, 13.481 aserciones preservadas.
 
-* [ ] **16.1: Descomposición de `MainContentComponent.cpp` (3.060 líneas ➔ < 500 líneas)**:
-  - Enlace de la fachada `ProfilingSessionController` y conmutación gradual de las vistas SoundID (`useNewTargetFlow`, `useNewResultsFlow`).
-  - Extraer la gestión de Layout, splitters y redimensionamiento a `MainContentLayoutController`.
-  - Extraer la gestión de atajos de teclado, menús y comandos a `MainCommandManager`.
-  - Extraer el enlace de eventos reactivos entre componentes a `MainContentEventCoordinator`.
+* [/] **16.1: Descomposición de `MainContentComponent.cpp` (Avances Realizados y Backlog Pausado)**:
+  - [x] **Seam 1 (Persistencia de Sesión)**: Extraído `SessionIoController` y `SessionPersistenceService` con guardado atómico en disco y carga validada.
+  - [x] **Seam 2 (Gestión de Ensayos y Cola)**: Extraído `SuiteQueueModelManager` y `SuiteListEventHandler` para aislar mutaciones de la lista de suites.
+  - [x] **Seam 3 (Exportación de Informes)**: Extraído `SessionReportManager` y `ReportExportUiController` con puesta en escena atómica (staging).
+  - [x] **Seam 4 (Hosting y Ventanas VST3)**: Extraído `PluginHostManager` y `PluginWindowController` para el ciclo de vida y UI del editor nativo.
+  - [x] **Seam 5 (Ejecución de Sesión)**: Extraído `SessionExecutionCoordinator` aislando la orquestación de perfiles fuera de `MainContentComponent`.
+  - [x] **Seam 6 (Presentador de Estado y Telemetría)**: Extraído `SessionStatusPresenter` con tests de caracterización e invariantes de UI (`test_UiCompositionSeam6.cpp`).
+  - [x] **Sub-extracciones Adicionales Completadas**:
+    * `LoadedSessionApplier` & `ILoadedSessionTarget`: Aplicación desacoplada de sesiones cargadas con cobertura de pruebas en `test_LoadedSessionApplierContracts.cpp`.
+    * `PluginUiCoordinator`: Coordinación de apertura y sincronización de ventanas de plugins.
+    * `MainContentTelemetrySource` & `DiagnosticsTelemetryPoller`: Muestreo asíncrono de telemetría y FFT fuera del bucle de eventos.
+    * `WorkflowNavigationController`: Gobernanza de navegación entre etapas y pasos de la UI.
+  - [ ] **Backlog de Deuda Técnica Estructural (Pausado bajo Criterio de No Invasión)**:
+    * `SecondaryWindowsController`: Unificación del ciclo de vida, precalentamiento y alternancia (toggle/show) de ventanas flotantes auxiliares (`ScopeWebFloatingWindow`, `MidiKeyboardFloatingWindow`, `StudioTopologyController`, `MeasurementViewerWindow`, `MeasurementComparisonWindow`, `AudioMidiSettingsWindow`), con un impacto estimado de reducción de ~300 líneas en `MainContentComponent.cpp`.
+    * `MainContentLayoutController`: Gestión de splitters y redimensionamiento responsivo.
+    * `MainContentEventCoordinator`: Enlace reactivo centralizado de eventos entre componentes.
+    * *Criterio de reactivación*: Retomar **únicamente** cuando se deba modificar alguna de estas ventanas, se detecte un bug de lifetime en ventanas flotantes, o se concluya el flujo central de perfilado.
+
 * [ ] **16.2: Modularización de `ProfilingSequencer.cpp` (1.100 líneas ➔ < 300 líneas)**:
   - **`SequencerLineCalibrator`**: Extraer la calibración previa de línea, Auto-Trim analógico y digital para plugins (-3 dBFS) y verificación de margen/headroom.
   - **`SequencerPreScanAnalyzer`**: Extraer el diagnóstico autónomo de naturaleza del hardware (detección de bypass lineal / EQ plana y optimización adaptativa Catmull-Rom 2D).
   - **`SequencerTestLoopRunner`**: Extraer el bucle de ejecución por lotes de ensayos (manejo de multi-pass, compuertas de nota MIDI, modo `ADAPTIVE_ENVELOPE` y detección de parada temprana).
   - **`SequencerModulationProbeRunner`**: Extraer la rutina universal de sondas de modulación de 4 puntos y cálculo de deltas en reposo.
   - **`ProfilingSequencer` (Coordinador orquestador)**: Mantener únicamente el control del hilo de trabajo, la gestión de estados (`pause/resume`, `rerun`, `stepBack/repeat`), checkpoints de sesión y emisión reactiva de progreso a la UI.
+  - *Estado*: Pausado. El secuenciador actúa de forma estable y certificada como motor central en los Hitos 1–3.1.
+
 * [ ] **16.3: Desacoplamiento de `SoundIdCurvePlotter.cpp` (641 líneas ➔ < 300 líneas)**:
   - Extraer el manejo de interacción por ratón, zoom, selección de puntos y tooltips a `PlotterInteractionHandler`.
   - Aislar el renderizado de la rejilla logarítmica milimétrica en `PlotterGridRenderer`.
+
 * [ ] **16.4: Modularización del Selector de Hardware (`SoundIdHardwareCatalogSelector.cpp` - 633 líneas)**:
   - Extraer el renderizado de la caja de hardware ("Hero Card" con logo, modelo, tipo e imagen) a `HardwareHeroCardComponent`.
   - Separar la barra de filtros y selectores desplegables en `HardwareFilterBarComponent`.
+
 * [ ] **16.5: Modularización de `DrawerHardwareTab.cpp` (618 líneas)**:
   - Desacoplar el panel de hotplug MIDI y monitor de puertos de hardware a un subcomponente dedicado.
+
 * [ ] **16.6: Pulido de `SoundIdSuiteList.cpp` (572 líneas ➔ < 300 líneas)**:
   - Extraer la lógica de menús contextuales y acciones de fila a `SuiteListActionHandler`.
 
@@ -1503,6 +1702,58 @@ Todos deben utilizar la misma frontera de supervisión y, cuando sea posible, la
   * Prohibición de añadir nuevas pantallas o modales desconectados.
   * Migración de `pluginWindowController` hacia `RemotePluginWindowController` (el worker aloja el editor nativo y expone la superficie gráfica sin arrastrar al host).
   * La diferencia entre modos no reside en el código del audio ni en condicionales dispersos, sino en dos políticas de uso declarativas sobre el mismo contrato: `ExplorationPolicy` (libre, interactiva) y `GuidedPolicy` (determinista, metrológica).
+
+---
+
+## 🚀 FASE 21: INTEGRACIÓN UNIFICADA DE STEPPER Y COHERENCIA METROLÓGICA (HITOS 1–3.1) [COMPLETADA v2.1.0]
+
+Esta fase unifica el flujo interactivo de 5 pasos en el banco de trabajo (`Lab Bench`), eliminando duplicidades, unificando la selección bajo una única autoridad interactiva y sincronizando la excitación de sintetizadores y hardware analógico.
+
+### ✅ HITO-01-STEP1-TARGETVIEW: Integración de Ficha de Target en Paso 1 (COMPLETADO)
+- [x] Integración de `SoundIdTargetView` dentro del Paso 1 (`Step::HardwareRouting`) del Stepper del Lab Bench sin bifurcar la aplicación ni ocultar la instrumentación acústica permanente.
+- [x] Coexistencia guiada: `catalogSelector` a la izquierda (58% ancho) y `SoundIdTargetView` a la derecha (42% ancho).
+- [x] Pruebas de aceptación: ST-01 (Carga de Dexed), ST-02 (Editor Nativo VST3), ST-03 (Excitación MIDI Manual).
+- [x] Certificado formalmente en `docs/audits/ACTA_HITO_01_STEP1_TARGETVIEW.md`.
+
+### ✅ HITO-02-MIDI-AUTOMATED-CORE: Núcleo de Excitación MIDI Automatizada (COMPLETADO)
+- [x] Excitación determinista de sintetizadores con compuerta de tiempo configurable (`gateMs` y `settlingMs`).
+- [x] Emisión de hash criptográfico inmutable `sequenceHash` (SHA-256) representativo de las notas, velocidades y tiempos.
+- [x] Protocolo de parada segura y silenciamiento de emergencia en 2 niveles (Panic 16 canales: CC 123 *All Notes Off* + CC 120 *All Sound Off*).
+- [x] `MidiExcitationOverloadGuard`: protección contra sobrecarga de ráfagas MIDI en targets externos.
+- [x] Pruebas de aceptación: ST-11 (Compuerta MIDI), ST-12 (Parada Segura), ST-13 (Hash SHA-256 de Secuencia).
+- [x] Certificado formalmente en `docs/audits/ACTA_HITO_02_MIDI_AUTOMATED_CORE.md`.
+
+### ✅ HITO-03-STEPPER-EXCITATION-INTEGRATION: Integración de Recetas y Operador Manual (COMPLETADO)
+- [x] Unificación de recetas en `ProfilingSessionController`: `ManualOperatorRecipe` para hardware analógico y `MidiRecipe` para sintetizadores digitales.
+- [x] Reutilización del motor existente: `ProfilingSequencer` como única autoridad de orquestación, `ManualAnalogueController` y `OperatorCardsContainerComponent` para la interacción manual (confirmación con Barra Espaciadora o botón `confirmManualStep()`).
+- [x] Persistencia y deserialización de recetas en `SessionSerializer`.
+- [x] Pruebas de aceptación: ST-21 a ST-46 superadas al 100% (25 test cases específicos).
+- [x] Certificado formalmente en `docs/audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md`.
+
+### ✅ HITO-03.1-STEPPER-COHERENCE: Coherencia de Selector, Stepper y Calibración Condicionada (COMPLETADO)
+- [x] **Selector Único y Autoridad Centralizada**:
+  - `catalogSelector` (`SoundIdHardwareCatalogSelector`) es la **única autoridad** para seleccionar targets.
+  - `SoundIdTargetView` es una ficha **pasiva y viva** de telemetría y especificaciones (el menú emergente interno ha sido desactivado y retirado del layout).
+  - `HardwareSelectorPill` en la barra superior es un indicador pasivo que navega a Paso 1 sin disparar selecciones divergentes.
+- [x] **Reordenación Coherente del Stepper (0 a 4)**:
+  - Secuencia visual unificada:
+    - `0. Studio Environment`
+    - `1. Target & Routing` (`Step::HardwareRouting`)
+    - `2. Calibration & Setup` (`Step::CalibrateLoopback`)
+    - `3. Run Session` (`Step::RunSession`)
+    - `4. Export & Report` (`Step::ExportReport`)
+  - **Compatibilidad total preservada**: Valores de enums internos intactos (`Step::HardwareRouting = 2`, `Step::CalibrateLoopback = 1`, etc.); el orden visual se gobierna mediante mapeo desacoplado `visualOrder`.
+- [x] **Calibración Condicionada (`CalibrationStatus`)**:
+  - Rutas ortogonales (`audio`, `midi`, `digital`) con estados `NotApplicable`, `Required`, `Optional`.
+  - **Corrección 1**: VST3 establece `audio.requirement = NotApplicable`, `digital.requirement = Required`, pero `digital.verified = false` al inicio. Requiere verificación activa (`verifyDigitalCalibration()`). `digital.verified ≠ bypass`.
+  - **Corrección 2**: VST3 no asume MIDI automáticamente (`supportsMidiInput`). Se adapta a `AutomatedVstParameter` o `ManualOperator` según sus capacidades contractuales reales.
+- [x] **Invalidación de Sesión y Recetas**:
+  - El cambio de target marca la receta anterior como `RecipeStatus::IncompatibleWithTarget`, resetea el estado de calibración, cancela sesiones en curso e incrementa monotónicamente `controllerGeneration`.
+- [x] **Pruebas de Regresión y Certificación**:
+  - ST-47 a ST-68 añadidas y verificadas (18 test cases, 65 aserciones, 100% PASS).
+  - Suite global completa: **564/564 test cases superados (228.169 aserciones, 0 fallos)**.
+  - Certificado formalmente en `docs/audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md`.
+
 
 
 

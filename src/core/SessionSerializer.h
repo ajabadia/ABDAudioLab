@@ -63,6 +63,19 @@ struct SessionManifest
     float whResidualErrorRms { 0.0f };
     float whPreFilterCentroidHz { 0.0f };
     float whPostFilterCentroidHz { 0.0f };
+
+    // Excitation Recipe & Operator Audit Persistence (Hito 3)
+    bool hasExcitationRecipe { false };
+    std::string hardwareMethod { "MANUAL_PROMPT" };
+    std::string excitationMode { "ManualOperator" };
+    std::string manualInteractionKind { "PhysicalControlAdjustment" };
+    std::string excitationInstruction;
+    std::string expectedSetting;
+    int excitationRepetitions { 1 };
+    double excitationSettlingMs { 500.0 };
+    std::string operatorOrigin { "operator" };
+    nlohmann::json operatorConfirmations = nlohmann::json::array();
+    nlohmann::json midiRecipeJson = nlohmann::json::object();
 };
 
 /**
@@ -130,13 +143,20 @@ public:
      */
     void cleanupTempSession();
 
+    /**
+     * @brief Serializes manifest structure to JSON.
+     */
+    static nlohmann::json serializeManifestToJson(const SessionManifest& manifest);
+
+    /**
+     * @brief Deserializes manifest structure from JSON.
+     */
+    static bool deserializeManifestFromJson(const nlohmann::json& j, SessionManifest& outManifest);
+
 private:
     juce::File workingTempDir;
     juce::File activeSessionFile;
     juce::File autoSaveFile;
-
-    static nlohmann::json serializeManifestToJson(const SessionManifest& manifest);
-    static bool deserializeManifestFromJson(const nlohmann::json& j, SessionManifest& outManifest);
 };
 
 } // namespace abdaudiolab::core

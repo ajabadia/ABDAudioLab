@@ -12,14 +12,14 @@ SoundIdSidebarStepper::SoundIdSidebarStepper()
     stepStatuses[Step::ExportReport]      = StepStatus::Pending;
 
     stepTitles[Step::SystemInfo]        = "0. Studio Environment";
-    stepTitles[Step::CalibrateLoopback] = "1. Calibrate Loopback";
-    stepTitles[Step::HardwareRouting]   = "2. Hardware & Routing";
+    stepTitles[Step::HardwareRouting]   = "1. Target & Routing";
+    stepTitles[Step::CalibrateLoopback] = "2. Calibration & Setup";
     stepTitles[Step::RunSession]        = "3. Run Session";
     stepTitles[Step::ExportReport]      = "4. Export & Report";
 
     stepDescriptions[Step::SystemInfo]        = "Audio, MIDI & Environment";
-    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Interface DAC/ADC Check");
     stepDescriptions[Step::HardwareRouting]   = juce::String::fromUTF8(u8"Target, I/O & Wiring");
+    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Conditional Calibration & Setup");
     stepDescriptions[Step::RunSession]        = juce::String::fromUTF8(u8"Excitation & Profiling");
     stepDescriptions[Step::ExportReport]      = juce::String::fromUTF8(u8"NAM, LUT & Certification");
 
@@ -115,9 +115,17 @@ void SoundIdSidebarStepper::paint(juce::Graphics& g)
     const float rowHeight = collapsedState ? 44.0f : 52.0f;
     const float stepSpacing = 6.0f;
 
+    static constexpr Step visualOrder[5] = {
+        Step::SystemInfo,
+        Step::HardwareRouting,
+        Step::CalibrateLoopback,
+        Step::RunSession,
+        Step::ExportReport
+    };
+
     for (int i = 0; i < 5; ++i)
     {
-        Step step = static_cast<Step>(i);
+        Step step = visualOrder[i];
         auto rowRect = contentArea.removeFromTop(rowHeight);
         bool isHovered = (hoveredStep.has_value() && *hoveredStep == step);
         drawStepRow(g, step, rowRect, isHovered);
@@ -314,12 +322,20 @@ void SoundIdSidebarStepper::mouseMove(const juce::MouseEvent& event)
     std::optional<Step> foundStep;
     float currentY = contentArea.getY();
 
+    static constexpr Step visualOrder[5] = {
+        Step::SystemInfo,
+        Step::HardwareRouting,
+        Step::CalibrateLoopback,
+        Step::RunSession,
+        Step::ExportReport
+    };
+
     for (int i = 0; i < 5; ++i)
     {
         auto rowRect = juce::Rectangle<float>(contentArea.getX(), currentY, contentArea.getWidth(), rowHeight);
         if (rowRect.contains(event.position))
         {
-            foundStep = static_cast<Step>(i);
+            foundStep = visualOrder[i];
             break;
         }
         currentY += rowHeight + stepSpacing;

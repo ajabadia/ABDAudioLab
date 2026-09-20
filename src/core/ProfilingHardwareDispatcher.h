@@ -52,6 +52,7 @@ public:
     void sendNoteOn(int channel, int noteNumber, float normalizedVelocity);
     void sendNoteOff(int channel, int noteNumber, float velocity = 0.0f);
     void sendAllNotesOff(int channel);
+    void sendAllSoundOff(int channel);
 
     enum class ModExcitationType { Velocity, CC, Aftertouch, SysExAmount };
 

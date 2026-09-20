@@ -72,6 +72,8 @@
 #include "gui/session/UiStrings.h"
 #include "gui/soundid/SoundIdGuidedWorkflowContainer.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
+#include "gui/soundid/SoundIdTargetView.h"
+#include "gui/soundid/SoundIdExcitationConfigPanel.h"
 
 namespace abdaudiolab
 {
@@ -83,7 +85,8 @@ class MainContentComponent : public juce::Component,
                              public gui::ILoadedSessionTarget,
                              public gui::IReportExportHost,
                              public gui::IPluginUiHost,
-                             public gui::IDiagnosticsTelemetryHost
+                             public gui::IDiagnosticsTelemetryHost,
+                             public gui::session::IProfilingSessionEventListener
 {
 public:
     using StartupProgressCallback = std::function<void(const juce::String& statusText, float progress)>;
@@ -159,6 +162,12 @@ public:
 
     // IDiagnosticsTelemetryHost interface
     void applyTelemetrySnapshot(const gui::TelemetrySnapshot& snapshot) override;
+
+    // IProfilingSessionEventListener interface
+    void onSessionSnapshotUpdated(const gui::session::ProfilingSessionSnapshot& snapshot) override;
+    void onAlertRaised(const gui::session::UiAlert& alert) override;
+    void onWorkflowStageChanged(gui::session::ProfilingWorkflowStage newStage) override;
+    void onSessionStatusChanged(gui::session::ProfilingSessionStatus newStatus) override;
 
     void handleSaveSession();
     void handleSaveSessionAs();
@@ -236,6 +245,11 @@ private:
     gui::ConfirmationModalDialog confirmationModal;
     gui::AudioABVerificationModal abVerificationModal;
 
+    // Profiling Session Architecture & Step 1/2 Views
+    gui::session::ProfilingSessionController profilingSessionController;
+    gui::soundid::SoundIdTargetView targetView { profilingSessionController };
+    gui::soundid::SoundIdExcitationConfigPanel excitationConfigPanel { profilingSessionController };
+
     // Sub-controllers
     gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
@@ -262,7 +276,6 @@ private:
     void updateGovernanceUi();
 
     // Guided Workflow Architecture (Phase 16 & 20.7)
-    gui::session::ProfilingSessionController profilingSessionController;
     std::unique_ptr<gui::soundid::SoundIdGuidedWorkflowContainer> guidedWorkflowContainer;
     std::unique_ptr<gui::soundid::SoundIdProfilingRunView> profilingRunView;
     gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };

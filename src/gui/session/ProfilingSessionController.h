@@ -40,6 +40,9 @@ public:
     bool resumeProfiling() override;
     bool cancelProfiling() override;
     bool exportModel(const std::string& format, const std::string& destinationPath) override;
+    bool requestExportProductionPackage() override;
+    bool requestExportCertificationReport() override;
+    [[nodiscard]] ExportReadiness evaluateExportReadiness() const override;
     bool saveExperimentRecord(const std::string& destinationBaseDir, std::string& outCreatedFolder, std::string& outError) override;
     bool loadExperimentRecord(const std::string& experimentFolderPath, std::string& outError) override;
     bool loadEvaluationFromFile(const std::string& filePath) override;
@@ -56,6 +59,20 @@ public:
     void recordUserClick() override;
     void recordUserOverride() override;
     void setOpenedAdvancedMode(bool opened) override;
+
+    // Métodos de excitación y ciclo de vida de ensayos (Hito 3)
+    void setExcitationMode(ExcitationMode mode) override;
+    void updateMidiRecipe(const MidiRecipe& recipe) override;
+    void updateManualRecipe(const ManualOperatorRecipe& recipe) override;
+    void confirmOperatorStep() override;
+
+    // Métodos de calibración condicionada (Hito 3.1)
+    void verifyDigitalCalibration() override;
+    void updateAudioCalibration(bool completed, float inputGain, float outputGain, float latencyMs, float snr) override;
+    void updateMidiCalibration(bool completed, float latencyMs, float jitterMs) override;
+    void resetCalibration() override;
+
+    std::function<void()> onOperatorStepConfirmed;
 
     [[nodiscard]] uint64_t getActiveGeneration() const noexcept;
 

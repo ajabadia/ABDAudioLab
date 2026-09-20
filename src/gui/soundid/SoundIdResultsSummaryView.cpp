@@ -107,7 +107,7 @@ SoundIdResultsSummaryView::SoundIdResultsSummaryView(session::IProfilingSessionC
     exportButton_.onClick = [this]() {
         commands_.recordUserClick();
 
-        bool success = commands_.exportModel("cpp", "");
+        bool success = commands_.requestExportProductionPackage();
 
         if (success)
         {
@@ -248,7 +248,8 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
     currentVerdict_ = eval.selectionStatus;
     fullCanonicalHash_ = eval.canonicalEvaluationHash;
     hashVerified_ = eval.hashVerified;
-    canExport_ = snapshot.exportOptions.canExportCpp && eval.hashVerified;
+    // ExportReadiness es la única autoridad de exportabilidad — la vista no recalcula guardas
+    canExport_ = session::evaluateExportReadinessFromSnapshot(snapshot).canProceed();
 
     // Validación Holdout metrológica estructurada
     validationStatus_ = valSum.status;

@@ -589,6 +589,16 @@ void ProfilingSequencer::run()
                 juce::Thread::sleep(10);
             }
 
+            if (receiver.isOverloadTriggered())
+            {
+                generator.stop();
+                if (hardwareDispatcher != nullptr)
+                    hardwareDispatcher->sendAllNotesOff(tc.midiChannel);
+                safetyAborted.store(true, std::memory_order_release);
+                notifyProgress(progress, "Prueba detenida por seguridad: Se ha detectado una sobrecarga de volumen en la entrada. Por favor, baja el nivel de ganancia de tu tarjeta antes de reintentar.", SequencerState::ErrorState);
+                return;
+            }
+
             if (!noteOffSent && hardwareDispatcher != nullptr)
             {
                 hardwareDispatcher->sendNoteOff(tc.midiChannel, tc.midiNoteNumber, 0.0f);

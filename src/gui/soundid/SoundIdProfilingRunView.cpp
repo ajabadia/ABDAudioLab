@@ -156,12 +156,59 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     addAndMakeVisible(progressBar_);
 
     setupInfo(trialCounterLabel_, "Point: 0 of 0 (0%)");
-    trialCounterLabel_.setFont(juce::Font(16.0f, juce::Font::bold));
+    trialCounterLabel_.setFont(juce::FontOptions(16.0f, juce::Font::bold));
     trialCounterLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
 
     setupInfo(timeRemainingLabel_, "Elapsed: 0 s | Remaining: 0 s");
     setupInfo(stimulusLabel_, "Stimulus: Awaiting start");
     setupInfo(signalHealthLabel_, "Signal Health: RMS -120.0 dBFS | Peak -120.0 dBFS [OK]");
+
+    // Trial Stage Badge & MIDI details
+    trialStageBadge_.setText("Stage: Armed", juce::dontSendNotification);
+    trialStageBadge_.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+    trialStageBadge_.setColour(juce::Label::textColourId, SoundIdTheme::accentBlue);
+    addAndMakeVisible(trialStageBadge_);
+
+    setupInfo(midiTrialDetailsLabel_, "Nota: C4 (60) | Vel: 80 | Ch: 1 | Gate: 250 ms");
+    addAndMakeVisible(midiTrialDetailsLabel_);
+
+    // Tarjeta de interacción manual del operador
+    operatorStepCard_.setText("Manual Operator Step Guidance");
+    operatorStepCard_.setColour(juce::GroupComponent::outlineColourId, SoundIdTheme::accentAmber);
+    operatorStepCard_.setColour(juce::GroupComponent::textColourId, SoundIdTheme::accentAmber);
+    operatorStepCard_.setVisible(false);
+    addChildComponent(operatorStepCard_);
+
+    operatorPromptLabel_.setText("Ajuste los controles físicos del hardware y pulse Listo [Espacio]", juce::dontSendNotification);
+    operatorPromptLabel_.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    operatorPromptLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textPrimary);
+    operatorPromptLabel_.setVisible(false);
+    addChildComponent(operatorPromptLabel_);
+
+    expectedSettingLabel_.setText("Ajuste esperado: Standard Calibration", juce::dontSendNotification);
+    expectedSettingLabel_.setFont(juce::FontOptions(12.0f, juce::Font::plain));
+    expectedSettingLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    expectedSettingLabel_.setVisible(false);
+    addChildComponent(expectedSettingLabel_);
+
+    btnConfirmManual_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnConfirmManual_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnConfirmManual_.onClick = [this] {
+        btnConfirmManual_.setEnabled(false);
+        commands_.confirmOperatorStep();
+    };
+    btnConfirmManual_.setVisible(false);
+    addChildComponent(btnConfirmManual_);
+
+    btnRepeatStep_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnRepeatStep_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnRepeatStep_.setVisible(false);
+    addChildComponent(btnRepeatStep_);
+
+    btnStepBack_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnStepBack_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    btnStepBack_.setVisible(false);
+    addChildComponent(btnStepBack_);
 
     pauseButton_.setButtonText("PAUSE");
     pauseButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
@@ -196,6 +243,17 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
 }
 
 SoundIdProfilingRunView::~SoundIdProfilingRunView() = default;
+
+bool SoundIdProfilingRunView::keyPressed(const juce::KeyPress& key)
+{
+    if (key.isKeyCurrentlyDown(juce::KeyPress::spaceKey) && isWaitingForOperator_ && btnConfirmManual_.isEnabled())
+    {
+        btnConfirmManual_.setEnabled(false);
+        commands_.confirmOperatorStep();
+        return true;
+    }
+    return false;
+}
 
 void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot)
 {
@@ -265,6 +323,61 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
     else
         signalHealthLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
 
+    // Proyección de ciclo de vida del ensayo y modo de excitación
+    trialStageBadge_.setText("Stage: " + juce::String(session::trialLifecycleStageToString(snapshot.progress.trialStage)), juce::dontSendNotification);
+    if (snapshot.progress.trialStage == session::TrialLifecycleStage::WaitingForOperator)
+    {
+        trialStageBadge_.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
+        isWaitingForOperator_ = true;
+        operatorStepCard_.setVisible(true);
+        operatorPromptLabel_.setVisible(true);
+        expectedSettingLabel_.setVisible(true);
+        btnConfirmManual_.setVisible(true);
+        btnConfirmManual_.setEnabled(true);
+        btnRepeatStep_.setVisible(true);
+        btnStepBack_.setVisible(snapshot.progress.currentTrial > 1);
+
+        juce::String prompt = snapshot.progress.operatorPromptText.empty()
+            ? (snapshot.excitation.manual.has_value() ? snapshot.excitation.manual->instruction : juce::String("Ajustar controles del sintetizador y pulsar Listo [Espacio]"))
+            : juce::String(snapshot.progress.operatorPromptText);
+        operatorPromptLabel_.setText(prompt, juce::dontSendNotification);
+
+        juce::String expected = snapshot.excitation.manual.has_value() ? snapshot.excitation.manual->expectedSetting : juce::String("Baseline");
+        expectedSettingLabel_.setText("Ajuste esperado: " + expected, juce::dontSendNotification);
+    }
+    else
+    {
+        isWaitingForOperator_ = false;
+        operatorStepCard_.setVisible(false);
+        operatorPromptLabel_.setVisible(false);
+        expectedSettingLabel_.setVisible(false);
+        btnConfirmManual_.setVisible(false);
+        btnRepeatStep_.setVisible(false);
+        btnStepBack_.setVisible(false);
+
+        if (snapshot.progress.trialStage == session::TrialLifecycleStage::Capturing)
+            trialStageBadge_.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
+        else if (snapshot.progress.trialStage == session::TrialLifecycleStage::WaitForStabilization)
+            trialStageBadge_.setColour(juce::Label::textColourId, SoundIdTheme::accentPurple);
+        else
+            trialStageBadge_.setColour(juce::Label::textColourId, SoundIdTheme::accentBlue);
+    }
+
+    if (snapshot.progress.activeExcitationMode == session::ExcitationMode::AutomatedMidi)
+    {
+        midiTrialDetailsLabel_.setText("Nota: " + juce::String(snapshot.progress.activeNoteName)
+                                       + " | Vel: " + juce::String(snapshot.progress.activeVelocity)
+                                       + " | Ch: " + juce::String(snapshot.progress.activeMidiChannel)
+                                       + " | Gate: " + juce::String(static_cast<int>(snapshot.progress.activeGateMs)) + " ms"
+                                       + " | Latencia: " + juce::String(snapshot.progress.detectedLatencyMs, 1) + " ms",
+                                       juce::dontSendNotification);
+        midiTrialDetailsLabel_.setVisible(true);
+    }
+    else
+    {
+        midiTrialDetailsLabel_.setVisible(false);
+    }
+
     // El botón Iniciar se habilita si está listo o si se desea reiniciar medición desde un estado previo
     bool canStart = (snapshot.sessionStatus == session::ProfilingSessionStatus::ReadyToProfile ||
                      snapshot.sessionStatus == session::ProfilingSessionStatus::TargetSelected ||
@@ -277,6 +390,7 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
     pauseButton_.setEnabled(isProfilingActive_);
     cancelButton_.setEnabled(isProfilingActive_);
 
+    resized();
     repaint();
 }
 
@@ -319,22 +433,47 @@ void SoundIdProfilingRunView::resized()
     rightActions.removeFromTop(6);
     advancedSettingsLink_.setBounds(rightActions.removeFromTop(24));
 
-    area.removeFromTop(20);
+    area.removeFromTop(16);
+
+    // Si el operador debe actuar físicamente, mostrar tarjeta modal prominente
+    if (isWaitingForOperator_)
+    {
+        auto opCardArea = area.removeFromTop(130);
+        operatorStepCard_.setBounds(opCardArea);
+        auto opInner = opCardArea.reduced(16, 20);
+
+        operatorPromptLabel_.setBounds(opInner.removeFromTop(24));
+        expectedSettingLabel_.setBounds(opInner.removeFromTop(20));
+        opInner.removeFromTop(8);
+
+        auto opBtnRow = opInner.removeFromTop(36);
+        btnConfirmManual_.setBounds(opBtnRow.removeFromLeft(260));
+        opBtnRow.removeFromLeft(16);
+        btnRepeatStep_.setBounds(opBtnRow.removeFromLeft(120));
+        opBtnRow.removeFromLeft(12);
+        btnStepBack_.setBounds(opBtnRow.removeFromLeft(120));
+
+        area.removeFromTop(12);
+    }
 
     // Fila inferior: Monitor de progreso
     activeMonitorCard_.setBounds(area);
-    auto monInner = area.reduced(16, 24);
+    auto monInner = area.reduced(16, 20);
 
-    progressBar_.setBounds(monInner.removeFromTop(24));
-    monInner.removeFromTop(12);
+    auto stageRow = monInner.removeFromTop(22);
+    trialStageBadge_.setBounds(stageRow.removeFromLeft(180));
+    midiTrialDetailsLabel_.setBounds(stageRow);
 
-    trialCounterLabel_.setBounds(monInner.removeFromTop(24));
-    timeRemainingLabel_.setBounds(monInner.removeFromTop(20));
-    stimulusLabel_.setBounds(monInner.removeFromTop(20));
-    signalHealthLabel_.setBounds(monInner.removeFromTop(20));
+    progressBar_.setBounds(monInner.removeFromTop(20));
+    monInner.removeFromTop(8);
 
-    monInner.removeFromTop(16);
-    auto controlBtnRow = monInner.removeFromTop(36);
+    trialCounterLabel_.setBounds(monInner.removeFromTop(22));
+    timeRemainingLabel_.setBounds(monInner.removeFromTop(18));
+    stimulusLabel_.setBounds(monInner.removeFromTop(18));
+    signalHealthLabel_.setBounds(monInner.removeFromTop(18));
+
+    monInner.removeFromTop(10);
+    auto controlBtnRow = monInner.removeFromTop(32);
     pauseButton_.setBounds(controlBtnRow.removeFromLeft(120));
     controlBtnRow.removeFromLeft(16);
     cancelButton_.setBounds(controlBtnRow.removeFromLeft(120));

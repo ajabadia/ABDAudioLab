@@ -494,7 +494,7 @@ TEST_CASE("LoadedSessionApplier: Stop-at-First Policy Contract", "[LoadedSession
             m.formatVersion = "1.0";
             m.hardwareDisplayName = "Device A";
             MockLoadedSessionTarget target;
-            LoadedSessionApplier::apply(m, {}, false, target);
+            static_cast<void>(LoadedSessionApplier::apply(m, {}, false, target));
             REQUIRE(target.callOrder == expectedOrder);
         }
 
@@ -506,7 +506,7 @@ TEST_CASE("LoadedSessionApplier: Stop-at-First Policy Contract", "[LoadedSession
             m.totalMeasuredPoints = 3;
             auto pts = makePoints(3);
             MockLoadedSessionTarget target;
-            LoadedSessionApplier::apply(m, pts, false, target);
+            static_cast<void>(LoadedSessionApplier::apply(m, pts, false, target));
             REQUIRE(target.callOrder == expectedOrder);
         }
     }

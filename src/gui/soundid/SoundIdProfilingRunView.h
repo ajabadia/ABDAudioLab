@@ -52,6 +52,16 @@ private:
     juce::Label timeRemainingLabel_;
     juce::Label stimulusLabel_;
     juce::Label signalHealthLabel_;
+    juce::Label trialStageBadge_;
+    juce::Label midiTrialDetailsLabel_;
+
+    // Tarjeta de interacción manual del operador (WaitingForOperator)
+    juce::GroupComponent operatorStepCard_;
+    juce::Label operatorPromptLabel_;
+    juce::Label expectedSettingLabel_;
+    juce::TextButton btnConfirmManual_ { "✓  LISTO / CAPTURAR [Espacio]" };
+    juce::TextButton btnRepeatStep_ { "Repetir [R]" };
+    juce::TextButton btnStepBack_ { "Paso Atrás" };
 
     juce::TextButton pauseButton_;
     juce::TextButton cancelButton_;
@@ -59,6 +69,9 @@ private:
     double currentProgress_ { 0.0 };
     bool isProfilingActive_ { false };
     bool isPaused_ { false };
+    bool isWaitingForOperator_ { false };
+
+    bool keyPressed(const juce::KeyPress& key) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundIdProfilingRunView)
 };

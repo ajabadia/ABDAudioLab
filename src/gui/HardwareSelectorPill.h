@@ -51,6 +51,12 @@ public:
         repaint();
     }
 
+    void simulateClick()
+    {
+        if (onClick)
+            onClick();
+    }
+
     [[nodiscard]] bool hasHardwareSelected() const noexcept
     {
         return hwDisplayName != "Select Target Hardware..." && hwDisplayName != "Select Hardware";

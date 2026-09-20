@@ -6,6 +6,8 @@
  */
 
 #include "WorkflowNavigationController.h"
+#include "../soundid/SoundIdTargetView.h"
+#include "../soundid/SoundIdExcitationConfigPanel.h"
 
 namespace abdaudiolab::gui
 {
@@ -34,6 +36,21 @@ WorkflowNavigationController::WorkflowNavigationController(SoundIdSidebarStepper
     sidebarStepper.onStepSelected = [this](Step step) {
         setStep(step);
     };
+}
+
+void WorkflowNavigationController::setTargetView(soundid::SoundIdTargetView* view) noexcept
+{
+    targetView = view;
+}
+
+void WorkflowNavigationController::setTargetViewIntegrationMode(TargetViewIntegrationMode mode) noexcept
+{
+    targetViewIntegrationMode = mode;
+}
+
+void WorkflowNavigationController::setExcitationConfigPanel(soundid::SoundIdExcitationConfigPanel* panel) noexcept
+{
+    excitationConfigPanel = panel;
 }
 
 void WorkflowNavigationController::setStep(Step targetStep)
@@ -81,6 +98,10 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     if (currentStep == Step::SystemInfo)
     {
         catalogSelector.setVisible(false);
+        if (targetView != nullptr)
+            targetView->setVisible(false);
+        if (excitationConfigPanel != nullptr)
+            excitationConfigPanel->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -100,6 +121,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     {
         setupTab.setVisible(false);
         nativeCalibrationPanel.setVisible(false);
+        if (excitationConfigPanel != nullptr)
+            excitationConfigPanel->setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -108,12 +131,31 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         curvePlotter.setVisible(false);
 
         catalogSelector.setVisible(true);
-        catalogSelector.setBounds(bounds);
+
+        if (targetView != nullptr && targetViewIntegrationMode == TargetViewIntegrationMode::ClassicStep1)
+        {
+            int targetW = std::min(520, std::max(360, bounds.getWidth() * 42 / 100));
+            auto targetArea = bounds.removeFromRight(targetW);
+            bounds.removeFromRight(12);
+
+            catalogSelector.setBounds(bounds);
+            targetView->setBounds(targetArea);
+            targetView->setVisible(true);
+        }
+        else
+        {
+            if (targetView != nullptr)
+                targetView->setVisible(false);
+
+            catalogSelector.setBounds(bounds);
+        }
     }
     else if (currentStep == Step::CalibrateLoopback)
     {
         setupTab.setVisible(false);
         catalogSelector.setVisible(false);
+        if (targetView != nullptr)
+            targetView->setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -121,13 +163,32 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         healthPanel.setVisible(false);
         curvePlotter.setVisible(false);
 
-        nativeCalibrationPanel.setVisible(true);
-        nativeCalibrationPanel.setBounds(bounds);
+        if (excitationConfigPanel != nullptr)
+        {
+            int panelW = std::min(580, std::max(380, bounds.getWidth() * 45 / 100));
+            auto panelArea = bounds.removeFromRight(panelW);
+            bounds.removeFromRight(12);
+
+            nativeCalibrationPanel.setVisible(true);
+            nativeCalibrationPanel.setBounds(bounds);
+
+            excitationConfigPanel->setVisible(true);
+            excitationConfigPanel->setBounds(panelArea);
+        }
+        else
+        {
+            nativeCalibrationPanel.setVisible(true);
+            nativeCalibrationPanel.setBounds(bounds);
+        }
     }
     else if (currentStep == Step::ExportReport)
     {
         setupTab.setVisible(false);
         catalogSelector.setVisible(false);
+        if (targetView != nullptr)
+            targetView->setVisible(false);
+        if (excitationConfigPanel != nullptr)
+            excitationConfigPanel->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -142,6 +203,10 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
     {
         setupTab.setVisible(false);
         catalogSelector.setVisible(false);
+        if (targetView != nullptr)
+            targetView->setVisible(false);
+        if (excitationConfigPanel != nullptr)
+            excitationConfigPanel->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);
 
