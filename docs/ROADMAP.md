@@ -27,6 +27,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 6. **Instrumentación de audio siempre visible**: Vúmetros y analizador FFT permanecen visibles en todos los pasos.
 7. **No eliminación de código legacy sin auditoría**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` se conservan inactivos hasta auditar la ausencia total de consumidores.
 8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (564 test cases preservados).
+9. **Convergencia absoluta en exportación e informe único**: Todos los modos (Automated MIDI/VST3 y Manual Operator/Analógico) convergen en un modelo común de evaluación (`EvaluationSnapshot`) y en una única cadena de exportación (`ReportExportService` -> `ProductionPackage`); las diferencias metrológicas se expresan exclusivamente mediante metadatos y secciones condicionales en el manifest e informe unificado, nunca mediante exportadores paralelos.
 
 ---
 
@@ -38,8 +39,11 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-02** | Núcleo MIDI automatizado, compuertas `gateMs`/`settlingMs`, `sequenceHash` SHA-256, Panic 16ch | **Certificado** | [ACTA_HITO_02_MIDI_AUTOMATED_CORE.md](audits/ACTA_HITO_02_MIDI_AUTOMATED_CORE.md) + ST-11–ST-13 |
 | **HITO-03** | Excitación digital y manual unificada en Pasos 2–3, tarjetas de operador | **Certificado** | [ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md](audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md) + ST-21–ST-46 |
 | **HITO-03.1** | Selector único, orden Stepper (0..4), calibración condicionada e invalidación de recetas | **Certificado** | [ACTA_HITO_03_1_STEPPER_COHERENCE.md](audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md) + ST-47–ST-68 |
-| **HITO-04** | Resultados ricos, exportación unificada y guardas metrológicas en Paso 4 | **Bloqueado** | Esperando cierre de auditoría de divergencia y aprobación de plan |
-| **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Pendiente** | Planificación tras Hito 4 |
+| **HITO-04A** | Contrato `ExportReadiness`, guardas metrológicas puras y proyección en UI | **Certificado** | ST-69–ST-85 (581 tests globales) |
+| **HITO-04B** | I/O de Filesystem, Rollback Atómico, Staging y Paquetes de Producción | **Certificado** | ST-86–ST-98 (13/13 tests, 157 aserciones) |
+| **HITO-04C** | Integración Mode-to-Export (E2E MIDI/VST3 y Manual/Analógico con procedencia) | **Certificado** | [ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md) + ST-99–ST-107 |
+| **HITO-04 (Padre)** | Resultados ricos, exportación unificada y guardas metrológicas en Paso 4 | **Certificado** | [ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md) + ST-69–ST-107 + Smoke UI |
+| **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Listo para inicio** | Planificación y ejecución |
 | **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Pendiente** | Planificación tras Hito 5 |
 | **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Pendiente** | Planificación tras Hito 6 |
 | **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Pendiente** | Cierre de ciclo |

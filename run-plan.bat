@@ -12,7 +12,7 @@ set OLLAMA_MODEL=qwen2.5-coder:7b-instruct-q5_K_M
 set OLLAMA_API_BASE=http://127.0.0.1:11434
 set OLLAMA_TIMEOUT_SEC=60
 set AIDER_TASK_FILE=TASK.txt
-set AIDER_SRC_FILE=src\tests\test_SoundIdThemeMode.cpp
+set AIDER_SRC_FILE=src\tests\test_ExportIO.cpp
 
 :: -----------------------------------------------------------------------
 :: PASO 1: Comprobar que ollama.exe esta instalado y en el PATH

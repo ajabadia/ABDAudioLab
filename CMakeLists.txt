@@ -654,6 +654,9 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_SessionPersistenceService.cpp
     src/core/SessionPersistenceService.cpp
     src/tests/test_ExportReadiness.cpp
+    src/tests/test_ExportIO.cpp
+    src/tests/test_ModeToExportIntegration.cpp
+    src/tests/test_SmokeStep4UI.cpp
     src/tests/test_LoadedSessionApplier.cpp
     src/gui/controllers/LoadedSessionApplier.cpp
     src/tests/test_ReportExportService.cpp

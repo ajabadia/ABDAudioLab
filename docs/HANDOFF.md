@@ -13,13 +13,14 @@
 - **HITO-02**: Certificado ([ACTA_HITO_02_MIDI_AUTOMATED_CORE.md](audits/ACTA_HITO_02_MIDI_AUTOMATED_CORE.md)).
 - **HITO-03**: Certificado ([ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md](audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md)).
 - **HITO-03.1**: Certificado ([ACTA_HITO_03_1_STEPPER_COHERENCE.md](audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md)).
-- **HITO-04**: Siguiente trabajo (**Bloqueado temporalmente** hasta concluir auditoría de divergencia y aprobar plan).
-- **Suite global automatizada**: **564/564 casos PASS (100% éxito)**.
-  - 546 casos preexistentes conservados y PASS.
-  - 18 casos nuevos de coherencia PASS (ST-47 a ST-68).
-- **Aserciones totales**: **228.169 aserciones superadas sin fallos**.
+- **HITO-04 (A/B/C + Smoke UI)**: **Certificado y Cerrado** ([ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md)).
+- **HITO-05**: Siguiente trabajo (Certificación End-to-End multimodelo en los 4 targets representativos).
+- **Suite global automatizada**: **605/605 casos PASS (100% éxito)**.
+  - 564 casos preexistentes conservados y PASS.
+  - 41 casos nuevos de exportación, I/O transaccional, integración multimodelo y smoke UI (ST-69 a ST-107 + Smoke UI).
+- **Aserciones totales**: **228.536 aserciones superadas sin fallos**.
 - **Compilación**: `Release x64` MSVC / C++20 exitosa (`ABDAudioLab.exe` y `ABDAudioLab_Tests.exe`).
-- **Working Tree**: Confirmado limpio de compilación y respaldado por tests unitarios.
+- **Working Tree**: Confirmado limpio de cambios de producción, respaldado por tests unitarios y actas oficiales.
 
 ---
 
@@ -112,6 +113,7 @@ Audio Capture / Metrics / Evaluation
 - **ADR-10**: El código legacy se conserva inactivo hasta completar la auditoría de consumidores.
 - **ADR-11**: Silenciamiento dual de emergencia: All Notes Off (CC 123) + All Sound Off (CC 120) en 16 canales.
 - **ADR-12**: La calibración digital de plugins no equivale a bypass; exige verificación activa (`verifyDigitalCalibration`).
+- **ADR-13**: **Convergencia absoluta en la cadena de exportación e informe único**: Todos los modos de excitación (Automated MIDI/VST3 y Manual Operator/Analógico) convergen en un modelo común de evaluación (`EvaluationSnapshot`), idénticas guardas de `ExportReadiness` y una única cadena de exportación (`ReportExportService` $\to$ `ProductionPackage`); las diferencias metrológicas se expresan exclusivamente mediante metadatos en el `manifest.json` y secciones condicionales en el informe unificado, nunca mediante exportadores paralelos ni bifurcaciones arquitectónicas.
 
 ---
 
@@ -210,15 +212,22 @@ cmake --build build --config Release --target ABDAudioLab
 
 ---
 
-## 12. Trabajo Pendiente y Próxima Acción Exacta (HITO-04)
+## 12. Estado de HITO-04 y Próxima Acción Exacta
 
-### Secuencia Exacta de Pasos
-1. **Inspeccionar contrato de `SoundIdResultsSummaryView`**: Validar que todos los campos requeridos (ESR, correlación, sample offset, fixity RFC 8785) correspondan a `ProfilingSessionSnapshot`.
-2. **Mapear entradas del snapshot**: Conectar `onSessionSnapshotUpdated` en `MainContentComponent` para alimentar `resultsSummaryView`.
-3. **Confirmar servicios de audio A/B**: Validar rutas de ficheros temporales/holdout en `ExperimentStorage`.
-4. **Confirmar contrato de `ReportExportService`**: Asegurar que `exportButton_` invoque la cadena oficial sin generadores paralelos.
-5. **Revisar `implementation_plan.md`**: Asegurar que cubre la matriz de guardas y la suite ST-69 a ST-85.
-6. **No modificar código de producción** hasta obtener aprobación formal del plan.
+### Estado Actual de HITO-04
+- **HITO-04A (Contrato y Guardas `ExportReadiness`)**: **CERTIFICADO**. Cálculo puro, desacople de IO, guardas metrológicas (ST-69 a ST-85).
+- **HITO-04B (I/O de Filesystem, Rollback y Atomic Packaging)**: **CERTIFICADO**. Suite `test_ExportIO.cpp` con 13 casos (ST-86 a ST-98) y 157 aserciones PASS. Operación atómica todo-o-nada, staging seguro, verificación de fixity SHA-256 y preservación de paquetes previos.
+- **HITO-04C (Mode-to-Export Integration / ADR-13)**: **CERTIFICADO**. Suite `test_ModeToExportIntegration.cpp` con 9 casos (ST-99 a ST-107) y 99 aserciones PASS. Convergencia demostrada sin exportadores paralelos. Matiz ST-105 normalizado a `AutomatedSysEx` / `MidiSysEx` / `AUTOMATED_SYSEX`.
+- **Suite Global Completa**: 603/603 PASS (228.467 aserciones, exit 0).
+
+### Próxima Acción Exacta: HITO-05 (End-to-End Lab Certification)
+1. **Validación visual de humo (Paso 4)**: Comprobación interactiva en UI de visualización de métricas, copia de hash de fixity, audición A/B de holdout y exportación.
+2. **Ejecución de los 4 escenarios de laboratorio de HITO-05**:
+   - Escenario 1: Dexed / VST3 automatizado offline.
+   - Escenario 2: Hardware MIDI automatizado loopback.
+   - Escenario 3: Hardware analógico manual (interacción operador y confirmación de pasos).
+   - Escenario 4: Target híbrido (emulación + procesamiento analógico).
+3. **Verificación de ciclo de vida completo (Paso 0 a Paso 4)**: Target Selection $\to$ Calibration $\to$ Excitation Recipe $\to$ Run Session $\to$ Export & ProductionPackage.
 
 ---
 
@@ -226,9 +235,10 @@ cmake --build build --config Release --target ABDAudioLab
 
 - [x] Actas oficiales de Hitos 1 a 3.1 presentes y verificadas.
 - [x] Matriz de capacidades V2 y trazabilidad actualizadas.
-- [x] Registro de decisiones cerradas (ADR-01 a ADR-12) documentado.
-- [x] Suite global reproducible al 100% (564/564 PASS, 228.169 aserciones).
-- [x] Compilación Release x64 verificada sin errores.
+- [x] Registro de decisiones cerradas (ADR-01 a ADR-13) documentado.
+- [x] Suite de I/O de exportación certificada (ST-86 a ST-98: 13/13 PASS, 157 aserciones).
+- [x] Principio de convergencia única de exportación ratificado en ROADMAP.md y HANDOFF.md.
+- [x] Compilación Release x64 verificada sin errores ni warnings nuevos.
 - [x] Riesgos abiertos documentados con estrategia de mitigación.
 - [x] Auditoría de divergencia (DR-01 a DR-10) ejecutada y registrada.
 - [x] Zonas estabilizadas claramente delimitadas (qué no tocar).
