@@ -165,7 +165,7 @@ Para garantizar el rigor técnico y no inducir a falsas asunciones de cobertura:
 ===============================================================================
 EVIDENCIA DE AUDITORÍA TÉCNICA - HITO-04
 ===============================================================================
-Commit Candidato:               HEAD (pre-commit de certificación HITO-04)
+Commit Certificado:             cfb6a8f013fc8cb221aa404056467be12cbdeb6a (cfb6a8f)
 Configuración de Build:         Release x64 MSVC (C++20, JUCE 7)
 BuildVersion:                   353
 Suite Global:                   605 / 605 test cases PASS (100% éxito)
