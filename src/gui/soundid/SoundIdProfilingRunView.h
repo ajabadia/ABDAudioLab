@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../session/ProfilingSessionContracts.h"
+#include <string>
 
 namespace abdaudiolab::gui::soundid
 {
@@ -66,12 +67,46 @@ private:
     juce::TextButton pauseButton_;
     juce::TextButton cancelButton_;
 
+    // -------------------------------------------------------------------------
+    // Dirty-check: lightweight presentation state to avoid redundant setText/repaint
+    // -------------------------------------------------------------------------
+    struct ProfilingRunPresentationState
+    {
+        int pointIndex { -1 };
+        int pointCount { -1 };
+        session::ProfilingSessionStatus sessionStatus { session::ProfilingSessionStatus::Idle };
+        session::TrialLifecycleStage stage { session::TrialLifecycleStage::Armed };
+        float rmsDb { -999.0f };
+        float peakDb { -999.0f };
+        bool clippingDetected { false };
+        std::string warning;
+        std::string stimulusDescription;
+        std::string operatorPromptText;
+        session::ExcitationMode excitationMode { session::ExcitationMode::AutomatedMidi };
+        int activeNoteNumber { -1 };
+        int activeVelocity { -1 };
+        bool isPaused { false };
+    };
+
+    ProfilingRunPresentationState lastPresentationState_;
+    bool hasPresentationState_ { false }; ///< False until first updateFromSnapshot call; guarantees first snapshot is never skipped
+
     double currentProgress_ { 0.0 };
     bool isProfilingActive_ { false };
     bool isPaused_ { false };
     bool isWaitingForOperator_ { false };
 
     bool keyPressed(const juce::KeyPress& key) override;
+
+#ifdef ABD_TESTING
+    mutable int testUpdateExecutedCount_ { 0 };
+    mutable int testSetTextCount_        { 0 };
+    mutable int testRepaintCount_        { 0 };
+    void resetTestCounters() { testUpdateExecutedCount_ = testSetTextCount_ = testRepaintCount_ = 0; }
+    int getTestUpdateExecutedCount() const { return testUpdateExecutedCount_; }
+    int getTestSetTextCount() const { return testSetTextCount_; }
+    int getTestRepaintCount() const { return testRepaintCount_; }
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundIdProfilingRunView)
 };

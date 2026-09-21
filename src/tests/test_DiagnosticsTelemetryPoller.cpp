@@ -332,4 +332,14 @@ TEST_CASE("DiagnosticsTelemetryPoller Characterization Suite", "[DiagnosticsTele
         REQUIRE(host.lastSnapshot.activeMidiNoteNumber == -1);
         REQUIRE(host.lastSnapshot.activeMidiNoteName == "No MIDI note");
     }
+
+    SECTION("13. PERF-01: timer de telemetria configurado a 25 Hz por defecto")
+    {
+        DiagnosticsTelemetryPoller poller(source, host);
+        poller.startPolling();
+        REQUIRE(poller.isPolling());
+        REQUIRE(poller.getTimerInterval() == 1000 / 25); // 40 ms
+        poller.stopPolling();
+        REQUIRE_FALSE(poller.isPolling());
+    }
 }

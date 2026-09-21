@@ -45,6 +45,16 @@ public:
         centreWithSize(defaultWidth, defaultHeight);
     }
 
+    void updateTheme()
+    {
+        setBackgroundColour(gui::AppTheme::BackgroundApp);
+        if (auto* viewer = dynamic_cast<gui::measurement::MeasurementViewerPanel*>(getContentComponent()))
+            viewer->updateTheme();
+        else if (auto* comp = dynamic_cast<gui::measurement::MeasurementComparisonPanel*>(getContentComponent()))
+            comp->updateTheme();
+        repaint();
+    }
+
     void closeButtonPressed() override
     {
         setVisible(false);
@@ -375,11 +385,11 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         auto themeStr = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark) ? "audiolab" : "audiolab-light";
         topologyController.updateTheme(themeStr, gui::AppTheme::BackgroundApp);
 
-        if (measurementViewerWindow != nullptr)
-            measurementViewerWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+        if (auto* w = dynamic_cast<MeasurementFloatingWindow*>(measurementViewerWindow.get()))
+            w->updateTheme();
 
-        if (measurementComparisonWindow != nullptr)
-            measurementComparisonWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+        if (auto* w = dynamic_cast<MeasurementFloatingWindow*>(measurementComparisonWindow.get()))
+            w->updateTheme();
 
         drawer.updateTheme();
         operatorStepModal.updateTheme();
@@ -1533,7 +1543,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     addKeyListener(this);
     setWantsKeyboardFocus(true);
     audioEngine.getDeviceManager().addChangeListener(this);
-    startTimerHz(60);
+    startTimerHz(25);
 
     // Ensure initial state starts completely clean with no hardware selected
     drawer.clearSelectedHardware();
@@ -2295,7 +2305,8 @@ void MainContentComponent::openMeasurementViewerWindow()
         );
     }
 
-    measurementViewerWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+    if (auto* w = dynamic_cast<MeasurementFloatingWindow*>(measurementViewerWindow.get()))
+        w->updateTheme();
     measurementViewerWindow->setVisible(true);
     measurementViewerWindow->toFront(true);
 }
@@ -2306,13 +2317,14 @@ void MainContentComponent::openMeasurementComparisonWindow()
     {
         auto* panel = new gui::measurement::MeasurementComparisonPanel();
         measurementComparisonWindow = std::make_unique<MeasurementFloatingWindow>(
-            juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multicontenedor FAIR / LNL"),
+            juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL"),
             panel,
             1150, 750, 900, 600
         );
     }
 
-    measurementComparisonWindow->setBackgroundColour(gui::AppTheme::BackgroundApp);
+    if (auto* w = dynamic_cast<MeasurementFloatingWindow*>(measurementComparisonWindow.get()))
+        w->updateTheme();
     measurementComparisonWindow->setVisible(true);
     measurementComparisonWindow->toFront(true);
 }

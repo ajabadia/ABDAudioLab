@@ -25,6 +25,7 @@ public:
     MeasurementComparisonPanel();
     ~MeasurementComparisonPanel() override;
 
+    void updateTheme();
     void paint(juce::Graphics& g) override;
     void resized() override;
 
@@ -49,7 +50,7 @@ private:
     MeasurementAudioPlayerComponent audioPlayerComponent_;
 
     // Master toolbar
-    juce::Label lblHeader_ { {}, "ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL" };
+    juce::Label lblHeader_ { {}, juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL") };
     juce::ComboBox cmbMetricMode_;
     juce::TextButton btnExportReport_ { "Exportar Informe HTML..." };
     juce::Label lblProvenance_ { {}, "Fuente de Audio: Ninguna" };

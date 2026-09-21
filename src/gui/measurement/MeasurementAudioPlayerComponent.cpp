@@ -7,6 +7,7 @@
 
 #include "MeasurementAudioPlayerComponent.h"
 #include "MeasurementViewModelLoader.h"
+#include "../AppTheme.h"
 #include <iomanip>
 #include <sstream>
 
@@ -21,33 +22,61 @@ MeasurementAudioPlayerComponent::MeasurementAudioPlayerComponent()
     thumbnail_->addChangeListener(this);
 
     // Play / Pause Button
-    btnPlayPause_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
-    btnPlayPause_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
     btnPlayPause_.onClick = [this] { handlePlayPause(); };
     addAndMakeVisible(btnPlayPause_);
 
     // Stop Button
-    btnStop_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
-    btnStop_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffcbd5e1));
     btnStop_.onClick = [this] { handleStop(); };
     addAndMakeVisible(btnStop_);
 
     // Time Label
     lblTime_.setFont(juce::Font("Consolas", 12.0f, juce::Font::plain));
-    lblTime_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
     lblTime_.setText("0.00 / 0.00 s", juce::dontSendNotification);
     addAndMakeVisible(lblTime_);
 
     // Status Label
     lblStatus_.setFont(juce::Font(11.5f, juce::Font::bold));
-    lblStatus_.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
     lblStatus_.setText("No audio loaded", juce::dontSendNotification);
     addAndMakeVisible(lblStatus_);
 
     btnPlayPause_.setEnabled(false);
     btnStop_.setEnabled(false);
 
+    updateTheme();
+
     startTimerHz(25); // 25 fps UI update for playhead
+}
+
+void MeasurementAudioPlayerComponent::updateTheme()
+{
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
+
+    btnPlayPause_.setColour(juce::TextButton::buttonColourId, isDark ? juce::Colour(0xff0284c7) : AppTheme::AccentActive);
+    btnPlayPause_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    btnStop_.setColour(juce::TextButton::buttonColourId, AppTheme::SurfaceCard);
+    btnStop_.setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
+
+    lblTime_.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+
+    if (isCorrupt_)
+    {
+        lblStatus_.setColour(juce::Label::textColourId, AppTheme::AccentError);
+    }
+    else if (!audioFile_.existsAsFile())
+    {
+        lblStatus_.setColour(juce::Label::textColourId, AppTheme::AccentWarning);
+    }
+    else if (readerSource_ != nullptr)
+    {
+        lblStatus_.setColour(juce::Label::textColourId, AppTheme::AccentActive);
+    }
+    else
+    {
+        lblStatus_.setColour(juce::Label::textColourId, AppTheme::TextSecondary);
+    }
+
+    repaint();
 }
 
 MeasurementAudioPlayerComponent::~MeasurementAudioPlayerComponent()
@@ -253,37 +282,41 @@ void MeasurementAudioPlayerComponent::resized()
 void MeasurementAudioPlayerComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
 
-    // 1. Dark container background
-    g.setColour(juce::Colour(0xff0f172a));
+    // 1. Container background & border
+    g.setColour(AppTheme::SurfaceCard);
     g.fillRoundedRectangle(bounds, 8.0f);
-    g.setColour(juce::Colour(0xff1e293b));
+    g.setColour(AppTheme::BorderCard);
     g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
 
     // 2. Waveform area background
-    g.setColour(juce::Colour(0xff111827));
+    g.setColour(AppTheme::BackgroundApp);
     g.fillRoundedRectangle(waveformBounds_, 4.0f);
+    g.setColour(AppTheme::BorderSubtle);
+    g.drawRoundedRectangle(waveformBounds_, 4.0f, 1.0f);
 
     if (isCorrupt_)
     {
-        g.setColour(juce::Colour(0xff7f1d1d));
+        g.setColour(AppTheme::AccentError.withAlpha(0.20f));
+        g.fillRoundedRectangle(waveformBounds_, 4.0f);
+        g.setColour(AppTheme::AccentError);
         g.drawRoundedRectangle(waveformBounds_, 4.0f, 1.5f);
-        g.setColour(juce::Colour(0xfff87171));
         g.setFont(juce::Font(12.0f, juce::Font::bold));
-        g.drawText("[X] PLAYBACK BLOCKED — ARTIFACT HASH MISMATCH", waveformBounds_, juce::Justification::centred, false);
+        g.drawText(juce::String::fromUTF8(u8"[X] PLAYBACK BLOCKED — ARTIFACT HASH MISMATCH"), waveformBounds_, juce::Justification::centred, false);
         return;
     }
 
     if (thumbnail_ == nullptr || thumbnail_->getTotalLength() <= 0.0)
     {
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextMuted);
         g.setFont(juce::Font(12.0f));
         g.drawText("No waveform available", waveformBounds_, juce::Justification::centred, false);
         return;
     }
 
     // 3. Draw waveform channels
-    g.setColour(juce::Colour(0xff0284c7));
+    g.setColour(isDark ? juce::Colour(0xff38bdf8) : juce::Colour(0xff0284c7));
     thumbnail_->drawChannels(g, waveformBounds_.toNearestInt(), 0.0, thumbnail_->getTotalLength(), 1.0f);
 
     // 4. Draw playhead
@@ -294,7 +327,7 @@ void MeasurementAudioPlayerComponent::paint(juce::Graphics& g)
         float playheadX = waveformBounds_.getX() + static_cast<float>(curPos / len) * waveformBounds_.getWidth();
         playheadX = std::clamp(playheadX, waveformBounds_.getX(), waveformBounds_.getRight());
 
-        g.setColour(juce::Colour(0xff38bdf8));
+        g.setColour(AppTheme::AccentActive);
         g.drawLine(playheadX, waveformBounds_.getY(), playheadX, waveformBounds_.getBottom(), 2.0f);
     }
 }

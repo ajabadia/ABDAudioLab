@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementComparisonPanel.h"
+#include "../AppTheme.h"
 
 namespace abdaudiolab::gui::measurement
 {
@@ -19,7 +20,6 @@ MeasurementComparisonPanel::MeasurementComparisonPanel()
 
     addAndMakeVisible(lblHeader_);
     lblHeader_.setFont(juce::FontOptions(16.0f));
-    lblHeader_.setColour(juce::Label::textColourId, juce::Colour(0xff00d4ff));
 
     addAndMakeVisible(cmbMetricMode_);
     cmbMetricMode_.addItem("Nivel (dBFS)", 1);
@@ -42,12 +42,34 @@ MeasurementComparisonPanel::MeasurementComparisonPanel()
 
     addAndMakeVisible(lblProvenance_);
     lblProvenance_.setFont(juce::FontOptions(11.0f));
-    lblProvenance_.setColour(juce::Label::textColourId, juce::Colour(0xff9e9eb0));
 
     addAndMakeVisible(listPanel_);
     addAndMakeVisible(comparisonCurveComponent_);
     addAndMakeVisible(equivalenceCard_);
     addAndMakeVisible(audioPlayerComponent_);
+
+    updateTheme();
+}
+
+void MeasurementComparisonPanel::updateTheme()
+{
+    lblHeader_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
+    lblProvenance_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+
+    cmbMetricMode_.setColour(juce::ComboBox::backgroundColourId, gui::AppTheme::SurfaceCard);
+    cmbMetricMode_.setColour(juce::ComboBox::textColourId, gui::AppTheme::TextPrimary);
+    cmbMetricMode_.setColour(juce::ComboBox::outlineColourId, gui::AppTheme::BorderSubtle);
+    cmbMetricMode_.setColour(juce::ComboBox::arrowColourId, gui::AppTheme::TextSecondary);
+
+    btnExportReport_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
+    btnExportReport_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
+
+    listPanel_.updateTheme();
+    comparisonCurveComponent_.updateTheme();
+    equivalenceCard_.updateTheme();
+    audioPlayerComponent_.updateTheme();
+
+    repaint();
 }
 
 MeasurementComparisonPanel::~MeasurementComparisonPanel()
@@ -120,8 +142,8 @@ void MeasurementComparisonPanel::exportComparisonReport()
 
 void MeasurementComparisonPanel::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff101015));
-    g.setColour(juce::Colour(0xff22222d));
+    g.fillAll(gui::AppTheme::BackgroundApp);
+    g.setColour(gui::AppTheme::BorderSubtle);
     g.drawRect(getLocalBounds(), 1);
 }
 

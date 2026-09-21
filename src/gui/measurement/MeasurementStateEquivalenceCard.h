@@ -20,6 +20,7 @@ public:
     explicit MeasurementStateEquivalenceCard(MeasurementComparisonSession& session);
     ~MeasurementStateEquivalenceCard() override;
 
+    void updateTheme();
     void paint(juce::Graphics& g) override;
     void resized() override;
 
@@ -37,7 +38,7 @@ private:
     std::vector<std::pair<int, int>> availablePairs_;
     std::optional<PairwiseComparisonResult> currentResult_;
 
-    juce::Label lblTitle_ { {}, "Equivalencia de Estado Metrológica (Por Pares)" };
+    juce::Label lblTitle_ { {}, juce::String::fromUTF8(u8"Equivalencia de Estado Metrológica (Por Pares)") };
     juce::Label lblStatusBadge_;
     juce::Label lblReason_;
 

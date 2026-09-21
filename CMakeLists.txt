@@ -657,6 +657,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ExportIO.cpp
     src/tests/test_ModeToExportIntegration.cpp
     src/tests/test_SmokeStep4UI.cpp
+    src/tests/test_E2E_HermeticWorkflows.cpp
     src/tests/test_LoadedSessionApplier.cpp
     src/gui/controllers/LoadedSessionApplier.cpp
     src/tests/test_ReportExportService.cpp
@@ -780,7 +781,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_SoundIdViews.cpp
     src/tests/test_MidiStepperIntegration_ST21_ST46.cpp
     src/tests/test_StepperCoherence_ST47_ST68.cpp
-    
+    src/tests/TestMain.cpp
+
     src/fixtures/reference_vst3/ReferenceSynthProcessor.cpp
     src/synth/SynthPitchEstimator.cpp
     src/synth/SynthEnvelopeAnalyzer.cpp
@@ -956,11 +958,12 @@ target_compile_definitions(ABDAudioLab_Tests
         NOMINMAX
         JUCE_PLUGINHOST_VST3=1
         JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        ABD_TESTING=1
 )
 
 target_link_libraries(ABDAudioLab_Tests
     PRIVATE
-        Catch2::Catch2WithMain
+        Catch2::Catch2
         juce::juce_core
         juce::juce_events
         juce::juce_data_structures

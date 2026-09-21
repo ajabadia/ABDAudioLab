@@ -35,9 +35,9 @@ public:
     void pollNow();
 
     /**
-     * @brief Starts periodic sampling on the JUCE Message Thread at the given frequency (default 60 Hz).
+     * @brief Starts periodic sampling on the JUCE Message Thread at the given frequency (default 25 Hz).
      */
-    void startPolling(int frequencyHz = 60);
+    void startPolling(int frequencyHz = 25);
 
     /**
      * @brief Stops periodic sampling.

@@ -21,6 +21,7 @@ public:
 
     void setCurve(const abdaudiolab::measurement::MeasurementCurve& curve, bool isIntegrityVerified);
     void clear();
+    void updateTheme();
 
     void paint(juce::Graphics& g) override;
     void resized() override;

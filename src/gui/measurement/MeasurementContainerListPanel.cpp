@@ -7,6 +7,7 @@
  */
 
 #include "MeasurementContainerListPanel.h"
+#include "../AppTheme.h"
 
 namespace abdaudiolab::gui::measurement
 {
@@ -60,6 +61,11 @@ public:
 
         btnAudioSource_.setEnabled(entry.isPlayable());
         btnAudioSource_.setButtonText(isActiveAudio ? "[ACTIVO]" : "[Audio]");
+        btnAudioSource_.setColour(juce::TextButton::buttonColourId, isActiveAudio ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceSubtle);
+        btnAudioSource_.setColour(juce::TextButton::textColourOffId, isActiveAudio ? juce::Colours::white : gui::AppTheme::TextPrimary);
+
+        btnDelete_.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        btnDelete_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextMuted);
 
         if (isCorrupt)
         {
@@ -111,15 +117,15 @@ public:
         // Background with accessible focus highlight
         if (isRowSelected_)
         {
-            g.setColour(juce::Colour(0xff242430));
+            g.setColour(gui::AppTheme::SurfaceSelected);
             g.fillRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f);
             // High-contrast WCAG focus indicator halo
-            g.setColour(juce::Colour(0xff00e5ff));
+            g.setColour(gui::AppTheme::BorderFocus);
             g.drawRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f, 2.0f);
         }
         else
         {
-            g.setColour(juce::Colour(0xff1e1e24));
+            g.setColour(gui::AppTheme::SurfaceCard);
             g.fillRoundedRectangle(bounds.reduced(2.0f, 1.0f), 4.0f);
         }
 
@@ -180,7 +186,7 @@ public:
         if (entry_.viewModel != nullptr && entry_.viewModel->dutName.isNotEmpty())
             labelText = entry_.viewModel->dutName + " (" + entry_.viewModel->executionDomainText + ")";
 
-        g.setColour(juce::Colours::white);
+        g.setColour(gui::AppTheme::TextPrimary);
         g.setFont(juce::FontOptions(13.0f));
         g.drawText(labelText, 70, 4, getWidth() - 250, 18, juce::Justification::centredLeft, true);
 
@@ -188,18 +194,18 @@ public:
         g.setFont(juce::FontOptions(11.0f));
         if (entry_.loadState == ContainerLoadState::Corrupt)
         {
-            g.setColour(juce::Colour(0xffff5252));
+            g.setColour(gui::AppTheme::AccentError);
             g.drawText("CORRUPT: " + entry_.diagnosticReason, 70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
         }
         else if (entry_.loadState == ContainerLoadState::Rejected)
         {
-            g.setColour(juce::Colour(0xffffab00));
+            g.setColour(gui::AppTheme::AccentWarning);
             g.drawText("REJECTED: " + entry_.diagnosticReason, 70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
         }
         else if (entry_.viewModel != nullptr)
         {
-            g.setColour(juce::Colour(0xffa0a0b0));
-            g.drawText("Métricas: " + juce::String(static_cast<int>(entry_.viewModel->metrics.size())) +
+            g.setColour(gui::AppTheme::TextSecondary);
+            g.drawText(juce::String::fromUTF8(u8"Métricas: ") + juce::String(static_cast<int>(entry_.viewModel->metrics.size())) +
                        " | Puntos: " + juce::String(static_cast<int>(entry_.viewModel->curve.x.size())),
                        70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
         }
@@ -260,7 +266,6 @@ MeasurementContainerListPanel::MeasurementContainerListPanel(MeasurementComparis
 
     addAndMakeVisible(lblTitle_);
     lblTitle_.setFont(juce::FontOptions(15.0f));
-    lblTitle_.setColour(juce::Label::textColourId, juce::Colour(0xff00d4ff));
 
     addAndMakeVisible(btnAdd_);
     btnAdd_.onClick = [this]() { promptAddContainer(); };
@@ -281,12 +286,31 @@ MeasurementContainerListPanel::MeasurementContainerListPanel(MeasurementComparis
 
     listBox_.setModel(this);
     listBox_.setRowHeight(42);
-    listBox_.setColour(juce::ListBox::backgroundColourId, juce::Colour(0xff141418));
     listBox_.setWantsKeyboardFocus(true);
     addAndMakeVisible(listBox_);
 
-    updateDomainFilterButtons();
+    updateTheme();
     containerListChanged();
+}
+
+void MeasurementContainerListPanel::updateTheme()
+{
+    lblTitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
+
+    btnAdd_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::AccentActive);
+    btnAdd_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    btnClear_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
+    btnClear_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextSecondary);
+
+    updateDomainFilterButtons();
+
+    listBox_.setColour(juce::ListBox::backgroundColourId, gui::AppTheme::SurfaceCard);
+    listBox_.setColour(juce::ListBox::outlineColourId, gui::AppTheme::BorderSubtle);
+
+    listBox_.updateContent();
+    listBox_.repaint();
+    repaint();
 }
 
 MeasurementContainerListPanel::~MeasurementContainerListPanel()
@@ -296,8 +320,8 @@ MeasurementContainerListPanel::~MeasurementContainerListPanel()
 
 void MeasurementContainerListPanel::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff18181f));
-    g.setColour(juce::Colour(0xff2a2a35));
+    g.fillAll(gui::AppTheme::SurfaceSubtle);
+    g.setColour(gui::AppTheme::BorderCard);
     g.drawRect(getLocalBounds(), 1);
 }
 
@@ -525,6 +549,26 @@ void MeasurementContainerListPanel::updateDomainFilterButtons()
     btnFilterOffline_.setToggleState(filter == abdaudiolab::measurement::MeasurementExecutionDomain::Vst3OfflineDigital, juce::dontSendNotification);
     btnFilterRealtime_.setToggleState(filter == abdaudiolab::measurement::MeasurementExecutionDomain::Vst3Realtime, juce::dontSendNotification);
     btnFilterHardware_.setToggleState(filter == abdaudiolab::measurement::MeasurementExecutionDomain::DigitalHardwareRoundtrip, juce::dontSendNotification);
+
+    auto styleFilterBtn = [](juce::TextButton& btn) {
+        if (btn.getToggleState())
+        {
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::PillBlackBg);
+            btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+            btn.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        }
+        else
+        {
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceSubtle);
+            btn.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextSecondary);
+            btn.setColour(juce::TextButton::textColourOnId, gui::AppTheme::TextSecondary);
+        }
+    };
+
+    styleFilterBtn(btnFilterAll_);
+    styleFilterBtn(btnFilterOffline_);
+    styleFilterBtn(btnFilterRealtime_);
+    styleFilterBtn(btnFilterHardware_);
 }
 
 void MeasurementContainerListPanel::promptAddContainer()

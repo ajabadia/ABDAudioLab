@@ -24,7 +24,7 @@ DiagnosticsTelemetryPoller::~DiagnosticsTelemetryPoller()
 void DiagnosticsTelemetryPoller::startPolling(int frequencyHz)
 {
     if (frequencyHz <= 0)
-        frequencyHz = 60;
+        frequencyHz = 25;
     startTimerHz(frequencyHz);
 }
 

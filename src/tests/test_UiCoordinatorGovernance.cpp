@@ -11,6 +11,7 @@
 #include "../core/HardwareManager.h"
 #include "../core/plugins/PluginHardwareContractAdapter.h"
 #include "../gui/ExportReportPanel.h"
+#include "TestJuceGuard.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::measurement;
@@ -140,6 +141,7 @@ TEST_CASE("UI Governance: Blocked Action Explanations & Tooltip Text", "[ui_gove
 
 TEST_CASE("UI Governance: Free Mode Rigorous Unknown Control Semantics", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     audio::LabAudioEngine audioEngine;
@@ -199,6 +201,7 @@ TEST_CASE("UI Governance: Free Mode Rigorous Unknown Control Semantics", "[ui_go
 
 TEST_CASE("UI Governance: Keyboard Handshake & Modal Focus Guards", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     gui::OperatorStepModalDialog modal;
@@ -274,10 +277,12 @@ public:
 
 TEST_CASE("UI Governance: VST3 Dynamic Contract to MeasurementSession Initialization", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     GovernanceMockVst3Processor mockVst;
     juce::PluginDescription desc;
+
     desc.name = "Dexed Mock";
     desc.pluginFormatName = "VST3";
     desc.fileOrIdentifier = "C:/Program Files/Common Files/VST3/Dexed.vst3";
@@ -373,6 +378,7 @@ TEST_CASE("UI Governance: Step-Based Action Invariants (Calibrate vs RunSession 
 
 TEST_CASE("UI Governance: Plugin Instrument ExcitationMode & MIDI Delivery", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     class MockSynthProcessor : public juce::AudioPluginInstance
@@ -497,6 +503,7 @@ TEST_CASE("UI Governance: Pause and Cancel Silence Active Notes", "[ui_governanc
 
 TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojibake)", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     gui::ExportReportPanel panel;
@@ -516,6 +523,7 @@ TEST_CASE("UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojib
 
 TEST_CASE("UI Governance: SuiteList Resized Never Shows Run Button When Hidden", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     gui::SoundIdSuiteList suiteList;
@@ -540,6 +548,7 @@ TEST_CASE("UI Governance: SuiteList Resized Never Shows Run Button When Hidden",
 
 TEST_CASE("UI Governance: Session Cancelled Rearms Back to SessionReady", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     audio::LabAudioEngine engine;
@@ -568,6 +577,7 @@ TEST_CASE("UI Governance: Session Cancelled Rearms Back to SessionReady", "[ui_g
 
 TEST_CASE("UI Governance: Mode Change Between Guided and Lab Blocked During Capture", "[ui_governance]")
 {
+    ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS();
     juce::ScopedJuceInitialiser_GUI juceInit;
 
     audio::LabAudioEngine engine;

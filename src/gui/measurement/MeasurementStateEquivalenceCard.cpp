@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementStateEquivalenceCard.h"
+#include "../AppTheme.h"
 
 namespace abdaudiolab::gui::measurement
 {
@@ -17,7 +18,6 @@ MeasurementStateEquivalenceCard::MeasurementStateEquivalenceCard(MeasurementComp
 
     addAndMakeVisible(lblTitle_);
     lblTitle_.setFont(juce::FontOptions(14.0f));
-    lblTitle_.setColour(juce::Label::textColourId, juce::Colour(0xff00d4ff));
 
     addAndMakeVisible(cmbPairs_);
     cmbPairs_.onChange = [this]() { updateSelectedPair(); };
@@ -28,9 +28,22 @@ MeasurementStateEquivalenceCard::MeasurementStateEquivalenceCard(MeasurementComp
 
     addAndMakeVisible(lblReason_);
     lblReason_.setFont(juce::FontOptions(11.0f));
-    lblReason_.setColour(juce::Label::textColourId, juce::Colour(0xffc0c0d0));
 
+    updateTheme();
     rebuildPairSelector();
+}
+
+void MeasurementStateEquivalenceCard::updateTheme()
+{
+    lblTitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
+    lblReason_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+
+    cmbPairs_.setColour(juce::ComboBox::backgroundColourId, gui::AppTheme::SurfaceSubtle);
+    cmbPairs_.setColour(juce::ComboBox::textColourId, gui::AppTheme::TextPrimary);
+    cmbPairs_.setColour(juce::ComboBox::outlineColourId, gui::AppTheme::BorderSubtle);
+    cmbPairs_.setColour(juce::ComboBox::arrowColourId, gui::AppTheme::TextSecondary);
+
+    repaint();
 }
 
 MeasurementStateEquivalenceCard::~MeasurementStateEquivalenceCard()
@@ -89,7 +102,8 @@ void MeasurementStateEquivalenceCard::rebuildPairSelector()
     {
         currentResult_.reset();
         lblStatusBadge_.setText("SIN PARES SUFICIENTES", juce::dontSendNotification);
-        lblStatusBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff3a3a48));
+        lblStatusBadge_.setColour(juce::Label::backgroundColourId, gui::AppTheme::SurfaceSubtle);
+        lblStatusBadge_.setColour(juce::Label::textColourId, gui::AppTheme::TextMuted);
         lblReason_.setText("Carga al menos 2 contenedores verificados para comparar equivalencia de estado.", juce::dontSendNotification);
         repaint();
     }
@@ -103,7 +117,7 @@ void MeasurementStateEquivalenceCard::updateSelectedPair()
         const auto pair = availablePairs_[static_cast<size_t>(selIdx)];
         currentResult_ = session_.compareContainers(pair.first, pair.second);
 
-        juce::Colour badgeCol = juce::Colour(0xff607d8b);
+        juce::Colour badgeCol = gui::AppTheme::TextMuted;
         if (currentResult_->equivalence == PairwiseStateEquivalence::BitExact)
             badgeCol = juce::Colour(0xff00c853); // Emerald Green
         else if (currentResult_->equivalence == PairwiseStateEquivalence::SemanticallyEquivalent)
@@ -122,21 +136,21 @@ void MeasurementStateEquivalenceCard::updateSelectedPair()
 
 void MeasurementStateEquivalenceCard::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff16161c));
-    g.setColour(juce::Colour(0xff2d2d3d));
+    g.fillAll(gui::AppTheme::SurfaceCard);
+    g.setColour(gui::AppTheme::BorderCard);
     g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(1.0f), 4.0f, 1.0f);
 
     if (!currentResult_.has_value())
         return;
 
     auto area = getLocalBounds().reduced(12);
-    area.removeFromTop(60); // Header, dropdown and badge
+    area.removeFromTop(98); // Header, badge, dropdown and reason
 
-    g.setColour(juce::Colour(0xff252535));
+    g.setColour(gui::AppTheme::BorderSubtle);
     g.drawHorizontalLine(area.getY() - 6, 12.0f, static_cast<float>(getWidth() - 12));
 
     g.setFont(juce::FontOptions(11.0f));
-    g.setColour(juce::Colour(0xff8e8ea0));
+    g.setColour(gui::AppTheme::TextSecondary);
 
     const int rowH = 18;
     auto row1 = area.removeFromTop(rowH);
@@ -163,14 +177,16 @@ void MeasurementStateEquivalenceCard::paint(juce::Graphics& g)
 void MeasurementStateEquivalenceCard::resized()
 {
     auto area = getLocalBounds().reduced(8);
-    auto topArea = area.removeFromTop(24);
+    auto titleArea = area.removeFromTop(20);
+    lblTitle_.setBounds(titleArea);
 
-    lblTitle_.setBounds(topArea.removeFromLeft(getWidth() - 190));
-    lblStatusBadge_.setBounds(topArea.removeFromRight(180));
+    area.removeFromTop(4);
+    auto badgeArea = area.removeFromTop(22);
+    lblStatusBadge_.setBounds(badgeArea);
 
     area.removeFromTop(4);
     auto dropArea = area.removeFromTop(24);
-    cmbPairs_.setBounds(dropArea.removeFromLeft(getWidth() - 16));
+    cmbPairs_.setBounds(dropArea);
 
     area.removeFromTop(4);
     lblReason_.setBounds(area.removeFromTop(18));

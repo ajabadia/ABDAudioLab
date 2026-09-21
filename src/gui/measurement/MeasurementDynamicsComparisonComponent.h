@@ -27,6 +27,7 @@ public:
     explicit MeasurementDynamicsComparisonComponent(MeasurementComparisonSession& session);
     ~MeasurementDynamicsComparisonComponent() override;
 
+    void updateTheme();
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseMove(const juce::MouseEvent& e) override;

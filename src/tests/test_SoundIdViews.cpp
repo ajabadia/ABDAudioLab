@@ -14,7 +14,7 @@ using namespace abdaudiolab::synth;
 using namespace abdaudiolab::gui;
 using namespace abdaudiolab::gui::session;
 
-TEST_CASE("SoundIdTopHeaderStrip: Actualización de contexto operativo y badges", "[gui][soundid]")
+TEST_CASE("SoundIdTopHeaderStrip: ActualizaciÃ³n de contexto operativo y badges", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     soundid::SoundIdTopHeaderStrip strip;
@@ -37,7 +37,7 @@ TEST_CASE("SoundIdTopHeaderStrip: Actualización de contexto operativo y badges"
     REQUIRE_NOTHROW(strip.setHardwareTelemetry(96000.0, 256, 12.5));
 }
 
-TEST_CASE("SoundIdTargetView: Reflejo del estado de conexión y avance", "[gui][soundid]")
+TEST_CASE("SoundIdTargetView: Reflejo del estado de conexiÃ³n y avance", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     ProfilingSessionController controller;
@@ -62,7 +62,7 @@ TEST_CASE("SoundIdTargetView: Reflejo del estado de conexión y avance", "[gui][
     REQUIRE_NOTHROW(view.updateFromSnapshot(snap));
 }
 
-TEST_CASE("SoundIdProfilingRunView: Monitor de progreso en vivo y salud acústica", "[gui][soundid]")
+TEST_CASE("SoundIdProfilingRunView: Monitor de progreso en vivo y salud acÃºstica", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     ProfilingSessionController controller;
@@ -85,13 +85,13 @@ TEST_CASE("SoundIdProfilingRunView: Monitor de progreso en vivo y salud acústic
     auto snap = controller.getCurrentSnapshot();
     REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
 
-    // Telemetría con clipping
+    // TelemetrÃ­a con clipping
     controller.updateObservation(-0.0, 0.5, 440.0, true, false, 40.0);
     snap = controller.getCurrentSnapshot();
     REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
 }
 
-TEST_CASE("SoundIdResultsSummaryView: Métricas interpretables objetivas y botón de exportación", "[gui][soundid]")
+TEST_CASE("SoundIdResultsSummaryView: MÃ©tricas interpretables objetivas y botÃ³n de exportaciÃ³n", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     ProfilingSessionController controller;
@@ -120,7 +120,7 @@ TEST_CASE("SoundIdResultsSummaryView: Métricas interpretables objetivas y botó
     CHECK(snap.exportOptions.canExportCpp == true);
 }
 
-TEST_CASE("SoundIdResultsSummaryView: Advertencias críticas visibles con AcceptedWithWarnings", "[gui][soundid]")
+TEST_CASE("SoundIdResultsSummaryView: Advertencias crÃ­ticas visibles con AcceptedWithWarnings", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     ProfilingSessionController controller;
@@ -143,8 +143,8 @@ TEST_CASE("SoundIdResultsSummaryView: Advertencias críticas visibles con Accept
                                      "Wiener-Hammerstein Grey-Box",
                                      -35.4, 0.9950, 91.2,
                                      "C2-C5, Vel 40-120", 1.25,
-                                     { "Deriva térmica en frecuencias agudas" },
-                                     { "Calibración de oscilador recomendada tras 30 min" });
+                                     { "Deriva tÃ©rmica en frecuencias agudas" },
+                                     { "CalibraciÃ³n de oscilador recomendada tras 30 min" });
     controller.completeProfiling();
 
     auto snap = controller.getCurrentSnapshot();
@@ -153,7 +153,7 @@ TEST_CASE("SoundIdResultsSummaryView: Advertencias críticas visibles con Accept
     CHECK(snap.exportOptions.canExportCpp == true);
 }
 
-TEST_CASE("SoundIdResultsSummaryView: Deshabilitación estricta de exportación ante InvalidMeasurement", "[gui][soundid]")
+TEST_CASE("SoundIdResultsSummaryView: DeshabilitaciÃ³n estricta de exportaciÃ³n ante InvalidMeasurement", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;
     ProfilingSessionController controller;
@@ -172,7 +172,7 @@ TEST_CASE("SoundIdResultsSummaryView: Deshabilitación estricta de exportación 
 
     controller.updateModelEvaluation(abdaudiolab::synth::SelectionStatus::InvalidMeasurement,
                                      "None", 0.0, 0.0, 0.0, "None", 1.0,
-                                     { "Saturación continua en conversor ADC" },
+                                     { "SaturaciÃ³n continua en conversor ADC" },
                                      { "Reducir trim de entrada" });
     controller.completeProfiling();
 
@@ -227,7 +227,7 @@ TEST_CASE("SoundIdResultsSummaryView: Holdout validation, metrology metrics and 
     CHECK(resView.isHtmlReportAvailable() == true);
     CHECK(resView.isExportEnabled() == true);
 
-    // Caso de advertencias metrológicas
+    // Caso de advertencias metrolÃ³gicas
     snap.validationSummary.verdict = core::ValidationUiSummary::Verdict::passWithLimitations;
     snap.validationSummary.reason = "RESIDUAL_ELEVATED";
     snap.validationSummary.esrDb = -22.1;
@@ -324,7 +324,7 @@ TEST_CASE("SoundIdResultsSummaryView: Presentacion de ModelEvaluation real de Sy
     controller.updateAuditResult(synth::ApprovalStatus::Approved, "Deterministic", "Resettable", 50.0, false, {}, "OK");
     controller.startProfiling();
 
-    // Fabricar ModelEvaluation canónico
+    // Fabricar ModelEvaluation canÃ³nico
     auto audit = makeTestAuditReport(synth::ApprovalStatus::Approved);
     auto exp = makeTestExcitationReport();
     auto model = makeTestModelArtifact("ZDF_Ladder_Synthetic");
@@ -356,7 +356,7 @@ TEST_CASE("SoundIdResultsSummaryView: Presentacion de ModelEvaluation real de Sy
     CHECK(resView.getHashAuditText().contains("SHA-256:"));
     CHECK(resView.getWarningsText().contains("tolerancias"));
 
-    // Capa 2: La exportación formal en controller es permitida
+    // Capa 2: La exportaciÃ³n formal en controller es permitida
     CHECK(controller.exportModel("cpp", "build/test_export.cpp") == true);
 }
 
@@ -413,7 +413,7 @@ TEST_CASE("SoundIdResultsSummaryView: Presentacion de ModelEvaluation de Dexed (
     CHECK(resView.getWarningsText().contains("Requiere reset"));
     CHECK(resView.getWarningsText().contains("Settling prolongado"));
 
-    // La exportación formal sigue permitida en AcceptedWithWarnings
+    // La exportaciÃ³n formal sigue permitida en AcceptedWithWarnings
     CHECK(controller.exportModel("cpp", "build/test_dexed_export.cpp") == true);
 }
 
@@ -479,7 +479,7 @@ TEST_CASE("SoundIdResultsSummaryView: Bloqueo estricto ante HashMismatch (Integr
         .withCandidateEvaluator(&evaluator)
         .build();
 
-    // Simular un fallo de integridad criptográfica (HashMismatch)
+    // Simular un fallo de integridad criptogrÃ¡fica (HashMismatch)
     eval.computeCanonicalHash();
     eval.loadStatus = synth::EvaluationLoadStatus::HashMismatch;
     eval.hashVerified = false;
@@ -489,11 +489,11 @@ TEST_CASE("SoundIdResultsSummaryView: Bloqueo estricto ante HashMismatch (Integr
 
     resView.updateFromSnapshot(controller.getCurrentSnapshot());
 
-    // Capa 1: UI deshabilita exportación
+    // Capa 1: UI deshabilita exportaciÃ³n
     CHECK(resView.isExportEnabled() == false);
     CHECK(resView.isHashVerified() == false);
 
-    // Capa 2: Controller rechaza la exportación
+    // Capa 2: Controller rechaza la exportaciÃ³n
     CHECK(controller.exportModel("cpp", "tampered_export.cpp") == false);
 }
 
@@ -537,7 +537,7 @@ TEST_CASE("SoundIdResultsSummaryView: Copia de hash canonico y consistencia exac
     auto snap = controller.getCurrentSnapshot();
     resView.updateFromSnapshot(snap);
 
-    // El hash canónico expuesto en la GUI debe ser idéntico al del objeto y al del snapshot
+    // El hash canÃ³nico expuesto en la GUI debe ser idÃ©ntico al del objeto y al del snapshot
     REQUIRE(resView.getFullCanonicalHash() == eval.canonicalEvaluationHash);
     REQUIRE(snap.evaluation.canonicalEvaluationHash == eval.canonicalEvaluationHash);
     REQUIRE(resView.getFullCanonicalHash().size() == 64); // SHA-256 hex string
@@ -618,3 +618,160 @@ TEST_CASE("Step 1 Integration: SoundIdTargetView Snapshot and Feature Flag Contr
     REQUIRE(hwSnap.audit.approvalStatus == synth::ApprovalStatus::ApprovedWithWarnings);
 }
 
+
+// =============================================================================
+// PERF-02: Dirty check — snapshot identico NO actualiza la UI
+// PERF-03: Snapshot con cambio real → actualiza exactamente una vez
+// =============================================================================
+
+TEST_CASE("PERF-02: SoundIdProfilingRunView dirty check omite snapshot identico",
+          "[gui][soundid][perf]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+
+    ProfilingSessionController controller;
+    soundid::SoundIdProfilingRunView runView(controller);
+    runView.setSize(800, 600);
+
+    TargetSelectionState target;
+    target.targetId    = "perf02_target";
+    target.kind        = TargetKind::SyntheticFixture;
+    target.isConnected = true;
+    controller.selectTarget(target);
+    controller.requestAudit();
+    controller.updateAuditResult(abdaudiolab::synth::ApprovalStatus::Approved,
+                                 "Deterministic", "Resettable", 50.0, true, {}, "OK");
+    controller.startProfiling();
+    controller.updateProgress(5, 100, 2.0, 95.0, "Sweep A");
+    controller.updateObservation(-18.0, -6.0, 220.0, false, false, 90.0);
+
+    // Primera actualizacion: hasPresentationState_ = false -> siempre pinta
+    auto snap = controller.getCurrentSnapshot();
+    REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
+#ifdef ABD_TESTING
+    REQUIRE(runView.getTestUpdateExecutedCount() == 1);
+    REQUIRE(runView.getTestRepaintCount() == 1);
+    REQUIRE(runView.getTestSetTextCount() > 0);
+#endif
+
+    SECTION("PERF-02a: snapshot identico repetido omite setText y repaint")
+    {
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
+#ifdef ABD_TESTING
+        // Dirty check: snapshot identico -> ZERO updates ejecutados, ZERO setText, ZERO repaint
+        REQUIRE(runView.getTestUpdateExecutedCount() == 0);
+        REQUIRE(runView.getTestRepaintCount() == 0);
+        REQUIRE(runView.getTestSetTextCount() == 0);
+#endif
+    }
+
+    SECTION("PERF-02b: RMS dentro del umbral (delta < 0.5 dBFS) no activa actualizacion")
+    {
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        // -18.0 -> -17.7: delta 0.3 dBFS < umbral 0.5 -> debe retornar early
+        controller.updateObservation(-17.7, -6.0, 220.0, false, false, 90.0);
+        auto snapSubThreshold = controller.getCurrentSnapshot();
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(snapSubThreshold));
+#ifdef ABD_TESTING
+        REQUIRE(runView.getTestUpdateExecutedCount() == 0);
+        REQUIRE(runView.getTestRepaintCount() == 0);
+        REQUIRE(runView.getTestSetTextCount() == 0);
+#endif
+    }
+}
+
+TEST_CASE("PERF-03: SoundIdProfilingRunView dirty check actualiza en cambio semantico real",
+          "[gui][soundid][perf]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+
+    ProfilingSessionController controller;
+    soundid::SoundIdProfilingRunView runView(controller);
+    runView.setSize(800, 600);
+
+    TargetSelectionState target;
+    target.targetId    = "perf03_target";
+    target.kind        = TargetKind::SyntheticFixture;
+    target.isConnected = true;
+    controller.selectTarget(target);
+    controller.requestAudit();
+    controller.updateAuditResult(abdaudiolab::synth::ApprovalStatus::Approved,
+                                 "Deterministic", "Resettable", 50.0, true, {}, "OK");
+    controller.startProfiling();
+
+    SECTION("PERF-03a: primera actualizacion siempre pinta (hasPresentationState_ = false)")
+    {
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        controller.updateProgress(1, 50, 0.5, 49.5, "Stimulus Init");
+        controller.updateObservation(-24.0, -12.0, 110.0, false, false, 95.0);
+        auto snap1 = controller.getCurrentSnapshot();
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(snap1));
+#ifdef ABD_TESTING
+        REQUIRE(runView.getTestUpdateExecutedCount() == 1);
+        REQUIRE(runView.getTestRepaintCount() == 1);
+        REQUIRE(runView.getTestSetTextCount() > 0);
+#endif
+    }
+
+    SECTION("PERF-03b: avance de trial index activa actualizacion")
+    {
+        controller.updateProgress(1, 50, 0.5, 49.5, "Stimulus A");
+        controller.updateObservation(-24.0, -12.0, 110.0, false, false, 95.0);
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        controller.updateProgress(2, 50, 1.0, 49.0, "Stimulus B");
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+#ifdef ABD_TESTING
+        REQUIRE(runView.getTestUpdateExecutedCount() == 1);
+        REQUIRE(runView.getTestRepaintCount() == 1);
+#endif
+    }
+
+    SECTION("PERF-03c: clipping detectado activa actualizacion independientemente del RMS")
+    {
+        controller.updateProgress(3, 50, 2.0, 48.0, "Sweep Clipping");
+        controller.updateObservation(-1.0, 0.5, 440.0, false, false, 60.0);
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        // Mismo RMS, pero clipping = true -> campo semantico -> DEBE actualizar
+        controller.updateObservation(-1.0, 0.5, 440.0, true, false, 60.0);
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+#ifdef ABD_TESTING
+        REQUIRE(runView.getTestUpdateExecutedCount() == 1);
+        REQUIRE(runView.getTestRepaintCount() == 1);
+#endif
+    }
+
+    SECTION("PERF-03d: transicion a Completed activa actualizacion")
+    {
+        controller.updateProgress(50, 50, 100.0, 0.0, "Final Stimulus");
+        controller.updateObservation(-18.0, -6.0, 220.0, false, false, 90.0);
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+
+#ifdef ABD_TESTING
+        runView.resetTestCounters();
+#endif
+        controller.completeProfiling();
+        // sessionStatus Profiling -> Completed -> DEBE actualizar
+        REQUIRE_NOTHROW(runView.updateFromSnapshot(controller.getCurrentSnapshot()));
+#ifdef ABD_TESTING
+        REQUIRE(runView.getTestUpdateExecutedCount() == 1);
+        REQUIRE(runView.getTestRepaintCount() == 1);
+#endif
+    }
+}

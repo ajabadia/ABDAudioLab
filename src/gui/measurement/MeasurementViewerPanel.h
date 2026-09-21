@@ -31,6 +31,7 @@ public:
      * @brief Directly sets an existing view model.
      */
     void setViewModel(const MeasurementViewModel& model);
+    void updateTheme();
 
     void paint(juce::Graphics& g) override;
     void resized() override;

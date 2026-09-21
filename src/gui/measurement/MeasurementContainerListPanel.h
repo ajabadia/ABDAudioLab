@@ -22,6 +22,7 @@ public:
     explicit MeasurementContainerListPanel(MeasurementComparisonSession& session);
     ~MeasurementContainerListPanel() override;
 
+    void updateTheme();
     void paint(juce::Graphics& g) override;
     void resized() override;
 

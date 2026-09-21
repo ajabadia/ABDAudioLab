@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementFrequencyCurveComponent.h"
+#include "../AppTheme.h"
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -16,6 +17,11 @@ namespace abdaudiolab::gui::measurement
 MeasurementFrequencyCurveComponent::MeasurementFrequencyCurveComponent()
 {
     setRepaintsOnMouseActivity(true);
+}
+
+void MeasurementFrequencyCurveComponent::updateTheme()
+{
+    repaint();
 }
 
 void MeasurementFrequencyCurveComponent::setCurve(const abdaudiolab::measurement::MeasurementCurve& curve,
@@ -44,29 +50,22 @@ void MeasurementFrequencyCurveComponent::clear()
 
 void MeasurementFrequencyCurveComponent::resized()
 {
-    auto b = getLocalBounds().toFloat();
-    const float padLeft = 55.0f;
-    const float padRight = 20.0f;
-    const float padTop = 25.0f;
-    const float padBottom = 30.0f;
-
-    plotBounds_ = juce::Rectangle<float>(padLeft, padTop,
-                                         std::max(10.0f, b.getWidth() - padLeft - padRight),
-                                         std::max(10.0f, b.getHeight() - padTop - padBottom));
+    auto b = getLocalBounds().toFloat().reduced(12.0f);
+    plotBounds_ = b.withTrimmedLeft(45.0f).withTrimmedBottom(25.0f);
 }
 
-float MeasurementFrequencyCurveComponent::freqToX(double f) const noexcept
+float MeasurementFrequencyCurveComponent::freqToX(double freqHz) const noexcept
 {
-    double clampedF = std::clamp(f, minFreq_, maxFreq_);
+    double clampedFreq = std::clamp(freqHz, minFreq_, maxFreq_);
     double logMinF = std::log10(minFreq_);
     double logMaxF = std::log10(maxFreq_);
-    double norm = (std::log10(clampedF) - logMinF) / (logMaxF - logMinF);
-    return plotBounds_.getX() + static_cast<float>(norm) * plotBounds_.getHeight() * (plotBounds_.getWidth() / plotBounds_.getHeight());
+    double norm = (std::log10(clampedFreq) - logMinF) / (logMaxF - logMinF);
+    return plotBounds_.getX() + static_cast<float>(norm) * plotBounds_.getWidth();
 }
 
-float MeasurementFrequencyCurveComponent::dbToY(double db) const noexcept
+float MeasurementFrequencyCurveComponent::dbToY(double dbVal) const noexcept
 {
-    double clampedDb = std::clamp(db, minDb_, maxDb_);
+    double clampedDb = std::clamp(dbVal, minDb_, maxDb_);
     double norm = (maxDb_ - clampedDb) / (maxDb_ - minDb_);
     return plotBounds_.getY() + static_cast<float>(norm) * plotBounds_.getHeight();
 }
@@ -88,17 +87,18 @@ double MeasurementFrequencyCurveComponent::yToDb(float y) const noexcept
 void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
 
-    // 1. Dark container background
-    g.setColour(juce::Colour(0xff0f172a));
+    // 1. Container background & border
+    g.setColour(AppTheme::SurfaceCard);
     g.fillRoundedRectangle(bounds, 8.0f);
-    g.setColour(juce::Colour(0xff1e293b));
+    g.setColour(AppTheme::BorderCard);
     g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
 
     // 2. Empty state
     if (curve_.x.empty())
     {
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextMuted);
         g.setFont(juce::Font(juce::FontOptions(13.0f)));
         g.drawText("No frequency curve data available", bounds, juce::Justification::centred, false);
         return;
@@ -113,26 +113,27 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         float y = dbToY(db);
 
         bool isZero = (std::abs(db) < 1e-4);
-        g.setColour(isZero ? juce::Colour(0xff475569) : juce::Colour(0xff1e293b));
+        g.setColour(isZero ? (isDark ? juce::Colour(0xff475569) : juce::Colour(0xff94a3b8)) : AppTheme::BorderSubtle);
         g.drawLine(plotBounds_.getX(), y, plotBounds_.getRight(), y, isZero ? 1.5f : 1.0f);
 
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextSecondary);
         std::string dbStr = std::to_string(static_cast<int>(db)) + " dB";
         g.drawText(dbStr, juce::Rectangle<float>(4.0f, y - 8.0f, 46.0f, 16.0f), juce::Justification::centredRight, false);
     }
 
     // 4. Vertical Log-Frequency grid lines & labels
     const double fSteps[] = { 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0, 20000.0 };
+    const float freqDashes[2] = { 2.0f, 2.0f };
     for (double f : fSteps)
     {
         float x = freqToX(f);
 
-        g.setColour(juce::Colour(0xff1e293b));
+        g.setColour(AppTheme::BorderSubtle);
         g.drawDashedLine(juce::Line<float>(x, plotBounds_.getY(), x, plotBounds_.getBottom()),
-                         nullptr, 0, 1.0f);
+                         freqDashes, 2, 1.0f);
 
         std::string fStr = (f >= 1000.0) ? (std::to_string(static_cast<int>(f / 1000.0)) + "k") : std::to_string(static_cast<int>(f));
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextSecondary);
         g.drawText(fStr, juce::Rectangle<float>(x - 20.0f, plotBounds_.getBottom() + 4.0f, 40.0f, 16.0f), juce::Justification::centred, false);
     }
 
@@ -166,19 +167,21 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         }
     }
 
+    const juce::Colour baseCurveCol = isDark ? juce::Colour(0xff38bdf8) : juce::Colour(0xff0284c7);
+
     if (!first)
     {
         areaPath.lineTo(plotBounds_.getRight(), baselineY);
         areaPath.closeSubPath();
 
         // Area Gradient
-        juce::ColourGradient grad(juce::Colour(0x4038bdf8), plotBounds_.getX(), plotBounds_.getY(),
-                                  juce::Colour(0x0038bdf8), plotBounds_.getX(), plotBounds_.getBottom(), false);
+        juce::ColourGradient grad(baseCurveCol.withAlpha(isDark ? 0.35f : 0.20f), plotBounds_.getX(), plotBounds_.getY(),
+                                  baseCurveCol.withAlpha(0.01f), plotBounds_.getX(), plotBounds_.getBottom(), false);
         g.setGradientFill(grad);
         g.fillPath(areaPath);
 
         // Curve stroke
-        g.setColour(juce::Colour(0xff38bdf8));
+        g.setColour(baseCurveCol);
         g.strokePath(curvePath, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
@@ -186,7 +189,7 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
     if (isCutoffObservable_ && cutoffHz_ >= minFreq_ && cutoffHz_ <= maxFreq_)
     {
         float cx = freqToX(cutoffHz_);
-        g.setColour(juce::Colour(0xfff59e0b)); // Amber
+        g.setColour(AppTheme::AccentWarning);
         const float dashLengths[] = { 4.0f, 3.0f };
         g.drawDashedLine(juce::Line<float>(cx, plotBounds_.getY(), cx, plotBounds_.getBottom()),
                          dashLengths, 2, 1.5f);
@@ -204,7 +207,8 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         float sx1 = freqToX(slopeFit_->frequencyStartHz);
         float sx2 = freqToX(slopeFit_->frequencyEndHz);
 
-        g.setColour(juce::Colour(0xffa855f7)); // Purple
+        const juce::Colour purpleCol = isDark ? juce::Colour(0xffc084fc) : juce::Colour(0xff7e22ce);
+        g.setColour(purpleCol);
         g.drawLine(sx1, plotBounds_.getBottom() - 3.0f, sx2, plotBounds_.getBottom() - 3.0f, 3.0f);
 
         g.setFont(juce::Font(juce::FontOptions(9.5f)).boldened());
@@ -212,14 +216,14 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         sfSs << "Fit Region (" << static_cast<int>(slopeFit_->frequencyStartHz) << "-"
              << static_cast<int>(slopeFit_->frequencyEndHz) << " Hz, R²="
              << std::fixed << std::setprecision(3) << slopeFit_->rSquared << ")";
-        g.drawText(sfSs.str(), juce::Rectangle<float>(sx1, plotBounds_.getBottom() - 20.0f, (sx2 - sx1), 16.0f), juce::Justification::centred, false);
+        g.drawText(juce::String::fromUTF8(sfSs.str().c_str()), juce::Rectangle<float>(sx1, plotBounds_.getBottom() - 20.0f, (sx2 - sx1), 16.0f), juce::Justification::centred, false);
     }
 
     // 8. Interactive crosshair & tooltip
     if (isHovering_ && plotBounds_.contains(mousePos_))
     {
         // Hairlines
-        g.setColour(juce::Colour(0x5594a3b8));
+        g.setColour(AppTheme::BorderCard);
         g.drawLine(mousePos_.getX(), plotBounds_.getY(), mousePos_.getX(), plotBounds_.getBottom(), 1.0f);
         g.drawLine(plotBounds_.getX(), mousePos_.getY(), plotBounds_.getRight(), mousePos_.getY(), 1.0f);
 
@@ -240,10 +244,11 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         float tipY = std::clamp(mousePos_.getY() - 26.0f, plotBounds_.getY(), plotBounds_.getBottom() - 22.0f);
 
         juce::Rectangle<float> tipRect(tipX, tipY, textW, 20.0f);
-        g.setColour(juce::Colour(0xee0f172a));
+        g.setColour(AppTheme::PillBlackBg);
         g.fillRoundedRectangle(tipRect, 4.0f);
-        g.setColour(juce::Colour(0xff38bdf8));
+        g.setColour(AppTheme::BorderSubtle);
         g.drawRoundedRectangle(tipRect, 4.0f, 1.0f);
+        g.setColour(juce::Colours::white);
         g.drawText(tipText, tipRect, juce::Justification::centred, false);
     }
 

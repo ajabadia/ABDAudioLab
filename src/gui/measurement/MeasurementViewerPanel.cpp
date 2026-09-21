@@ -8,6 +8,7 @@
 #include "MeasurementViewerPanel.h"
 #include "MeasurementViewModelLoader.h"
 #include "../SessionReportManager.h"
+#include "../AppTheme.h"
 #include <thread>
 #include <iomanip>
 #include <sstream>
@@ -19,12 +20,10 @@ MeasurementViewerPanel::MeasurementViewerPanel()
 {
     // Title & Subtitle
     lblTitle_.setFont(juce::Font(juce::FontOptions(18.0f)).boldened());
-    lblTitle_.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
     lblTitle_.setText("Envelope Measurement Viewer", juce::dontSendNotification);
     addAndMakeVisible(lblTitle_);
 
     lblSubtitle_.setFont(juce::Font(juce::FontOptions(12.0f)));
-    lblSubtitle_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
     lblSubtitle_.setText("Target: None | No measurement container loaded", juce::dontSendNotification);
     addAndMakeVisible(lblSubtitle_);
 
@@ -55,20 +54,14 @@ MeasurementViewerPanel::MeasurementViewerPanel()
     freqCurveComponent_.setVisible(false);
 
     // Audio Track Selector
-    btnTrackOutput_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
-    btnTrackOutput_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
     btnTrackOutput_.onClick = [this] { selectAudioTrack(0); };
     btnTrackOutput_.setVisible(false);
     addAndMakeVisible(btnTrackOutput_);
 
-    btnTrackInput_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
-    btnTrackInput_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff94a3b8));
     btnTrackInput_.onClick = [this] { selectAudioTrack(1); };
     btnTrackInput_.setVisible(false);
     addAndMakeVisible(btnTrackInput_);
 
-    btnTrackIr_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
-    btnTrackIr_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xff94a3b8));
     btnTrackIr_.onClick = [this] { selectAudioTrack(2); };
     btnTrackIr_.setVisible(false);
     addAndMakeVisible(btnTrackIr_);
@@ -89,23 +82,56 @@ MeasurementViewerPanel::MeasurementViewerPanel()
     };
 
     // Action Buttons
-    btnLoadContainer_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
-    btnLoadContainer_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xfff8fafc));
     btnLoadContainer_.onClick = [this] { promptLoadContainer(); };
     addAndMakeVisible(btnLoadContainer_);
 
-    btnOpenReport_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
-    btnOpenReport_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffcbd5e1));
     btnOpenReport_.onClick = [this] { openHtmlReportInBrowser(); };
     addAndMakeVisible(btnOpenReport_);
 
-    btnVerifyManifest_.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1e293b));
-    btnVerifyManifest_.setColour(juce::TextButton::textColourOffId, juce::Colour(0xffcbd5e1));
     btnVerifyManifest_.onClick = [this] { triggerBackgroundManifestVerification(); };
     addAndMakeVisible(btnVerifyManifest_);
 
+    updateTheme();
     updateIntegrityUi();
     updateHeaderAndBadges();
+}
+
+void MeasurementViewerPanel::updateTheme()
+{
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+
+    lblTitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
+    lblSubtitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+
+    auto updateTrackBtn = [](juce::TextButton& btn, bool active) {
+        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceCard);
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : gui::AppTheme::TextSecondary);
+    };
+
+    updateTrackBtn(btnTrackOutput_, selectedAudioTrack_ == 0);
+    updateTrackBtn(btnTrackInput_, selectedAudioTrack_ == 1);
+    updateTrackBtn(btnTrackIr_, selectedAudioTrack_ == 2);
+
+    btnLoadContainer_.setColour(juce::TextButton::buttonColourId, isDark ? juce::Colour(0xff0284c7) : gui::AppTheme::AccentActive);
+    btnLoadContainer_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    btnOpenReport_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
+    btnOpenReport_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
+
+    btnVerifyManifest_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
+    btnVerifyManifest_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
+
+    for (auto& card : metricCardViews_)
+    {
+        card->lblName.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+        card->lblValue.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
+    }
+
+    curveComponent_.updateTheme();
+    freqCurveComponent_.updateTheme();
+    audioPlayerComponent_.updateTheme();
+
+    repaint();
 }
 
 void MeasurementViewerPanel::selectAudioTrack(int trackIndex)
@@ -114,8 +140,8 @@ void MeasurementViewerPanel::selectAudioTrack(int trackIndex)
     bool verified = (model_.integrityStatus != UiIntegrityStatus::Corrupt);
 
     auto updateBtn = [](juce::TextButton& btn, bool active) {
-        btn.setColour(juce::TextButton::buttonColourId, active ? juce::Colour(0xff0284c7) : juce::Colour(0xff1e293b));
-        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colour(0xfff8fafc) : juce::Colour(0xff94a3b8));
+        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceCard);
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : gui::AppTheme::TextSecondary);
     };
 
     updateBtn(btnTrackOutput_, trackIndex == 0);
@@ -184,12 +210,12 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
 
         auto card = std::make_unique<MetricCard>();
         card->lblName.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
-        card->lblName.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+        card->lblName.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
         card->lblName.setText(m.name.toUpperCase(), juce::dontSendNotification);
         addAndMakeVisible(card->lblName);
 
         card->lblValue.setFont(juce::FontOptions("Consolas", 15.0f, juce::Font::bold));
-        card->lblValue.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
+        card->lblValue.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
 
         if (m.status == "not_observable")
         {
@@ -234,15 +260,15 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
     {
         auto card = std::make_unique<MetricCard>();
         card->lblName.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
-        card->lblName.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
-        card->lblName.setText("SLOPE FIT & R²", juce::dontSendNotification);
+        card->lblName.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+        card->lblName.setText(juce::String::fromUTF8(u8"SLOPE FIT & R²"), juce::dontSendNotification);
         addAndMakeVisible(card->lblName);
 
         card->lblValue.setFont(juce::FontOptions("Consolas", 15.0f, juce::Font::bold));
-        card->lblValue.setColour(juce::Label::textColourId, juce::Colour(0xfff8fafc));
+        card->lblValue.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
         std::ostringstream r2Stream;
         r2Stream << "R²=" << std::fixed << std::setprecision(3) << model_.slopeFit->rSquared;
-        card->lblValue.setText(r2Stream.str(), juce::dontSendNotification);
+        card->lblValue.setText(juce::String::fromUTF8(r2Stream.str().c_str()), juce::dontSendNotification);
         addAndMakeVisible(card->lblValue);
 
         card->lblStatus.setFont(juce::Font(juce::FontOptions(10.0f)).boldened());
@@ -616,9 +642,8 @@ void MeasurementViewerPanel::resized()
 
 void MeasurementViewerPanel::paint(juce::Graphics& g)
 {
-    // Dark canvas background
-    g.setColour(juce::Colour(0xff0b0f19));
-    g.fillAll();
+    // Canvas background
+    g.fillAll(gui::AppTheme::BackgroundApp);
 
     // Paint cards background
     if (!metricCardViews_.empty())
@@ -630,9 +655,9 @@ void MeasurementViewerPanel::paint(juce::Graphics& g)
             cb.setX(cb.getX() - 6.0f);
             cb.setWidth(cb.getWidth() + 12.0f);
 
-            g.setColour(juce::Colour(0xff111827));
+            g.setColour(gui::AppTheme::SurfaceCard);
             g.fillRoundedRectangle(cb, 6.0f);
-            g.setColour(juce::Colour(0xff1e293b));
+            g.setColour(gui::AppTheme::BorderCard);
             g.drawRoundedRectangle(cb, 6.0f, 1.0f);
         }
     }

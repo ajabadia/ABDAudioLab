@@ -257,16 +257,28 @@ bool SoundIdProfilingRunView::keyPressed(const juce::KeyPress& key)
 
 void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot)
 {
-    isProfilingActive_ = (snapshot.sessionStatus == session::ProfilingSessionStatus::Profiling ||
-                          snapshot.sessionStatus == session::ProfilingSessionStatus::Paused);
-    isPaused_ = (snapshot.sessionStatus == session::ProfilingSessionStatus::Paused);
+    // =========================================================================
+    // PERF: Build lightweight presentation state and compare with last known.
+    // Only update labels, progress and repaint when something meaningful changed.
+    // Audio capture / session progress / clipping are driven by the audio thread
+    // and are independent of this visual refresh rate.
+    // =========================================================================
+    ProfilingRunPresentationState newState;
+    newState.pointIndex         = snapshot.progress.currentTrial;
+    newState.pointCount         = snapshot.progress.totalTrials;
+    newState.sessionStatus      = snapshot.sessionStatus;
+    newState.stage              = snapshot.progress.trialStage;
+    newState.rmsDb              = static_cast<float>(snapshot.observation.lastRmsDb);
+    newState.peakDb             = static_cast<float>(snapshot.observation.lastPeakDb);
+    newState.clippingDetected   = snapshot.observation.clippingDetected;
+    newState.stimulusDescription = snapshot.progress.currentStimulusDescription;
+    newState.operatorPromptText  = snapshot.progress.operatorPromptText;
+    newState.excitationMode      = snapshot.progress.activeExcitationMode;
+    newState.activeNoteNumber    = snapshot.progress.activeNoteNumber;
+    newState.activeVelocity      = snapshot.progress.activeVelocity;
+    newState.isPaused            = (snapshot.sessionStatus == session::ProfilingSessionStatus::Paused);
 
-    pauseButton_.setButtonText(isPaused_ ? juce::String::fromUTF8(u8"Reanudar") : juce::String::fromUTF8(u8"Pausar"));
-
-    currentProgress_ = snapshot.progress.progressPercent / 100.0;
-    progressBar_.repaint();
-
-    // Update Preflight with warnings if any
+    // Build warning string (same logic as before, but only for comparison)
     std::string warningText;
     if (snapshot.audit.requiresResetBeforeEachTrial)
         warningText += "[!] Phase reset required before each trial. ";
@@ -276,7 +288,57 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
         warningText += snapshot.audit.operationalWarnings.front();
     else if (!snapshot.audit.humanGuidance.empty())
         warningText += snapshot.audit.humanGuidance;
+    newState.warning = warningText;
 
+    // --- Dirty check ---
+    // !hasPresentationState_ ensures the very first snapshot always triggers a full UI update,
+    // preventing a zero-initialized lastPresentationState_ from falsely matching an initial snapshot
+    // where many fields are also at their defaults (e.g. pointIndex=0, rmsDb=-120, stage=Armed).
+    const float rmsDeltaThreshold = 0.5f;
+    const bool changed =
+        !hasPresentationState_                                                  ||
+        newState.pointIndex       != lastPresentationState_.pointIndex         ||
+        newState.pointCount       != lastPresentationState_.pointCount         ||
+        newState.sessionStatus    != lastPresentationState_.sessionStatus      ||
+        newState.stage            != lastPresentationState_.stage              ||
+        std::abs(newState.rmsDb  -  lastPresentationState_.rmsDb)  > rmsDeltaThreshold ||
+        std::abs(newState.peakDb -  lastPresentationState_.peakDb) > rmsDeltaThreshold ||
+        newState.clippingDetected != lastPresentationState_.clippingDetected   ||
+        newState.warning          != lastPresentationState_.warning            ||
+        newState.stimulusDescription != lastPresentationState_.stimulusDescription ||
+        newState.operatorPromptText  != lastPresentationState_.operatorPromptText  ||
+        newState.excitationMode   != lastPresentationState_.excitationMode     ||
+        newState.activeNoteNumber != lastPresentationState_.activeNoteNumber   ||
+        newState.activeVelocity   != lastPresentationState_.activeVelocity     ||
+        newState.isPaused         != lastPresentationState_.isPaused;
+
+    if (!changed)
+        return;
+
+    lastPresentationState_ = newState;
+    hasPresentationState_  = true;
+
+#ifdef ABD_TESTING
+    ++testUpdateExecutedCount_;
+#endif
+
+    // =========================================================================
+    // From here: actual UI update — only executed when state changed.
+    // =========================================================================
+
+    isProfilingActive_ = (snapshot.sessionStatus == session::ProfilingSessionStatus::Profiling ||
+                          snapshot.sessionStatus == session::ProfilingSessionStatus::Paused);
+    isPaused_ = newState.isPaused;
+
+    pauseButton_.setButtonText(isPaused_ ? juce::String::fromUTF8(u8"Reanudar") : juce::String::fromUTF8(u8"Pausar"));
+
+    currentProgress_ = snapshot.progress.progressPercent / 100.0;
+    progressBar_.repaint();
+#ifdef ABD_TESTING
+    ++testRepaintCount_;
+#endif
+
+    // Update Preflight with warnings if any
     if (!warningText.empty())
     {
         preflightWarningsLabel_.setText("Measurement Notice: " + juce::String(warningText), juce::dontSendNotification);
@@ -287,43 +349,54 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
         preflightWarningsLabel_.setText("Acoustic Condition: Target verified and armed for execution", juce::dontSendNotification);
         preflightWarningsLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     }
+#ifdef ABD_TESTING
+    ++testSetTextCount_;
+#endif
 
     // Update Monitor with real-time telemetry
-    std::ostringstream ssCounter;
-    ssCounter << "Point: " << snapshot.progress.currentTrial << " of "
-              << snapshot.progress.totalTrials << " ("
-              << static_cast<int>(snapshot.progress.progressPercent) << "%)";
-    trialCounterLabel_.setText(ssCounter.str(), juce::dontSendNotification);
+    {
+        juce::String counterText = "Point: " + juce::String(newState.pointIndex)
+                                 + " of " + juce::String(newState.pointCount)
+                                 + " (" + juce::String(static_cast<int>(snapshot.progress.progressPercent)) + "%)";
+        trialCounterLabel_.setText(counterText, juce::dontSendNotification);
+#ifdef ABD_TESTING
+        ++testSetTextCount_;
+#endif
+    }
 
-    std::ostringstream ssTime;
-    ssTime << "Elapsed: " << static_cast<int>(snapshot.progress.elapsedTimeSec)
-           << " s | Remaining: " << static_cast<int>(snapshot.progress.estimatedRemainingSec) << " s";
-    timeRemainingLabel_.setText(ssTime.str(), juce::dontSendNotification);
+    {
+        juce::String timeText = "Elapsed: " + juce::String(static_cast<int>(snapshot.progress.elapsedTimeSec))
+                              + " s | Remaining: " + juce::String(static_cast<int>(snapshot.progress.estimatedRemainingSec)) + " s";
+        timeRemainingLabel_.setText(timeText, juce::dontSendNotification);
+#ifdef ABD_TESTING
+        ++testSetTextCount_;
+#endif
+    }
 
     if (isPaused_)
-    {
         stimulusLabel_.setText("Stimulus: [PAUSED] Trial waiting", juce::dontSendNotification);
-    }
-    else if (!snapshot.progress.currentStimulusDescription.empty())
-    {
-        stimulusLabel_.setText("Stimulus: " + juce::String(snapshot.progress.currentStimulusDescription), juce::dontSendNotification);
-    }
+    else if (!newState.stimulusDescription.empty())
+        stimulusLabel_.setText("Stimulus: " + juce::String(newState.stimulusDescription), juce::dontSendNotification);
     else
-    {
         stimulusLabel_.setText("Stimulus: Awaiting start", juce::dontSendNotification);
+#ifdef ABD_TESTING
+    ++testSetTextCount_;
+#endif
+
+    {
+        juce::String healthText = "Signal Health: RMS " + juce::String(newState.rmsDb, 1)
+                                + " dBFS | Peak " + juce::String(newState.peakDb, 1) + " dBFS"
+                                + (newState.clippingDetected ? " [CLIPPING DETECTED]" : " [OK]");
+        signalHealthLabel_.setText(healthText, juce::dontSendNotification);
+#ifdef ABD_TESTING
+        ++testSetTextCount_;
+#endif
     }
 
-    std::ostringstream ssHealth;
-    ssHealth << "Signal Health: RMS " << std::fixed << std::setprecision(1) << snapshot.observation.lastRmsDb
-             << " dBFS | Peak " << snapshot.observation.lastPeakDb << " dBFS"
-             << (snapshot.observation.clippingDetected ? " [CLIPPING DETECTED]" : " [OK]");
-    signalHealthLabel_.setText(ssHealth.str(), juce::dontSendNotification);
-    if (snapshot.observation.clippingDetected)
-        signalHealthLabel_.setColour(juce::Label::textColourId, SoundIdTheme::accentRed);
-    else
-        signalHealthLabel_.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
+    signalHealthLabel_.setColour(juce::Label::textColourId,
+        newState.clippingDetected ? SoundIdTheme::accentRed : SoundIdTheme::textSecondary);
 
-    // Proyección de ciclo de vida del ensayo y modo de excitación
+    // Trial lifecycle stage badge and operator card
     trialStageBadge_.setText("Stage: " + juce::String(session::trialLifecycleStageToString(snapshot.progress.trialStage)), juce::dontSendNotification);
     if (snapshot.progress.trialStage == session::TrialLifecycleStage::WaitingForOperator)
     {
@@ -378,7 +451,6 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
         midiTrialDetailsLabel_.setVisible(false);
     }
 
-    // El botón Iniciar se habilita si está listo o si se desea reiniciar medición desde un estado previo
     bool canStart = (snapshot.sessionStatus == session::ProfilingSessionStatus::ReadyToProfile ||
                      snapshot.sessionStatus == session::ProfilingSessionStatus::TargetSelected ||
                      snapshot.sessionStatus == session::ProfilingSessionStatus::EvaluationLoadedForReview ||
@@ -390,9 +462,14 @@ void SoundIdProfilingRunView::updateFromSnapshot(const session::ProfilingSession
     pauseButton_.setEnabled(isProfilingActive_);
     cancelButton_.setEnabled(isProfilingActive_);
 
+    // Only call resized()+repaint() when structural layout may change
+    // (operator card visibility changed) or on genuine state transitions.
     resized();
     repaint();
 }
+
+
+
 
 void SoundIdProfilingRunView::paint(juce::Graphics& g)
 {

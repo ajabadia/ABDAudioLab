@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementTemporalCurveComponent.h"
+#include "../AppTheme.h"
 #include <cmath>
 #include <iomanip>
 #include <sstream>
@@ -16,6 +17,11 @@ namespace abdaudiolab::gui::measurement
 MeasurementTemporalCurveComponent::MeasurementTemporalCurveComponent()
 {
     setRepaintsOnMouseActivity(true);
+}
+
+void MeasurementTemporalCurveComponent::updateTheme()
+{
+    repaint();
 }
 
 void MeasurementTemporalCurveComponent::setCurve(const abdaudiolab::measurement::MeasurementCurve& curve,
@@ -42,22 +48,15 @@ void MeasurementTemporalCurveComponent::resized()
 
 void MeasurementTemporalCurveComponent::recalculateBounds()
 {
-    auto b = getLocalBounds().toFloat();
-    const float padLeft = 55.0f;
-    const float padRight = 20.0f;
-    const float padTop = 25.0f;
-    const float padBottom = 30.0f;
-
-    plotBounds_ = juce::Rectangle<float>(padLeft, padTop,
-                                         std::max(10.0f, b.getWidth() - padLeft - padRight),
-                                         std::max(10.0f, b.getHeight() - padTop - padBottom));
+    auto b = getLocalBounds().toFloat().reduced(12.0f);
+    plotBounds_ = b.withTrimmedLeft(45.0f).withTrimmedBottom(25.0f);
 
     if (!curve_.x.empty())
     {
-        minTimeMs_ = curve_.x.front();
+        minTimeMs_ = 0.0;
         maxTimeMs_ = curve_.x.back();
-        if (std::abs(maxTimeMs_ - minTimeMs_) < 1e-4)
-            maxTimeMs_ = minTimeMs_ + 100.0;
+        if (maxTimeMs_ <= minTimeMs_)
+            maxTimeMs_ = 100.0;
     }
     else
     {
@@ -69,17 +68,18 @@ void MeasurementTemporalCurveComponent::recalculateBounds()
 void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
 
-    // 1. Dark container background
-    g.setColour(juce::Colour(0xff0f172a));
+    // 1. Container background & border
+    g.setColour(AppTheme::SurfaceCard);
     g.fillRoundedRectangle(bounds, 8.0f);
-    g.setColour(juce::Colour(0xff1e293b));
+    g.setColour(AppTheme::BorderCard);
     g.drawRoundedRectangle(bounds, 8.0f, 1.0f);
 
     // 2. Empty state
     if (curve_.x.empty())
     {
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextMuted);
         g.setFont(juce::Font(13.0f));
         g.drawText("No temporal envelope curve data available", bounds, juce::Justification::centred, false);
         return;
@@ -94,10 +94,10 @@ void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
         float normY = static_cast<float>((maxDb_ - db) / (maxDb_ - minDb_));
         float y = plotBounds_.getY() + normY * plotBounds_.getHeight();
 
-        g.setColour(juce::Colour(0xff1e293b));
+        g.setColour(AppTheme::BorderSubtle);
         g.drawLine(plotBounds_.getX(), y, plotBounds_.getRight(), y, 1.0f);
 
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextSecondary);
         juce::String label = juce::String(static_cast<int>(db)) + " dB";
         g.drawText(label, 0, static_cast<int>(y - 7.0f), static_cast<int>(plotBounds_.getX() - 6.0f), 14,
                    juce::Justification::centredRight, false);
@@ -111,11 +111,12 @@ void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
         float x = plotBounds_.getX() + factor * plotBounds_.getWidth();
         double t = minTimeMs_ + factor * (maxTimeMs_ - minTimeMs_);
 
-        g.setColour(juce::Colour(0xff1e293b));
+        g.setColour(AppTheme::BorderSubtle);
+        const float timeDashes[2] = { 3.0f, 3.0f };
         g.drawDashedLine(juce::Line<float>(x, plotBounds_.getY(), x, plotBounds_.getBottom()),
-                         new float[2]{ 3.0f, 3.0f }, 2, 1.0f);
+                         timeDashes, 2, 1.0f);
 
-        g.setColour(juce::Colour(0xff64748b));
+        g.setColour(AppTheme::TextSecondary);
         juce::String tLabel = juce::String(static_cast<int>(std::round(t))) + " ms";
         g.drawText(tLabel, static_cast<int>(x - 30.0f), static_cast<int>(plotBounds_.getBottom() + 4.0f),
                    60, 18, juce::Justification::centred, false);
@@ -150,13 +151,14 @@ void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
     areaPath.closeSubPath();
 
     // Area gradient
-    juce::ColourGradient grad(juce::Colour(0x500284c7), plotBounds_.getX(), plotBounds_.getY(),
-                              juce::Colour(0x020284c7), plotBounds_.getX(), plotBounds_.getBottom(), false);
+    const juce::Colour baseCurveCol = isDark ? juce::Colour(0xff38bdf8) : juce::Colour(0xff0284c7);
+    juce::ColourGradient grad(baseCurveCol.withAlpha(isDark ? 0.35f : 0.20f), plotBounds_.getX(), plotBounds_.getY(),
+                              baseCurveCol.withAlpha(0.01f), plotBounds_.getX(), plotBounds_.getBottom(), false);
     g.setGradientFill(grad);
     g.fillPath(areaPath);
 
     // Stroke line
-    g.setColour(juce::Colour(0xff38bdf8));
+    g.setColour(baseCurveCol);
     g.strokePath(curvePath, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // 6. Unverified / Corrupt watermark warning
@@ -175,11 +177,12 @@ void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
     // 7. Interactive crosshair tooltip
     if (isHovering_ && plotBounds_.contains(mousePos_))
     {
-        g.setColour(juce::Colour(0x6038bdf8));
+        g.setColour(baseCurveCol.withAlpha(0.6f));
+        const float crossDashes[2] = { 2.0f, 2.0f };
         g.drawDashedLine(juce::Line<float>(plotBounds_.getX(), mousePos_.getY(), plotBounds_.getRight(), mousePos_.getY()),
-                         new float[2]{ 2.0f, 2.0f }, 2, 1.0f);
+                         crossDashes, 2, 1.0f);
         g.drawDashedLine(juce::Line<float>(mousePos_.getX(), plotBounds_.getY(), mousePos_.getX(), plotBounds_.getBottom()),
-                         new float[2]{ 2.0f, 2.0f }, 2, 1.0f);
+                         crossDashes, 2, 1.0f);
 
         // Compute current hover values
         double hoverT = minTimeMs_ + (mousePos_.getX() - plotBounds_.getX()) / plotBounds_.getWidth() * (maxTimeMs_ - minTimeMs_);
@@ -198,12 +201,12 @@ void MeasurementTemporalCurveComponent::paint(juce::Graphics& g)
                               static_cast<int>(plotBounds_.getBottom() - tipH));
 
         juce::Rectangle<int> tipBox(tipX, tipY, tipW, tipH);
-        g.setColour(juce::Colour(0xf01e293b));
+        g.setColour(AppTheme::PillBlackBg);
         g.fillRoundedRectangle(tipBox.toFloat(), 4.0f);
-        g.setColour(juce::Colour(0xff38bdf8));
+        g.setColour(AppTheme::BorderSubtle);
         g.drawRoundedRectangle(tipBox.toFloat(), 4.0f, 1.0f);
         g.setFont(juce::Font(10.5f, juce::Font::bold));
-        g.setColour(juce::Colour(0xfff1f5f9));
+        g.setColour(juce::Colours::white);
         g.drawText(tip, tipBox, juce::Justification::centred, false);
     }
 }

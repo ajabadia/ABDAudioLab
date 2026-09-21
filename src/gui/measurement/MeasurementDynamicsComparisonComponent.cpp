@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementDynamicsComparisonComponent.h"
+#include "../AppTheme.h"
 #include <cmath>
 
 namespace abdaudiolab::gui::measurement
@@ -25,7 +26,32 @@ MeasurementDynamicsComparisonComponent::MeasurementDynamicsComparisonComponent(M
     btnModeRolloff_.onClick = [this]() { setComparisonMode(DynamicsComparisonMode::TimbreRolloffHz); };
 
     btnModeLevel_.setToggleState(true, juce::dontSendNotification);
+    updateTheme();
     rebuildCurves();
+}
+
+void MeasurementDynamicsComparisonComponent::updateTheme()
+{
+    auto styleModeBtn = [](juce::TextButton& btn) {
+        if (btn.getToggleState())
+        {
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::PillBlackBg);
+            btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+            btn.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        }
+        else
+        {
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceSubtle);
+            btn.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextSecondary);
+            btn.setColour(juce::TextButton::textColourOnId, gui::AppTheme::TextSecondary);
+        }
+    };
+
+    styleModeBtn(btnModeLevel_);
+    styleModeBtn(btnModeCentroid_);
+    styleModeBtn(btnModeRolloff_);
+
+    repaint();
 }
 
 MeasurementDynamicsComparisonComponent::~MeasurementDynamicsComparisonComponent()
@@ -43,6 +69,7 @@ void MeasurementDynamicsComparisonComponent::setComparisonMode(DynamicsCompariso
     btnModeCentroid_.setToggleState(mode_ == DynamicsComparisonMode::TimbreCentroidHz, juce::dontSendNotification);
     btnModeRolloff_.setToggleState(mode_ == DynamicsComparisonMode::TimbreRolloffHz, juce::dontSendNotification);
 
+    updateTheme();
     rebuildCurves();
     repaint();
 }
@@ -134,7 +161,7 @@ void MeasurementDynamicsComparisonComponent::rebuildCurves()
 
 void MeasurementDynamicsComparisonComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff121217));
+    g.fillAll(gui::AppTheme::BackgroundApp);
 
     auto bounds = getLocalBounds().toFloat().reduced(6.0f);
     bounds.removeFromTop(32.0f); // Top toolbar space
@@ -162,9 +189,9 @@ void MeasurementDynamicsComparisonComponent::paint(juce::Graphics& g)
 
 void MeasurementDynamicsComparisonComponent::renderGridAndAxes(juce::Graphics& g, juce::Rectangle<float> plotArea, double minY, double maxY)
 {
-    g.setColour(juce::Colour(0xff1f1f2a));
+    g.setColour(gui::AppTheme::SurfaceCard);
     g.fillRect(plotArea);
-    g.setColour(juce::Colour(0xff2d2d3d));
+    g.setColour(gui::AppTheme::BorderCard);
     g.drawRect(plotArea, 1.0f);
 
     // X Grid: Velocities [0, 32, 64, 96, 127]
@@ -174,10 +201,10 @@ void MeasurementDynamicsComparisonComponent::renderGridAndAxes(juce::Graphics& g
     for (int v : velTicks)
     {
         const float x = plotArea.getX() + (static_cast<float>(v) / 127.0f) * plotArea.getWidth();
-        g.setColour(juce::Colour(0xff252535));
+        g.setColour(gui::AppTheme::BorderSubtle);
         g.drawVerticalLine(static_cast<int>(x), plotArea.getY(), plotArea.getBottom());
 
-        g.setColour(juce::Colour(0xff8e8ea0));
+        g.setColour(gui::AppTheme::TextSecondary);
         g.drawText(juce::String(v), static_cast<int>(x - 15.0f), static_cast<int>(plotArea.getBottom() + 2.0f), 30, 14, juce::Justification::centred);
     }
 
@@ -189,10 +216,10 @@ void MeasurementDynamicsComparisonComponent::renderGridAndAxes(juce::Graphics& g
         const float y = plotArea.getBottom() - frac * plotArea.getHeight();
         const double val = minY + frac * (maxY - minY);
 
-        g.setColour(juce::Colour(0xff252535));
+        g.setColour(gui::AppTheme::BorderSubtle);
         g.drawHorizontalLine(static_cast<int>(y), plotArea.getX(), plotArea.getRight());
 
-        g.setColour(juce::Colour(0xff8e8ea0));
+        g.setColour(gui::AppTheme::TextSecondary);
         juce::String yStr = (mode_ == DynamicsComparisonMode::LevelDbfs)
                             ? juce::String(val, 0) + " dB"
                             : juce::String(val / 1000.0, 1) + " kHz";
@@ -204,6 +231,8 @@ void MeasurementDynamicsComparisonComponent::renderSeries(juce::Graphics& g, con
 {
     if (series.points.empty())
         return;
+
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
 
     juce::Path p;
     std::vector<juce::Point<float>> screenPoints;
@@ -257,8 +286,8 @@ void MeasurementDynamicsComparisonComponent::renderSeries(juce::Graphics& g, con
     // Accessible geometric markers at points
     for (const auto& pt : screenPoints)
     {
-        // Dark outline for contrast >= 4.5:1
-        g.setColour(juce::Colour(0xff0c0c10));
+        // Outline for high contrast in both dark and light modes
+        g.setColour(isDark ? juce::Colour(0xff0c0c10) : juce::Colour(0xffffffff));
         g.fillEllipse(pt.x - 5.0f, pt.y - 5.0f, 10.0f, 10.0f);
 
         g.setColour(series.entry.traceColour);
@@ -287,13 +316,13 @@ void MeasurementDynamicsComparisonComponent::renderSeries(juce::Graphics& g, con
 
 void MeasurementDynamicsComparisonComponent::renderLegend(juce::Graphics& g, juce::Rectangle<float> legendArea)
 {
-    g.setColour(juce::Colour(0xff181820));
+    g.setColour(gui::AppTheme::SurfaceCard);
     g.fillRoundedRectangle(legendArea, 4.0f);
-    g.setColour(juce::Colour(0xff2d2d3d));
+    g.setColour(gui::AppTheme::BorderCard);
     g.drawRoundedRectangle(legendArea, 4.0f, 1.0f);
 
     auto area = legendArea.reduced(8.0f);
-    g.setColour(juce::Colours::white);
+    g.setColour(gui::AppTheme::TextPrimary);
     g.setFont(juce::FontOptions(12.0f));
     g.drawText("Series Comparadas", area.removeFromTop(18.0f), juce::Justification::centredLeft);
 
@@ -315,12 +344,12 @@ void MeasurementDynamicsComparisonComponent::renderLegend(juce::Graphics& g, juc
 
         if (!s.isCompatible)
         {
-            g.setColour(juce::Colour(0xffff5252));
+            g.setColour(gui::AppTheme::AccentError);
             name += " (Excluido)";
         }
         else
         {
-            g.setColour(juce::Colour(0xffe0e0e0));
+            g.setColour(gui::AppTheme::TextPrimary);
         }
 
         g.setFont(juce::FontOptions(11.0f));
@@ -342,9 +371,9 @@ void MeasurementDynamicsComparisonComponent::renderHoverTooltip(juce::Graphics& 
     if (ty < 5.0f)
         ty = hoverPos_.y + 15.0f;
 
-    g.setColour(juce::Colour(0xee141418));
+    g.setColour(gui::AppTheme::PillBlackBg);
     g.fillRoundedRectangle(tx, ty, static_cast<float>(w), static_cast<float>(h), 3.0f);
-    g.setColour(juce::Colour(0xff00d4ff));
+    g.setColour(gui::AppTheme::BorderSubtle);
     g.drawRoundedRectangle(tx, ty, static_cast<float>(w), static_cast<float>(h), 3.0f, 1.0f);
 
     g.setColour(juce::Colours::white);
