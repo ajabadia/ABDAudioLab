@@ -669,6 +669,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PlotterRenderers.cpp
     src/tests/test_OperatorCardsContainerComponent.cpp
     src/tests/test_MatrixResolutionTableComponent.cpp
+    src/tests/test_HardwareRoutingComponents.cpp
     src/tests/test_CasioCzVirtualController.cpp
     src/tests/test_CasioCzProfilingRecipes.cpp
     src/tests/test_CasioCzLiveScanSuite.cpp

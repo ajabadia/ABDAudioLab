@@ -23,7 +23,7 @@ namespace abdaudiolab::gui
  * - Clean, spacious cards matching Sonarworks SoundID Reference / Measure aesthetics.
  * - Dynamic data driven purely from HardwareContract metadata (not hardcoded).
  * - "Libre" option always available for custom unprofiled hardware.
- * - Non-destructive: Co-exists seamlessly alongside HardwareRoutingPanel.
+ * - Canonical authority: This selector is the single source of truth for hardware selection (HardwareRoutingPanel removed in HITO-07 Phase 4B).
  */
 class SoundIdHardwareCatalogSelector : public juce::Component
 {

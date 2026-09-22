@@ -459,37 +459,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         openAudioABVerificationModal();
     };
 
-    hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
-    hardwareRoutingPanel.onHardwareSelected = [this](const juce::String& hwId, const juce::String& funcId) {
-        onHardwareSelected(hwId, funcId);
-        drawer.setSelectedHardwareId(hwId);
-    };
-    hardwareRoutingPanel.onContinueToCalibration = [this] {
-        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::HardwareRouting,
-                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
-        if (sidebarStepper.getStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback) == gui::SoundIdSidebarStepper::StepStatus::Completed)
-        {
-            workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
-        }
-        else
-        {
-            workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
-        }
-    };
-    hardwareRoutingPanel.onOpenAdvancedSettings = [this] {
-        drawer.openHardwareDrawer();
-    };
-    hardwareRoutingPanel.onOpenTopologyModal = [this] {
-        toggleStudioTopologyWindow();
-    };
-    hardwareRoutingPanel.onAutoDetectRequested = [this] {
-        drawer.triggerAutoDetect();
-    };
-    hardwareRoutingPanel.onNewFlowRequested = [this] {
-        if (drawer.onNewFlowRequested != nullptr)
-            drawer.onNewFlowRequested();
-    };
-    addChildComponent(hardwareRoutingPanel);
 
     nativeCalibrationPanel.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
         float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
@@ -583,13 +552,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             // Clear physical hardware selection to prevent residues
             drawer.clearSelectedHardware();
             sessionCoordinator.setHardwareContext(&hardwareManager, {});
-            hardwareRoutingPanel.setHardwareLocked(false);
             auto desc = pluginUiCoordinator.getActivePluginDescription();
-            hardwareRoutingPanel.setPluginVirtualRouting(
-                desc.name.isNotEmpty() ? desc.name : "Plugin Virtual",
-                desc.pluginFormatName.isNotEmpty() ? desc.pluginFormatName : "VST3",
-                desc.isInstrument
-            );
 
             // Update standard test button state
             suiteList.setStandardTestAvailable(pluginUiCoordinator.hasActivePlugin());
@@ -616,7 +579,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         drawer.setSelectedHardwareId(hwId);
         onHardwareSelected(hwId, funcId);
-        hardwareRoutingPanel.setSelectedHardware(hwId, funcId);
         gui::SoundIdSidebarStepper::SessionSummaryInfo summary = sidebarStepper.getSessionSummary();
         summary.hardwareName = hwId;
         sidebarStepper.setSessionSummary(summary);
@@ -647,7 +609,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         {
             catalogSelector.setHardwareLocked(true);
             drawer.setHardwareLocked(true);
-            hardwareRoutingPanel.setHardwareLocked(true);
 
             if (pluginUiCoordinator.hasActivePlugin())
             {
@@ -669,7 +630,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 drawer.setSelectedHardwareId(hwId);
                 catalogSelector.setHardwareLocked(true);
                 drawer.setHardwareLocked(true);
-                hardwareRoutingPanel.setHardwareLocked(true);
             }
         }
 
@@ -1305,10 +1265,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     // 7. Slide-In Drawer & Modals (Overlays on top)
     drawer.onHardwareSelected = [this](const juce::String& hwId, const juce::String& funcId) {
         onHardwareSelected(hwId, funcId);
-        hardwareRoutingPanel.setSelectedHardware(hwId, funcId);
     };
     drawer.onDeviceDetected = [this](const juce::String& displayName) {
-        hardwareRoutingPanel.setAutoDetectButtonText("✓ " + displayName);
         manualPromptLabel.setText("Dispositivo detectado vía MIDI: " + displayName, juce::dontSendNotification);
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(4000);
@@ -1483,7 +1441,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Ensure initial state starts completely clean with no hardware selected
     drawer.clearSelectedHardware();
-    hardwareRoutingPanel.resetSelection();
     catalogSelector.resetSelection();
     mainHeader.clearHardware();
     suiteList.setStandardTestAvailable(false);
@@ -3357,8 +3314,6 @@ void MainContentComponent::performNewSessionReset()
     totalPointsMeasured = 0;
     drawer.setHardwareLocked(false);
     drawer.clearSelectedHardware();
-    hardwareRoutingPanel.setHardwareLocked(false);
-    hardwareRoutingPanel.resetSelection();
     catalogSelector.setHardwareLocked(false);
     catalogSelector.resetSelection();
     mainHeader.clearHardware();
@@ -3514,8 +3469,6 @@ void MainContentComponent::updatePluginIdentity(const gui::PluginIdentityPresent
     drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
     drawer.setSelectedHardwareId(identity.legalTargetId);
 
-    hardwareRoutingPanel.setContracts(hardwareManager.getContractRegistry().getContracts());
-    hardwareRoutingPanel.setPluginVirtualRouting(identity.pluginName, identity.formatName, identity.isInstrument);
 
     suiteList.setStandardTestAvailable(true);
 

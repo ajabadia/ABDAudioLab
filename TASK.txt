@@ -1,20 +1,32 @@
-Objetivo:
-HITO-04 (Resultados ricos, exportacion unificada y guardas metrologicas) CERTIFICADO Y CERRADO.
-- HITO-04A: Guardas ExportReadiness (ST-69 a ST-85 PASS, 185 aserciones).
-- HITO-04B: I/O Transaccional y Staging (ST-86 a ST-98 PASS, 157 aserciones).
-- HITO-04C: Integracion Mode-to-Export (ST-99 a ST-107 PASS, 99 aserciones).
-- SMOKE UI: 6 comprobaciones de UI Paso 4 (2 casos PASS, 69 aserciones).
-- Suite global: 605/605 PASS (228.536 aserciones, exit code 0).
-- Codigo de produccion modificado: 0 archivos.
-- Documentacion: ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md, ROADMAP.md y HANDOFF.md actualizados.
+﻿HITO-07: COMPLETADO Y CERTIFICADO
 
-HITO-05 EN PROGRESO: Arnés E2E Hermético.
-- Arnés test_E2E_HermeticWorkflows.cpp: 4 escenarios implementados:
-  - E2E-01: VST3 Digital Offline (Paso 0..4) - escrito.
-  - E2E-02: Hardware MIDI Automatizado (Paso 0..4) - escrito.
-  - E2E-03: Hardware Analogico Manual (Paso 0..4) - escrito.
-  - E2E-04: Target Hibrido MIDI+Panel (Paso 0..4) - escrito.
-- CMakeLists.txt: test_E2E_HermeticWorkflows.cpp añadido a suite ABDAudioLab_Tests.
-- Pendiente: compilacion + ejecucion de suite [e2e] para verificar PASS.
-- Pendiente: actualizacion de MATRIX_HITO_05_E2E.md con estados PASS/FAIL.
-- Pendiente: acta ACTA_HITO_05_E2E_HERMETIC.md tras certificacion.
+Estado final de HITO-07-SAFE-REMOVAL-DUPLICATES (2026-09-22):
+- Fase 1 (SoundIdGuidedWorkflowContainer): PASS — Build #394
+- Fase 2 (LoopbackCalibrationModal): PASS — Build #395
+- Fase 3 (stepperBar instancia visual): PASS — Build #398
+- Fase 4A (hardwareRoutingPanel fallbacks): PASS — Build #401
+- Fase 4B (HardwareRoutingPanel fisica): PASS — Build #402
+- Fase 5 (verificacion global): COMPLETADA
+
+Suite final (Build #402):
+  615 casos | 607 PASS | 8 SKIPPED justificados | 0 FAIL
+  228.818/228.818 assertions PASS
+
+Componentes legacy retirados:
+  SoundIdGuidedWorkflowContainer: archivos eliminados
+  LoopbackCalibrationModal: archivos eliminados
+  WorkflowStepperBar: instancia GUI eliminada; archivos conservados (tipos normativos)
+  HardwareRoutingPanel: archivos eliminados
+
+Autoridad canonica consolidada:
+  WorkflowNavigationController + SoundIdSidebarStepper (navegacion workflow)
+  CanonicalCalibrationState (calibracion)
+  CanonicalWorkflowTypes.h (tipos normativos)
+  SoundIdHardwareCatalogSelector (seleccion hardware)
+  resolveCanonicalTarget() + ProfilingSessionController (resolucion de target)
+  ReportExportService -> ProductionPackage (exportacion)
+
+Acta emitida: ACTA_HITO_07_SAFE_REMOVAL.md
+Documentacion actualizada: MATRIX_HITO_07_DEPENDENCIES.md, PLAN_HITO_07_SAFE_REMOVAL.md, ROADMAP.md
+
+Proximo hito: HITO-08 — Documentacion operativa de release y sellado de version v2.1.0

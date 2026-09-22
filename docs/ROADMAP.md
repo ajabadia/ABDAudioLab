@@ -1,8 +1,8 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión:** 2.1.0  
-**Fecha de Actualización:** 2026-09-20  
+**Versión:** 2.2.0  
+**Fecha de Actualización:** 2026-09-22  
 
 ---
 
@@ -25,7 +25,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 4. **`ProfilingSessionController` es la autoridad de sesión y snapshots**: Publica snapshots inmutables con secuencia monotónica hacia la UI.
 5. **Cero máquinas de estado paralelas**: Se prohíben bucles de ejecución o despachadores duplicados en vistas.
 6. **Instrumentación de audio siempre visible**: Vúmetros y analizador FFT permanecen visibles en todos los pasos.
-7. **No eliminación de código legacy sin auditoría**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` se conservan inactivos hasta auditar la ausencia total de consumidores.
+7. **Arquitectura limpia post-HITO-07**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` han sido retirados. La autoridad canónica reside en `WorkflowNavigationController`, `SoundIdSidebarStepper`, `CanonicalCalibrationState`, `SoundIdHardwareCatalogSelector` y `resolveCanonicalTarget()`.
 8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (564 test cases preservados).
 9. **Convergencia absoluta en exportación e informe único**: Todos los modos (Automated MIDI/VST3 y Manual Operator/Analógico) convergen en un modelo común de evaluación (`EvaluationSnapshot`) y en una única cadena de exportación (`ReportExportService` -> `ProductionPackage`); las diferencias metrológicas se expresan exclusivamente mediante metadatos y secciones condicionales en el manifest e informe unificado, nunca mediante exportadores paralelos.
 
@@ -45,7 +45,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-04 (Padre)** | Resultados ricos, exportación unificada y guardas metrológicas en Paso 4 | **Certificado** | [ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md) + ST-69–ST-107 + Smoke UI |
 | **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Certificado** | [ACTA_HITO_05_E2E_HERMETIC.md](ACTA_HITO_05_E2E_HERMETIC.md) + ST-E2E-01–04 |
 | **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Certificado** | [ACTA_HITO_06_TELEMETRY_SEAMS.md](ACTA_HITO_06_TELEMETRY_SEAMS.md) + SEAM-04–05 |
-| **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Listo para inicio** | Planificación tras Hito 6 |
+| **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Certificado** | [ACTA_HITO_07_SAFE_REMOVAL.md](ACTA_HITO_07_SAFE_REMOVAL.md) — 615 casos / 228.818 assertions / Build #402 |
 | **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Pendiente** | Cierre de ciclo |
 
 ---
