@@ -1,4 +1,4 @@
-﻿# Plan de Retirada Segura de Duplicados y Componentes Legacy — HITO-07
+# Plan de Retirada Segura de Duplicados y Componentes Legacy — HITO-07
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware & Synth Profiler)  
 **Documento:** PLAN_HITO_07_SAFE_REMOVAL.md  
@@ -52,10 +52,10 @@ El **HITO-07** tuvo como propósito la retirada limpia, segura y progresiva de l
 - Archivos eliminados, include/miembro/callbacks retirados, CMake limpio.
 - 615 casos (607 PASS / 8 SKIP / 0 FAIL / 228.818 assertions).
 
-### Fase 5: Verificación Global y Certificación — COMPLETADA
+### Fase 5: Verificación Global y Certificación — PASS
 - `git diff --check` → exit 0 (warnings de CRLF normalization únicamente).
 - 0 referencias funcionales legacy en `src/` y `CMakeLists.txt`.
-- Smoke visual: pendiente de confirmación por el usuario.
+- Smoke visual: **PASS (13/13)** — verificado interactivamente el 2026-09-22.
 - Acta emitida: `ACTA_HITO_07_SAFE_REMOVAL.md`.
 
 ---

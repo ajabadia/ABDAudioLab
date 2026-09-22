@@ -1,4 +1,4 @@
-﻿HITO-07: COMPLETADO Y CERTIFICADO
+HITO-07: COMPLETADO Y CERTIFICADO
 
 Estado final de HITO-07-SAFE-REMOVAL-DUPLICATES (2026-09-22):
 - Fase 1 (SoundIdGuidedWorkflowContainer): PASS — Build #394
@@ -6,7 +6,7 @@ Estado final de HITO-07-SAFE-REMOVAL-DUPLICATES (2026-09-22):
 - Fase 3 (stepperBar instancia visual): PASS — Build #398
 - Fase 4A (hardwareRoutingPanel fallbacks): PASS — Build #401
 - Fase 4B (HardwareRoutingPanel fisica): PASS — Build #402
-- Fase 5 (verificacion global): COMPLETADA
+- Fase 5 (verificacion global + smoke visual): PASS — Smoke 13/13 PASS (2026-09-22)
 
 Suite final (Build #402):
   615 casos | 607 PASS | 8 SKIPPED justificados | 0 FAIL

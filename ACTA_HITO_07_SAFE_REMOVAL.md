@@ -1,9 +1,9 @@
-﻿# Acta de Certificación — HITO-07: Retirada Segura de Duplicados y Componentes Legacy
+# Acta de Certificación — HITO-07: Retirada Segura de Duplicados y Componentes Legacy
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware & Synth Profiler)  
 **Documento:** ACTA_HITO_07_SAFE_REMOVAL.md  
 **Hito:** HITO-07-SAFE-REMOVAL-DUPLICATES  
-**Fecha de Certificación:** 2026-09-22  
+**Fecha de Certificación:** 2026-09-22T19:48+02:00 (CEST)  
 **Build de Certificación:** Release #402  
 **Estado:** CERTIFICADO Y CERRADO
 
@@ -112,20 +112,32 @@ assertions: 228818 | 228818 passed
 
 ---
 
-## 8. Pendiente de Validación Manual
+## 8. Validación Manual — Smoke Visual Interactivo
 
-El siguiente paso antes de emitir la certificación definitiva es el **smoke visual interactivo** sobre `ABDAudioLab.exe`:
+**Build ejecutada:** Release #402  
+**Fecha/hora:** 2026-09-22T19:48 CEST  
+**Target utilizado:** DemoSynth [Instrument] (Playful Tones) + Dexed [Instrument] (Digital Suburban)  
+**Resultado global:** ✅ **PASS (13/13)**
 
-| Acción | Criterio de PASS |
-|---|---|
-| Arranque de la aplicación | Sin errores ni crashes |
-| Selección de target hardware / plugin | Actualización correcta en UI y `ProfilingSessionController` |
-| Calibración de loopback | Flujo en `NativeCalibrationPanel` (Paso 2) funcional |
-| Inicio de sesión de perfilado | Vúmetros y FFT activos |
-| Exportación sin target seleccionado | Rechazada con `ERR_NO_TARGET_SELECTED` |
-| Exportación con target válido | Paquete de producción generado correctamente |
-| Cambio de tema visual | Sin artefactos |
-| Cierre de la aplicación | Sin leaks ni crashes |
+| # | Punto | Resultado | Método de Verificación |
+|---|-------|-----------|----------------------|
+| 1 | Arranque limpio sin crashes | ✅ PASS | Captura visual |
+| 2 | Ventana principal sin artefactos | ✅ PASS | Captura visual |
+| 3 | Estado inicial (*Uncalibrated*, sin target previo) | ✅ PASS | Captura visual |
+| 4 | Selección de synth (Dexed + DemoSynth) | ✅ PASS | Captura visual |
+| 5 | Calibración / Skip | ✅ PASS | Captura visual (*Recipe Verified: Ready for profiling*) |
+| 6 | Cabecera actualizada con target activo | ✅ PASS | Captura visual |
+| 7 | Perfilado completo | ✅ PASS | Captura visual (*HARDWARE CERTIFICATION COMPLETED*, *SOUNDID VERIFIED*) |
+| 8 | Vúmetros activos durante perfilado | ✅ PASS | Confirmación verbal del operador |
+| 9 | FFT activa | ✅ PASS | Captura visual (curva de respuesta en frecuencia) |
+| 10 | Exportación con target válido | ✅ PASS | Captura visual (HTML report + carpeta exports) |
+| 11 | `ERR_NO_TARGET_SELECTED` sin target | ✅ PASS | Test unitario (`test_ReportExportUiController.cpp:341`) — ruta defensiva no alcanzable en flujo normal de UI |
+| 12 | Cambio claro/oscuro | ✅ PASS | Captura visual (tema claro y oscuro verificados) |
+| 13 | Cierre limpio | ✅ PASS | Confirmación verbal del operador |
+
+### Observación No Bloqueante
+
+Se identificaron **problemas de contraste en modo oscuro** (textos poco legibles sobre fondos oscuros en varios paneles). Estos problemas son **preexistentes** — no fueron introducidos por HITO-07 y no afectan a la funcionalidad. Registrado como candidato a mejora en hitos futuros de UI/UX.
 
 ---
 

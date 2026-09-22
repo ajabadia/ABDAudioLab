@@ -1,7 +1,8 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión:** 2.2.0  
+**Versión del Documento:** 2.2.0  
+**Versión del Producto (Objetivo):** v2.1.0 (pendiente de sellado en HITO-08)  
 **Fecha de Actualización:** 2026-09-22  
 
 ---
@@ -202,10 +203,11 @@ graph LR
 - **HITO-04 (Resultados y Exportación)**: Integración de `SoundIdResultsSummaryView`, persistencia y guardas. (**Certificado** - Build 380)
 - **HITO-05 (Certificación End-to-End)**: Ejecución y verificación del ciclo 0 $\to$ 4 sobre los 4 arquetipos con suite hermética `test_E2E_HermeticWorkflows.cpp`. (**Certificado** - Build 384)
 - **HITO-06 (Migración de Telemetría Legacy)**: Migración limpia y purga de dependencias a widgets legacy (`loopbackModal`, `stepperBar`) en `MainContentTelemetrySource` hacia `CanonicalCalibrationState` y `CanonicalWorkflowState`. (**Certificado** - Build 391/392)
-- **HITO-07 (Limpieza de Componentes Duplicados)**:
-  - Retirada segura de `loopbackModal`, `stepperBar`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` tras certificar 0 dependencias. (**Siguiente en Roadmap**)
-- **HITO-08 (Release y Documentación)**:
-  - QA operativo, manual de usuario y cierre de versión.
+- **HITO-07 (Limpieza de Componentes Duplicados)**: **CERTIFICADO Y CERRADO** (Build #402, Smoke 13/13 PASS)
+  - Retirada segura de `loopbackModal`, `stepperBar`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer`. 615 casos / 228.818 assertions / 0 FAIL.
+  - Observación: problemas de contraste en modo oscuro (preexistentes, no bloqueantes).
+- **HITO-08 (Release y Documentación)**: **PENDIENTE DE PLANIFICACIÓN**
+  - QA operativo, release notes (incluyendo known issues), sellado de versión del producto **v2.1.0** y criterios de publicación.
 
 ---
 
