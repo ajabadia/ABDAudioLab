@@ -7,6 +7,12 @@
 
 ---
 
+## Convenciones de Estado
+
+- Las métricas históricas se conservan con el recuento vigente en el momento de cada hito. No se actualizan retroactivamente.
+- **Baseline actual de release (Build #402, post-HITO-07):** 615 test cases · 607 PASS · 8 SKIPPED · 0 FAIL · 228.818 assertions.
+- La **versión del documento** (2.2.0) y la **versión del producto** (v2.1.0) son independientes. La versión del documento se incrementa con cada actualización del roadmap; la versión del producto se sella formalmente en HITO-08.
+
 ---
 
 ## 1. Misión y Alcance
@@ -27,7 +33,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 5. **Cero máquinas de estado paralelas**: Se prohíben bucles de ejecución o despachadores duplicados en vistas.
 6. **Instrumentación de audio siempre visible**: Vúmetros y analizador FFT permanecen visibles en todos los pasos.
 7. **Arquitectura limpia post-HITO-07**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` han sido retirados. La autoridad canónica reside en `WorkflowNavigationController`, `SoundIdSidebarStepper`, `CanonicalCalibrationState`, `SoundIdHardwareCatalogSelector` y `resolveCanonicalTarget()`.
-8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (564 test cases preservados).
+8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (615 test cases en baseline actual, Build #402).
 9. **Convergencia absoluta en exportación e informe único**: Todos los modos (Automated MIDI/VST3 y Manual Operator/Analógico) convergen en un modelo común de evaluación (`EvaluationSnapshot`) y en una única cadena de exportación (`ReportExportService` -> `ProductionPackage`); las diferencias metrológicas se expresan exclusivamente mediante metadatos y secciones condicionales en el manifest e informe unificado, nunca mediante exportadores paralelos.
 
 ---
@@ -69,7 +75,7 @@ Integrar los resultados ricos del modo guiado en el Paso 4 (*Export & Report*) s
 - Rediseño del motor DSP o del secuenciador.
 - Nuevos esquemas de persistencia paralelos a `.abdlabtest` / `ExperimentStorage`.
 - Creación de nuevas máquinas de estado.
-- Eliminación de código legacy (`stepperBar`, `loopbackModal`, etc.).
+- Eliminación de código legacy (`stepperBar`, `loopbackModal`, etc.). *(Completado posteriormente en HITO-07.)*
 - Modificaciones en la adquisición o excitación MIDI.
 
 ---
@@ -107,7 +113,7 @@ graph TD
 - [ ] Exportación bloqueada con diálogo explicativo si el modelo es inválido, rechazado, inconcluso o adulterado.
 - [ ] Exportación bloqueada si el target cambió tras la medición o la calibración pertenece a otro target.
 - [ ] Persistencia de sesión `.abdlabtest` conserva y recarga la evaluación.
-- [ ] Suite de pruebas ST-69 a ST-85 en verde (100% PASS) y suite previa de 564 tests intacta.
+- [ ] Suite de pruebas ST-69 a ST-85 en verde (100% PASS) y suite previa de 564 tests intacta. *(564: baseline vigente en el momento de HITO-04; la baseline actual es 615, Build #402.)*
 
 ---
 
@@ -168,10 +174,10 @@ Antes de iniciar la codificación de HITO-04, se auditó el grafo de llamadas de
 | **DR-02** | Clasificadores de capacidades | `ProfilingSessionController::selectTarget()` centraliza la derivación de `TargetControlMode` y requisitos de calibración según `target.kind` y flags reales. | **Confirmado Único** |
 | **DR-03** | Exportación directa desde vista | `SoundIdResultsSummaryView` no escribe archivos en disco directamente; invoca `commands_.exportModel("cpp", "")`. | **Confirmado Único** |
 | **DR-04** | Calibración paralela | `NativeCalibrationPanel` despacha a `ProfilingSessionController` (`updateAudioCalibration`, `verifyDigitalCalibration`) y escucha `onSessionSnapshotUpdated`. | **Confirmado Único** |
-| **DR-05** | Callbacks espejo del stepper | `stepperBar` está oculto (`setVisible(false)`). Sin embargo, `loopbackModal` invoca `stepperBar.onStepSelected(RunSession)` como remanente legacy. | **Duplicado Aparente (Legacy Controlado)** |
+| **DR-05** | Callbacks espejo del stepper | `stepperBar` está oculto (`setVisible(false)`). Sin embargo, `loopbackModal` invoca `stepperBar.onStepSelected(RunSession)` como remanente legacy. | **Resuelto**: componentes eliminados en HITO-07 |
 | **DR-06** | Persistencia de recetas | `SessionSerializer` gestiona el estado de sesión interactivo y `ExperimentStorage` los artefactos científicos inmutables. Roles complementarios sin colisión. | **Compatible** |
 | **DR-07** | Alcance de rollback | `TargetViewIntegrationMode::Disabled` desactiva únicamente la vista `TargetView` en Paso 1, no el selector ni el backend. Documentado explícitamente. | **Aclarado** |
-| **DR-08** | Componentes legacy activos | `loopbackModal` y `stepperBar` son leídos por `MainContentTelemetrySource`. No deben eliminarse hasta HITO-06. | **Pospuesto Deliberadamente** |
+| **DR-08** | Componentes legacy activos | `loopbackModal` y `stepperBar` son leídos por `MainContentTelemetrySource`. No deben eliminarse hasta HITO-06. | **Resuelto**: telemetría migrada en HITO-06; componentes eliminados en HITO-07 |
 | **DR-09** | Generación monotónica | `controllerGeneration` incrementa ante cambio de target, invalidando recetas y renovando `sessionId`. | **Confirmado Único** |
 | **DR-10** | Silenciamiento de emergencia | Silenciamiento dual centralizado en `ProfilingHardwareDispatcher` (CC 123 + CC 120 en 16 canales). | **Confirmado Único** |
 
@@ -215,7 +221,7 @@ graph LR
 
 Un hito o fase se considera terminado únicamente cuando:
 1. **Código y Compilación**: Compila en Release x64 con MSVC sin advertencias críticas ni dependencias circulares.
-2. **Suite de Tests**: 100% de tests unitarios y de integración en verde, sin regresiones sobre los 564 tests base.
+2. **Suite de Tests**: 100% de tests unitarios y de integración en verde, sin regresiones sobre los 615 tests base (baseline actual, Build #402).
 3. **Seams Verificados**: Contratos entre productor y consumidor demostrados mediante tests específicos.
 4. **Persistencia Validada**: Comprobada la serialización y deserialización sin pérdida de datos (*round-trip*).
 5. **Acta de Certificación**: Documentada en `docs/audits/ACTA_HITO_XX_*.md` con resultados empíricos reproducibles.
@@ -375,8 +381,9 @@ Un hito o fase se considera terminado únicamente cuando:
 - [x] **1.7.10: Banda de Tolerancia Sombreada ($\pm 1\sigma$ *Accuracy Corridor*) y Leyenda Conmutable** (COMPLETADO)
   - Renderizado de polígono translúcido entre $(\mu - \sigma)$ y $(\mu + \sigma)$ en `SoundIdCurvePlotter` mostrando la dispersión térmica y tolerancia analógica (`accentPurpleFill`).
   - Barra superior de leyenda conmutable interactiva con botones píldora ON/OFF en la cabecera: Medición Real (`Mean (μ)` en verde), Tolerancia (`±1σ Band` en violeta) y Nodos de Medición / Distorsión (`THD %` en ámbar).
-- [/] **1.7.11: Multi-Format Plugin Host & Benchmark Engine (*VST3, AU, CLAP, LV2*)** (EN PROGRESO v2.0.0 - Ver Fase 10)
+- [/] **1.7.11: Multi-Format Plugin Host & Benchmark Engine (*VST3, AU, CLAP, LV2*)** (PARCIALMENTE COMPLETADO — Ver Fase 10)
   - *Evolución arquitectónica*: Expansión del laboratorio a entorno híbrido Hardware/Software. Permite medir, perfilar y comparar A/B plugins virtuales en cualquier formato soportado por JUCE (VST3 en Windows/macOS/Linux, AudioUnit en macOS, y wrappers CLAP/LV2) bajo los mismos estándares científicos que el hardware físico.
+  - **Estado**: La capacidad base VST3 está completada y validada (Fase 10, v2.0.0). Los formatos AU/CLAP/LV2 son experimentales y **no forman parte del scope de HITO-08 ni del release v2.1.0**.
 - [x] **1.7.12: Campo de Observaciones / Metadatos de Laboratorio en Manifiesto** (COMPLETADO)
   - Inclusión de metadatos de entorno y observaciones (`operatorNotes`, `ambientTemperatureC`, `warmupTimeMinutes`) en `SessionManifest`, `ProfilingMetadata` y `SessionManifestData`.
   - Persistencia completa en contenedor `.abdlabtest`, serialización JSON y reporte de telemetría / manifiesto de laboratorio (`laboratoryConditions`).
@@ -385,7 +392,7 @@ Un hito o fase se considera terminado únicamente cuando:
 - [x] **1.7.13: Automatización de Sintetizadores via MIDI (*MIDI Synth Automation & Audio Routing*)** (COMPLETADO v1.1.0)
   - Protocolo de automatización MIDI musical en `IHardwareController`, `MidiCcController` y `core::HardwareManager` (`sendNoteOn`, `sendNoteOff`, `sendAllNotesOff`, `sendPitchBend`, `sendChannelPressure`).
   - Modo autónomo en `ProfilingSequencer`: detección de sintetizadores (`isAutonomousSynth`), parada del generador de audio DAC, excitación musical por Note-On, sostenido de compuerta (`noteGateDurationSec`), Note-Off y salvaguarda de corte de pánico `AllNotesOff` al terminar o abortar.
-  - Diagrama de cableado inteligente en `HardwareRoutingPanel` con indicación visual de control MIDI (`Salida MIDI / USB (Host) ➔ Entrada MIDI (Sintetizador)`) en azul de acento en lugar de inyección DAC.
+  - Diagrama de cableado inteligente en `HardwareRoutingPanel` *(componente retirado en HITO-07; funcionalidad absorbida por `WiringDiagramComponent`)* con indicación visual de control MIDI (`Salida MIDI / USB (Host) ➔ Entrada MIDI (Sintetizador)`) en azul de acento en lugar de inyección DAC.
   - Suite de pruebas unitarias automatizadas en `src/tests/test_MidiSynthAutomation.cpp` (3/3 pruebas Catch2 validadas; 39/39 pruebas CTest en verde).
 - [x] **1.7.16: Configuración Dinámica de Presets por Contrato según Objetivo de Medición (*Targeted Measurement Presets & Sysex Bulk Patches*)** (COMPLETADO v1.2.0)
   - **Arquitectura e Integración en Contratos**: Declaración de recetas `MeasurementPresetRecipe` en contratos de hardware JSON (`MeasurementPresetRecipe`, `NoteSequenceEvent`).
@@ -1022,7 +1029,7 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
 * [x] **3. Inversión del Flujo SoundID (Paso 1: Calibrate Loopback ➔ Paso 2: Hardware & Routing)**: (COMPLETADO v2.0.2)
   - Paso 1 = *1. Calibrate Loopback* (Verificación previa de la linealidad/latencia del interfaz DAC/ADC antes de conectar el target físico).
   - Paso 2 = *2. Hardware & Routing* (Selección del dispositivo bajo prueba y conexión a la interfaz ya calibrada).
-  - `SoundIdSidebarStepper`, `WorkflowStepperBar`, `NativeCalibrationPanel`, `HardwareRoutingPanel` y `WorkflowNavigationController` sincronizados con el nuevo flujo hacia el Paso 3 (*Run Session*).
+  - `SoundIdSidebarStepper`, `WorkflowStepperBar` *(instancia visual retirada en HITO-07)*, `NativeCalibrationPanel`, `HardwareRoutingPanel` *(retirado en HITO-07)* y `WorkflowNavigationController` sincronizados con el nuevo flujo hacia el Paso 3 (*Run Session*).
 * [x] **4. Redistribución del Selector de Hardware (`SoundIdHardwareCatalogSelector`)**: (COMPLETADO v2.0.2)
   - Fila superior: Botones *Auto-Detect (MIDI / USB)* y *Dispositivo No Listado (Modo Libre)* aclarado.
   - Fila superior de controles: 4 desplegables horizontales continuos (*1. Tipo* | *2. Marca* | *3. Modelo* | *4. Objetivo / Bloque*).
@@ -1752,17 +1759,5 @@ Esta fase unifica el flujo interactivo de 5 pasos en el banco de trabajo (`Lab B
   - El cambio de target marca la receta anterior como `RecipeStatus::IncompatibleWithTarget`, resetea el estado de calibración, cancela sesiones en curso e incrementa monotónicamente `controllerGeneration`.
 - [x] **Pruebas de Regresión y Certificación**:
   - ST-47 a ST-68 añadidas y verificadas (18 test cases, 65 aserciones, 100% PASS).
-  - Suite global completa: **564/564 test cases superados (228.169 aserciones, 0 fallos)**.
+  - Suite global completa: **564/564 test cases superados (228.169 aserciones, 0 fallos)** *(baseline pre-HITO-04; la baseline actual es 615/228.818, Build #402)*.
   - Certificado formalmente en `docs/audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md`.
-
-
-
-
-
-
-
-
-
-
-
-
