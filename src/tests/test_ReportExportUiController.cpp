@@ -322,4 +322,22 @@ TEST_CASE("ReportExportUiController: Characterization & Lifetime Contracts", "[R
 
         SUCCEED("Host and controller cleanly destroyed without access violation.");
     }
+
+    SECTION("Export is rejected with error message when target (hardwareId) is missing")
+    {
+        auto noTargetDir = getTempControllerDir("no_target_test");
+        MockReportExportHost noTargetHost;
+        noTargetHost.snapshotToReturn.exportDirectory = noTargetDir;
+        noTargetHost.snapshotToReturn.baseFileName = "NoTargetTest";
+        noTargetHost.snapshotToReturn.manifest.hardwareId = ""; // Empty target
+        noTargetHost.snapshotToReturn.manifest.activeFunctionId = "";
+        noTargetHost.snapshotToReturn.measuredPoints = makeTestPoints(4);
+
+        ReportExportUiController controller(noTargetHost);
+        bool started = controller.requestExportProductionPackage();
+        REQUIRE_FALSE(started);
+        REQUIRE(noTargetHost.messageBoxCalls == 1);
+        REQUIRE(noTargetHost.lastMessageBoxTitle == "Export Error");
+        REQUIRE(noTargetHost.lastMessageBoxMessage.contains("ERR_NO_TARGET_SELECTED"));
+    }
 }

@@ -9,7 +9,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <functional>
+#include <map>
 
+#include "CanonicalWorkflowState.h"
 #include "../soundid/SoundIdSidebarStepper.h"
 #include "../soundid/SoundIdHardwareCatalogSelector.h"
 #include "../drawers/DrawerSetupTab.h"
@@ -67,6 +69,10 @@ public:
     [[nodiscard]] Step getCurrentStep() const noexcept { return currentStep; }
 
     void setStepStatus(Step step, StepStatus status);
+    [[nodiscard]] StepStatus getStepStatus(Step step) const;
+    [[nodiscard]] bool isCalibrationSkipped() const noexcept { return canonicalWorkflowState.isCalibrationSkipped; }
+    [[nodiscard]] const CanonicalWorkflowState& getCanonicalWorkflowState() const noexcept { return canonicalWorkflowState; }
+
     void setStepLocked(Step step, bool locked);
 
     void resetToNewSession();
@@ -82,6 +88,8 @@ public:
 
 private:
     Step currentStep { Step::HardwareRouting };
+    CanonicalWorkflowState canonicalWorkflowState;
+    std::map<Step, StepStatus> stepStatuses;
 
     SoundIdSidebarStepper& sidebarStepper;
     DrawerSetupTab& setupTab;

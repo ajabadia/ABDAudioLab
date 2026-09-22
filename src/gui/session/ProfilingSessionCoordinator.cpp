@@ -2,6 +2,17 @@
 #include "synth/OutOfProcessVst3LifecycleAdapter.h"
 #include <cmath>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <objbase.h>
+#endif
+
 namespace abdaudiolab::gui::session
 {
 
@@ -142,6 +153,32 @@ void ProfilingSessionCoordinator::waitForWorkerToStop(int timeoutMs)
     {
         waitForThreadToExit(timeoutMs);
     }
+#if defined(_WIN32)
+    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
+    {
+        if (mm->isThisTheMessageThread())
+        {
+            MSG msg;
+            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+            {
+                if (msg.message == WM_QUIT)
+                    break;
+                if (msg.hwnd == nullptr || IsWindow(msg.hwnd))
+                {
+                    __try
+                    {
+                        TranslateMessage(&msg);
+                        DispatchMessage(&msg);
+                    }
+                    __except (EXCEPTION_EXECUTE_HANDLER)
+                    {
+                        // Safely discard exceptions from stale windows of unloaded in-process DLLs (e.g. VST3 plugins)
+                    }
+                }
+            }
+        }
+    }
+#endif
 }
 
 void ProfilingSessionCoordinator::publishSnapshot(CoordinatorState state, double progress, int trial, int total,
@@ -175,6 +212,16 @@ void ProfilingSessionCoordinator::publishSnapshot(CoordinatorState state, double
 
 void ProfilingSessionCoordinator::run()
 {
+#if defined(_WIN32)
+    // COM initialization for this background worker thread (required when hosting VST3 plugins in-process on Windows)
+    struct ScopedComWorkerInit
+    {
+        HRESULT hr;
+        ScopedComWorkerInit()  { hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED); }
+        ~ScopedComWorkerInit() { if (SUCCEEDED(hr)) CoUninitialize(); }
+    } workerComInit;
+#endif
+
     auto token = aliveToken_;
     uint64_t runId = currentRunId_.load(std::memory_order_acquire);
     uint64_t gen = sessionGeneration_.load(std::memory_order_acquire);

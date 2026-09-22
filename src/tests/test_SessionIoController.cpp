@@ -18,6 +18,9 @@ TEST_CASE("SessionIoController: Session Persistence and Lifecycle Characterizati
     gui::ConfirmationModalDialog confirmModal;
 
     gui::SessionIoController controller(sessionManager, reportManager, exportPanel, confirmModal);
+#ifdef ABD_TESTING
+    reportManager.saveFileChooserOverride = [](const juce::String&) { return juce::File(); };
+#endif
 
     juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
                              .getChildFile("ABDAudioLab_SessionIoTest_" + juce::String(juce::Random::getSystemRandom().nextInt(100000)));
@@ -251,11 +254,10 @@ TEST_CASE("SessionIoController: Session Persistence and Lifecycle Characterizati
             REQUIRE(exitCalled);
         }
 
-        // 3. Save (Primary) with invalid active file does NOT exit
+        // 3. Save (Primary) without active file when save dialog is cancelled does NOT exit
         {
             sessionManager.setDirty(true);
-            juce::File invalidFile("Z:/non_existent_folder_xyz/never.abdlabtest");
-            sessionManager.setActiveSessionFile(invalidFile);
+            sessionManager.setActiveSessionFile(juce::File());
 
             bool exitCalled = false;
             controller.confirmAndExit(nullptr, [&]() {

@@ -75,6 +75,13 @@ bool ReportExportUiController::launchExportAsync(exporting::ReportExportOptions 
         return false;
     }
 
+    if (snapshot.manifest.hardwareId.empty())
+    {
+        inProgress.store(false);
+        host.showMessageBox("Export Error", "Cannot export report: ERR_NO_TARGET_SELECTED (No active target selected).", true);
+        return false;
+    }
+
     // 2. Generate unique execution token
     uint64_t nextRunId = sharedState->currentRunId.fetch_add(1) + 1;
     ExportExecutionToken token{ nextRunId };

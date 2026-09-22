@@ -47,6 +47,8 @@ struct TelemetrySnapshot
     int bufferSizeSamples { 0 };
 
     int activeMidiNoteNumber { -1 };
+    // Real-time DSP Safety Note: activeMidiNoteName is formatted exclusively on the JUCE Message Thread
+    // during UI polling. It is NEVER written, formatted, or allocated from the real-time audio thread.
     juce::String activeMidiNoteName { "No MIDI note" };
 
     int currentTrial { 0 };
@@ -54,6 +56,8 @@ struct TelemetrySnapshot
     float progressPercent { 0.0f };
 
     float lastPluginOutputRmsDb { -120.0f };
+    // Real-time DSP Safety Note: stimulusDescription is populated exclusively on the JUCE Message Thread.
+    // It is NEVER written, formatted, or allocated from the real-time audio thread.
     std::string stimulusDescription;
     int sessionStateCode { 0 }; // 0: ReadyToProfile, 1: Profiling, 2: Paused, 3: Completed, 4: Cancelled
 

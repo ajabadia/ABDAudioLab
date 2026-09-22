@@ -440,8 +440,6 @@ target_sources(ABDAudioLab
         src/gui/InfoDrawer.cpp
         src/gui/AboutModalDialog.h
         src/gui/AboutModalDialog.cpp
-        src/gui/LoopbackCalibrationModal.h
-        src/gui/LoopbackCalibrationModal.cpp
         src/gui/HardwareWiringDiagramComponent.h
         src/gui/HardwareWiringDiagramComponent.cpp
         src/gui/HardwareDeviceDisplayCardComponent.h
@@ -477,8 +475,6 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdProfilingRunView.cpp
         src/gui/soundid/SoundIdResultsSummaryView.h
         src/gui/soundid/SoundIdResultsSummaryView.cpp
-        src/gui/soundid/SoundIdGuidedWorkflowContainer.h
-        src/gui/soundid/SoundIdGuidedWorkflowContainer.cpp
         src/gui/ScopeWebFloatingWindow.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.h
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.cpp
@@ -667,6 +663,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/controllers/PluginUiCoordinator.cpp
     src/tests/test_PluginUiCoordinator.cpp
     src/gui/controllers/DiagnosticsTelemetryPoller.cpp
+    src/gui/controllers/MainContentTelemetrySource.cpp
     src/tests/test_DiagnosticsTelemetryPoller.cpp
     src/tests/test_AudioABValidationRuns.cpp
     src/tests/test_Waterfall3DComponent.cpp
@@ -804,7 +801,6 @@ add_executable(ABDAudioLab_Tests
     src/gui/soundid/SoundIdExcitationConfigPanel.cpp
     src/gui/soundid/SoundIdProfilingRunView.cpp
     src/gui/soundid/SoundIdResultsSummaryView.cpp
-    src/gui/soundid/SoundIdGuidedWorkflowContainer.cpp
     src/audio/LabAudioEngine.cpp
     src/audio/LabAudioReceiver.cpp
     src/audio/LabStimulusGenerator.cpp

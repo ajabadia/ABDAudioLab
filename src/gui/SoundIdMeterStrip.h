@@ -40,6 +40,19 @@ public:
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+#ifdef ABD_TESTING
+    [[nodiscard]] int getTestTimerTickCount() const noexcept { return testTimerTickCount_; }
+    [[nodiscard]] int getTestRepaintSkippedCount() const noexcept { return testRepaintSkippedCount_; }
+    [[nodiscard]] int getTestRepaintExecutedCount() const noexcept { return testRepaintExecutedCount_; }
+    void resetTestCounters() noexcept
+    {
+        testTimerTickCount_ = 0;
+        testRepaintSkippedCount_ = 0;
+        testRepaintExecutedCount_ = 0;
+    }
+    void testTriggerTimerCallback() { timerCallback(); }
+#endif
+
 private:
     float currentInPeak { 0.0f }, currentInRms { 0.0f };
     float currentOutPeak { 0.0f }, currentOutRms { 0.0f };
@@ -53,6 +66,27 @@ private:
     bool isProfilingActive { false };
     bool isSessionPaused_  { false };
     float trimGainLinear { 1.0f };
+
+    struct PresentationState
+    {
+        float normInRms { -1.0f };
+        float normOutRms { -1.0f };
+        float normInHold { -1.0f };
+        float normOutHold { -1.0f };
+        float peakDb { -999.0f };
+        bool isProfilingActive { false };
+        bool isSessionPaused { false };
+    };
+
+    PresentationState lastRenderedState_;
+    bool hasRenderedState_ { false };
+    bool wasRestingState_ { false };
+
+#ifdef ABD_TESTING
+    int testTimerTickCount_ { 0 };
+    int testRepaintSkippedCount_ { 0 };
+    int testRepaintExecutedCount_ { 0 };
+#endif
 
     juce::Slider trimSlider;
     juce::ShapeButton masterButton { "Start/Stop", SoundIdTheme::accentGreen, SoundIdTheme::accentGreen, SoundIdTheme::accentGreen };

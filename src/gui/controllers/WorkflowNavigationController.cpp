@@ -64,7 +64,20 @@ void WorkflowNavigationController::setStep(Step targetStep)
 
 void WorkflowNavigationController::setStepStatus(Step step, StepStatus status)
 {
+    stepStatuses[step] = status;
     sidebarStepper.setStepStatus(step, status);
+    if (step == Step::CalibrateLoopback)
+    {
+        canonicalWorkflowState.isCalibrationSkipped = (status == StepStatus::Skipped);
+    }
+}
+
+WorkflowNavigationController::StepStatus WorkflowNavigationController::getStepStatus(Step step) const
+{
+    auto it = stepStatuses.find(step);
+    if (it != stepStatuses.end())
+        return it->second;
+    return sidebarStepper.getStepStatus(step);
 }
 
 void WorkflowNavigationController::setStepLocked(Step step, bool locked)
@@ -77,6 +90,14 @@ void WorkflowNavigationController::setStepLocked(Step step, bool locked)
 void WorkflowNavigationController::resetToNewSession()
 {
     catalogSelector.setHardwareLocked(false);
+    stepStatuses.clear();
+    stepStatuses[Step::SystemInfo] = StepStatus::Completed;
+    stepStatuses[Step::HardwareRouting] = StepStatus::Current;
+    stepStatuses[Step::CalibrateLoopback] = StepStatus::Pending;
+    stepStatuses[Step::RunSession] = StepStatus::Pending;
+    stepStatuses[Step::ExportReport] = StepStatus::Pending;
+    canonicalWorkflowState.isCalibrationSkipped = false;
+
     sidebarStepper.setStepStatus(Step::SystemInfo, StepStatus::Completed);
     sidebarStepper.setStepStatus(Step::HardwareRouting, StepStatus::Current);
     sidebarStepper.setStepStatus(Step::CalibrateLoopback, StepStatus::Pending);

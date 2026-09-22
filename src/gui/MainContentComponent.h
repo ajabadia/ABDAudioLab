@@ -24,7 +24,7 @@
 #include "gui/SoundIdTheme.h"
 #include "gui/TopHeaderWidgets.h"
 #include "gui/CenterSplitterBar.h"
-#include "gui/WorkflowStepperBar.h"
+#include "gui/controllers/CanonicalWorkflowTypes.h"
 #include "gui/soundid/SoundIdSidebarStepper.h"
 #include "gui/soundid/SoundIdHardwareCatalogSelector.h"
 #include "gui/ExportReportPanel.h"
@@ -34,7 +34,6 @@
 #include "gui/SlideInDrawer.h"
 #include "gui/InfoDrawer.h"
 #include "gui/AboutModalDialog.h"
-#include "gui/LoopbackCalibrationModal.h"
 #include "gui/HardwareRoutingPanel.h"
 #include "gui/NativeCalibrationPanel.h"
 #include "gui/HardwareSelectorPill.h"
@@ -56,6 +55,7 @@
 #include "gui/controllers/PluginUiCoordinator.h"
 #include "gui/controllers/IDiagnosticsTelemetryHost.h"
 #include "gui/controllers/DiagnosticsTelemetryPoller.h"
+#include "gui/controllers/CanonicalCalibrationState.h"
 #include "gui/controllers/MainContentTelemetrySource.h"
 #include "gui/AudioABVerificationModal.h"
 #include "gui/ScopeWebFloatingWindow.h"
@@ -70,7 +70,6 @@
 #include <MidiKeyboard/MidiKeyboardFloatingWindow.h>
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/UiStrings.h"
-#include "gui/soundid/SoundIdGuidedWorkflowContainer.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
 #include "gui/soundid/SoundIdTargetView.h"
 #include "gui/soundid/SoundIdExcitationConfigPanel.h"
@@ -217,7 +216,6 @@ private:
     // UI Widgets & Visualizers
     gui::MainHeaderController mainHeader;
 
-    gui::WorkflowStepperBar stepperBar;
     gui::SoundIdSidebarStepper sidebarStepper;
     gui::SoundIdHardwareCatalogSelector catalogSelector;
     gui::ExportReportPanel exportReportPanel;
@@ -237,7 +235,6 @@ private:
     gui::SoundIdSuiteList suiteList;
     gui::SlideInDrawer drawer;
     gui::AboutModalDialog aboutModal;
-    gui::LoopbackCalibrationModal loopbackModal { audioEngine };
     gui::HardwareRoutingPanel hardwareRoutingPanel;
     gui::NativeCalibrationPanel nativeCalibrationPanel { audioEngine };
     gui::DrawerSetupTab setupInfoTab;
@@ -255,7 +252,8 @@ private:
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
     gui::ReportExportUiController reportExportController { *this };
     gui::PluginUiCoordinator pluginUiCoordinator { pluginHostManager, pluginWindowController, audioEngine, hardwareManager, sessionCoordinator, *this };
-    gui::MainContentTelemetrySource telemetrySource { audioEngine, sessionCoordinator, suiteList, loopbackModal, stepperBar };
+    gui::CanonicalCalibrationState canonicalCalibrationState;
+    gui::MainContentTelemetrySource telemetrySource { audioEngine, sessionCoordinator, suiteList, &canonicalCalibrationState, &workflowNavController.getCanonicalWorkflowState() };
     gui::DiagnosticsTelemetryPoller diagnosticsTelemetryPoller { telemetrySource, *this };
 
     void animateSplitter();
@@ -275,13 +273,13 @@ private:
     juce::TextButton btnCancelAction;
     void updateGovernanceUi();
 
-    // Guided Workflow Architecture (Phase 16 & 20.7)
-    std::unique_ptr<gui::soundid::SoundIdGuidedWorkflowContainer> guidedWorkflowContainer;
+    // Profiling Views and Workflow State
     std::unique_ptr<gui::soundid::SoundIdProfilingRunView> profilingRunView;
     gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };
-    juce::TextButton btnWorkflowModeToggle;
     void setWorkflowMode(gui::session::UiWorkflowMode mode);
     void setupGuidedWorkflowInitialData();
+
+    [[nodiscard]] std::optional<gui::session::TargetSelectionState> resolveCanonicalTarget() const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };

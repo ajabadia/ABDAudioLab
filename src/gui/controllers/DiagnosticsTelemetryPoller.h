@@ -61,6 +61,7 @@ private:
     IDiagnosticsTelemetryHost& host;
     TelemetryPollerConfig pollerConfig;
     int tickCounter { 0 };
+    TelemetryCalibrationData cachedCalibration;
 };
 
 } // namespace abdaudiolab::gui

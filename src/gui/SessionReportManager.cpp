@@ -9,6 +9,16 @@ void SessionReportManager::triggerSaveSessionAsync(const juce::File& initialLoca
                                                    const juce::String& defaultName,
                                                    std::function<void(const juce::File& chosenFile)> onFileChosen)
 {
+#ifdef ABD_TESTING
+    if (saveFileChooserOverride)
+    {
+        auto file = saveFileChooserOverride(defaultName);
+        if (file != juce::File() && onFileChosen)
+            onFileChosen(file);
+        return;
+    }
+#endif
+
     juce::File startDir = initialLocation.isDirectory() ? initialLocation : lastExportDirectory;
     if (!startDir.isDirectory())
         startDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);

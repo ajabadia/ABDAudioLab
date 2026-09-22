@@ -144,6 +144,23 @@ juce::File InProcessVst3LifecycleAdapter::resolveVst3File(const gui::session::Ta
         return dexedWin;
     }
 
+    bool isDemo = tid.containsIgnoreCase("demosynth");
+    if (isDemo)
+    {
+        juce::File demoWin("C:\\Program Files\\Common Files\\VST3\\DemoSynth.vst3");
+        if (demoWin.exists())
+            return demoWin;
+        juce::File demoBuild("D:\\desarrollos\\ABDSynths\\_RESOURCES\\DemoSynthPlugin-main\\build\\DemoSynth_artefacts\\Release\\VST3\\DemoSynth.vst3");
+        if (demoBuild.exists())
+            return demoBuild;
+    }
+
+    // Comprobar si el plugin existe por nombre en C:\Program Files\Common Files\VST3\<name>.vst3
+    juce::File commonDir("C:\\Program Files\\Common Files\\VST3");
+    juce::File commonNamed = commonDir.getChildFile(tid.endsWithIgnoreCase(".vst3") ? tid : (tid + ".vst3"));
+    if (commonNamed.exists())
+        return commonNamed;
+
     if (isReference)
     {
         juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
@@ -169,6 +186,16 @@ juce::File InProcessVst3LifecycleAdapter::resolveVst3File(const gui::session::Ta
             .getChildFile("build/ReferenceSynth_artefacts/Release/VST3/ReferenceSynth.vst3");
         if (buildVst3.exists())
             return buildVst3;
+
+        juce::File buildVst3Lab = juce::File::getCurrentWorkingDirectory()
+            .getChildFile("build/ABDAudioLab_artefacts/Release/ReferenceSynth.vst3");
+        if (buildVst3Lab.exists())
+            return buildVst3Lab;
+
+        juce::File exeLab = exeDir.getParentDirectory()
+            .getChildFile("ABDAudioLab_artefacts/Release/ReferenceSynth.vst3");
+        if (exeLab.exists())
+            return exeLab;
 
         // 5. Raíz del proyecto si CWD es subdirectorio
         juce::File projectRoot = juce::File::getCurrentWorkingDirectory()

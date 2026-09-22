@@ -7,14 +7,24 @@ namespace abdaudiolab::gui {
 MainContentTelemetrySource::MainContentTelemetrySource(audio::LabAudioEngine& audioEngineRef,
                                                        SessionExecutionCoordinator& sessionCoordinatorRef,
                                                        SoundIdSuiteList& suiteListRef,
-                                                       LoopbackCalibrationModal& loopbackModalRef,
-                                                       WorkflowStepperBar& stepperBarRef)
+                                                       const CanonicalCalibrationState* canonicalCalibrationRef,
+                                                       const CanonicalWorkflowState* canonicalWorkflowRef)
     : audioEngine(audioEngineRef),
       sessionCoordinator(sessionCoordinatorRef),
       suiteList(suiteListRef),
-      loopbackModal(loopbackModalRef),
-      stepperBar(stepperBarRef)
+      canonicalCalibration(canonicalCalibrationRef),
+      canonicalWorkflow(canonicalWorkflowRef)
 {
+}
+
+void MainContentTelemetrySource::setCanonicalCalibrationState(const CanonicalCalibrationState* state) noexcept
+{
+    canonicalCalibration = state;
+}
+
+void MainContentTelemetrySource::setCanonicalWorkflowState(const CanonicalWorkflowState* state) noexcept
+{
+    canonicalWorkflow = state;
 }
 
 TelemetryAudioLevels MainContentTelemetrySource::readAudioLevels() const
@@ -68,11 +78,24 @@ TelemetryDeviceMetrics MainContentTelemetrySource::readDeviceMetrics() const
 TelemetryCalibrationData MainContentTelemetrySource::readCalibrationData() const
 {
     TelemetryCalibrationData data;
-    const auto& cal = loopbackModal.getCalibrationData();
-    data.isCalibrated = cal.isCalibrated;
-    data.sampleRate = cal.sampleRate;
-    data.isSkipped = (stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback)
-                      == gui::WorkflowStepperBar::StepStatus::Skipped);
+
+    // Calibration measurement parameters (SEAM-04: Canonical Calibration)
+    if (canonicalCalibration != nullptr)
+    {
+        data.isCalibrated = canonicalCalibration->isCalibrated;
+        data.sampleRate = canonicalCalibration->sampleRate;
+    }
+
+    // Workflow calibration skip status (SEAM-05: Canonical Workflow)
+    if (canonicalWorkflow != nullptr)
+    {
+        data.isSkipped = canonicalWorkflow->isCalibrationSkipped;
+    }
+    else if (canonicalCalibration != nullptr)
+    {
+        data.isSkipped = canonicalCalibration->isSkipped;
+    }
+
     return data;
 }
 

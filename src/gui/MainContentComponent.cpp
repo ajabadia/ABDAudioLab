@@ -368,7 +368,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         meterStrip.repaint();
         curvePlotter.updateTheme();
         suiteList.updateTheme();
-        stepperBar.repaint();
 
         if (scopeWebWindow != nullptr)
             scopeWebWindow->updateTheme();
@@ -500,10 +499,14 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(4000);
 
+        canonicalCalibrationState.isCalibrated = true;
+        canonicalCalibrationState.sampleRate = cal.sampleRate;
+        canonicalCalibrationState.isSkipped = false;
         mainHeader.updateCalibrationStatus(true, cal.sampleRate, false);
 
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
 
         auto summary = sidebarStepper.getSessionSummary();
         summary.loopbackCalibrated = true;
@@ -512,8 +515,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         resized();
     };
     nativeCalibrationPanel.onCalibrationSkipped = [this] {
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Skipped);
+        canonicalCalibrationState.isCalibrated = false;
+        canonicalCalibrationState.sampleRate = 0.0;
+        canonicalCalibrationState.isSkipped = true;
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Skipped);
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                            gui::SoundIdSidebarStepper::StepStatus::Skipped);
         mainHeader.updateCalibrationStatus(false, 0.0, true);
 
         manualPromptLabel.setText("Step 1 Bypassed: Operating with nominal gain (0 dB). Step 2 enabled!", juce::dontSendNotification);
@@ -528,37 +535,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     addChildComponent(nativeCalibrationPanel);
 
-    stepperBar.onStepSelected = [this](gui::WorkflowStepperBar::Step targetStep) {
-        switch (targetStep)
-        {
-            case gui::WorkflowStepperBar::Step::HardwareRouting:
-                break;
-
-            case gui::WorkflowStepperBar::Step::CalibrateLoopback:
-                nativeCalibrationPanel.resetToInitialState();
-                break;
-
-            case gui::WorkflowStepperBar::Step::RunSession:
-                manualPromptLabel.setText("Step 3: Profiling session ready. Click Play on the right panel to begin.", juce::dontSendNotification);
-                manualPromptLabel.setVisible(true);
-                hidePromptAfterDelay(4000);
-                break;
-
-            case gui::WorkflowStepperBar::Step::ExportReport:
-                updateExportReportMetrics();
-                break;
-        }
-        stepperBar.setCurrentStep(targetStep);
-        workflowNavController.setStep(static_cast<gui::WorkflowNavigationController::Step>(targetStep));
-        resized();
-    };
-    // Hide horizontal stepperBar in favor of collapsible sidebarStepper, maintaining full logic
-    stepperBar.setVisible(false);
-    addChildComponent(stepperBar);
-
     // Coordinate WorkflowNavigationController as the Single Source of Truth
     workflowNavController.onStepChanged = [this](gui::WorkflowNavigationController::Step targetStep) {
-        stepperBar.setCurrentStep(static_cast<gui::WorkflowStepperBar::Step>(targetStep));
         switch (targetStep)
         {
             case gui::WorkflowNavigationController::Step::SystemInfo:
@@ -1393,11 +1371,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                     if (result == gui::ConfirmationModalDialog::Result::Primary)
                     {
                         performNewSessionReset();
-                        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
-                        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Current);
-                        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Pending);
-                        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, gui::WorkflowStepperBar::StepStatus::Pending);
-                        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Pending);
                     }
                 }
             );
@@ -1405,47 +1378,12 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         else
         {
             performNewSessionReset();
-            stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::HardwareRouting);
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Current);
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Pending);
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, gui::WorkflowStepperBar::StepStatus::Pending);
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport, gui::WorkflowStepperBar::StepStatus::Pending);
         }
     };
     addChildComponent(drawer);
 
     initializeAutoUpdater();
 
-    loopbackModal.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
-        float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
-        juce::String sign = (gainDb >= 0.0f) ? "+" : "";
-        juce::String msg = "Loopback Calibration complete! Auto-trim applied: " + 
-                           sign + juce::String(gainDb, 1) + " dB (Target: -3.0 dBfs)";
-        manualPromptLabel.setText(msg, juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-        hidePromptAfterDelay(4000);
-
-        if (cal.isCalibrated)
-        {
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
-            stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::RunSession);
-        }
-    };
-
-    loopbackModal.onCalibrationSkipped = [this] {
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Skipped);
-        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::RunSession);
-        if (stepperBar.onStepSelected != nullptr)
-            stepperBar.onStepSelected(gui::WorkflowStepperBar::Step::RunSession);
-
-        mainHeader.updateCalibrationStatus(false, 0.0, true);
-
-        manualPromptLabel.setText("Paso 2 Omitido: Operando con ganancia nominal (0 dB). ¡Paso 3 y 4 habilitados!", juce::dontSendNotification);
-        manualPromptLabel.setVisible(true);
-        hidePromptAfterDelay(5000);
-        resized();
-    };
-    addChildComponent(loopbackModal);
     addChildComponent(aboutModal);
     addChildComponent(operatorStepModal);
     addChildComponent(confirmationModal);
@@ -1487,8 +1425,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     sessionCoordinator.onSessionFinished = [this](bool isPatching) {
         if (!isPatching)
         {
-            stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, gui::WorkflowStepperBar::StepStatus::Completed);
-            stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::ExportReport);
         }
         updateExportReportMetrics();
         sessionManager.triggerAutoSave(buildCurrentSessionManifest());
@@ -1569,10 +1505,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         }
     });
 
-    // Inicializar Contenedor del Flujo Guiado SoundID y Toggle de Modo (Fase 16 / 20.7)
-    guidedWorkflowContainer = std::make_unique<gui::soundid::SoundIdGuidedWorkflowContainer>(profilingSessionController);
-    addChildComponent(guidedWorkflowContainer.get());
-
     profilingRunView = std::make_unique<gui::soundid::SoundIdProfilingRunView>(profilingSessionController);
     profilingRunView->onStartClicked = [this] {
         startProfilingSession(false);
@@ -1584,8 +1516,6 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         stopProfilingSession();
     };
     addChildComponent(profilingRunView.get());
-
-    btnWorkflowModeToggle.setVisible(false);
 
     setupGuidedWorkflowInitialData();
 
@@ -1954,25 +1884,6 @@ void MainContentComponent::resized()
 
     bounds.removeFromTop(10);
 
-    // En modo guiado, el contenedor ocupa todo el canvas central
-    if (currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
-    {
-        if (guidedWorkflowContainer != nullptr)
-        {
-            guidedWorkflowContainer->setVisible(true);
-            guidedWorkflowContainer->setBounds(bounds);
-        }
-
-        // Slide-in Drawer & Modals fill full window bounds
-        drawer.setBounds(getLocalBounds());
-        aboutModal.setBounds(getLocalBounds());
-        confirmationModal.setBounds(getLocalBounds());
-        abVerificationModal.setBounds(getLocalBounds());
-        return;
-    }
-
-    if (guidedWorkflowContainer != nullptr)
-        guidedWorkflowContainer->setVisible(false);
 
     // 2. Left Collapsible Sidebar Stepper (SoundID Vertical Workflow Rail)
     int sidebarW = sidebarStepper.getDesiredWidth();
@@ -2130,20 +2041,30 @@ void MainContentComponent::applyTelemetrySnapshot(const gui::TelemetrySnapshot& 
 
         switch (snap.sessionStateCode)
         {
-            case 1: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Profiling; break;
-            case 2: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Paused; break;
-            case 3: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Completed; break;
-            case 4: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Cancelled; break;
-            default: profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::ReadyToProfile; break;
+            case 1:
+                profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Profiling;
+                profileSnap.progress.trialStage = gui::session::TrialLifecycleStage::Capturing;
+                break;
+            case 2:
+                profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Paused;
+                break;
+            case 3:
+                profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Completed;
+                profileSnap.progress.trialStage = gui::session::TrialLifecycleStage::Finished;
+                break;
+            case 4:
+                profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::Cancelled;
+                break;
+            default:
+                profileSnap.sessionStatus = gui::session::ProfilingSessionStatus::ReadyToProfile;
+                profileSnap.progress.trialStage = gui::session::TrialLifecycleStage::Armed;
+                break;
         }
 
         profilingRunView->updateFromSnapshot(profileSnap);
     }
 
-    if (guidedWorkflowContainer != nullptr && currentWorkflowMode == gui::session::UiWorkflowMode::Guided)
-    {
-        guidedWorkflowContainer->updateTelemetry(snap.sampleRate, snap.bufferSizeSamples, snap.cpuUsagePercent);
-    }
+
 }
 
 void MainContentComponent::onSessionSnapshotUpdated(const gui::session::ProfilingSessionSnapshot& snapshot)
@@ -2331,15 +2252,13 @@ void MainContentComponent::openMeasurementComparisonWindow()
 
 void MainContentComponent::toggleStudioTopologyWindow()
 {
-    juce::String hwId = drawer.getSelectedHardwareId();
-    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-
     abd::topology::TopologyTargetInfo target;
 
-    if (pluginUiCoordinator.hasActivePlugin())
+    const auto canonicalTarget = resolveCanonicalTarget();
+    if (canonicalTarget.has_value() && canonicalTarget->kind == gui::session::TargetKind::PluginVST3)
     {
         auto desc = pluginUiCoordinator.getActivePluginDescription();
-        juce::String pluginName = desc.name.isNotEmpty() ? desc.name : "Active VST3 Plugin";
+        juce::String pluginName = desc.name.isNotEmpty() ? desc.name : juce::String(canonicalTarget->targetName);
         target.name = pluginName;
         target.category = desc.isInstrument ? "VST3 Virtual Instrument" : "VST3 Virtual Effect";
         target.details = "Virtual VST3 | Internal Direct Bus (ITB)";
@@ -2347,9 +2266,9 @@ void MainContentComponent::toggleStudioTopologyWindow()
         target.hasMidi = true;
         target.isVirtualPlugin = true;
     }
-    else
+    else if (canonicalTarget.has_value())
     {
-        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        const auto* contract = hardwareManager.findContractById(canonicalTarget->targetId);
         if (contract != nullptr)
         {
             target.name = contract->displayName;
@@ -2493,9 +2412,8 @@ void MainContentComponent::updateSetupDrawerInfo()
     }
     else
     {
-        juce::String hwId = drawer.getSelectedHardwareId();
-        if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        const auto canonicalTarget = resolveCanonicalTarget();
+        const auto* contract = canonicalTarget.has_value() ? hardwareManager.findContractById(canonicalTarget->targetId) : nullptr;
         if (contract != nullptr)
         {
             // Hardware is considered "connected" when an active controller has been assigned
@@ -2679,7 +2597,6 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
         juce::String(contract->deviceType)
     );
 
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting, gui::WorkflowStepperBar::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting, gui::SoundIdSidebarStepper::StepStatus::Completed);
 
     auto summary = sidebarStepper.getSessionSummary();
@@ -2711,11 +2628,11 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
 
     targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
-    auto calStatus = stepperBar.getStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback);
-    if (calStatus != gui::WorkflowStepperBar::StepStatus::Completed && calStatus != gui::WorkflowStepperBar::StepStatus::Skipped)
+    auto calStatus = sidebarStepper.getStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
+    if (calStatus != gui::SoundIdSidebarStepper::StepStatus::Completed && calStatus != gui::SoundIdSidebarStepper::StepStatus::Skipped)
     {
-        stepperBar.setCurrentStep(gui::WorkflowStepperBar::Step::CalibrateLoopback);
         sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
     }
 
     // Auto-populate measurement recipe for the selected function (preserving pinned noise baseline)
@@ -3184,8 +3101,6 @@ void MainContentComponent::updateHardwarePanels(const gui::SessionUiPresentation
 {
     drawer.setSelectedHardwareId(data.hardwareId);
     drawer.setHardwareLocked(true);
-    hardwareRoutingPanel.setSelectedHardware(data.hardwareId, data.activeFunctionId);
-    hardwareRoutingPanel.setHardwareLocked(true);
     catalogSelector.setSelectedHardware(data.hardwareId, data.activeFunctionId);
     catalogSelector.setHardwareLocked(true);
 
@@ -3213,34 +3128,24 @@ void MainContentComponent::rebuildTestSuiteQueue(const std::vector<core::Session
 void MainContentComponent::updateWorkflowAndNavigation(const gui::WorkflowStepState& workflowState)
 {
     // Unlock prerequisites so loaded sessions can re-enter from step 1
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::SystemInfo,        false);
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::HardwareRouting,   false);
-    stepperBar.setStepLocked(gui::WorkflowStepperBar::Step::CalibrateLoopback, false);
     sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::SystemInfo,        false);
     sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::HardwareRouting,   false);
     sidebarStepper.setStepLocked(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, false);
-
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::SystemInfo,        gui::WorkflowStepperBar::StepStatus::Completed);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::HardwareRouting,   gui::WorkflowStepperBar::StepStatus::Completed);
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::CalibrateLoopback, gui::WorkflowStepperBar::StepStatus::Completed);
 
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::SystemInfo,        gui::SoundIdSidebarStepper::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::HardwareRouting,   gui::SoundIdSidebarStepper::StepStatus::Completed);
     sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback, gui::SoundIdSidebarStepper::StepStatus::Completed);
 
-    stepperBar.setCurrentStep(workflowState.targetStepperStep);
     sidebarStepper.setCurrentStep(workflowState.targetSidebarStep);
 
-    stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::RunSession, workflowState.runSessionStatus);
     sidebarStepper.setStepStatus(
         gui::SoundIdSidebarStepper::Step::RunSession,
-        workflowState.runSessionStatus == gui::WorkflowStepperBar::StepStatus::Completed
+        workflowState.runSessionStatus == gui::CanonicalStepStatus::Completed
             ? gui::SoundIdSidebarStepper::StepStatus::Completed
             : gui::SoundIdSidebarStepper::StepStatus::Current);
 
     if (workflowState.isSessionComplete)
     {
-        stepperBar.setStepStatus(gui::WorkflowStepperBar::Step::ExportReport,    gui::WorkflowStepperBar::StepStatus::Current);
         sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::ExportReport, gui::SoundIdSidebarStepper::StepStatus::Current);
     }
 
@@ -3289,28 +3194,70 @@ gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() con
 {
     gui::ReportExportSnapshot snapshot;
 
-    juce::String hwId = drawer.getSelectedHardwareId();
-    juce::String funcId = drawer.getSelectedFunctionId();
-    if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-    if (funcId.isEmpty()) funcId = hardwareRoutingPanel.getSelectedFunctionId();
+    const auto canonicalTarget = resolveCanonicalTarget();
+    juce::String hwId;
+    juce::String hwName;
+    juce::String targetModule = "MANUAL_EURORACK";
 
-    snapshot.manifest.hardwareId = hwId.toStdString();
-    juce::String hwName = drawer.getActiveHardwareDisplayName();
-    if (hwName.isEmpty())
+    if (canonicalTarget.has_value())
+    {
+        hwId = juce::String(canonicalTarget->targetId);
+        hwName = juce::String(canonicalTarget->targetName);
+        if (canonicalTarget->kind == gui::session::TargetKind::PluginVST3)
+        {
+            targetModule = "PLUGIN_VIRTUAL";
+        }
+        else if (hwId.containsIgnoreCase("AIRA"))
+        {
+            targetModule = "AUTOMATED_SYSEX";
+        }
+    }
+
+    juce::String funcId = drawer.getSelectedFunctionId();
+    if (funcId.isEmpty())
+        funcId = catalogSelector.getSelectedFunctionId();
+
+    if (funcId.isEmpty() && hwId.isNotEmpty())
     {
         const auto* contract = hardwareManager.findContractById(hwId.toStdString());
-        if (contract != nullptr) hwName = contract->displayName;
-        else hwName = hwId;
+        if (contract != nullptr && !contract->functions.empty())
+            funcId = contract->functions[0].id;
     }
+
+    if (hwName.isEmpty() && hwId.isNotEmpty())
+    {
+        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        if (contract != nullptr)
+            hwName = contract->displayName;
+        else
+            hwName = hwId;
+    }
+
+    snapshot.manifest.hardwareId = hwId.toStdString();
     snapshot.manifest.hardwareDisplayName = hwName.toStdString();
     snapshot.manifest.hardwareName = hwName.toStdString();
 
     snapshot.manifest.activeFunctionId = funcId.toStdString();
     juce::String funcName = drawer.getActiveFunctionDisplayName();
+    if (funcName.isEmpty() && hwId.isNotEmpty())
+    {
+        const auto* contract = hardwareManager.findContractById(hwId.toStdString());
+        if (contract != nullptr)
+        {
+            for (const auto& fn : contract->functions)
+            {
+                if (fn.id == funcId.toStdString())
+                {
+                    funcName = fn.name;
+                    break;
+                }
+            }
+        }
+    }
     if (funcName.isEmpty()) funcName = funcId;
     snapshot.manifest.activeFunctionName = funcName.toStdString();
 
-    snapshot.manifest.targetModule = hwId.containsIgnoreCase("AIRA") ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
+    snapshot.manifest.targetModule = targetModule.toStdString();
 
     snapshot.measuredPoints = sessionManager.getMeasuredPoints();
     snapshot.exportDirectory = sessionIoController.getExportDirectory().getFullPathName().toStdString();
@@ -3671,85 +3618,6 @@ void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
 
     currentWorkflowMode = mode;
     profilingSessionController.setWorkflowMode(mode);
-
-    if (mode == gui::session::UiWorkflowMode::Guided)
-    {
-        btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Guiado (Cambiar a Cl\u00e1sico)"));
-        btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentBlue.withAlpha(0.15f));
-        btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
-
-        // Sincronizar target real con el controlador si existe plugin o hardware activo
-        if (pluginUiCoordinator.hasActivePlugin())
-        {
-            auto desc = pluginUiCoordinator.getActivePluginDescription();
-            auto* instance = pluginUiCoordinator.getActivePluginInstance();
-            gui::session::TargetSelectionState target;
-            target.targetId = "plugin_" + desc.fileOrIdentifier.toStdString();
-            target.targetName = desc.name.toStdString();
-            target.manufacturer = desc.manufacturerName.toStdString();
-            target.version = desc.version.toStdString();
-            target.kind = gui::session::TargetKind::PluginVST3;
-            target.isConnected = true;
-            target.isDeterministic = true;
-            target.availableDomainDescription = "MIDI C1-C6, Vel 1-127, Automatable Parameters";
-            target.parameterCount = (instance != nullptr) ? instance->getParameters().size() : 0;
-            profilingSessionController.selectTarget(target);
-        }
-        else if (mainHeader.hasHardwareSelected())
-        {
-            juce::String hwId = drawer.getSelectedHardwareId();
-            if (hwId.isEmpty()) hwId = hardwareRoutingPanel.getSelectedHardwareId();
-            const auto* c = hardwareManager.findContractById(hwId.toStdString());
-            if (c != nullptr)
-            {
-                gui::session::TargetSelectionState target;
-                target.targetId = c->id;
-                target.targetName = c->displayName;
-                target.manufacturer = c->manufacturer;
-                target.version = c->schemaVersion;
-                target.kind = (c->deviceType == "MANUAL_EURORACK" || c->deviceType == "ANALOGUE_PEDAL")
-                    ? gui::session::TargetKind::HardwareAnalogue
-                    : gui::session::TargetKind::HardwareDigital;
-                target.isConnected = true;
-                target.isDeterministic = (c->deviceType != "MANUAL_EURORACK" && c->deviceType != "ANALOGUE_PEDAL");
-                target.availableDomainDescription = "MIDI CC / SysEx Profiles";
-                target.parameterCount = static_cast<int>(c->functions.size());
-                profilingSessionController.selectTarget(target);
-            }
-        }
-
-        // Ocultar superficies clasicas para evitar solapamientos
-        sidebarStepper.setVisible(false);
-        meterStrip.setVisible(false);
-        setupInfoTab.setVisible(false);
-        catalogSelector.setVisible(false);
-        nativeCalibrationPanel.setVisible(false);
-        exportReportPanel.setVisible(false);
-        curvePlotter.setVisible(false);
-        healthPanel.setVisible(false);
-        suiteList.setVisible(false);
-        centerSplitterBar.setVisible(false);
-
-        if (guidedWorkflowContainer != nullptr)
-            guidedWorkflowContainer->setVisible(true);
-    }
-    else
-    {
-        btnWorkflowModeToggle.setButtonText(juce::String::fromUTF8(u8"Modo: Cl\u00e1sico (Cambiar a Guiado 3 Pasos)"));
-        btnWorkflowModeToggle.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::bgCard);
-        btnWorkflowModeToggle.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
-
-        if (guidedWorkflowContainer != nullptr)
-            guidedWorkflowContainer->setVisible(false);
-
-        // Restaurar superficies clasicas
-        sidebarStepper.setVisible(true);
-        meterStrip.setVisible(true);
-        centerSplitterBar.setVisible(true);
-        workflowNavController.setStep(sidebarStepper.getCurrentStep());
-    }
-
-    resized();
 }
 
 void MainContentComponent::setupGuidedWorkflowInitialData()
@@ -3780,6 +3648,85 @@ void MainContentComponent::setupGuidedWorkflowInitialData()
     profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::ConfigureAndStart);
 
     profilingSessionController.setWorkflowMode(currentWorkflowMode);
+}
+
+std::optional<gui::session::TargetSelectionState> MainContentComponent::resolveCanonicalTarget() const
+{
+    // 1. Virtual plugin target hosted via PluginUiCoordinator
+    if (pluginUiCoordinator.hasActivePlugin())
+    {
+        const auto desc = pluginUiCoordinator.getActivePluginDescription();
+        gui::session::TargetSelectionState target;
+        target.targetId = "plugin_" + juce::File::createLegalFileName(desc.fileOrIdentifier).toStdString();
+        target.targetName = desc.name.isNotEmpty() ? desc.name.toStdString() : "Plugin Virtual";
+        target.manufacturer = desc.manufacturerName.toStdString();
+        target.version = desc.version.toStdString();
+        target.kind = gui::session::TargetKind::PluginVST3;
+        target.isConnected = true;
+        target.isDeterministic = true;
+        target.supportsMidiInput = desc.isInstrument;
+        target.supportsParameterAutomation = true;
+        target.availableDomainDescription = desc.isInstrument
+            ? "Notas MIDI C1-C6, Vel 1-127, Parámetros VST3"
+            : "Procesamiento de Audio, Parámetros VST3";
+        target.parameterCount = 0;
+        return target;
+    }
+
+    // 2. Hardware selected via SoundIdHardwareCatalogSelector (Official Step 1)
+    const juce::String catHwId = catalogSelector.getSelectedHardwareId();
+    if (catHwId.isNotEmpty())
+    {
+        const auto* c = hardwareManager.findContractById(catHwId.toStdString());
+        gui::session::TargetSelectionState target;
+        target.targetId = catHwId.toStdString();
+        target.targetName = (c != nullptr) ? c->displayName : catHwId.toStdString();
+        target.manufacturer = (c != nullptr) ? c->manufacturer : "";
+        target.version = (c != nullptr) ? c->schemaVersion : "1.0";
+        const bool isAnalogue = (c != nullptr && (c->deviceType == "MANUAL_EURORACK" || c->deviceType == "ANALOGUE_PEDAL"));
+        target.kind = isAnalogue ? gui::session::TargetKind::HardwareAnalogue : gui::session::TargetKind::HardwareDigital;
+        target.isConnected = true;
+        target.isDeterministic = !isAnalogue;
+        target.supportsMidiInput = (c != nullptr && (c->deviceType == "AUTOMATED_MIDI_CC" || c->deviceType == "AUTOMATED_SYSEX"));
+        target.supportsMidiCc = (c != nullptr && c->deviceType == "AUTOMATED_MIDI_CC");
+        target.supportsSysEx = (c != nullptr && c->deviceType == "AUTOMATED_SYSEX");
+        target.supportsParameterAutomation = false;
+        target.availableDomainDescription = isAnalogue ? "Controles analógicos manuales" : "Canal MIDI, Notas y CC";
+        target.parameterCount = (c != nullptr) ? static_cast<int>(c->functions.size()) : 0;
+        return target;
+    }
+
+    // 3. Hardware selected via SlideInDrawer (Advanced Inspection Drawer)
+    const juce::String drawerHwId = drawer.getSelectedHardwareId();
+    if (drawerHwId.isNotEmpty())
+    {
+        const auto* c = hardwareManager.findContractById(drawerHwId.toStdString());
+        gui::session::TargetSelectionState target;
+        target.targetId = drawerHwId.toStdString();
+        target.targetName = (c != nullptr) ? c->displayName : drawerHwId.toStdString();
+        target.manufacturer = (c != nullptr) ? c->manufacturer : "";
+        target.version = (c != nullptr) ? c->schemaVersion : "1.0";
+        const bool isAnalogue = (c != nullptr && (c->deviceType == "MANUAL_EURORACK" || c->deviceType == "ANALOGUE_PEDAL"));
+        target.kind = isAnalogue ? gui::session::TargetKind::HardwareAnalogue : gui::session::TargetKind::HardwareDigital;
+        target.isConnected = true;
+        target.isDeterministic = !isAnalogue;
+        target.supportsMidiInput = (c != nullptr && (c->deviceType == "AUTOMATED_MIDI_CC" || c->deviceType == "AUTOMATED_SYSEX"));
+        target.supportsMidiCc = (c != nullptr && c->deviceType == "AUTOMATED_MIDI_CC");
+        target.supportsSysEx = (c != nullptr && c->deviceType == "AUTOMATED_SYSEX");
+        target.supportsParameterAutomation = false;
+        target.availableDomainDescription = isAnalogue ? "Controles analógicos manuales" : "Canal MIDI, Notas y CC";
+        target.parameterCount = (c != nullptr) ? static_cast<int>(c->functions.size()) : 0;
+        return target;
+    }
+
+    // 4. Stable snapshot authority in ProfilingSessionController
+    const auto snapshot = profilingSessionController.getCurrentSnapshot();
+    if (!snapshot.target.targetId.empty())
+    {
+        return snapshot.target;
+    }
+
+    return std::nullopt;
 }
 
 } // namespace abdaudiolab

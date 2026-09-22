@@ -43,9 +43,9 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-04B** | I/O de Filesystem, Rollback Atómico, Staging y Paquetes de Producción | **Certificado** | ST-86–ST-98 (13/13 tests, 157 aserciones) |
 | **HITO-04C** | Integración Mode-to-Export (E2E MIDI/VST3 y Manual/Analógico con procedencia) | **Certificado** | [ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md) + ST-99–ST-107 |
 | **HITO-04 (Padre)** | Resultados ricos, exportación unificada y guardas metrológicas en Paso 4 | **Certificado** | [ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md) + ST-69–ST-107 + Smoke UI |
-| **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Listo para inicio** | Planificación y ejecución |
-| **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Pendiente** | Planificación tras Hito 5 |
-| **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Pendiente** | Planificación tras Hito 6 |
+| **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Certificado** | [ACTA_HITO_05_E2E_HERMETIC.md](ACTA_HITO_05_E2E_HERMETIC.md) + ST-E2E-01–04 |
+| **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Certificado** | [ACTA_HITO_06_TELEMETRY_SEAMS.md](ACTA_HITO_06_TELEMETRY_SEAMS.md) + SEAM-04–05 |
+| **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Listo para inicio** | Planificación tras Hito 6 |
 | **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Pendiente** | Cierre de ciclo |
 
 ---
@@ -123,10 +123,10 @@ Un **Seam** (costura arquitectónica) es un punto explícito donde dos subsistem
 | **Run Projection** | `ProfilingSequencer` | `SoundIdProfilingRunView` | `ProfilingSessionSnapshot` | **Certificado** (Hito 3, ST-28–ST-38) |
 | **Manual Confirmation** | `operatorStepModal` / UI | `ProfilingSequencer` | `confirmManualStep()` / `repeat()` | **Certificado** (Hito 3, ST-39–ST-46) |
 | **Calibration Readiness** | `NativeCalibrationPanel` | `WorkflowNavigationController` | `CalibrationStatus::isReadyForProfiling()` | **Certificado** (Hito 3.1, ST-51–ST-55) |
-| **Results $\to$ Export** | `ProfilingSessionSnapshot` | `SoundIdResultsSummaryView` $\to$ `ReportExportService` | `IProfilingSessionCommands::exportModel()` | **Pendiente** (Hito 4, ST-69+) |
-| **Session Persistence** | `ProfilingSessionSnapshot` | `SessionSerializer` $\leftrightarrow$ `.abdlabtest` | `serializeSession()` / `deserializeSession()` | **Abierto / En evolución** (Hito 4/5) |
-| **Calibration Telemetry (Legacy)** | `loopbackModal` | `MainContentTelemetrySource` | Polling directo | **Legacy / Abierto** (Migración en Hito 6) |
-| **Stepper Telemetry (Legacy)** | `stepperBar` | `MainContentTelemetrySource` | Polling directo | **Legacy / Abierto** (Migración en Hito 6) |
+| **Results $\to$ Export** | `ProfilingSessionSnapshot` | `SoundIdResultsSummaryView` $\to$ `ReportExportService` | `IProfilingSessionCommands::exportModel()` | **Certificado** (Hito 4, ST-69–ST-107) |
+| **Session Persistence** | `ProfilingSessionSnapshot` | `SessionSerializer` $\leftrightarrow$ `.abdlabtest` | `serializeSession()` / `deserializeSession()` | **Certificado** (Hito 4/5, E2E-01–04) |
+| **Calibration Telemetry (SEAM-04)** | `CanonicalCalibrationState` | `MainContentTelemetrySource` | Polling desacoplado | **Certificado** (Hito 6, SEAM-04) |
+| **Stepper Telemetry (SEAM-05)** | `CanonicalWorkflowState` | `MainContentTelemetrySource` | Polling desacoplado | **Certificado** (Hito 6, SEAM-05) |
 
 ### Definición de Seam Cerrado
 Un seam se declara formalmente **Cerrado** únicamente cuando:
@@ -199,16 +199,11 @@ graph LR
     H07 --> H08[Hito 8: Release v2.1.0]
 ```
 
-- **HITO-04 (Resultados y Exportación)**: Integración de `SoundIdResultsSummaryView`, persistencia y guardas.
-- **HITO-05 (Certificación End-to-End)**: Ejecución y verificación del ciclo 0 $\to$ 4 sobre los 4 arquetipos:
-  1. Plugin VST3 digital (Dexed).
-  2. Sintetizador MIDI con audio físico.
-  3. Hardware analógico manual (pedal / eurorack).
-  4. Dispositivo híbrido.
-- **HITO-06 (Migración de Telemetría Legacy)**:
-  - Migrar `MainContentTelemetrySource` para leer directamente de `NativeCalibrationPanel` / `CalibrationSnapshot` y `SoundIdSidebarStepper` / `WorkflowNavigationSnapshot`.
+- **HITO-04 (Resultados y Exportación)**: Integración de `SoundIdResultsSummaryView`, persistencia y guardas. (**Certificado** - Build 380)
+- **HITO-05 (Certificación End-to-End)**: Ejecución y verificación del ciclo 0 $\to$ 4 sobre los 4 arquetipos con suite hermética `test_E2E_HermeticWorkflows.cpp`. (**Certificado** - Build 384)
+- **HITO-06 (Migración de Telemetría Legacy)**: Migración limpia y purga de dependencias a widgets legacy (`loopbackModal`, `stepperBar`) en `MainContentTelemetrySource` hacia `CanonicalCalibrationState` y `CanonicalWorkflowState`. (**Certificado** - Build 391/392)
 - **HITO-07 (Limpieza de Componentes Duplicados)**:
-  - Retirada segura de `loopbackModal`, `stepperBar`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` tras certificar 0 dependencias.
+  - Retirada segura de `loopbackModal`, `stepperBar`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` tras certificar 0 dependencias. (**Siguiente en Roadmap**)
 - **HITO-08 (Release y Documentación)**:
   - QA operativo, manual de usuario y cierre de versión.
 

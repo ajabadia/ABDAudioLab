@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 #include "gui/controllers/LoadedSessionApplier.h"
+#include "gui/controllers/CanonicalWorkflowTypes.h"
 #include <vector>
 #include <string>
 
@@ -186,7 +187,7 @@ TEST_CASE("LoadedSessionApplier: Target Order and Data Projection", "[LoadedSess
         REQUIRE(target.lastReconstructedQueue[1].status == gui::QueueItemStatus::Completed);
 
         REQUIRE(target.lastWorkflowState.isSessionComplete == true);
-        REQUIRE(target.lastWorkflowState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+        REQUIRE(target.lastWorkflowState.targetStepperStep == CanonicalStep::ExportReport);
         REQUIRE(target.lastWorkflowState.targetSidebarStep == SoundIdSidebarStepper::Step::ExportReport);
     }
 
@@ -197,9 +198,9 @@ TEST_CASE("LoadedSessionApplier: Target Order and Data Projection", "[LoadedSess
         REQUIRE(res.succeeded());
 
         REQUIRE(target.lastWorkflowState.isSessionComplete == false);
-        REQUIRE(target.lastWorkflowState.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        REQUIRE(target.lastWorkflowState.targetStepperStep == CanonicalStep::RunSession);
         REQUIRE(target.lastWorkflowState.targetSidebarStep == SoundIdSidebarStepper::Step::RunSession);
-        REQUIRE(target.lastWorkflowState.runSessionStatus == WorkflowStepperBar::StepStatus::Completed);
+        REQUIRE(target.lastWorkflowState.runSessionStatus == CanonicalStepStatus::Completed);
     }
 
     SECTION("Invalid manifest rejects immediately without mutating targets")
@@ -238,8 +239,8 @@ TEST_CASE("LoadedSessionApplier: Contract Completeness", "[LoadedSessionApplier]
         REQUIRE(target.lastReconstructedQueue[1].status == gui::QueueItemStatus::Queued);
 
         REQUIRE(target.lastWorkflowState.isSessionComplete == false);
-        REQUIRE(target.lastWorkflowState.targetStepperStep == WorkflowStepperBar::Step::RunSession);
-        REQUIRE(target.lastWorkflowState.runSessionStatus == WorkflowStepperBar::StepStatus::Current);
+        REQUIRE(target.lastWorkflowState.targetStepperStep == CanonicalStep::RunSession);
+        REQUIRE(target.lastWorkflowState.runSessionStatus == CanonicalStepStatus::Current);
     }
 
     SECTION("Multiple points are projected to plotter in input order exactly once")
@@ -357,8 +358,8 @@ TEST_CASE("LoadedSessionApplier: Contract Completeness", "[LoadedSessionApplier]
     {
         auto state = LoadedSessionApplier::computeWorkflowState(3, 3);
         REQUIRE(state.isSessionComplete == true);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+        REQUIRE(state.targetStepperStep == CanonicalStep::ExportReport);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Completed);
     }
 
     SECTION("computeWorkflowState: surplus points also marks session complete")
@@ -383,18 +384,18 @@ TEST_CASE("LoadedSessionApplier: computeWorkflowState Regression", "[LoadedSessi
     {
         auto state = LoadedSessionApplier::computeWorkflowState(3, 0);
         REQUIRE(state.isSessionComplete == false);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        REQUIRE(state.targetStepperStep == CanonicalStep::RunSession);
         REQUIRE(state.targetSidebarStep == SoundIdSidebarStepper::Step::RunSession);
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Current);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Current);
     }
 
     SECTION("1 measured point when totalMeasuredPoints=1 -> isSessionComplete = true")
     {
         auto state = LoadedSessionApplier::computeWorkflowState(1, 1);
         REQUIRE(state.isSessionComplete == true);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+        REQUIRE(state.targetStepperStep == CanonicalStep::ExportReport);
         REQUIRE(state.targetSidebarStep == SoundIdSidebarStepper::Step::ExportReport);
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Completed);
     }
 
     SECTION("N measured points when totalMeasuredPoints=N -> isSessionComplete = true")
@@ -412,8 +413,8 @@ TEST_CASE("LoadedSessionApplier: computeWorkflowState Regression", "[LoadedSessi
     {
         auto state = LoadedSessionApplier::computeWorkflowState(4, 4);
         REQUIRE(state.isSessionComplete == true);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+        REQUIRE(state.targetStepperStep == CanonicalStep::ExportReport);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Completed);
     }
 
     SECTION("points>0 AND session partial (points < totalMeasuredPoints) -> RunSession/Completed")
@@ -421,17 +422,17 @@ TEST_CASE("LoadedSessionApplier: computeWorkflowState Regression", "[LoadedSessi
         // Some progress but not all points collected yet.
         auto state = LoadedSessionApplier::computeWorkflowState(10, 3);
         REQUIRE(state.isSessionComplete == false);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
+        REQUIRE(state.targetStepperStep == CanonicalStep::RunSession);
         // runSessionStatus is Completed because there is *some* measured progress
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Completed);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Completed);
     }
 
     SECTION("points==0 AND totalMeasuredPoints>0 -> RunSession/Current (no progress at all)")
     {
         auto state = LoadedSessionApplier::computeWorkflowState(10, 0);
         REQUIRE(state.isSessionComplete == false);
-        REQUIRE(state.targetStepperStep == WorkflowStepperBar::Step::RunSession);
-        REQUIRE(state.runSessionStatus  == WorkflowStepperBar::StepStatus::Current);
+        REQUIRE(state.targetStepperStep == CanonicalStep::RunSession);
+        REQUIRE(state.runSessionStatus  == CanonicalStepStatus::Current);
     }
 }
 

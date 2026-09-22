@@ -89,17 +89,17 @@ WorkflowStepState LoadedSessionApplier::computeWorkflowState(
 
     if (state.isSessionComplete)
     {
-        state.targetStepperStep = WorkflowStepperBar::Step::ExportReport;
+        state.targetStepperStep = CanonicalStep::ExportReport;
         state.targetSidebarStep = SoundIdSidebarStepper::Step::ExportReport;
-        state.runSessionStatus = WorkflowStepperBar::StepStatus::Completed;
+        state.runSessionStatus = CanonicalStepStatus::Completed;
     }
     else
     {
-        state.targetStepperStep = WorkflowStepperBar::Step::RunSession;
+        state.targetStepperStep = CanonicalStep::RunSession;
         state.targetSidebarStep = SoundIdSidebarStepper::Step::RunSession;
         state.runSessionStatus = (actualPointsCount > 0)
-            ? WorkflowStepperBar::StepStatus::Completed
-            : WorkflowStepperBar::StepStatus::Current;
+            ? CanonicalStepStatus::Completed
+            : CanonicalStepStatus::Current;
     }
 
     return state;

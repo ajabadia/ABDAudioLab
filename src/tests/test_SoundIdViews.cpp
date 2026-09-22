@@ -6,6 +6,7 @@
 #include "gui/soundid/SoundIdTargetView.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
 #include "gui/soundid/SoundIdResultsSummaryView.h"
+#include "gui/SoundIdMeterStrip.h"
 #include "gui/controllers/WorkflowNavigationController.h"
 #include "synth/ModelEvaluationBuilder.h"
 
@@ -774,4 +775,76 @@ TEST_CASE("PERF-03: SoundIdProfilingRunView dirty check actualiza en cambio sema
         REQUIRE(runView.getTestRepaintCount() == 1);
 #endif
     }
+}
+
+// =============================================================================
+// PERF-04: SoundIdMeterStrip — Reposo/Silencio omite repaint incondicional
+// PERF-05: SoundIdMeterStrip — Audio activo actualiza con dirty check visual
+// =============================================================================
+
+TEST_CASE("PERF-04: SoundIdMeterStrip dirty check omite repaint en silencio u omision de cambio",
+          "[gui][soundid][perf]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+
+    SoundIdMeterStrip meter;
+    meter.setSize(60, 400);
+
+    // En reposo (silencio absoluto 0.0f)
+    meter.setLevels(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+
+#ifdef ABD_TESTING
+    meter.resetTestCounters();
+    // Primer tick: render inicial en reposo
+    meter.testTriggerTimerCallback();
+    REQUIRE(meter.getTestTimerTickCount() == 1);
+    REQUIRE(meter.getTestRepaintExecutedCount() == 1);
+    REQUIRE(meter.getTestRepaintSkippedCount() == 0);
+
+    // Ticks sucesivos en silencio: el dirty check DEBE omitir repaint
+    for (int i = 0; i < 30; ++i)
+    {
+        meter.testTriggerTimerCallback();
+    }
+
+    REQUIRE(meter.getTestTimerTickCount() == 31);
+    REQUIRE(meter.getTestRepaintExecutedCount() == 1); // Exactamente 1 repintado inicial
+    REQUIRE(meter.getTestRepaintSkippedCount() == 30); // 30 repintados omitidos (100% ahorrados a 30 Hz)
+#endif
+}
+
+TEST_CASE("PERF-05: SoundIdMeterStrip dirty check responde a cambios de audio y estado",
+          "[gui][soundid][perf]")
+{
+    juce::ScopedJuceInitialiser_GUI guiInit;
+
+    SoundIdMeterStrip meter;
+    meter.setSize(60, 400);
+
+#ifdef ABD_TESTING
+    // 1. Tick inicial
+    meter.testTriggerTimerCallback();
+    REQUIRE(meter.getTestRepaintExecutedCount() == 1);
+
+    meter.resetTestCounters();
+
+    // 2. Llegada de señal de audio (ej: señal a -18 dBFS = 0.1259 linear)
+    meter.setLevels(0.1259f, 0.1259f, 0.08f, 0.1259f, 0.1259f, 0.08f);
+    meter.testTriggerTimerCallback();
+
+    REQUIRE(meter.getTestRepaintExecutedCount() == 1);
+    REQUIRE(meter.getTestRepaintSkippedCount() == 0);
+
+    // 3. Cambio de estado de profiling (Profiling Active)
+    meter.resetTestCounters();
+    meter.setProfilingActive(true);
+    meter.testTriggerTimerCallback();
+    REQUIRE(meter.getTestRepaintExecutedCount() >= 1);
+
+    // 4. Cambio de estado de pausa
+    meter.resetTestCounters();
+    meter.setSessionPaused(true);
+    meter.testTriggerTimerCallback();
+    REQUIRE(meter.getTestRepaintExecutedCount() >= 1);
+#endif
 }

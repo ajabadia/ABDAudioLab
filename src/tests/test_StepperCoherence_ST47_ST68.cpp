@@ -2,7 +2,7 @@
 #include "../gui/session/ProfilingSessionController.h"
 #include "../gui/session/ProfilingSessionContracts.h"
 #include "../gui/soundid/SoundIdSidebarStepper.h"
-#include "../gui/WorkflowStepperBar.h"
+#include "../gui/controllers/CanonicalWorkflowTypes.h"
 #include "../gui/soundid/SoundIdTargetView.h"
 #include "../gui/HardwareSelectorPill.h"
 #include "../gui/controllers/WorkflowNavigationController.h"
@@ -369,4 +369,57 @@ TEST_CASE("ST-68: No se generan dos eventos al seleccionar un plugin", "[coheren
 
     controller.selectTarget(target);
     CHECK(eventCount == 1);
+}
+
+TEST_CASE("Fase 4A: Paridad y resolucion canonica de Target cuando drawer esta vacio", "[coherence][phase4a]")
+{
+    ProfilingSessionController controller;
+    SoundIdHardwareCatalogSelector catalog;
+
+    std::vector<core::HardwareContract> contracts;
+    core::HardwareContract c1;
+    c1.id = "roland_juno106";
+    c1.displayName = "Roland Juno-106";
+    c1.manufacturer = "Roland";
+    c1.schemaVersion = "2.0";
+    c1.deviceType = "AUTOMATED_MIDI_CC";
+    core::HardwareFunction fn;
+    fn.id = "vcf_sweep";
+    fn.name = "VCF Sweep Cutoff";
+    c1.functions.push_back(fn);
+    contracts.push_back(c1);
+
+    catalog.setContracts(contracts);
+    catalog.setSelectedHardware("roland_juno106", "vcf_sweep");
+
+    SECTION("catalogSelector resuelve metadatos completos identicos a ProfilingSessionController")
+    {
+        TargetSelectionState target;
+        target.targetId = catalog.getSelectedHardwareId().toStdString();
+        target.targetName = "Roland Juno-106";
+        target.manufacturer = "Roland";
+        target.version = "2.0";
+        target.kind = TargetKind::HardwareDigital;
+        target.isConnected = true;
+        target.isDeterministic = true;
+        target.supportsMidiInput = true;
+        target.supportsMidiCc = true;
+        target.supportsSysEx = false;
+        target.supportsParameterAutomation = false;
+        target.availableDomainDescription = "Canal MIDI, Notas y CC";
+        target.parameterCount = 1;
+
+        REQUIRE(controller.selectTarget(target));
+        const auto snap = controller.getCurrentSnapshot();
+
+        CHECK(snap.target.targetId == catalog.getSelectedHardwareId().toStdString());
+        CHECK(snap.target.targetName == "Roland Juno-106");
+        CHECK(snap.target.manufacturer == "Roland");
+        CHECK(snap.target.version == "2.0");
+        CHECK(snap.target.kind == TargetKind::HardwareDigital);
+        CHECK(snap.target.supportsMidiInput == true);
+        CHECK(snap.target.supportsMidiCc == true);
+        CHECK(snap.target.isConnected == true);
+        CHECK(snap.target.isDeterministic == true);
+    }
 }

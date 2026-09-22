@@ -134,6 +134,10 @@ public:
                                  const juce::String& defaultName,
                                  std::function<void(const juce::File& chosenFile)> onFileChosen);
 
+#ifdef ABD_TESTING
+    std::function<juce::File(const juce::String& defaultName)> saveFileChooserOverride;
+#endif
+
     /**
      * @brief Asynchronously launches native FileChooser to load existing session package.
      */

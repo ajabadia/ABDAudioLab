@@ -25,6 +25,13 @@ public:
     std::function<void()> onPauseClicked;
     std::function<void()> onCancelClicked;
 
+#ifdef ABD_TESTING
+    void resetTestCounters() { testUpdateExecutedCount_ = testSetTextCount_ = testRepaintCount_ = 0; }
+    int getTestUpdateExecutedCount() const { return testUpdateExecutedCount_; }
+    int getTestSetTextCount() const { return testSetTextCount_; }
+    int getTestRepaintCount() const { return testRepaintCount_; }
+#endif
+
 private:
     session::IProfilingSessionCommands& commands_;
 
@@ -102,10 +109,6 @@ private:
     mutable int testUpdateExecutedCount_ { 0 };
     mutable int testSetTextCount_        { 0 };
     mutable int testRepaintCount_        { 0 };
-    void resetTestCounters() { testUpdateExecutedCount_ = testSetTextCount_ = testRepaintCount_ = 0; }
-    int getTestUpdateExecutedCount() const { return testUpdateExecutedCount_; }
-    int getTestSetTextCount() const { return testSetTextCount_; }
-    int getTestRepaintCount() const { return testRepaintCount_; }
 #endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SoundIdProfilingRunView)

@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "SoundIdTheme.h"
+#include "controllers/CanonicalWorkflowTypes.h"
 #include <map>
 #include <vector>
 #include <optional>
@@ -13,23 +14,8 @@ namespace abdaudiolab::gui
 class WorkflowStepperBar : public juce::Component
 {
 public:
-    enum class Step 
-    { 
-        SystemInfo = 0,
-        CalibrateLoopback, 
-        HardwareRouting, 
-        RunSession, 
-        ExportReport 
-    };
-
-    enum class StepStatus 
-    { 
-        Pending, 
-        Current, 
-        Completed, 
-        Skipped,
-        Warning 
-    };
+    using Step = CanonicalStep;
+    using StepStatus = CanonicalStepStatus;
 
     WorkflowStepperBar() : currentStep(Step::SystemInfo)
     {

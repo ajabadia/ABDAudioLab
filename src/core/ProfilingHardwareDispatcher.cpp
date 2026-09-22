@@ -16,7 +16,18 @@ void ProfilingHardwareDispatcher::setParameter(int paramIndex, float normalizedV
         int zeroBased = paramIndex - 1;
         if (zeroBased >= 0 && zeroBased < params.size() && params[zeroBased] != nullptr)
         {
-            params[zeroBased]->setValueNotifyingHost(std::clamp(normalizedValue, 0.0f, 1.0f));
+            float val = std::clamp(normalizedValue, 0.0f, 1.0f);
+            if (juce::MessageManager::getInstance()->isThisTheMessageThread())
+            {
+                params[zeroBased]->setValueNotifyingHost(val);
+            }
+            else
+            {
+                juce::MessageManager::callAsync([param = params[zeroBased], val]() {
+                    if (param != nullptr)
+                        param->setValueNotifyingHost(val);
+                });
+            }
             return;
         }
     }

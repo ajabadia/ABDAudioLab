@@ -88,11 +88,11 @@ void DiagnosticsTelemetryPoller::pollNow()
     snapshot.calibrationTickDue = isDue;
     if (isDue)
     {
-        const auto cal = source.readCalibrationData();
-        snapshot.isCalibrated = cal.isCalibrated;
-        snapshot.calibrationSampleRate = sanitizeDouble(cal.sampleRate, 0.0);
-        snapshot.isCalibrationSkipped = cal.isSkipped;
+        cachedCalibration = source.readCalibrationData();
     }
+    snapshot.isCalibrated = cachedCalibration.isCalibrated;
+    snapshot.calibrationSampleRate = sanitizeDouble(cachedCalibration.sampleRate, 0.0);
+    snapshot.isCalibrationSkipped = cachedCalibration.isSkipped;
 
     // 5. Session Progress & MIDI
     const auto sess = source.readSessionProgress();

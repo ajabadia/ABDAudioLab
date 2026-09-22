@@ -34,6 +34,24 @@ public:
     uint64_t lastObservedGeneration { 0 };
     uint64_t lastObservedSequence { 0 };
     int ignoredOutdatedSnapshotsCount { 0 };
+    ProfilingSessionController* boundController { nullptr };
+
+    ~TestSessionListener() override
+    {
+        if (boundController != nullptr)
+        {
+            boundController->removeListener(this);
+            boundController = nullptr;
+        }
+    }
+
+    void attachTo(ProfilingSessionController& c)
+    {
+        if (boundController != nullptr)
+            boundController->removeListener(this);
+        boundController = &c;
+        c.addListener(this);
+    }
 
     void onSessionSnapshotUpdated(const ProfilingSessionSnapshot& snapshot) override
     {
@@ -73,9 +91,9 @@ public:
 
 TEST_CASE("ProfilingSessionController: Ciclo de vida completo y transiciones válidas", "[gui][session]")
 {
-    ProfilingSessionController controller;
     TestSessionListener listener;
-    controller.addListener(&listener);
+    ProfilingSessionController controller;
+    listener.attachTo(controller);
 
     // 1. Estado inicial
     auto snap = controller.getCurrentSnapshot();
@@ -137,6 +155,13 @@ TEST_CASE("ProfilingSessionController: Ciclo de vida completo y transiciones vá
     snap = controller.getCurrentSnapshot();
     CHECK(snap.sessionStatus == ProfilingSessionStatus::Exported);
     CHECK(snap.exportOptions.lastExportedFilePath == "build/export/Model_1.cpp");
+
+    controller.removeListener(&listener);
+    if (auto* coord = controller.getCoordinator())
+    {
+        coord->requestCancel();
+        coord->waitForWorkerToStop(1000);
+    }
 }
 
 TEST_CASE("ProfilingSessionController: Protección contra snapshots antiguos desordenados", "[gui][session]")

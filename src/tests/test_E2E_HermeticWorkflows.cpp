@@ -27,11 +27,13 @@
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/ProfilingSessionContracts.h"
 #include "gui/controllers/LoadedSessionApplier.h"
-#include "gui/WorkflowStepperBar.h"
+#include "gui/controllers/CanonicalWorkflowTypes.h"
 #include "export/ReportExportService.h"
 #include "core/SessionPersistenceService.h"
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/TargetAuditor.h"
+#include "synth/SynthTargetLifecycleAdapters.h"
+#include "synth/ExternalPluginFixture.h"
 #include "audio/LabAudioReceiver.h"
 
 using namespace abdaudiolab;
@@ -39,8 +41,30 @@ using namespace abdaudiolab::gui;
 using namespace abdaudiolab::gui::session;
 using namespace abdaudiolab::exporting;
 
+#if JUCE_WINDOWS
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace
 {
+
+void pumpUiMessages()
+{
+#if JUCE_WINDOWS
+    MSG msg;
+    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+#endif
+}
 
 /**
  * @brief RAII Temporary Directory for hermetic E2E tests.
@@ -349,8 +373,8 @@ TEST_CASE("E2E-01: Recorrido Hermetico VST3 Digital Offline (Paso 0..4)", "[e2e]
         loadRes.points.size()
     );
     CHECK(workflowState.isSessionComplete == true);
-    CHECK(workflowState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
-    CHECK(workflowState.runSessionStatus == WorkflowStepperBar::StepStatus::Completed);
+    CHECK(workflowState.targetStepperStep == CanonicalStep::ExportReport);
+    CHECK(workflowState.runSessionStatus == CanonicalStepStatus::Completed);
 
     // 5. Cero archivos residuales de staging o backup
     for (const auto& entry : std::filesystem::directory_iterator(tempDir.path / "e2e01_export"))
@@ -609,7 +633,7 @@ TEST_CASE("E2E-02: Recorrido Hermetico Hardware MIDI Automatizado (Paso 0..4)", 
         loadRes.points.size()
     );
     CHECK(workflowState.isSessionComplete == true);
-    CHECK(workflowState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+    CHECK(workflowState.targetStepperStep == CanonicalStep::ExportReport);
 
     // Cero archivos residuales de staging
     for (const auto& entry : std::filesystem::directory_iterator(tempDir.path / "e2e02_export"))
@@ -846,7 +870,7 @@ TEST_CASE("E2E-03: Recorrido Hermetico Hardware Analogico Manual (Paso 0..4)", "
         loadRes.points.size()
     );
     CHECK(workflowState.isSessionComplete == true);
-    CHECK(workflowState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+    CHECK(workflowState.targetStepperStep == CanonicalStep::ExportReport);
 
     // Cero archivos residuales de staging
     for (const auto& entry : std::filesystem::directory_iterator(tempDir.path / "e2e03_export"))
@@ -1098,8 +1122,8 @@ TEST_CASE("E2E-04: Recorrido Hermetico Target Hibrido MIDI + Panel Manual (Paso 
         loadRes.points.size()
     );
     CHECK(workflowState.isSessionComplete == true);
-    CHECK(workflowState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
-    CHECK(workflowState.runSessionStatus == WorkflowStepperBar::StepStatus::Completed);
+    CHECK(workflowState.targetStepperStep == CanonicalStep::ExportReport);
+    CHECK(workflowState.runSessionStatus == CanonicalStepStatus::Completed);
 
     // Cero archivos residuales de staging
     for (const auto& entry : std::filesystem::directory_iterator(tempDir.path / "e2e04_export"))
@@ -1108,5 +1132,320 @@ TEST_CASE("E2E-04: Recorrido Hermetico Target Hibrido MIDI + Panel Manual (Paso 
         CHECK(filename.find(".staging_") == std::string::npos);
         CHECK(filename.find(".backup_")  == std::string::npos);
     }
+}
+
+// ===========================================================================
+// PRODUCT-SMOKE-01: Basic Oscillator VST3 E2E (ReferenceSynth Paso 0..4)
+// AutomatedMidi & ManualOperator convergence
+// ===========================================================================
+
+TEST_CASE("PRODUCT-SMOKE-01: Basic Oscillator VST3 E2E (ReferenceSynth Paso 0..4)",
+          "[product][smoke][vst3][PRODUCT-SMOKE-01]")
+{
+    E2ETempDirectory tempDir("product_smoke_01");
+
+    // -----------------------------------------------------------------------
+    // PASO 0: Studio Environment (Configuracion y Dominio Digital)
+    // -----------------------------------------------------------------------
+    constexpr double kSampleRate = 48000.0;
+    constexpr int kBlockSize = 256;
+    juce::ignoreUnused(kBlockSize);
+
+    TargetSelectionState state;
+    state.targetId = "ReferenceSynth";
+    auto pluginFile = synth::InProcessVst3LifecycleAdapter::resolveVst3File(state);
+    if (!pluginFile.exists())
+    {
+        SKIP("ReferenceSynth.vst3 no encontrado en build. Se omite smoke test de producto.");
+    }
+
+    // -----------------------------------------------------------------------
+    // PASO 1: Target & Routing (Seleccionar ReferenceSynth VST3)
+    // -----------------------------------------------------------------------
+    TargetSelectionState target;
+    target.targetId = pluginFile.getFullPathName().toStdString();
+    target.targetName = "ReferenceSynth VST3";
+    target.manufacturer = "ABDSynths";
+    target.kind = TargetKind::PluginVST3;
+    target.isConnected = true;
+    target.isDeterministic = true;
+    target.parameterCount = 4; // Oscillator wave, Cutoff, Resonance, Level
+
+    SECTION("Flujo A: Modo AutomatedMidi")
+    {
+        ProfilingSessionController controller;
+        REQUIRE(controller.selectTarget(target) == true);
+        auto snapTarget = controller.getCurrentSnapshot();
+        CHECK(snapTarget.sessionStatus == ProfilingSessionStatus::TargetSelected);
+        CHECK(snapTarget.target.targetName == "ReferenceSynth VST3");
+        CHECK(snapTarget.target.kind == TargetKind::PluginVST3);
+
+        // Verificación de calibración digital requerida para VST3
+        CHECK(snapTarget.calibration.digital.requirement == CalibrationRequirement::Required);
+        controller.verifyDigitalCalibration();
+        CHECK(controller.getCurrentSnapshot().calibration.digital.verified == true);
+
+        // PASO 2: Receta Minima: C4, Vel 64, gateMs 250, settlingMs 50, 3 reps
+        MidiRecipe recipe;
+        recipe.firstNote = 60; // C4
+        recipe.lastNote = 60;
+        recipe.velocities = { 64 };
+        recipe.gateMs = 250.0;
+        recipe.settlingMs = 50.0;
+        recipe.midiChannel = 1;
+        recipe.repetitions = 3;
+        recipe.sequenceHash = "product_smoke_c4_vel64_seq";
+
+        controller.setExcitationMode(ExcitationMode::AutomatedMidi);
+        controller.updateMidiRecipe(recipe);
+
+        // Auditoría previa metrológica
+        controller.updateAuditResult(
+            synth::ApprovalStatus::Approved,
+            "100% Determinista (Digital VST3)",
+            "Reset instantaneo",
+            50.0,
+            false,
+            {},
+            "ReferenceSynth aprobado para medicion de oscilador"
+        );
+        CHECK(controller.getCurrentSnapshot().audit.isAudited == true);
+
+        // PASO 3: Run Session (Ejecución real de medición in-process con worker desacoplado)
+        REQUIRE(controller.startProfiling() == true);
+        CHECK(controller.getCurrentSnapshot().sessionStatus == ProfilingSessionStatus::Profiling);
+
+        // Bombeo cooperativo de la cola de mensajes mientras el worker ejecuta la medición
+        auto tStart = std::chrono::steady_clock::now();
+        while (controller.getCoordinator() && controller.getCoordinator()->isRunning())
+        {
+            pumpUiMessages();
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - tStart).count();
+            if (elapsed > 10000)
+                break;
+        }
+        pumpUiMessages();
+        if (controller.getCoordinator())
+        {
+            controller.getCoordinator()->waitForWorkerToStop(2000);
+        }
+        pumpUiMessages();
+
+        auto snapCompleted = controller.getCurrentSnapshot();
+        CHECK(snapCompleted.sessionStatus == ProfilingSessionStatus::Completed);
+        CHECK(snapCompleted.workflowStage == ProfilingWorkflowStage::ReviewResults);
+        CHECK(snapCompleted.evaluation.hasEvaluation == true);
+        CHECK(snapCompleted.exportOptions.canExportCpp == true);
+
+        // PASO 4: Exportación y verificación de artefactos
+        auto exportDir = tempDir.path / "exports_auto";
+        std::filesystem::create_directories(exportDir);
+        auto exportPath = (exportDir / "ReferenceSynthModel.cpp").string();
+        REQUIRE(controller.exportModel("cpp", exportPath) == true);
+        CHECK(std::filesystem::exists(exportPath));
+        CHECK(std::filesystem::file_size(exportPath) > 50);
+
+        // Guardado y recarga de sesión hermética
+        auto sessionFile = (tempDir.path / "smoke_session_auto.abdsession").string();
+        core::SessionManifest sManifest;
+        sManifest.sessionTitle = snapCompleted.sessionId;
+        sManifest.hardwareId = target.targetId;
+        sManifest.hardwareName = target.targetName;
+        sManifest.sampleRate = kSampleRate;
+        sManifest.totalMeasuredPoints = 3;
+
+        core::SessionSaveRequest saveReq;
+        saveReq.manifest = sManifest;
+        saveReq.destination = juce::File(sessionFile);
+        auto saveRes = core::SessionPersistenceService::save(saveReq);
+        REQUIRE(saveRes.succeeded());
+
+        core::SessionLoadRequest loadReq;
+        loadReq.source = juce::File(sessionFile);
+        auto loadRes = core::SessionPersistenceService::load(loadReq);
+        REQUIRE(loadRes.succeeded());
+        CHECK(loadRes.manifest.hardwareName == "ReferenceSynth VST3");
+        CHECK(loadRes.manifest.totalMeasuredPoints == 3);
+    }
+
+    SECTION("Flujo B: Modo ManualOperator (Convergencia)")
+    {
+        ProfilingSessionController controller;
+        REQUIRE(controller.selectTarget(target) == true);
+        controller.verifyDigitalCalibration();
+
+        // PASO 2: Receta Manual
+        ManualOperatorRecipe manRecipe;
+        manRecipe.instruction = "Configurar onda diente de sierra basica y pulsar Listo";
+        manRecipe.requireOperatorConfirmation = true;
+        controller.setExcitationMode(ExcitationMode::ManualOperator);
+        controller.updateManualRecipe(manRecipe);
+
+        controller.updateAuditResult(
+            synth::ApprovalStatus::Approved,
+            "100% Determinista (Manual VST3)",
+            "Manual prompt confirmado",
+            50.0,
+            false,
+            {},
+            "ReferenceSynth aprobado en modo manual"
+        );
+
+        // PASO 3: Run Session
+        REQUIRE(controller.startProfiling() == true);
+
+        // Bombeo cooperativo para conclusión del worker
+        auto tStart = std::chrono::steady_clock::now();
+        while (controller.getCoordinator() && controller.getCoordinator()->isRunning())
+        {
+            pumpUiMessages();
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - tStart).count();
+            if (elapsed > 10000)
+                break;
+        }
+        pumpUiMessages();
+        if (controller.getCoordinator())
+        {
+            controller.getCoordinator()->waitForWorkerToStop(2000);
+        }
+        pumpUiMessages();
+
+        auto snapCompleted = controller.getCurrentSnapshot();
+        CHECK(snapCompleted.sessionStatus == ProfilingSessionStatus::Completed);
+        CHECK(snapCompleted.workflowStage == ProfilingWorkflowStage::ReviewResults);
+        CHECK(snapCompleted.evaluation.hasEvaluation == true);
+        CHECK(snapCompleted.exportOptions.canExportCpp == true);
+
+        auto exportDir = tempDir.path / "exports_manual";
+        std::filesystem::create_directories(exportDir);
+        auto exportPath = (exportDir / "ReferenceSynthManualModel.cpp").string();
+        REQUIRE(controller.exportModel("cpp", exportPath) == true);
+        CHECK(std::filesystem::exists(exportPath));
+    }
+}
+
+// ===========================================================================
+// PRODUCT-SMOKE-02 / 3RD-PARTY-SMOKE-01: DemoSynth VST3 (Terceros Independiente)
+// ===========================================================================
+TEST_CASE("3RD-PARTY-SMOKE-01: DemoSynth VST3 Third-Party Plugin E2E",
+          "[product][smoke][vst3][3rdparty][demosynth]")
+{
+    E2ETempDirectory tempDir("demo_synth_smoke");
+
+    constexpr double kSampleRate = 48000.0;
+    constexpr int kBlockSize = 256;
+    juce::ignoreUnused(kBlockSize);
+
+    TargetSelectionState state;
+    state.targetId = "DemoSynth";
+    auto pluginFile = synth::InProcessVst3LifecycleAdapter::resolveVst3File(state);
+    if (!pluginFile.exists())
+    {
+        SKIP("DemoSynth.vst3 no encontrado en C:\\Program Files\\Common Files\\VST3 ni en build. Se omite prueba externa.");
+    }
+
+    TargetSelectionState target;
+    target.targetId = pluginFile.getFullPathName().toStdString();
+    target.targetName = "DemoSynth VST3 (Playful Tones)";
+    target.manufacturer = "Playful Tones";
+    target.kind = TargetKind::PluginVST3;
+    target.isConnected = true;
+    target.isDeterministic = true;
+    target.parameterCount = 0; // Sintetizador senoidal puro controlado por MIDI
+
+    ProfilingSessionController controller;
+    REQUIRE(controller.selectTarget(target) == true);
+    auto snapTarget = controller.getCurrentSnapshot();
+    CHECK(snapTarget.sessionStatus == ProfilingSessionStatus::TargetSelected);
+    CHECK(snapTarget.target.kind == TargetKind::PluginVST3);
+
+    // Calibración digital
+    controller.verifyDigitalCalibration();
+    CHECK(controller.getCurrentSnapshot().calibration.digital.verified == true);
+
+    // Receta MIDI
+    MidiRecipe recipe;
+    recipe.firstNote = 60; // C4
+    recipe.lastNote = 60;
+    recipe.velocities = { 64 };
+    recipe.gateMs = 250.0;
+    recipe.settlingMs = 50.0;
+    recipe.midiChannel = 1;
+    recipe.repetitions = 3;
+    recipe.sequenceHash = "demosynth_smoke_c4_vel64_seq";
+
+    controller.setExcitationMode(ExcitationMode::AutomatedMidi);
+    controller.updateMidiRecipe(recipe);
+
+    controller.updateAuditResult(
+        synth::ApprovalStatus::Approved,
+        "100% Determinista (VST3 Terceros)",
+        "Reset instantaneo",
+        50.0,
+        false,
+        {},
+        "DemoSynth aprobado para medicion de oscilador senoidal"
+    );
+
+    // Ejecución con worker desacoplado y bombeo cooperativo
+    REQUIRE(controller.startProfiling() == true);
+    CHECK(controller.getCurrentSnapshot().sessionStatus == ProfilingSessionStatus::Profiling);
+
+    auto tStart = std::chrono::steady_clock::now();
+    while (controller.getCoordinator() && controller.getCoordinator()->isRunning())
+    {
+        pumpUiMessages();
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tStart).count();
+        if (elapsed > 10000)
+            break;
+    }
+    pumpUiMessages();
+    if (controller.getCoordinator())
+    {
+        controller.getCoordinator()->waitForWorkerToStop(2000);
+    }
+    pumpUiMessages();
+
+    auto snapCompleted = controller.getCurrentSnapshot();
+    CHECK(snapCompleted.sessionStatus == ProfilingSessionStatus::Completed);
+    CHECK(snapCompleted.workflowStage == ProfilingWorkflowStage::ReviewResults);
+    CHECK(snapCompleted.evaluation.hasEvaluation == true);
+    CHECK(snapCompleted.exportOptions.canExportCpp == true);
+
+    // Exportación a C++
+    auto exportDir = tempDir.path / "exports_demosynth";
+    std::filesystem::create_directories(exportDir);
+    auto exportPath = (exportDir / "DemoSynthModel.cpp").string();
+    REQUIRE(controller.exportModel("cpp", exportPath) == true);
+    CHECK(std::filesystem::exists(exportPath));
+    CHECK(std::filesystem::file_size(exportPath) > 50);
+
+    // Persistencia y recarga
+    auto sessionFile = (tempDir.path / "demosynth_session.abdsession").string();
+    core::SessionManifest sManifest;
+    sManifest.sessionTitle = snapCompleted.sessionId;
+    sManifest.hardwareId = target.targetId;
+    sManifest.hardwareName = target.targetName;
+    sManifest.sampleRate = kSampleRate;
+    sManifest.totalMeasuredPoints = 3;
+
+    core::SessionSaveRequest saveReq;
+    saveReq.manifest = sManifest;
+    saveReq.destination = juce::File(sessionFile);
+    auto saveRes = core::SessionPersistenceService::save(saveReq);
+    REQUIRE(saveRes.succeeded());
+
+    core::SessionLoadRequest loadReq;
+    loadReq.source = juce::File(sessionFile);
+    auto loadRes = core::SessionPersistenceService::load(loadReq);
+    REQUIRE(loadRes.succeeded());
+    CHECK(loadRes.manifest.hardwareName == "DemoSynth VST3 (Playful Tones)");
+    CHECK(loadRes.manifest.totalMeasuredPoints == 3);
 }
 

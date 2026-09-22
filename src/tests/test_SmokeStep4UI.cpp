@@ -18,7 +18,7 @@
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/soundid/SoundIdResultsSummaryView.h"
 #include "gui/controllers/LoadedSessionApplier.h"
-#include "gui/WorkflowStepperBar.h"
+#include "gui/controllers/CanonicalWorkflowTypes.h"
 #include "export/ReportExportService.h"
 #include "core/SessionPersistenceService.h"
 
@@ -213,8 +213,8 @@ TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Automatizado (Dexed / AIRA)", "[smo
         loadRes.manifest.totalMeasuredPoints,
         loadRes.points.size());
     CHECK(wState.isSessionComplete == true);
-    CHECK(wState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
-    CHECK(wState.runSessionStatus == WorkflowStepperBar::StepStatus::Completed);
+    CHECK(wState.targetStepperStep == CanonicalStep::ExportReport);
+    CHECK(wState.runSessionStatus == CanonicalStepStatus::Completed);
 }
 
 // ===========================================================================
@@ -354,5 +354,5 @@ TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Manual Analógico (Moog Modular / D
         loadRes.manifest.totalMeasuredPoints,
         loadRes.points.size());
     CHECK(wState.isSessionComplete == true);
-    CHECK(wState.targetStepperStep == WorkflowStepperBar::Step::ExportReport);
+    CHECK(wState.targetStepperStep == CanonicalStep::ExportReport);
 }

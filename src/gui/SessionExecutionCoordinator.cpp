@@ -823,108 +823,112 @@ void SessionExecutionCoordinator::handleTestIndex(ExecutionToken token, int queu
 
 void SessionExecutionCoordinator::handlePointMeasured(ExecutionToken token, const exporting::MeasuredPoint& pt)
 {
-    if (token.runId == 0 || token.runId != activeToken.runId)
-    {
-        diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
-        return;
-    }
-
-    uint64_t pointExecId = activeToken.pointExecutionId;
-    if (pointExecId != 0 && pointExecId <= lastPersistedPointExecutionId)
-    {
-        diagnostics.duplicatePersistsPrevented.fetch_add(1, std::memory_order_relaxed);
-        return;
-    }
-    lastPersistedPointExecutionId = pointExecId;
-    diagnostics.pointsPersisted.fetch_add(1, std::memory_order_relaxed);
-
-    measurement::CoordinatorContext ctx;
-    ctx.mode = currentInteractionMode;
-    ctx.hasActiveSession = (activeMeasurementSession != nullptr);
-    ctx.currentPointId = pt.testId;
-
-    transitionTo(measurement::CoordinatorEvent::CaptureFinished, ctx);
-
-    // Diagnóstico de saturación y cálculo de hash de audio bruto
-    bool clipEvidence = false;
-    std::string rawHash = synth::Sha256::computeHex("point_" + pt.testId + "_" + std::to_string(totalPointsMeasured));
-    if (!pt.irSamples.empty())
-    {
-        auto diag = measurement::AnalogChainReversibleCompensator::diagnosePhysicalSaturation(pt.irSamples, 1.0f);
-        clipEvidence = diag.adcClipEvidence;
-        rawHash = synth::Sha256::computeHex(pt.irSamples.data(), pt.irSamples.size() * sizeof(float));
-    }
-
-    if (clipEvidence)
-    {
-        transitionTo(measurement::CoordinatorEvent::ValidationFailed, ctx);
-    }
-    else
-    {
-        transitionTo(measurement::CoordinatorEvent::ValidationPassed, ctx);
-
-        if (activeMeasurementSession != nullptr)
+    juce::MessageManager::callAsync([this, token, pt] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
         {
-            measurement::RawCaptureReference capRef;
-            capRef.captureId = "cap_" + pt.testId + "_" + std::to_string(totalPointsMeasured);
-            capRef.rawAudioSha256 = rawHash;
-            capRef.filename = capRef.captureId + ".raw.wav";
-            capRef.sampleRateHz = 48000.0;
-            capRef.sampleCount = pt.irSamples.size();
-            capRef.channels = 1;
-            capRef.activeControls = currentPointSnapshots;
-            activeMeasurementSession->rawCaptures.push_back(capRef);
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
         }
 
-        ctx.rawSha256Verified = true;
-        transitionTo(measurement::CoordinatorEvent::PersistenceSucceeded, ctx);
+        uint64_t pointExecId = activeToken.pointExecutionId;
+        if (pointExecId != 0 && pointExecId <= lastPersistedPointExecutionId)
+        {
+            diagnostics.duplicatePersistsPrevented.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+        lastPersistedPointExecutionId = pointExecId;
+        diagnostics.pointsPersisted.fetch_add(1, std::memory_order_relaxed);
 
-        int totalExpected = (viewSuiteList != nullptr) ? viewSuiteList->getTotalPointCount() : static_cast<int>(sessionManager.getPointCount());
-        ctx.hasRemainingPoints = ((totalPointsMeasured + 1) < totalExpected);
-        ctx.isManualControlRequired = (currentInteractionMode == measurement::WorkspaceInteractionMode::Guided);
-        transitionTo(measurement::CoordinatorEvent::NextPointOrFinish, ctx);
-    }
+        measurement::CoordinatorContext ctx;
+        ctx.mode = currentInteractionMode;
+        ctx.hasActiveSession = (activeMeasurementSession != nullptr);
+        ctx.currentPointId = pt.testId;
 
-    if (isPatchingSession && pt.globalIndex >= 0 && pt.globalIndex < static_cast<int>(sessionManager.getPointCount()))
-    {
-        sessionManager.patchMeasuredPoint(static_cast<size_t>(pt.globalIndex), pt);
-        curvePlotter.patchPoint(pt.globalIndex, pt);
-    }
-    else
-    {
-        curvePlotter.addMeasuredPoint(pt);
-        sessionManager.addMeasuredPoint(pt);
-        totalPointsMeasured++;
-    }
+        transitionTo(measurement::CoordinatorEvent::CaptureFinished, ctx);
 
-    if (viewSuiteList != nullptr && pt.queueIndex >= 0 && pt.pointIndexInTest >= 1)
-    {
-        viewSuiteList->setPointStatus(pt.queueIndex, pt.pointIndexInTest - 1, gui::PointStatus::Completed);
-        viewSuiteList->setPointSelected(pt.queueIndex, pt.pointIndexInTest - 1, false);
-    }
+        // Diagnóstico de saturación y cálculo de hash de audio bruto
+        bool clipEvidence = false;
+        std::string rawHash = synth::Sha256::computeHex("point_" + pt.testId + "_" + std::to_string(totalPointsMeasured));
+        if (!pt.irSamples.empty())
+        {
+            auto diag = measurement::AnalogChainReversibleCompensator::diagnosePhysicalSaturation(pt.irSamples, 1.0f);
+            clipEvidence = diag.adcClipEvidence;
+            rawHash = synth::Sha256::computeHex(pt.irSamples.data(), pt.irSamples.size() * sizeof(float));
+        }
 
-    float snrDb = pt.muSigmaValue.stdDev > 0.0001f ? (20.0f * std::log10(std::max(1e-4f, pt.muSigmaValue.mean) / pt.muSigmaValue.stdDev)) : 32.0f;
-    float noiseDb = (pt.secondaryValue.mean < 0.0f) ? pt.secondaryValue.mean : -92.0f;
+        if (clipEvidence)
+        {
+            transitionTo(measurement::CoordinatorEvent::ValidationFailed, ctx);
+        }
+        else
+        {
+            transitionTo(measurement::CoordinatorEvent::ValidationPassed, ctx);
 
-    if (viewHealthPanel != nullptr)
-    {
-        int totalPts = (viewSuiteList != nullptr) ? viewSuiteList->getTotalPointCount() : static_cast<int>(sessionManager.getPointCount());
-        viewHealthPanel->setMeasurementHealth(snrDb, noiseDb, static_cast<int>(sessionManager.getPointCount()), totalPts);
-        viewHealthPanel->setLatestTestId(pt.testId);
-    }
+            if (activeMeasurementSession != nullptr)
+            {
+                measurement::RawCaptureReference capRef;
+                capRef.captureId = "cap_" + pt.testId + "_" + std::to_string(totalPointsMeasured);
+                capRef.rawAudioSha256 = rawHash;
+                capRef.filename = capRef.captureId + ".raw.wav";
+                capRef.sampleRateHz = 48000.0;
+                capRef.sampleCount = pt.irSamples.size();
+                capRef.channels = 1;
+                capRef.activeControls = currentPointSnapshots;
+                activeMeasurementSession->rawCaptures.push_back(capRef);
+            }
 
-    if (onSessionAutoSaveRequested)
-        onSessionAutoSaveRequested();
+            ctx.rawSha256Verified = true;
+            transitionTo(measurement::CoordinatorEvent::PersistenceSucceeded, ctx);
+
+            int totalExpected = (viewSuiteList != nullptr) ? viewSuiteList->getTotalPointCount() : static_cast<int>(sessionManager.getPointCount());
+            ctx.hasRemainingPoints = ((totalPointsMeasured + 1) < totalExpected);
+            ctx.isManualControlRequired = (currentInteractionMode == measurement::WorkspaceInteractionMode::Guided);
+            transitionTo(measurement::CoordinatorEvent::NextPointOrFinish, ctx);
+        }
+
+        if (isPatchingSession && pt.globalIndex >= 0 && pt.globalIndex < static_cast<int>(sessionManager.getPointCount()))
+        {
+            sessionManager.patchMeasuredPoint(static_cast<size_t>(pt.globalIndex), pt);
+            curvePlotter.patchPoint(pt.globalIndex, pt);
+        }
+        else
+        {
+            curvePlotter.addMeasuredPoint(pt);
+            sessionManager.addMeasuredPoint(pt);
+            totalPointsMeasured++;
+        }
+
+        if (viewSuiteList != nullptr && pt.queueIndex >= 0 && pt.pointIndexInTest >= 1)
+        {
+            viewSuiteList->setPointStatus(pt.queueIndex, pt.pointIndexInTest - 1, gui::PointStatus::Completed);
+            viewSuiteList->setPointSelected(pt.queueIndex, pt.pointIndexInTest - 1, false);
+        }
+
+        float snrDb = pt.muSigmaValue.stdDev > 0.0001f ? (20.0f * std::log10(std::max(1e-4f, pt.muSigmaValue.mean) / pt.muSigmaValue.stdDev)) : 32.0f;
+        float noiseDb = (pt.secondaryValue.mean < 0.0f) ? pt.secondaryValue.mean : -92.0f;
+
+        if (viewHealthPanel != nullptr)
+        {
+            int totalPts = (viewSuiteList != nullptr) ? viewSuiteList->getTotalPointCount() : static_cast<int>(sessionManager.getPointCount());
+            viewHealthPanel->setMeasurementHealth(snrDb, noiseDb, static_cast<int>(sessionManager.getPointCount()), totalPts);
+            viewHealthPanel->setLatestTestId(pt.testId);
+        }
+
+        if (onSessionAutoSaveRequested)
+            onSessionAutoSaveRequested();
+    });
 }
 
 void SessionExecutionCoordinator::handleModulationNodeMeasured(ExecutionToken token, const math::ModulationNode& node)
 {
-    if (token.runId == 0 || token.runId != activeToken.runId)
-    {
-        diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
-        return;
-    }
-    curvePlotter.updateModulationNode(node);
+    juce::MessageManager::callAsync([this, token, node] {
+        if (token.runId == 0 || token.runId != activeToken.runId)
+        {
+            diagnostics.staleCallbacksDiscarded.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+        curvePlotter.updateModulationNode(node);
+    });
 }
 
 } // namespace gui

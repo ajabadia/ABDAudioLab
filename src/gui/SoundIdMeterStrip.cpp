@@ -35,7 +35,7 @@ SoundIdMeterStrip::SoundIdMeterStrip()
     };
     addAndMakeVisible(masterButton);
 
-    startTimerHz(60);
+    startTimerHz(30);
 }
 
 SoundIdMeterStrip::~SoundIdMeterStrip()
@@ -54,15 +54,21 @@ void SoundIdMeterStrip::setLevels(float inPeakL, float inPeakR, float inRms,
 
 void SoundIdMeterStrip::setProfilingActive(bool active)
 {
+    if (isProfilingActive == active)
+        return;
     isProfilingActive = active;
     if (!active)
         isSessionPaused_ = false;
+    hasRenderedState_ = false;
     repaint();
 }
 
 void SoundIdMeterStrip::setSessionPaused(bool paused)
 {
+    if (isSessionPaused_ == paused)
+        return;
     isSessionPaused_ = paused;
+    hasRenderedState_ = false;
     repaint();
 }
 
@@ -77,45 +83,103 @@ float SoundIdMeterStrip::amplitudeToNorm(float linearAmp) noexcept
 
 void SoundIdMeterStrip::timerCallback()
 {
-    // 60 Hz ballistic update: instantaneous attack, smooth exponential decay (~20 dB/s)
-    displayInRms = std::max(currentInRms, displayInRms * 0.92f);
-    displayInPeak = std::max(currentInPeak, displayInPeak * 0.96f);
+#ifdef ABD_TESTING
+    ++testTimerTickCount_;
+#endif
 
-    displayOutRms = std::max(currentOutRms, displayOutRms * 0.92f);
-    displayOutPeak = std::max(currentOutPeak, displayOutPeak * 0.96f);
+    // 30 Hz ballistic update (decay calibrated to match 60 Hz envelope: 0.92^2 = 0.8464, 0.96^2 = 0.9216)
+    displayInRms = std::max(currentInRms, displayInRms * 0.8464f);
+    displayInPeak = std::max(currentInPeak, displayInPeak * 0.9216f);
 
-    // Peak-Hold Ballistics (In): 1.0s hold = 60 frames at 60Hz
+    displayOutRms = std::max(currentOutRms, displayOutRms * 0.8464f);
+    displayOutPeak = std::max(currentOutPeak, displayOutPeak * 0.9216f);
+
+    // Peak-Hold Ballistics (In): 1.0s hold = 30 frames at 30Hz
     if (currentInPeak >= peakHoldIn)
     {
         peakHoldIn = currentInPeak;
-        peakHoldInTimer = 60;
+        peakHoldInTimer = 30;
     }
     else
     {
         if (peakHoldInTimer > 0)
             --peakHoldInTimer;
         else
-            peakHoldIn = peakHoldIn * 0.97f; // ~20 dB/s smooth decay
+            peakHoldIn = peakHoldIn * 0.9409f; // ~20 dB/s smooth decay (0.97^2)
     }
 
-    // Peak-Hold Ballistics (Out): 1.0s hold = 60 frames at 60Hz
+    // Peak-Hold Ballistics (Out): 1.0s hold = 30 frames at 30Hz
     if (currentOutPeak >= peakHoldOut)
     {
         peakHoldOut = currentOutPeak;
-        peakHoldOutTimer = 60;
+        peakHoldOutTimer = 30;
     }
     else
     {
         if (peakHoldOutTimer > 0)
             --peakHoldOutTimer;
         else
-            peakHoldOut = peakHoldOut * 0.97f;
+            peakHoldOut = peakHoldOut * 0.9409f;
     }
 
     // Reset current transient values for next measurement window
     currentInPeak = 0.0f;
     currentOutPeak = 0.0f;
 
+    // Check resting silence: all levels negligible (< -80 dBFS)
+    constexpr float kSilenceThreshold = 1e-4f;
+    const bool isCurrentlySilent = (displayInRms <= kSilenceThreshold && displayInPeak <= kSilenceThreshold && peakHoldIn <= kSilenceThreshold
+                                 && displayOutRms <= kSilenceThreshold && displayOutPeak <= kSilenceThreshold && peakHoldOut <= kSilenceThreshold);
+
+    if (hasRenderedState_ && wasRestingState_ && isCurrentlySilent
+        && lastRenderedState_.isProfilingActive == isProfilingActive
+        && lastRenderedState_.isSessionPaused == isSessionPaused_)
+    {
+#ifdef ABD_TESTING
+        ++testRepaintSkippedCount_;
+#endif
+        return; // Avoid useless repainting during idle silence
+    }
+
+    // Compute presentation metrics for dirty checking
+    float normInRms = amplitudeToNorm(displayInRms);
+    float normInHold = amplitudeToNorm(peakHoldIn);
+    float normOutRms = amplitudeToNorm(displayOutRms);
+    float normOutHold = amplitudeToNorm(peakHoldOut);
+    float peakDb = displayInPeak > 1e-4f ? 20.0f * std::log10(displayInPeak) : -96.0f;
+
+    if (hasRenderedState_)
+    {
+        bool stateChanged = (lastRenderedState_.isProfilingActive != isProfilingActive)
+                         || (lastRenderedState_.isSessionPaused != isSessionPaused_)
+                         || (std::abs(normInRms - lastRenderedState_.normInRms) >= 0.005f)
+                         || (std::abs(normOutRms - lastRenderedState_.normOutRms) >= 0.005f)
+                         || (std::abs(normInHold - lastRenderedState_.normInHold) >= 0.005f)
+                         || (std::abs(normOutHold - lastRenderedState_.normOutHold) >= 0.005f)
+                         || (std::abs(peakDb - lastRenderedState_.peakDb) >= 0.1f);
+
+        if (!stateChanged)
+        {
+#ifdef ABD_TESTING
+            ++testRepaintSkippedCount_;
+#endif
+            return;
+        }
+    }
+
+    lastRenderedState_.normInRms = normInRms;
+    lastRenderedState_.normInHold = normInHold;
+    lastRenderedState_.normOutRms = normOutRms;
+    lastRenderedState_.normOutHold = normOutHold;
+    lastRenderedState_.peakDb = peakDb;
+    lastRenderedState_.isProfilingActive = isProfilingActive;
+    lastRenderedState_.isSessionPaused = isSessionPaused_;
+    hasRenderedState_ = true;
+    wasRestingState_ = isCurrentlySilent;
+
+#ifdef ABD_TESTING
+    ++testRepaintExecutedCount_;
+#endif
     repaint();
 }
 

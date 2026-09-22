@@ -10,7 +10,7 @@
 #include "core/SessionSerializer.h"
 #include "export/LutExporter.h"
 #include "gui/suite/SuiteDataModels.h"
-#include "gui/WorkflowStepperBar.h"
+#include "gui/controllers/CanonicalWorkflowTypes.h"
 #include "gui/soundid/SoundIdSidebarStepper.h"
 #include <juce_core/juce_core.h>
 #include <vector>
@@ -64,9 +64,9 @@ struct SessionUiPresentationData
 struct WorkflowStepState
 {
     bool isSessionComplete { false };
-    WorkflowStepperBar::Step targetStepperStep { WorkflowStepperBar::Step::RunSession };
+    CanonicalStep targetStepperStep { CanonicalStep::RunSession };
     SoundIdSidebarStepper::Step targetSidebarStep { SoundIdSidebarStepper::Step::RunSession };
-    WorkflowStepperBar::StepStatus runSessionStatus { WorkflowStepperBar::StepStatus::Current };
+    CanonicalStepStatus runSessionStatus { CanonicalStepStatus::Current };
 };
 
 /**
