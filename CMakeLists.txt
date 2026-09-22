@@ -444,8 +444,6 @@ target_sources(ABDAudioLab
         src/gui/HardwareWiringDiagramComponent.cpp
         src/gui/HardwareDeviceDisplayCardComponent.h
         src/gui/HardwareDeviceDisplayCardComponent.cpp
-        src/gui/HardwareRoutingPanel.h
-        src/gui/HardwareRoutingPanel.cpp
         src/gui/NativeCalibrationPanel.h
         src/gui/NativeCalibrationPanel.cpp
         src/gui/TestConfigModal.h
@@ -671,7 +669,6 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PlotterRenderers.cpp
     src/tests/test_OperatorCardsContainerComponent.cpp
     src/tests/test_MatrixResolutionTableComponent.cpp
-    src/tests/test_HardwareRoutingComponents.cpp
     src/tests/test_CasioCzVirtualController.cpp
     src/tests/test_CasioCzProfilingRecipes.cpp
     src/tests/test_CasioCzLiveScanSuite.cpp
@@ -865,7 +862,6 @@ add_executable(ABDAudioLab_Tests
     src/gui/OperatorStepModalDialog.cpp
     src/gui/HardwareWiringDiagramComponent.cpp
     src/gui/HardwareDeviceDisplayCardComponent.cpp
-    src/gui/HardwareRoutingPanel.cpp
     src/gui/AudioABVerificationModal.cpp
     src/gui/SessionReportManager.cpp
     src/gui/controllers/SessionIoController.cpp

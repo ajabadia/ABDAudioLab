@@ -90,8 +90,9 @@
 |---|---|---|---|---|
 | **Fase 1** | `SoundIdGuidedWorkflowContainer` | **Bajo** | Ningún test dependía de él; modo inactivo | **PASS (Certificado)**: Release Build #394, 0 residuales, 617 tests (609 PASS / 8 SKIP / 0 FAIL) |
 | **Fase 2** | `LoopbackCalibrationModal` (`loopbackModal`) | **Bajo** | Callbacks residuales en `MainContentComponent` | **PASS (Certificado)**: Release Build #395, 0 residuales funcionales, 617 tests (609 PASS / 8 SKIP / 0 FAIL / 228.920 aserciones) |
-| **Fase 3** | `stepperBar` (instancia de UI) | **Medio** | Desacoplar llamadas espejo; aislar enums | Pendiente de autorización |
-| **Fase 4** | `hardwareRoutingPanel` | **Alto** | Fallbacks defensivos en inicio de sesión | Pendiente |
+| **Fase 3** | `stepperBar` (instancia de UI) | **Medio** | Desacoplar llamadas espejo; aislar enums normativos en `CanonicalWorkflowTypes.h` | **PASS (Certificado)**: Release Build #398, tipos canónicos extraídos, stepperBar retirado, 615 tests (607 PASS / 8 SKIP / 0 FAIL / 228.813 aserciones) |
+| **Fase 4A** | `hardwareRoutingPanel` (Fallbacks) | **Alto** | Sustituir 6 fallbacks con `resolveCanonicalTarget()`, validar target vacío en exportación | **PASS (Certificado)**: Release Build #401, 616 tests (608 PASS / 8 SKIP / 0 FAIL / 228.827 aserciones) |
+| **Fase 4B** | `HardwareRoutingPanel` (Física) | **Bajo** | Retirar miembro `hardwareRoutingPanel`, constructor/callbacks y archivos de CMakeLists | Pendiente de autorización |
 
 ---
 

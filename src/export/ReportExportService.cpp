@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include <chrono>
+#include <thread>
 #include <algorithm>
 #include <cmath>
 
@@ -558,16 +559,36 @@ ReportExportResult ReportExportService::exportReport(const ReportExportRequest& 
         }
         else
         {
-            std::filesystem::rename(item.stagePath, published.publishedPath, ec);
-            if (ec)
+            // Windows file-locking resilience: retry transient lock up to 3 times
+            bool success = false;
+            for (int attempt = 0; attempt < 3; ++attempt)
             {
-                // Cross-device fallback: copy and delete
                 ec.clear();
-                std::filesystem::copy_file(item.stagePath, published.publishedPath, std::filesystem::copy_options::overwrite_existing, ec);
+                std::filesystem::rename(item.stagePath, published.publishedPath, ec);
                 if (!ec)
                 {
-                    std::filesystem::remove(item.stagePath, ec);
+                    success = true;
+                    break;
                 }
+
+                // Cross-device or locked target fallback: copy and delete
+                ec.clear();
+                std::filesystem::copy_file(item.stagePath, published.publishedPath,
+                                           std::filesystem::copy_options::overwrite_existing, ec);
+                if (!ec)
+                {
+                    std::error_code rmEc;
+                    std::filesystem::remove(item.stagePath, rmEc);
+                    success = true;
+                    break;
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+
+            if (!success && !ec)
+            {
+                ec = std::make_error_code(std::errc::permission_denied);
             }
         }
 

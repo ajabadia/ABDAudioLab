@@ -34,7 +34,6 @@
 #include "gui/SlideInDrawer.h"
 #include "gui/InfoDrawer.h"
 #include "gui/AboutModalDialog.h"
-#include "gui/HardwareRoutingPanel.h"
 #include "gui/NativeCalibrationPanel.h"
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
@@ -235,7 +234,6 @@ private:
     gui::SoundIdSuiteList suiteList;
     gui::SlideInDrawer drawer;
     gui::AboutModalDialog aboutModal;
-    gui::HardwareRoutingPanel hardwareRoutingPanel;
     gui::NativeCalibrationPanel nativeCalibrationPanel { audioEngine };
     gui::DrawerSetupTab setupInfoTab;
     gui::OperatorStepModalDialog operatorStepModal;

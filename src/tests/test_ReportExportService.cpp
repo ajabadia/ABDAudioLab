@@ -811,8 +811,6 @@ TEST_CASE("ReportExportService: Paridad Semantica con Legacy ProductionPackage",
     newReq.measuredPoints = pts;
 
     auto newResult = ReportExportService::exportReport(newReq);
-
-    INFO("newResult status=" << static_cast<int>(newResult.status) << " code=" << newResult.errorCode << " msg=" << newResult.userMessage);
     REQUIRE(newResult.succeeded());
     REQUIRE(newResult.artifacts.size() == 4);
 
