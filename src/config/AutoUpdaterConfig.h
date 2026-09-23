@@ -2,6 +2,7 @@
 
 #include <AutoUpdater/AutoUpdaterConfig.h>
 #include <juce_core/juce_core.h>
+#include "../BuildVersion.h"
 
 namespace abdaudiolab::config
 {
@@ -12,11 +13,11 @@ namespace abdaudiolab::config
 inline ABDShared::AutoUpdaterConfig getAutoUpdaterConfig()
 {
     ABDShared::AutoUpdaterConfig cfg;
-    cfg.currentVersion = "1.1.0";
+    cfg.currentVersion = version::kAppVersion;
     cfg.repoOwner = "ajabadia";
     cfg.repoName = "ABDAudioLab";
     cfg.appName = "ABDAudioLab";
-    cfg.userAgent = "ABDAudioLab-AutoUpdater/1.1";
+    cfg.userAgent = "ABDAudioLab-AutoUpdater/" + juce::String(version::kAppVersion);
     cfg.checkIntervalHours = 24;
     cfg.checkOnStartup = true;
     cfg.allowPrerelease = false;

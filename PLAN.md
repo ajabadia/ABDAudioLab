@@ -1,8 +1,7 @@
 # PLAN OPERATIVO: PARITY-01 — Auditoría de Convergencia Guiado/Exploración
 
-**Hito:** PARITY-01 (PARITY-01A / PARITY-01B)  
-**Estado:** 🟢 CARACTERIZACIÓN UNITARIA CERTIFICADA | ⏳ PARIDAD E2E DE AUDIO PENDIENTE (INTEGRATION-01)  
-**Resultado:** 2 test cases PASS | 35 assertions PASS | 0 FAIL (Build #411 — 2026-09-23)  
+**Estado:** 🟢 CARACTERIZACIÓN Y PARIDAD E2E DE AUDIO CERTIFICADAS (Build #417)  
+**Resultado:** 3 suites PASS ([parity] 35/35, [convergence] 16/16, [integration-01] 85/85) | 0 FAIL (Build #417 — 2026-09-23)  
 
 ---
 
@@ -54,5 +53,5 @@ All tests passed (35 assertions in 2 test cases)
 | Paso | Hito | Objetivo | Estado |
 |:---:|---|---|:---:|
 | **1** | **HITO-CONVERGENCIA-01** | Derivar `ExperimentKind` de evidencia metodológica (eliminar bifurcación D3 por `workflowMode`) y retirar dependencia exclusiva de `guided/`. | ✅ **CERTIFICADO** (Build #414 — 16/16 assertions PASS) |
-| **2** | **INTEGRATION-01** | `MockAudioEngine` / harness determinista para verificar paridad E2E (D5-eventos, D6-audio, D7-DSP, D8-manifest canónico). | ⏳ **HITO ACTIVO INMEDIATO** |
-| **3** | **HITO-09** | Banco de trabajo unificado con presets declarativos JSON y 3 niveles de asistencia (Rápido, Configurable, Avanzado). | Condicionado a INTEGRATION-01 |
+| **2** | **INTEGRATION-01** | `MockAudioEngine` / harness determinista para verificar paridad E2E (D5-eventos, D6-audio, D7-DSP, D8-manifest canónico). | ✅ **CERTIFICADO** (Build #417 — 85/85 assertions PASS) |
+| **3** | **HITO-09** | Banco de trabajo unificado con presets declarativos JSON y 3 niveles de asistencia (Rápido, Configurable, Avanzado). | 🟢 **DESBLOQUEADO / LISTO PARA PLANIFICACIÓN** |

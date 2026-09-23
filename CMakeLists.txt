@@ -898,6 +898,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_UiCoordinatorGovernance.cpp
     src/tests/test_Parity01GuidedVsClassic.cpp
     src/tests/test_Convergence01ExperimentClassification.cpp
+    src/tests/test_Integration01GuidedVsClassicAudio.cpp
 )
 
 # ------------------------------------------------------------------------------

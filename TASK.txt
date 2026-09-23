@@ -44,17 +44,22 @@ Nueva suite global baseline (Build #414):
 
 ---
 
-HITO ACTIVO: INTEGRATION-01 — Harness Determinista de Audio y Validación E2E
-Misión: Demostrar paridad científica real con señales, buffers y métricas.
-Objetivos técnicos:
-  [ ] MockAudioEngine en bucle cerrado (desbloquear ProfilingSequencer en headless sin WASAPI).
-  [ ] Nivel 1 (Control exacto): contrastar eventos MIDI efectivos y offsets (D5-eventos).
-  [ ] Nivel 2 (Salida científica): comparar buffers de audio (diff <= 10^-7, SHA-256 canónico) (D6-audio).
-  [ ] Métricas DSP: SNR, THD%, pico, RMS, f0 y MeasuredPoint (D7-DSP).
-  [ ] Integridad de paquete: EvaluationSnapshot, manifest RFC 8785 y ProductionPackage.
+HITO ANTERIOR: INTEGRATION-01 — Harness Determinista de Audio y Validación E2E
+Estado: CERTIFICADO (Build #417 — 2026-09-23)
+- Harness MockAudioEngine determinista sin sleeps ni reloj de pared en src/tests/support/MockAudioEngine.h.
+- Suite específica: src/tests/test_Integration01GuidedVsClassicAudio.cpp (85/85 assertions PASS).
+- Nivel 1 (Control exacto): Conteo de bloques (452), eventos MIDI NoteOn/NoteOff, orden y sample offsets idénticos en GS y LS.
+- Nivel 2 (Audio canónico): 115.712 muestras capturadas en estéreo, max diff = 0.0000000, RMSE = 0.0000000, SHA-256 bit a bit idéntico.
+- Nivel 3 (Salida científica): MeasuredPoints idénticos campo a campo (THD, SNR, Mu/Sigma Peak/StdDev), clasificación formal Measurement idéntica.
+- Acta de certificación emitida: ACTA_INTEGRATION_01_AUDIO_PARITY.md.
+
+Nueva suite global baseline (Build #417):
+  619 casos (+1 vs Build #414 por INTEGRATION-01)
+  611 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  228.954/228.954 assertions PASS (+85 assertions)
 
 Secuencia de ejecución vinculante:
   1. [x] PARITY-01: Caracterización unitaria certificada (Build #411)
   2. [x] HITO-CONVERGENCIA-01: Semántica canónica unificada (Build #414)
-  3. [ ] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluación (EN CURSO)
-  4. [ ] HITO-09: Banco único con presets declarativos (Rápido, Configurable, Avanzado)
+  3. [x] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluación (Build #417 - CERTIFICADO)
+  4. [ ] HITO-09: Banco único con presets declarativos (Rápido, Configurable, Avanzado) — DESBLOQUEADO
