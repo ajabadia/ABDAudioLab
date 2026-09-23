@@ -1,9 +1,9 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión del Documento:** 2.2.0  
-**Versión del Producto (Objetivo):** v2.1.0 (pendiente de sellado en HITO-08)  
-**Fecha de Actualización:** 2026-09-22  
+**Versión del Documento:** 2.3.0  
+**Versión del Producto (Objetivo):** v2.1.0 (sellado — tag `v2.1.0`)  
+**Fecha de Actualización:** 2026-09-23  
 
 ---
 
@@ -53,7 +53,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-05** | Certificación de workflow completo end-to-end (0 a 4) en los 4 tipos de target | **Certificado** | [ACTA_HITO_05_E2E_HERMETIC.md](ACTA_HITO_05_E2E_HERMETIC.md) + ST-E2E-01–04 |
 | **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Certificado** | [ACTA_HITO_06_TELEMETRY_SEAMS.md](ACTA_HITO_06_TELEMETRY_SEAMS.md) + SEAM-04–05 |
 | **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Certificado** | [ACTA_HITO_07_SAFE_REMOVAL.md](ACTA_HITO_07_SAFE_REMOVAL.md) — 615 casos / 228.818 assertions / Build #402 |
-| **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Pendiente** | Cierre de ciclo |
+| **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Certificado** | [ACTA_RELEASE_CANDIDATE_v2.1.0.md](../ACTA_RELEASE_CANDIDATE_v2.1.0.md) — Build #406 / tag `v2.1.0` / 23-Sep-2026 |
 
 ---
 

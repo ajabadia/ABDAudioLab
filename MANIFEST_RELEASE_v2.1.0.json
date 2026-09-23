@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "1.0.0",
+  "product": {
+    "name": "ABDAudioLab",
+    "version": "2.1.0",
+    "releaseStatus": "RELEASED",
+    "buildNumber": 406,
+    "buildType": "Release",
+    "architecture": "x64",
+    "toolchain": {
+      "compiler": "MSVC v18.4 (Visual Studio 2026 Developer Command Prompt)",
+      "standard": "C++20",
+      "cmakeVersion": "3.22+",
+      "platform": "Windows 10/11 x64"
+    },
+    "git": {
+      "baseCommit": "62578cc95dbd744f450323b1db77add518de0099",
+      "branch": "main",
+      "tag": "v2.1.0"
+    }
+  },
+  "dependencies": {
+    "ABDSharedCode": {
+      "repository": "https://github.com/ajabadia/ABDSharedCode.git",
+      "commit": "65875eb8fbf65602b05981318608264a4c2432ec",
+      "branchOrigin": "master @ 2026-09-22",
+      "pinning": "exact_sha"
+    },
+    "ABDScope": {
+      "repository": "https://github.com/ajabadia/ABDScope.git",
+      "commit": "0a296f3f3d161f65b41be4d02413ab858dddff55",
+      "branchOrigin": "main @ 2026-09-22",
+      "pinning": "exact_sha"
+    },
+    "juce": {
+      "version": "8.0.4",
+      "pinning": "tag"
+    },
+    "nlohmann_json": {
+      "version": "3.11.3",
+      "pinning": "tag"
+    },
+    "catch2": {
+      "version": "3.5.2",
+      "pinning": "tag"
+    }
+  },
+  "artifacts": [
+    {
+      "name": "ABDAudioLab.exe",
+      "relativePath": "build/ABDAudioLab_artefacts/Release/ABDAudioLab.exe",
+      "role": "Main Standalone Application",
+      "sizeBytes": 8986112,
+      "sha256": "9DD043222807BCB052D2449DFCD3E106547B85C4D8A33899120246E7216DEE70"
+    },
+    {
+      "name": "ABDAudioLab_Tests.exe",
+      "relativePath": "build/Release/ABDAudioLab_Tests.exe",
+      "role": "Catch2 Test Runner & Verification Suite",
+      "sizeBytes": 14567424,
+      "sha256": "FD876A4A5DA3B5F02CAEEEEF969BB5608659203834E501CC1C615621F8F2B4D2"
+    },
+    {
+      "name": "ABDAudioLab_PluginWorker.exe",
+      "relativePath": "build/ABDAudioLab_artefacts/Release/ABDAudioLab_PluginWorker.exe",
+      "role": "Auxiliary Plugin Worker Process",
+      "sizeBytes": 3827712,
+      "sha256": "AEDA6035AFF8926A7527A45CA94DB724CE04DA36C7BC582B13D2E550050DEF8D"
+    }
+  ],
+  "verificationSuite": {
+    "testRunner": "Catch2 v3.5.2",
+    "totalTestCases": 615,
+    "passed": 607,
+    "skipped": 8,
+    "failed": 0,
+    "totalAssertions": 228818,
+    "assertionsPassed": 228818,
+    "exitCode": 0,
+    "skipJustification": "8 UI Governance tests skipped due to JUCE COM/WASAPI singleton in-process reinitialization restrictions (require process isolation)."
+  },
+  "knownIssues": [
+    {
+      "id": "KI-01",
+      "title": "Contraste insuficiente en ciertos paneles de modo oscuro",
+      "severity": "Low / Cosmetic",
+      "status": "Documented / Non-blocking",
+      "description": "Ciertos labels y controles en modo oscuro presentan relaciones de contraste por debajo del estándar óptimo WCAG AA. No afecta a la operativa funcional."
+    },
+    {
+      "id": "KI-02",
+      "title": "8 tests de UI Governance saltados en ejecución monoproceso",
+      "severity": "Low / Test Environment",
+      "status": "Documented / Non-blocking",
+      "description": "Limitación del subsistema gráfico/audio de JUCE que impide reiniciar Singletons COM/WASAPI dentro de un único proceso de Catch2; permanecen como SKIPPED en la suite monolítica y requieren aislamiento de proceso para su validación."
+    }
+  ],
+  "scopeExclusions": [
+    "Soporte de formatos de plugin AU, CLAP y LV2 (únicamente VST3 certificado).",
+    "Aislamiento out-of-process completo en sandboxing separado de hosting.",
+    "Equivalencia matemática/funcional demostrada entre Modo Guiado y Modo Exploración (comparten pipeline y arquitectura, pero la prueba formal de paridad Guided-vs-Exploration queda pendiente para iteración futura)."
+  ]
+}

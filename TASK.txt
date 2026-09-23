@@ -30,3 +30,39 @@ Acta emitida: ACTA_HITO_07_SAFE_REMOVAL.md
 Documentacion actualizada: MATRIX_HITO_07_DEPENDENCIES.md, PLAN_HITO_07_SAFE_REMOVAL.md, ROADMAP.md
 
 Proximo hito: HITO-08 — Documentacion operativa de release y sellado de version v2.1.0
+
+---
+
+HITO-08: COMPLETADO Y CERTIFICADO
+
+Estado final de HITO-08-RELEASE (2026-09-23):
+- Fase 1 (Fijacion de version): PASS -- BuildVersion.h, CMakeLists.txt -> 2.1.0
+- Fase 2 (Build Release): PASS -- Build #406 (Sep 22 2026)
+- Fase 3 (Validacion): PASS -- 615/607/8/0 | 228.818 assertions
+- Fase 4 (Empaquetado): PASS -- SHA-256 verificados, MANIFEST generado
+- Fase 5 (Documentacion): PASS -- RELEASE_NOTES, ACTA, MATRIX emitidos
+- Fase 6 (Sellado): PASS -- Smoke visual Build #406 superado (23-Sep-2026)
+- Fase 7 (Cierre): PASS -- TASK.txt, ROADMAP v2.3.0 actualizados
+
+Suite final (Build #406):
+  615 casos | 607 PASS | 8 SKIPPED justificados | 0 FAIL
+  228.818/228.818 assertions PASS
+
+Smoke visual Build #406 (23-Sep-2026):
+  ERR_NO_TARGET_SELECTED: guardia activa CONFIRMADA
+  Export con ReferenceSynth: paquete generado CONFIRMADO
+  Version About: v2.1.0 - Build 406 CONFIRMADO
+  Alternancia temas claro/oscuro: CONFIRMADO
+
+Artefactos emitidos:
+  MANIFEST_RELEASE_v2.1.0.json (releaseStatus: RELEASED)
+  RELEASE_NOTES_v2.1.0.md
+  ACTA_RELEASE_CANDIDATE_v2.1.0.md (promovida a CERTIFICADA Y SELLADA)
+  MATRIX_HITO_08_RELEASE.md (estado: CERTIFICADO Y SELLADO)
+
+Known Issues registrados:
+  KI-01: Colores elementos modo oscuro (cosmetico, sesion futura)
+  KI-02: 8 UI Governance tests SKIPPED (requieren proceso aislado)
+
+Tag: v2.1.0
+Commit base: 62578cc95dbd744f450323b1db77add518de0099
