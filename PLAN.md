@@ -1,8 +1,8 @@
 # PLAN OPERATIVO: PARITY-01 — Auditoría de Convergencia Guiado/Exploración
 
 **Hito:** PARITY-01 (PARITY-01A / PARITY-01B)  
-**Estado:** ✅ CERTIFICADO — Build #411 (2026-09-23)  
-**Resultado:** 2 test cases PASS | 35 assertions PASS | 0 FAIL  
+**Estado:** 🟢 CARACTERIZACIÓN UNITARIA CERTIFICADA | ⏳ PARIDAD E2E DE AUDIO PENDIENTE (INTEGRATION-01)  
+**Resultado:** 2 test cases PASS | 35 assertions PASS | 0 FAIL (Build #411 — 2026-09-23)  
 
 ---
 

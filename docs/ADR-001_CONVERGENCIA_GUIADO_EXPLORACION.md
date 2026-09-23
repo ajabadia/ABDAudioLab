@@ -1,53 +1,44 @@
 # ADR-001 — Convergencia de Flujos: Modelo de Presets y Plan Canónico
 
 **Proyecto:** ABDAudioLab  
-**Estado:** PROPUESTO — pendiente de validación en PARITY-01  
+**Estado:** ACEPTADO — caracterización unitaria completada (PARITY-01, Build #411); pendiente paridad E2E (INTEGRATION-01)  
 **Fecha:** 2026-09-23  
 **Autores:** Usuario (decisión de producto) + Antigravity (formalización arquitectónica)  
-**Hito asociado:** PARITY-01 / HITO-09  
+**Hito asociado:** PARITY-01 (PARITY-01A / PARITY-01B) / HITO-CONVERGENCIA-01 / INTEGRATION-01 / HITO-09  
 
 ---
 
-## 1. Contexto y Problema
+## 1. Contexto y Diagnóstico Factual
 
-ABDAudioLab v2.1.0 cierra el ciclo HITO-01 a HITO-08 con una arquitectura canónica consolidada:
-un único `ProfilingSequencer`, un único `ProfilingSessionController`, un único
-`ReportExportService → ProductionPackage`. El código de ejecución y exportación está unificado.
+ABDAudioLab v2.1.0 consolida el pipeline de ejecución y exportación: un único `ProfilingSequencer`, un único `ProfilingSessionController` y una única cadena `ReportExportService → ProductionPackage`.
 
-Sin embargo, la capa de presentación e iniciación de sesión todavía mantiene una dualidad
-conceptual entre **Modo Guiado** y **Modo Exploración** que:
+La inspección estática del código revela que **no existen dos motores científicos completos**, sino un único motor de medición (`ProfilingSequencer`) sobre el cual la interfaz construye experiencias artificialmente separadas.
 
-1. Puede estar ocultando información relevante al usuario experto en el modo guiado.
-2. Puede estar generando rutas de receta divergentes que alimentan al mismo motor con entradas distintas.
-3. Introduce una segunda forma de navegar sin aportar una ventaja funcional clara respecto al modo exploración.
-4. Obliga al usuario a elegir un "modo" antes de entender qué quiere medir.
+### 1.1. Las Tres Rutas Identificadas en el Código
 
-La pregunta central que PARITY-01 debe responder:
+En lugar de dos modos, la arquitectura actual alberga realmente tres rutas operativas:
 
-> ¿Las rutas guiada y exploración son actualmente dos presentaciones del mismo `ExperimentPlan`
-> canónico, o producen planes, capturas o análisis materialmente distintos?
+| Ruta | Mecanismo en Código | Naturaleza Metodológica |
+|---|---|---|
+| **Guiado Sistemático** | `SoundIdProfilingRunView` $\to$ `onStartClicked` $\to$ `startProfilingSession(false)` | Medición sistemática formal (UI simplificada con preflight y ocultamiento de cola/gráficos). |
+| **Libre Sistemático** | `suiteList` $\to$ `onToggleSessionRunClicked` $\to$ `startProfilingSession(false)` | Medición sistemática formal (UI de banco de trabajo con inspección completa de cola y curvas). |
+| **Toma Libre** | `btnFreeCapture` $\to$ NoteOn/NoteOff $\to$ `sessionCoordinator.triggerFreeCapture()` | Exploración ad-hoc no metrológica (`confirmationStatus = "unknown"`, sin plan declarado). |
 
----
-
-## 2. Decisión
-
-**Se adopta como dirección arquitectónica:**
-
-> Un único banco de trabajo con una única ruta de ejecución,  
-> diferenciada únicamente en la forma de generar el `ExperimentPlan`.
-
-La dualidad Guiado/Exploración **desaparece como concepto de producto**.  
-En su lugar se establece un modelo de **presets declarativos + edición avanzada**:
-
-| Entrada del usuario | Resultado |
-|---|---|
-| Selecciona un preset/macro | Se carga un `ExperimentPlan` canónico preconfigurado, revisable y editable |
-| Edita libremente | Construye el mismo `ExperimentPlan` desde cero |
-| En ambos casos | `ProfilingSequencer` ejecuta, `EvaluationSnapshot` captura, `ReportExportService` exporta |
+### 1.2. Principio Metodológico de No Regresión
+> **Regla de oro:** *Caracterizar primero; comparar después; migrar después; retirar al final.*
+> No se eliminará ningún componente (`btnModeToggle`, `SoundIdProfilingRunView`, `btnFreeCapture`, `triggerFreeCapture`, `UiWorkflowMode`) hasta que los tests de caracterización hayan fijado su comportamiento y trazado la ruta de migración sin riesgo de pérdida funcional.
 
 ---
 
-## 3. Arquitectura Objetivo
+## 2. Decisión Arquitectónica
+
+**Se adopta como dirección definitiva:**
+
+> Un único banco de trabajo con una única ruta de ejecución canónica,  
+> diferenciada únicamente en la forma de generar o editar el `ExperimentPlan`.
+
+La dualidad conceptual Guiado/Exploración **desaparece como modo o producto independiente**.  
+Se establece un modelo de **presets declarativos + tres niveles de asistencia en la UI**:
 
 ```
 Target seleccionado
@@ -58,7 +49,7 @@ ExperimentPlan canónico
         ↓
 Preflight / guardas metrológicas
         ↓
-ProfilingSequencer
+ProfilingSequencer (única autoridad de ejecución)
         ↓
 Captura y análisis canónicos
         ↓
@@ -69,18 +60,23 @@ Resultados / Informe / Exportación
 ReportExportService → ProductionPackage
 ```
 
-**Lo que desaparece:** bifurcaciones de motor, máquinas de estado paralelas,
-presentaciones de resultado separadas, exportadores alternativos.
+---
 
-**Lo que permanece idéntico independientemente del origen del plan:**
-receta, ejecución, captura, análisis, evaluación, informe, exportación.
+## 3. Tres Niveles de Asistencia para el Usuario (HITO-09)
+
+El usuario **nunca cambia de motor**. Solo cambia el grado de control y detalle que desea visualizar:
+
+| Nivel | Qué ve el usuario | Qué ocurre internamente |
+|---|---|---|
+| **Rápido (Presets)** | “Perfil rápido”, “Respuesta a velocidad”, “Medir envolvente ADSR” | Carga un preset declarativo JSON en el `ExperimentPlan`. |
+| **Configurable** | Puede ajustar notas, velocidades, compuertas (`gateMs`), repeticiones y análisis | Modifica los campos del mismo `ExperimentPlan` canónico. |
+| **Avanzado** | Inspecciona todas las dimensiones, políticas DSP, trazas de eventos y tolerancias | Audita el mismo plan y los resultados con acceso total. |
 
 ---
 
 ## 4. Modelo de Presets Declarativos
 
-Los presets son **datos, no ramas de código**. Cada preset es un fichero JSON
-que define un `ExperimentPlan` predefinido:
+Los presets son **datos (ficheros JSON), no ramas de código**.
 
 ```
 presets/
@@ -94,8 +90,7 @@ presets/
   SaturationProfile.json
 ```
 
-Estructura mínima de un preset:
-
+Estructura canónica de un preset:
 ```json
 {
   "id": "QuickSynthProfile",
@@ -119,80 +114,38 @@ Estructura mínima de un preset:
 
 ---
 
-## 5. Experiencia de Usuario Objetivo
+## 5. Delimitación de Auditoría: PARITY-01A y PARITY-01B
 
-### Flujo simplificado
+PARITY-01 no compara "Guiado" contra "Toma Libre" (que no son equivalentes), sino que se divide formalmente en dos tareas:
 
-```
-1. Elegir target
-2. Elegir qué quiero averiguar
-3. Elegir una plantilla o crear mi propio plan
-4. Revisar el plan generado
-5. Ejecutar
-6. Ver y exportar el resultado
-```
+### PARITY-01A — Guiado Sistemático vs. Libre Sistemático
+* **Caso controlado:** `ReferenceSynth`, 48 kHz, buffer 256, preset sine, C4, vel 64, gate 250ms, settling 50ms, 3 repeticiones.
+* **Objetivo:** Demostrar si `SoundIdProfilingRunView` y `suiteList` ejecutan idéntico `ProfilingSequencer` y generan idéntico `EvaluationSnapshot` y paquete de exportación.
+* **Resultado esperado:** Convergencia en ejecución y análisis, con identificación de divergencias en metadatos (`r.kind`) o copia local de `guided/`.
 
-### Pantalla de selección (ejemplo con DemoSynth)
-
-```
-Target: DemoSynth
-
-¿Qué quieres hacer?
-
-[ Perfil rápido del instrumento ]
-  C4 · 3 velocidades · 3 repeticiones · análisis de envolvente y espectro
-
-[ Medir respuesta a velocidad ]
-  5 velocidades · notas fijas · RMS, pico y centroide espectral
-
-[ Explorar libremente ]
-  Editar notas, parámetros, tiempos, repeticiones y análisis
-```
-
-Al seleccionar un preset, el plan generado es inmediatamente visible e inspeccionable
-antes de ejecutar. No existe "maquinaria oculta de modo guiado".
+### PARITY-01B — Clasificación Formal de la Toma Libre
+* **Objetivo:** Auditar y blindar el contrato de `btnFreeCapture` / `triggerFreeCapture()`.
+* **Criterios de gobernanza:**
+  1. No puede clasificarse como `Measurement` ni producir veredicto `Accepted`.
+  2. No puede habilitar exportación a paquete de producción (`ProductionPackage`).
+  3. Debe registrar explícitamente procedencia como exploración no certificable.
+  4. Debe poder convertirse en receta declarativa si el operador desea formalizarla.
 
 ---
 
-## 6. Qué Desaparece y Qué Se Conserva
+## 6. Correcciones Futuras Identificadas (No Aplicar Antes de los Tests)
 
-| Concepto actual | Destino |
-|---|---|
-| Modo Guiado | Se convierte en colección de presets operativos |
-| Modo Exploración | Se convierte en editor avanzado del `ExperimentPlan` |
-| Motor de perfilado | Se conserva íntegro y sin cambios |
-| `EvaluationSnapshot` | Se conserva íntegro y sin cambios |
-| `ReportExportService → ProductionPackage` | Se conserva íntegro y sin cambios |
-| Pantallas de resultados | Se unifica en una sola vista |
-| `SoundIdGuidedWorkflowContainer` | Ya eliminado en HITO-07 |
+1. **Bifurcación de Metadatos (`ProfilingSessionController.cpp:1019`):**
+   * *Actual:* `r.kind = (workflowMode == Guided) ? Measurement : Exploration;`
+   * *Objetivo:* `r.kind` dependerá exclusivamente de la presencia de un `ExperimentPlan` válido y el cumplimiento de las guardas preflight, nunca de la vista de origen.
+2. **Directorio Local de Evidencias (`ProfilingSessionController.cpp:761`):**
+   * *Actual:* Copia condicional desde `guided/session.json`.
+   * *Objetivo:* Estructura unificada de sesión y evidencias para todos los flujos.
 
 ---
 
-## 7. Condiciones y Dependencias
+## 7. Referencias
 
-Esta decisión está **condicionada** a los resultados de PARITY-01:
-
-| Resultado de PARITY-01 | Implicación para HITO-09 |
-|---|---|
-| Convergen completamente | Simplificar UI directamente hacia presets/macros |
-| Convergen parcialmente | Migrar partes divergentes al pipeline canónico antes de rediseñar |
-| Divergen materialmente | No fusionar UI hasta resolver la divergencia funcional |
-
----
-
-## 8. Fuera de Alcance de Esta Decisión
-
-- Corrección de contraste de modo oscuro (KI-01 — sesión futura independiente)
-- Hosting out-of-process
-- Soporte de AU, CLAP, LV2
-- Pruebas de rendimiento DSP
-
----
-
-## 9. Referencias
-
-- `docs/ROADMAP.md` — Principios No Negociables §2 (especialmente puntos 3, 4, 9)
-- `ACTA_RELEASE_CANDIDATE_v2.1.0.md` — §5 Delimitación Metodológica
-- `MANIFEST_RELEASE_v2.1.0.json` — `scopeExclusions`
-- PARITY-01 — Auditoría de convergencia Guiado/Exploración
-- HITO-09 — Unificación de flujo operativo
+- `docs/ROADMAP.md` v2.4.0 — §3b (PARITY-01 e HITO-09)
+- `PLAN_PARITY_01.md` — Plan de auditoría y caracterización
+- `MATRIX_PARITY_01.md` — Matriz de las 8 dimensiones y 3 rutas
