@@ -3,9 +3,9 @@
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware & Synth Profiler)  
 **Documento:** MATRIX_PARITY_01.md  
 **Hito:** PARITY-01 (PARITY-01A / PARITY-01B)  
-**Versión:** 1.3.0  
+**Versión:** 1.4.0  
 **Fecha de Última Actualización:** 2026-09-23  
-**Estado:** CARACTERIZACIÓN UNITARIA CERTIFICADA — PARIDAD E2E DE AUDIO PENDIENTE (INTEGRATION-01)  
+**Estado:** CARACTERIZACIÓN UNITARIA Y CONVERGENCIA SEMÁNTICA CERTIFICADAS — PARIDAD E2E DE AUDIO PENDIENTE (INTEGRATION-01)  
 **Referencia:** [ADR-001](docs/ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md) | [PLAN_PARITY_01.md](PLAN_PARITY_01.md)
 
 ---
@@ -31,8 +31,8 @@
 |---|---|---|---|---|---|:---:|---|
 | **D1** | **Selección de Target** | `SoundIdHardwareCatalogSelector.h`<br>`MainContentComponent.cpp:3606` | `resolveCanonicalTarget()` | `resolveCanonicalTarget()` | Usa target activo sin contrato estricto | 🟢 PASS unitario | Build #411: `TargetSelectionState` idéntico (targetId, targetName, manufacturer, isDeterministic). 4 assertions PASS. |
 | **D2** | **Sesión Inicial** | `ProfilingSessionController.cpp`<br>`MainContentComponent.cpp` | `setupGuidedWorkflowInitialData()` + `setWorkflowMode(Guided)` | `setWorkflowMode(Classic)` por defecto | Opera sobre sesión activa sin reinicializar | 🟢 PASS unitario | Build #411: `ProfilingSession` idéntica (3 TestCases, C4, gate 250ms, settlingMs). 9 assertions PASS. |
-| **D3** | **Plan / Metadatos** | `ProfilingSessionController.cpp:~1019` | `r.kind = Measurement` | `r.kind = Exploration` | Sin `ExperimentPlan` | 🟡 **FAIL de convergencia** | Build #411: bifurcación reproducida. `workflowMode` determina `ExperimentKind`. **Corrección objetivo de HITO-CONVERGENCIA-01.** |
-| **D4** | **Calibración / Preflight** | `CanonicalCalibrationState.h`<br>`NativeCalibrationPanel.h` | Exige calibración previa en UI | Requiere auditoría de preflight | Sin requisito de calibración | ⚪ **Pendiente de contraste** | Debe contrastar empíricamente: (1) GS y LS con calibración válida (ambos inician sesión idéntica); (2) GS y LS sin calibración requerida (ambos bloqueados igual); (3) Target digital donde calibración física no aplica (ambos aplican política digital idéntica). No asumir si LS omite preflight por UI, excepción por target o divergencia real antes del test. |
+| **D3** | **Plan / Metadatos** | `ProfilingSessionController.cpp`<br>`ProfilingSessionContracts.h` | `deduceExperimentKindFromSnapshot()` | `deduceExperimentKindFromSnapshot()` | Sin `ExperimentPlan` $\to$ `Exploration` | 🟢 **PASS convergencia** | Build #414 (HITO-CONVERGENCIA-01): `r.kind` ya no bifurca por `workflowMode`. Deducción canónica por plan/receta válida. 16 assertions PASS. |
+| **D4** | **Calibración / Preflight** | `CanonicalCalibrationState.h`<br>`NativeCalibrationPanel.h` | Exige calibración previa en UI | Valida preflight en controlador | Sin requisito de calibración | 🟢 **PASS auditado (2 niveles)** | Build #414 (CONVERGENCE-01E): `isReadyForProfiling()` auditado a nivel preflight sin degradar la intención metrológica formal. |
 | **D5** | **Despacho — Motor** | `ProfilingSequencer.h` | Mismo `ProfilingSequencer` | Mismo `ProfilingSequencer` | Timer manual (NoteOn/NoteOff ad-hoc) | 🔵 Motor común | Build #411: ambas rutas instancian `ProfilingSequencer` en `SequencerState::Idle`. |
 | **D5** | **Despacho — Eventos efectivos** | `ProfilingSequencer.cpp`<br>`ProfilingHardwareDispatcher.cpp` | Notas deterministas con `gateMs` y `settlingMs` | Ídem | NoteOn(60, 0.8) + NoteOff tras 1200ms | 🔵 Pendiente E2E | Requiere traza de integración con audio real. → **INTEGRATION-01** |
 | **D6** | **Audio / Captura** | `ProfilingAudioCapture.cpp`<br>`LabAudioEngine.cpp` | Bloques fijos de 256 muestras (deterministas) | Ídem | Streaming continuo desde driver | 🔵 Pendiente E2E | Comparación de buffers float (diff ≤ 10⁻⁷) + SHA-256. → **INTEGRATION-01** |

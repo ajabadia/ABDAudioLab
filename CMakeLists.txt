@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(ABDAudioLab VERSION 1.1.0 LANGUAGES C CXX)
+project(ABDAudioLab VERSION 2.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,7 +77,7 @@ else()
     FetchContent_Declare(
       ABDSharedCode
       GIT_REPOSITORY https://github.com/ajabadia/ABDSharedCode.git
-      GIT_TAG        master
+      GIT_TAG        65875eb8fbf65602b05981318608264a4c2432ec  # master @ 2026-09-22 — pinned for v2.1.0 release
     )
     FetchContent_MakeAvailable(ABDSharedCode)
 endif()
@@ -95,7 +95,7 @@ else()
     FetchContent_Declare(
       ABDScope
       GIT_REPOSITORY https://github.com/ajabadia/ABDScope.git
-      GIT_TAG        main
+      GIT_TAG        0a296f3f3d161f65b41be4d02413ab858dddff55  # main @ 2026-09-22 — pinned for v2.1.0 release
       GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(ABDScope)
@@ -896,6 +896,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ModelHoldoutValidation.cpp
     src/tests/test_CertificationReportExport.cpp
     src/tests/test_UiCoordinatorGovernance.cpp
+    src/tests/test_Parity01GuidedVsClassic.cpp
+    src/tests/test_Convergence01ExperimentClassification.cpp
 )
 
 # ------------------------------------------------------------------------------

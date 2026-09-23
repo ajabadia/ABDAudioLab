@@ -14,6 +14,7 @@
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/TargetContract.h"
 #include "../../core/ValidationUiSummary.h"
+#include "../../core/ExperimentRecord.h"
 
 namespace abdaudiolab::gui::session
 {
@@ -788,6 +789,33 @@ struct ProfilingSessionSnapshot
 
     r.decision = ExportReadiness::Decision::Ready;
     return r;
+}
+
+/**
+ * @brief Deduce la intención metrológica formal (ExperimentKind) exclusivamente desde el diseño
+ * declarado de la prueba (Target canónico + Receta/Plan formal).
+ *
+ * Principio canónico de dominio (HITO-CONVERGENCIA-01):
+ * - ExperimentKind responde a la intención previa a la ejecución (¿qué tipo de actividad se ha declarado?).
+ * - Nunca depende de UiWorkflowMode (Guided vs Classic).
+ * - La aptitud de ejecución (preflight / calibración) y la aptitud de exportación (evidencia / evaluación)
+ *   se evalúan ortogonalmente en isReadyForProfiling() y evaluateExportReadinessFromSnapshot().
+ */
+[[nodiscard]] inline abdaudiolab::core::ExperimentKind deduceExperimentKindFromSnapshot(const ProfilingSessionSnapshot& snap)
+{
+    // 1. Target canónico requerido
+    if (snap.target.targetId.empty())
+        return abdaudiolab::core::ExperimentKind::Exploration;
+
+    // 2. Receta o plan formal declarado válido
+    const bool hasValidPlan = snap.excitation.isValid &&
+                              (snap.excitation.status == RecipeStatus::Valid) &&
+                              (snap.excitation.midi.has_value() || snap.excitation.manual.has_value());
+
+    if (!hasValidPlan)
+        return abdaudiolab::core::ExperimentKind::Exploration;
+
+    return abdaudiolab::core::ExperimentKind::Measurement;
 }
 
 /**

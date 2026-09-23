@@ -752,21 +752,43 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
 
         std::vector<exporting::MeasuredPoint> exportPoints;
 
-        // 1. Comprobar si existe evidencia guiada en guided/ o evidence/guided/
+        // 1. Comprobar si existe evidencia de sesión (ruta canónica primero, fallback legacy a guided/ después)
         std::optional<abdaudiolab::core::GuidedParameterEvidence> optGuidedEvidence;
         std::optional<abdaudiolab::core::GuidedSessionEvidence> optSessionEvidence;
-        juce::File guidedSrcDir = juce::File::getCurrentWorkingDirectory().getChildFile("guided");
+        
+        juce::File cwd = juce::File::getCurrentWorkingDirectory();
+        juce::File canonicalSessionEvidenceDir = cwd.getChildFile("session").getChildFile("evidence");
+        juce::File rootEvidenceDir             = cwd.getChildFile("evidence");
+        juce::File legacyGuidedDir             = cwd.getChildFile("guided");
+
+        juce::File srcEvidenceDir;
+        if (canonicalSessionEvidenceDir.getChildFile("session.json").existsAsFile() ||
+            canonicalSessionEvidenceDir.getChildFile("parameter-test-cutoff.json").existsAsFile())
+        {
+            srcEvidenceDir = canonicalSessionEvidenceDir;
+        }
+        else if (rootEvidenceDir.getChildFile("session.json").existsAsFile() ||
+                 rootEvidenceDir.getChildFile("parameter-test-cutoff.json").existsAsFile())
+        {
+            srcEvidenceDir = rootEvidenceDir;
+        }
+        else if (legacyGuidedDir.getChildFile("session.json").existsAsFile() ||
+                 legacyGuidedDir.getChildFile("parameter-test-cutoff.json").existsAsFile())
+        {
+            srcEvidenceDir = legacyGuidedDir; // Fallback legacy para retrocompatibilidad
+        }
+
         juce::File stagingEvidenceDir = stagingDir.getChildFile("evidence").getChildFile("guided");
 
-        if (currentSnapshot_.workflowMode == UiWorkflowMode::Guided)
+        if (srcEvidenceDir.exists())
         {
-            juce::File guidedSessionJson = guidedSrcDir.getChildFile("session.json");
+            juce::File guidedSessionJson = srcEvidenceDir.getChildFile("session.json");
             if (guidedSessionJson.existsAsFile())
             {
                 stagingEvidenceDir.createDirectory();
                 guidedSessionJson.copyFileTo(stagingEvidenceDir.getChildFile("session.json"));
 
-                juce::File srcParamsDir = guidedSrcDir.getChildFile("parameters");
+                juce::File srcParamsDir = srcEvidenceDir.getChildFile("parameters");
                 if (srcParamsDir.isDirectory())
                 {
                     juce::File stagingParamsDir = stagingEvidenceDir.getChildFile("parameters");
@@ -777,7 +799,7 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
                     }
                 }
 
-                juce::File srcAudioDir = guidedSrcDir.getChildFile("audio");
+                juce::File srcAudioDir = srcEvidenceDir.getChildFile("audio");
                 if (srcAudioDir.isDirectory())
                 {
                     juce::File stagingAudioDir = stagingEvidenceDir.getChildFile("audio");
@@ -818,15 +840,15 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
             }
             else
             {
-                juce::File guidedSrcJson = guidedSrcDir.getChildFile("parameter-test-cutoff.json");
+                juce::File guidedSrcJson = srcEvidenceDir.getChildFile("parameter-test-cutoff.json");
                 if (guidedSrcJson.existsAsFile())
                 {
                     stagingEvidenceDir.createDirectory();
                     guidedSrcJson.copyFileTo(stagingEvidenceDir.getChildFile("parameter-test-cutoff.json"));
 
-                    juce::File srcBaseWav = guidedSrcDir.getChildFile("baseline.wav");
-                    juce::File srcModWav = guidedSrcDir.getChildFile("modified.wav");
-                    juce::File srcDiffWav = guidedSrcDir.getChildFile("difference.wav");
+                    juce::File srcBaseWav = srcEvidenceDir.getChildFile("baseline.wav");
+                    juce::File srcModWav = srcEvidenceDir.getChildFile("modified.wav");
+                    juce::File srcDiffWav = srcEvidenceDir.getChildFile("difference.wav");
 
                     if (srcBaseWav.existsAsFile()) srcBaseWav.copyFileTo(stagingEvidenceDir.getChildFile("baseline.wav"));
                     if (srcModWav.existsAsFile()) srcModWav.copyFileTo(stagingEvidenceDir.getChildFile("modified.wav"));
@@ -1016,7 +1038,7 @@ core::ExperimentRecord ProfilingSessionController::buildCurrentExperimentRecord(
         r.revision = rev;
     }
 
-    r.kind = (currentSnapshot_.workflowMode == UiWorkflowMode::Guided) ? core::ExperimentKind::Measurement : core::ExperimentKind::Exploration;
+    r.kind = deduceExperimentKindFromSnapshot(currentSnapshot_);
 
     if (currentSnapshot_.evaluation.selectionStatus == synth::SelectionStatus::Accepted)
         r.status = core::ExperimentStatus::AuditedApproved;

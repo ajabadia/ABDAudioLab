@@ -51,6 +51,6 @@ Hallazgos certificados:
   [x] Toma Libre bloqueada y clasificada como no certificable (PARITY-01B PASS)
 
 Secuencia de ejecución vinculante:
-  1. [ ] HITO-CONVERGENCIA-01: Eliminar bifurcación r.kind (D3) y retirar carpeta guided/
+  1. [x] HITO-CONVERGENCIA-01: Eliminar bifurcación r.kind (D3) y retirar exclusividad de guided/ — CERTIFICADO (Build #414, 16/16 assertions PASS)
   2. [ ] INTEGRATION-01: MockAudioEngine determinista para D5-eventos, D6-audio, D7-DSP
   3. [ ] HITO-09: Banco de trabajo unificado con presets declarativos (Rápido, Configurable, Avanzado)
