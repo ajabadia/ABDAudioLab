@@ -3,9 +3,9 @@
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware & Synth Profiler)  
 **Documento:** PLAN_PARITY_01.md  
 **Hito:** PARITY-01 (PARITY-01A / PARITY-01B)  
-**Versión:** 1.1.0  
+**Versión:** 1.2.0  
 **Fecha de Actualización:** 2026-09-23  
-**Estado:** EN CURSO (Fase 2: Implementación de Test de Caracterización)  
+**Estado:** CARACTERIZACIÓN UNITARIA COMPLETADA — VALIDACIÓN E2E DELEGADA A INTEGRATION-01  
 **Referencia Arquitectónica:** [ADR-001](docs/ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md)  
 **Hoja de Ruta:** [docs/ROADMAP.md v2.4.0](docs/ROADMAP.md) §3b  
 
@@ -68,17 +68,16 @@ La **Toma Libre** (`btnFreeCapture` $\to$ `triggerFreeCapture()`) no es una camp
 ## 4. Test de Caracterización Unitario (Catch2)
 
 * **Archivo:** `src/tests/test_Parity01GuidedVsClassic.cpp`
-* **Secciones del Test:**
-  1. `[parity][systematic]`: Ejecuta el Caso Testigo en modo Guiado y en modo Libre Sistemático sobre `SyntheticAudioFixture`, validando la igualdad estricta de las 8 dimensiones metrológicas.
-  2. `[parity][metadata_divergence]`: Caracteriza y documenta la divergencia actual en `r.kind` (`Measurement` vs `Exploration`) para fijar la línea base antes de cualquier refactor.
-  3. `[parity][free_capture]`: Verifica que la toma libre sea rechazada por las guardas de exportación formal de producción.
+* **Ejecución (Build #411):** 35 assertions en 2 test cases — 100% PASS.
+  1. `[parity][parity-01a]`: Demuestra igualdad canónica en D1 (target), D2 (sesión), D5-struct (motor único `ProfilingSequencer`), y reproduce la divergencia D3 (`r.kind`).
+  2. `[parity][parity-01b]`: Demuestra bloqueo estricto en D8 para Toma Libre (`canProceed() == false`, `Decision::Blocked`).
 
 ---
 
-## 5. Criterios de Salida de PARITY-01
+## 5. Dictamen y Criterios de Salida de PARITY-01
 
-1. Test `test_Parity01GuidedVsClassic.cpp` compilado y en verde (100% PASS).
-2. Matriz `MATRIX_PARITY_01.md` actualizada con evidencia empírica.
-3. Acta oficial `ACTA_PARITY_01_CONVERGENCE_AUDIT.md` emitida con dictamen vinculante para **HITO-09**.
-4. Cero código de producción eliminado o alterado prematuramente (respeto a la regla de caracterización previa).
-5. Suite completa de 615 tests baseline intacta.
+1. ✅ **Test unitario completado:** `test_Parity01GuidedVsClassic.cpp` compilado y en verde (35/35 assertions PASS, Build #411).
+2. ✅ **Matriz actualizada:** `MATRIX_PARITY_01.md` (v1.3.0) recoge la caracterización unitaria y explicita los pendientes E2E.
+3. ✅ **Regla de no regresión:** Cero código de producción eliminado o alterado prematuramente.
+4. ⏳ **Validación E2E:** D5-eventos, D6-audio y D7-DSP requieren `MockAudioEngine` y quedan delegados a **INTEGRATION-01**.
+5. 🔜 **Próxima acción inmediata:** **HITO-CONVERGENCIA-01** (corregir clasificación D3 y retirar carpeta `guided/`).

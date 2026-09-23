@@ -49,9 +49,10 @@ All tests passed (35 assertions in 2 test cases)
 
 ---
 
-## Próximos Hitos
+## Próximos Hitos (Secuencia Vinculante)
 
-| Hito | Objetivo | Bloqueante |
-|---|---|---|
-| **INTEGRATION-01** | Añadir `MockAudioEngine` con bucle de retorno para D5/D6/D7 headless | MockAudioEngine no existe aún |
-| **HITO-CONVERGENCIA-01** | Eliminar bifurcación `r.kind`; `workflowMode` pasa a ser parámetro de presentación exclusivamente | INTEGRATION-01 primero |
+| Paso | Hito | Objetivo | Dependencia |
+|:---:|---|---|---|
+| **1** | **HITO-CONVERGENCIA-01** | Derivar `ExperimentKind` de evidencia metodológica (eliminar bifurcación D3 por `workflowMode`) y retirar dependencia de `guided/`. | PARITY-01 completado ✅ |
+| **2** | **INTEGRATION-01** | `MockAudioEngine` / harness determinista para verificar paridad E2E (D5-eventos, D6-audio, D7-DSP, D8-manifest canónico). | HITO-CONVERGENCIA-01 |
+| **3** | **HITO-09** | Banco de trabajo unificado con presets declarativos JSON y 3 niveles de asistencia (Rápido, Configurable, Avanzado). | INTEGRATION-01 |

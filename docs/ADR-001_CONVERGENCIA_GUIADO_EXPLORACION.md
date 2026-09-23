@@ -1,7 +1,8 @@
 # ADR-001 — Convergencia de Flujos: Modelo de Presets y Plan Canónico
 
 **Proyecto:** ABDAudioLab  
-**Estado:** ACEPTADO — caracterización unitaria completada (PARITY-01, Build #411); pendiente paridad E2E (INTEGRATION-01)  
+**Versión:** 1.2.0  
+**Estado:** ACEPTADO — Decisión de producto y arquitectura aceptada; implementación técnica condicionada a la secuencia HITO-CONVERGENCIA-01 e INTEGRATION-01  
 **Fecha:** 2026-09-23  
 **Autores:** Usuario (decisión de producto) + Antigravity (formalización arquitectónica)  
 **Hito asociado:** PARITY-01 (PARITY-01A / PARITY-01B) / HITO-CONVERGENCIA-01 / INTEGRATION-01 / HITO-09  
