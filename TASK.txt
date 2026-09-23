@@ -28,29 +28,33 @@ Estado final de HITO-08-RELEASE (2026-09-23):
 
 ---
 
-HITO ACTIVO: PARITY-01 — Auditoría de Convergencia Guiado/Exploración
-Sub-auditorías: PARITY-01A (Guiado vs Libre) y PARITY-01B (Toma Libre)
-Estado: CARACTERIZACIÓN UNITARIA CERTIFICADA (Build #411 — 2026-09-23)
-        [Paridad E2E de audio pendiente de demostración en INTEGRATION-01]
+HITO PREVIO: HITO-CONVERGENCIA-01 — Convergencia Semántica y Clasificación Canónica
+Estado: CERTIFICADO (Build #414 — 2026-09-23)
+- Deducción pura de ExperimentKind según Target canónico + Receta válida.
+- workflowMode desacoplado de la clasificación metrológica (D3 convergente PASS).
+- Desacoplamiento de guided/ en staging de evidencias (canónico session/evidence con fallback legacy).
+- Toma Libre clasificada como Exploration y bloqueada para exportar (D8 PASS).
+- Auditoría de preflight D4 a dos niveles completada.
+- Suite específica: src/tests/test_Convergence01ExperimentClassification.cpp (16/16 assertions PASS).
 
-Documentos rectores:
-  - ADR: docs/ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md (v1.2.0)
-  - Plan de Ejecución: PLAN_PARITY_01.md (v1.2.0)
-  - Matriz de Convergencia: MATRIX_PARITY_01.md (v1.3.0 — CARACTERIZACIÓN UNITARIA CERTIFICADA)
-  - Test de Caracterización: src/tests/test_Parity01GuidedVsClassic.cpp
+Nueva suite global baseline (Build #414):
+  618 casos (+3 vs v2.1.0 por PARITY-01 y CONVERGENCIA-01)
+  610 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  228.869/228.869 assertions PASS (+51 assertions)
 
-Resultados (Build #411):
-  2 test cases | 2 PASS | 0 FAIL
-  35 assertions | 35 PASS | 0 FAIL
+---
 
-Hallazgos certificados:
-  [x] Motor único confirmado: ProfilingSequencer compartido por GS y LS (D5-struct PASS)
-  [x] Contrato de sesión idéntico: misma ProfilingSession, mismos TestCases (D2 PASS)
-  [x] Target convergente: mismo TargetSelectionState (D1 PASS)
-  [x] Bifurcación documentada y fijada: r.kind Guided=Measurement vs Classic=Exploration (D3)
-  [x] Toma Libre bloqueada y clasificada como no certificable (PARITY-01B PASS)
+HITO ACTIVO: INTEGRATION-01 — Harness Determinista de Audio y Validación E2E
+Misión: Demostrar paridad científica real con señales, buffers y métricas.
+Objetivos técnicos:
+  [ ] MockAudioEngine en bucle cerrado (desbloquear ProfilingSequencer en headless sin WASAPI).
+  [ ] Nivel 1 (Control exacto): contrastar eventos MIDI efectivos y offsets (D5-eventos).
+  [ ] Nivel 2 (Salida científica): comparar buffers de audio (diff <= 10^-7, SHA-256 canónico) (D6-audio).
+  [ ] Métricas DSP: SNR, THD%, pico, RMS, f0 y MeasuredPoint (D7-DSP).
+  [ ] Integridad de paquete: EvaluationSnapshot, manifest RFC 8785 y ProductionPackage.
 
 Secuencia de ejecución vinculante:
-  1. [x] HITO-CONVERGENCIA-01: Eliminar bifurcación r.kind (D3) y retirar exclusividad de guided/ — CERTIFICADO (Build #414, 16/16 assertions PASS)
-  2. [ ] INTEGRATION-01: MockAudioEngine determinista para D5-eventos, D6-audio, D7-DSP
-  3. [ ] HITO-09: Banco de trabajo unificado con presets declarativos (Rápido, Configurable, Avanzado)
+  1. [x] PARITY-01: Caracterización unitaria certificada (Build #411)
+  2. [x] HITO-CONVERGENCIA-01: Semántica canónica unificada (Build #414)
+  3. [ ] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluación (EN CURSO)
+  4. [ ] HITO-09: Banco único con presets declarativos (Rápido, Configurable, Avanzado)
