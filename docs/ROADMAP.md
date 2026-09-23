@@ -1,7 +1,7 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión del Documento:** 2.3.0  
+**Versión del Documento:** 2.4.0  
 **Versión del Producto (Objetivo):** v2.1.0 (sellado — tag `v2.1.0`)  
 **Fecha de Actualización:** 2026-09-23  
 
@@ -54,8 +54,57 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-06** | Migración de seams de telemetría legacy (`loopbackModal`, `stepperBar`) | **Certificado** | [ACTA_HITO_06_TELEMETRY_SEAMS.md](ACTA_HITO_06_TELEMETRY_SEAMS.md) + SEAM-04–05 |
 | **HITO-07** | Retirada segura de duplicados y de `SoundIdGuidedWorkflowContainer` | **Certificado** | [ACTA_HITO_07_SAFE_REMOVAL.md](ACTA_HITO_07_SAFE_REMOVAL.md) — 615 casos / 228.818 assertions / Build #402 |
 | **HITO-08** | Documentación operativa de release y sellado de versión v2.1.0 | **Certificado** | [ACTA_RELEASE_CANDIDATE_v2.1.0.md](../ACTA_RELEASE_CANDIDATE_v2.1.0.md) — Build #406 / tag `v2.1.0` / 23-Sep-2026 |
+| **PARITY-01** | Auditoría de convergencia y paridad Guiado/Exploración | **Planificación** | [ADR-001](ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md) — pendiente de ejecución |
+| **HITO-09** | Unificación de flujo operativo mediante presets, macrotareas y plan canónico | **Pendiente** | Condicionado a resultados de PARITY-01 |
 
 ---
+
+## 3b. Próxima Etapa Post-v2.1.0
+
+> [!IMPORTANT]
+> La dirección estratégica adoptada en ADR-001 supone que los modos Guiado y Exploración
+> deben converger en un único banco de trabajo con un solo `ExperimentPlan` canónico.
+> La diferencia entre usuarios expertos y no expertos debe residir únicamente en cómo
+> se genera el plan (preset vs. edición libre), nunca en qué motor lo ejecuta.
+
+### PARITY-01 — Auditoría de Convergencia Guiado/Exploración
+
+**Objetivo:** Determinar si los flujos guiado y exploración comparten actualmente
+la misma receta, ejecución, captura, análisis, evaluación e informe, o divergen materialmente.
+
+**Cobertura de la auditoría:**
+
+| Dimensión | Pregunta |
+|---|---|
+| Target y estado inicial | ¿Ambos modos parten del mismo `resolveCanonicalTarget()`? |
+| Receta / `ExperimentPlan` | ¿El plan generado es estructuralmente idéntico? |
+| Eventos MIDI y automatización | ¿Las secuencias y compuertas coinciden? |
+| Calibración y auto-trim | ¿Ambos pasan por `CanonicalCalibrationState`? |
+| Ruta de audio y captura | ¿Misma política de ventana y buffer? |
+| Algoritmos de análisis | ¿Misma versión y parámetros de política? |
+| Métricas y veredicto | ¿Mismo `EvaluationSnapshot`? |
+| Manifest e informe | ¿Misma cadena `ReportExportService → ProductionPackage`? |
+
+**Resultados posibles y acción derivada:**
+
+| Resultado | Significado | Acción |
+|---|---|---|
+| Convergen completamente | Ya comparten toda la cadena canónica | Pasar directamente a HITO-09: simplificar UI hacia presets |
+| Convergen parcialmente | Comparten exportación/análisis pero no receta/ejecución | Migrar partes divergentes al pipeline canónico antes de HITO-09 |
+| Divergen materialmente | Motores, políticas o capturas distintas | No venderlos como equivalentes; fusionar antes de rediseñar UX |
+
+### HITO-09 — Unificación de Flujo Operativo
+
+**Objetivo:** Sustituir la duplicidad conceptual Guiado/Exploración por una única
+experiencia de trabajo basada en:
+
+- **Presets / macrotareas declarativas** (ficheros JSON, no ramas de código)
+- **Editor avanzado** del `ExperimentPlan` para usuarios técnicos
+- **Un solo banco de trabajo** con un solo motor, un solo análisis, un solo informe
+
+**Condicionado a:** resultados de PARITY-01.
+
+**Referencia de diseño:** [ADR-001](ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md)
 
 ## 4. Hito Siguiente Desglosado: HITO-04-RESULTS-EXPORT-INTEGRATION
 
