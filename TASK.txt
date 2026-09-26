@@ -58,8 +58,274 @@ Nueva suite global baseline (Build #417):
   611 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
   228.954/228.954 assertions PASS (+85 assertions)
 
+---
+
+HITO PREVIO: HITO-09A — Contrato Declarativo Versionado de Recetas Metrologicas
+Estado: CERTIFICADO (Build #419 — 2026-09-23)
+- 3 esquemas formales JSON Schema Draft 2020-12 (recipe, request, record) con additionalProperties: false.
+- Especificación normativa MEASUREMENT_RECIPE_CONTRACT.md con contrato de schemaVersion y política de migración.
+- 3 recetas de referencia funcionales en presets/profiling/ (quick_vcf_3pts, standard_vcf_11pts, exhaustive_synth_full).
+- Parser estricto y validador C++ por capas con punteros JSON RFC 6901 en MeasurementRecipeService.
+- Cadena de 4 hashes canónicos independientes (recipeDocumentHash, experimentPlanHash, resolvedExecutionPlanHash, audioEvidenceHash).
+- Compilación determinista unidireccional MeasurementRecipe -> ExperimentPlan y puente compatible a ProfilingSession.
+- Suites específicas: test_MeasurementRecipeParsing.cpp, test_MeasurementRecipeValidation.cpp, test_ExperimentPlanCompilation.cpp, test_MeasurementRecipeCanonicalHash.cpp, test_MeasurementRecipeRegression.cpp (103/103 assertions PASS).
+- Invarianza UI: 0 cambios en src/gui/.
+- Acta de certificación emitida: ACTA_HITO_09A_MEASUREMENT_RECIPE_CONTRACT.md.
+
+---
+
+HITO PREVIO: HITO-09B — Banco de Trabajo Unificado como Adaptador de Presentación
+Estado: CERTIFICADO (Build #423 — 2026-09-23)
+- Banco de Trabajo Unificado como adaptador visual desacoplado en el Paso 2 (Configuración de prueba) del Stepper existente.
+- Regla rectora cumplida e invariantemente blindada: Seleccionar receta != Crear sesion != Ejecutar.
+- Componentes nuevos en src/gui/recipes/: RecipeCatalogModel, RecipeCatalogComponent, RecipeSummaryCardComponent, RecipeExecutionController.
+- Invarianza visual estricta: 0 modificaciones en btnModeToggle, SoundIdProfilingRunView, suiteList, btnFreeCapture, src/gui/soundid/, src/gui/suite/.
+- Conservación de flujos Guided y Classic (sin bifurcación ni sustitución destructiva).
+- Batería de 7 pruebas normativas de paridad y no-bifurcación en src/tests/test_UnifiedWorkbenchRecipeAdapter.cpp (70/70 assertions PASS).
+- Acta de certificación emitida: ACTA_HITO_09B_UNIFIED_WORKBENCH.md.
+
+---
+
+HITO ACTUAL: HITO-09C — Niveles de Asistencia como Vistas del Mismo Contrato
+Estado: CERTIFICADO (Build #425 — 2026-09-23)
+- Rápido, Configurable y Avanzado como 3 vistas de detalle/edición sobre el contrato común MeasurementRecipe.
+- Separación estricta entre nivel de vista (RecipeEditorView) y perfil recomendado de receta (assistanceLevel).
+- Preservación estricta de RecipeBase inmutable y edición de WorkingRecipe en memoria con provenance.authoringSource = "operator_manual".
+- Mutaciones seguras acotadas: repeticiones [1..10], notas [0..127], gateMs, settlingMs, conjuntos de puntos normativos, SNR, THD, f0, calibración y semilla.
+- Descarte automático de cambios temporales al conmutar receta y acción "Restablecer preset" (resetToPreset).
+- Revalidación determinista por capas en commit con diagnóstico RFC 6901 y recálculo de hashes canónicos.
+- Componentes nuevos en src/gui/recipes/: RecipeAssistanceLevelSelectorComponent, RecipeEditorComponent.
+- Batería de 10 pruebas normativas en src/tests/test_AssistanceLevelsRecipeViews.cpp (83/83 assertions PASS).
+- Acta de certificación emitida: ACTA_HITO_09C_ASSISTANCE_LEVELS.md.
+
+---
+
+HITO ACTUAL: HITO-09D — Promoción de Toma Libre a MeasurementRecipe Formal
+Estado: CERTIFICADO (Build #430 — 2026-09-24)
+- Honestidad metrológica: una Toma Libre (Exploration) histórica permanece siempre Exploration y bloqueada para exportación.
+- Cero invención de puntos de control: controles sin semanticId generan PromotionDraft no ejecutable con diagnóstico ERR_PROMOTION_CONTROL_UNDECLARED.
+- Trazabilidad criptográfica limpia: sourceRecipeDocumentHash queda vacío; se asignan sourceKind = "exploration", sourceExplorationId, sourceExplorationHash y promotionToolVersion.
+- sourceExplorationHash: SHA-256 canónico RFC 8785 de ExplorationRecord (excluye punteros, rutas temporales y marcas de reloj de UI).
+- Opción B de timestamp: promotedAt / promotedAtIso8601 vive exclusivamente en PromotionRecord (fuera de MeasurementRecipe), garantizando determinismo estricto de recipeDocumentHash.
+- Integración en GUI y Stepper: botón "Promover a Receta Formal" en la barra de gobernanza navegando al Paso 2 (Step::CalibrateLoopback / "2. Calibration & Setup") donde RecipeEditorComponent se muestra en modo Configurable sin obligar a reelegir target.
+- Componentes en src/profiling/: RecipePromotionService.h / .cpp.
+- Batería de 11 pruebas normativas en src/tests/test_FreeCaptureRecipePromotion.cpp (148/148 assertions PASS).
+- Acta de certificación emitida: ACTA_HITO_09D_FREE_CAPTURE_PROMOTION.md.
+
+---
+
+HITO ACTUAL: HITO-10A — TargetProfile Contract & ReferenceSynth Pilot
+Estado: CERTIFICADO (Build #434 — 2026-09-24)
+- Contrato declarativo y esquema JSON Schema Draft 2020-12 en docs/contracts/target-profile.schema.json con additionalProperties: false.
+- Especificación formal y separación de las 3 identidades en docs/contracts/TARGET_PROFILE_CONTRACT.md.
+- Modelo C++ inmutable en src/profiling/TargetProfile.h con tipado discriminado de transporte (std::variant) y capacidades explícitas de audioOutput.
+- TargetProfileService en src/profiling/TargetProfileService.h / .cpp: autoridad exclusiva de carga, validación por capas RFC 6901, hash canónico RFC 8785 y consultas.
+- ExperimentPlanCompiler como autoridad única de compilación: sobrecarga declarativa resolveExecutionPlan(recipe, profile, env, defaults).
+- Perfil piloto ReferenceSynth en profiles/targets/reference_synth.target.json.
+- Batería de 16 pruebas normativas en 4 suites (117/117 assertions PASS):
+  * test_TargetProfileParsing.cpp
+  * test_TargetProfileValidation.cpp
+  * test_TargetProfileResolution.cpp
+  * test_TargetProfileNoBypass.cpp
+- Cero modificaciones en ProfilingSequencer ni en el motor DSP.
+- Acta de certificación emitida: ACTA_HITO_10A_TARGET_PROFILE_CONTRACT.md.
+
+Nueva suite global baseline (Build #434):
+  668 casos (+16 vs Build #430 por HITO-10A)
+  660 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  229.468/229.468 assertions PASS (+117 assertions)
+
 Secuencia de ejecución vinculante:
   1. [x] PARITY-01: Caracterización unitaria certificada (Build #411)
   2. [x] HITO-CONVERGENCIA-01: Semántica canónica unificada (Build #414)
   3. [x] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluación (Build #417 - CERTIFICADO)
-  4. [ ] HITO-09: Banco único con presets declarativos (Rápido, Configurable, Avanzado) — DESBLOQUEADO
+  4. [x] HITO-09A: Contrato declarativo versionado, validación y compilación (Build #419 - CERTIFICADO)
+  5. [x] HITO-09B: Banco de Trabajo Unificado — Adaptador de presentación (Build #423 - CERTIFICADO)
+  6. [x] HITO-09C: Niveles de Asistencia (Rápido / Configurable / Avanzado) como vistas del mismo contrato (Build #425 - CERTIFICADO)
+  7. [x] HITO-09D: Promoción de Toma Libre (Exploración) a MeasurementRecipe formal (Build #430 - CERTIFICADO)
+  8. [x] HITO-10A: TargetProfile — Contrato, schema Draft 2020-12, modelo C++ y piloto ReferenceSynth (Build #434 - CERTIFICADO)
+---
+
+HITO PREVIO: HITO-10B — TargetProfile Paridad Declarativa contra Legacy
+Estado: CERTIFICADO (Build #436 — 2026-09-24)
+- Comparador especializado en 5 capas: ResolvedExecutionPlanParity.h / .cpp.
+- Suite 1 de Caracterización Legacy: test_TargetProfileLegacyCharacterization.cpp (3 test cases, 70 assertions PASS).
+  * quick_vcf_3pts: 9 ventanas, 27 eventos, orden estricto Param -> NoteOn -> NoteOff.
+  * standard_vcf_11pts: 22 ventanas, 66 eventos.
+  * exhaustive_synth_full: 72 ventanas, 216 eventos multi-nota.
+- Suite 2 de Paridad Declarativa: test_TargetProfileLegacyParity.cpp (4 test cases, 119 assertions PASS).
+  * Equivalencia estricta bit a bit y campo a campo entre ruta histórica C++ y ruta TargetProfile.
+  * Mismo resolvedExecutionPlanHash, mismas ventanas, mismos eventos MIDI y de parámetros.
+  * Fallback legacy intacto, disponible y operativo si no se proporciona TargetProfile.
+- Cero modificaciones a ProfilingSequencer ni al motor DSP.
+- Acta de certificación emitida: ACTA_HITO_10B_TARGET_PROFILE_LEGACY_PARITY.md.
+
+Nueva suite global baseline (Build #436):
+  675 casos (+7 vs Build #434 por HITO-10B)
+  667 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  229.650/229.650 assertions PASS (+182 assertions)
+
+Suite combinada [target_profile]:
+  23 test cases | 306 assertions PASS | 0 FAIL
+
+Secuencia de ejecución vinculante:
+  1. [x] PARITY-01: Caracterización unitaria certificada (Build #411)
+  2. [x] HITO-CONVERGENCIA-01: Semántica canónica unificada (Build #414)
+  3. [x] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluación (Build #417 - CERTIFICADO)
+  4. [x] HITO-09A: Contrato declarativo versionado, validación y compilación (Build #419 - CERTIFICADO)
+  5. [x] HITO-09B: Banco de Trabajo Unificado — Adaptador de presentación (Build #423 - CERTIFICADO)
+  6. [x] HITO-09C: Niveles de Asistencia (Rápido / Configurable / Avanzado) como vistas del mismo contrato (Build #425 - CERTIFICADO)
+  7. [x] HITO-09D: Promoción de Toma Libre (Exploración) a MeasurementRecipe formal (Build #430 - CERTIFICADO)
+  8. [x] HITO-10A: TargetProfile — Contrato, schema Draft 2020-12, modelo C++ y piloto ReferenceSynth (Build #434 - CERTIFICADO)
+---
+
+HITO PREVIO: HITO-10C — TargetProfile Migracion Piloto de Plugin Real (Dexed VST3)
+Estado: CERTIFICADO (Build #439 — 2026-09-24)
+- Cumplimiento estricto de las 4 condiciones normativas del proyecto:
+  * Condicion 1: No fijar indices a priori. Descubiertos e inspeccionados Cutoff (index 24, "Cutoff"), Resonance (index 25, "Resonance"), Master (index 0, "Master") formalizados con Vst3ParameterIdentifier y confirmationStatus = "UserConfirmed".
+  * Condicion 2: Separacion estricta entre TargetProfileDraft y TargetProfile formal. Draft::isExecutable() == false. Inferencia honesta (Inferred / Unknown) con inferenceReason explicito.
+  * Condicion 3: Desacoplamiento entre pruebas hermeticas (CI sin Dexed) y externas ([target_profile][external][dexed] con SKIP si falta el binario).
+  * Condicion 4: Comprobacion de comportamiento acustico observable (Cutoff 0.20 vs 0.80 produce variacion acustica medible con RMS diff > 0.001, sin clipping y repetibilidad < 1e-4 tras resetState).
+- Perfil formal en profiles/targets/dexed.target.json con expectedBinarySha256 y warn-on-mismatch.
+- Modelo TargetProfileDraft en src/profiling/TargetProfileDraft.h.
+- Metodos de auditoria binaria y generacion de borradores en TargetProfileService.
+- Bateria de 5 suites normativas (3 hermeticas, 2 externas): 38.630 assertions PASS (0 FAIL).
+- Acta de certificacion emitida: ACTA_HITO_10C_DEXED_MIGRATION.md.
+
+Nueva suite global baseline (Build #439):
+  680 casos (+5 vs Build #436 por HITO-10C)
+  672 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  268.280/268.280 assertions PASS (+38.630 assertions)
+
+Suite combinada [target_profile]:
+  28 test cases | 38.936 assertions PASS | 0 FAIL
+
+---
+
+HITO ACTUAL: HITO-10D1 — Hardware Digital (CC/SysEx) y Analógico Manual: Contratos y Resolución Hermética
+Estado: CERTIFICADO (Build #443 — 2026-09-24)
+- Axioma rector: "HITO-10D1 puede enseñar al sistema a entender un mensaje MIDI, SysEx o una instrucción manual; HITO-10D2 será el único punto donde se demostrará que esos datos pueden llegar de forma segura al hardware real."
+- Tres contratos de hardware formalizados y validados:
+  * Behringer PRO-800: Hardware digital MIDI CC (channel: 1, Cutoff CC 19, Resonance CC 21, Env Amount CC 20).
+  * Yamaha DX7: Hardware digital MIDI SysEx (F0 43 {deviceId} 09 10 {value7bit} F7, encoding 7bit, token {deviceId}, checksum Yamaha -sum & 0x7F).
+  * BOSS DS-1: Hardware analógico con control manual guiado (audio mono estricto, instructionId "adjust_tone_pot", widget "Knob", settling time >= 500 ms).
+- Semántica de cuantización MIDI CC congelada como invariante de contrato: rawValue = round(normalizedValue * 127.0).
+- Seguridad hermética SysEx: delimitadores F0/F7 obligatorios, carga útil 7-bit, catálogo cerrado de tokens y algoritmos de checksum en memoria con cero tráfico físico.
+- Integridad de tiempo real: Las suites de HITO-10D1 no requieren cambios funcionales en ProfilingSequencer ni en el motor DSP. La revisión de cambios en el repositorio confirma que no se modificaron ProfilingSequencer ni el callback de audio.
+- Batería de 4 suites específicas normativas:
+  * test_TargetProfileMidiCc.cpp (3 test cases, 91 assertions PASS)
+  * test_TargetProfileMidiSysEx.cpp (3 test cases, 87 assertions PASS)
+  * test_TargetProfileManualOperator.cpp (3 test cases, 79 assertions PASS)
+  * test_TargetProfileTransportSafety.cpp (2 test cases, 58 assertions PASS)
+  * Total específico [hardware]: 11 test cases | 315 assertions PASS | 0 FAIL.
+- Acta de certificación emitida: ACTA_HITO_10D1_HARDWARE_CONTRACTS.md.
+
+Nueva suite global baseline (Build #443):
+  684 casos (+4 vs Build #439 por HITO-10D1)
+  676 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  268.496/268.496 assertions PASS (+216 assertions: 268.280 + 216 = 268.496)
+
+Suite combinada [target_profile]:
+  32 test cases | 39.152 assertions PASS | 0 FAIL
+
+---
+
+HITO PREVIO: HITO-10D2 — Hardware Digital y Analógico Manual: Despacho e Integración Física Hermética y Fail-Closed
+Estado: CERTIFICADO (Build #457 — 2026-09-25)
+- Axioma rector: "La aplicación puede preparar una orden física declarativa, pero solo el pipeline autorizado puede transmitirla después de comprobar el entorno, verificar o confirmar el target, obtener consentimiento y registrar evidencia de cada resultado."
+- TransportPolicy declarativa (D2.1), IMidiTransport/MockMidiTransport (D2.2), Preflight y modelo de 5 estados (D2.3), OperatorConsentService inmutable anti-TOCTOU con commandDigest (D2.4), HardwareDispatchScheduler con IMonotonicClock inyectable y JuceMidiTransport desacoplado (D2.5), IMidiResponseAwaiter, MockMidiResponseAwaiter, HardwareDispatchEvidenceRecord tipado y fail-closed bloqueando ExportReadiness ante cualquier fallo (D2.6).
+- Batería específica [hardware]: 44 test cases | 613 assertions PASS | 0 FAIL.
+- Acta de certificación emitida: ACTA_HITO_10D2_HARDWARE_DISPATCH.md.
+
+Nueva suite global baseline (Build #457):
+  724 casos (+40 vs Build #443 por HITO-10D2)
+  716 PASS | 8 SKIPPED justificados (GUI COM/WASAPI singleton) | 0 FAIL
+  268.865/268.865 assertions PASS (+369 assertions: 268.496 + 369 = 268.865)
+
+Secuencia de ejecucion vinculante:
+  1. [x] PARITY-01: Caracterizacion unitaria certificada (Build #411)
+  2. [x] HITO-CONVERGENCIA-01: Semantica canonica unificada (Build #414)
+  3. [x] INTEGRATION-01: Paridad real de eventos, audio, DSP y evaluacion (Build #417 - CERTIFICADO)
+  4. [x] HITO-09A: Contrato declarativo versionado, validacion y compilacion (Build #419 - CERTIFICADO)
+  5. [x] HITO-09B: Banco de Trabajo Unificado — Adaptador de presentacion (Build #423 - CERTIFICADO)
+  6. [x] HITO-09C: Niveles de Asistencia (Rapido / Configurable / Avanzado) como vistas del mismo contrato (Build #425 - CERTIFICADO)
+  7. [x] HITO-09D: Promocion de Toma Libre (Exploracion) a MeasurementRecipe formal (Build #430 - CERTIFICADO)
+  8. [x] HITO-10A: TargetProfile — Contrato, schema Draft 2020-12, modelo C++ y piloto ReferenceSynth (Build #434 - CERTIFICADO)
+  9. [x] HITO-10B: TargetProfile — Paridad declarativa exacta vs legacy (Build #436 - CERTIFICADO)
+  10. [x] HITO-10C: TargetProfile — Migracion piloto de plugin real (Dexed VST3) (Build #439 - CERTIFICADO)
+  11. [x] HITO-10D1: TargetProfile — Hardware digital (CC/SysEx) y analogico manual: Contratos y resolucion hermetica (Build #443 - CERTIFICADO)
+  12. [x] HITO-10D2: TargetProfile — Hardware digital y analogico manual: Despacho e integracion fisica real (Build #457 - CERTIFICADO)
+  13. [x] HITO-10V0: VES Capability & Transport Feasibility Spike (Build #459: Discovery, hosting y estabilidad básica - CERTIFICADO)
+  14. [x] HITO-10V0.1: VES CZ-101 Semantic Control & Audible Output Probe (Build #461: Sonda concluida — Viabilidad parcial, sin audio audible headless — CERTIFICADO)
+  15. [ ] HITO-10V1: Firmware-Emulated Targets / VES Integration (ESTRICTAMENTE BLOQUEADO por falta de control demostrable)
+  16. [ ] HITO-10E: TargetProfile — Retirada segura de duplicados legacy (EN CURSO - FASE E1)
+
+---
+
+DETALLE OPERATIVO HITO-10D2: Despacho Físico e Integración Real
+Axioma rector: "La aplicación puede preparar una orden física declarativa, pero solo el pipeline autorizado puede transmitirla después de comprobar el entorno, verificar o confirmar el target, obtener consentimiento y registrar evidencia de cada resultado."
+
+Roadmap rector persistente: docs/ROADMAP_HARDWARE_AND_EMULATION.md
+
+Desglose de Tareas Atómicas:
+- [x] D2.1: Enriquecer TargetProfile con TransportPolicy declarable por perfil (minimumInterMessageDelayMs, requiresVerifiedIdentity, requiresResponseAck, responseTimeoutMs) — Build #444/#445 PASS (7 test cases, 71 assertions).
+- [x] D2.2: Definir interfaces puras de transporte desacoplado: IMidiTransport.h, MidiTransportTypes.h y MockMidiTransport en tests para verificación sin hardware — Build #446 PASS (11 test cases, 77 assertions).
+- [x] D2.3: Implementar HardwareTransportPreflightService con desacoplamiento estricto de IMidiIdentityProbe, evaluacion objetiva de entorno y modelo de 5 estados de identidad (PortAvailable, IdentityVerified, IdentityUnavailable, IdentityMismatch, UserConfirmedUnverified en D2.4; D2.3 emite Ready, Blocked o AwaitingUserConfirmation; 0 mensajes de medicion transmitidos) — Build #452 PASS (5 test cases, 48 assertions).
+- [x] D2.4: Implementar OperatorConsentService y DTO inmutable OperatorConsentRequest: consentimiento ligado a orden inmutable (commandDigest), SysEx con consentimiento explícito obligatorio, perfiles ImportedUntrusted bajo confirmación, rechazo estricto de IdentityMismatch, validación anti-TOCTOU y transición controlada a UserConfirmedUnverified — Build #454 PASS (7 test cases, 38 assertions).
+- [x] D2.5: Integrar despacho seguro y pacing gobernado por perfil (HardwareDispatchScheduler con IMonotonicClock inyectable, anti-TOCTOU y decisiones DispatchNow / PendingPacingWindow / Blocked / Failed sin sleeps en audio) y JuceMidiTransport desacoplado sin despacho automático — Build #455 PASS (4 test cases, 35 assertions).
+- [x] D2.6: Integración hermética de despacho, timeout y recuperación fail-closed:
+      * Interfaz desacoplada IMidiResponseAwaiter, tipos MidiResponseOutcome/MidiResponseWaitResult y MockMidiResponseAwaiter en tests.
+      * Objeto de evidencia forense HardwareDispatchEvidenceRecord con hashes, puerto, timestamps, transportError, responseOutcome y flag exportBlocked.
+      * executeDispatchCc y executeDispatchSysEx en HardwareDispatchScheduler conectando pacing, consentimiento inmutable, timeout de ACK gobernado por requiresResponseAck y bloqueo estricto de exportación ante fallos.
+      * test_TargetProfilePhysicalDispatch.cpp (PRO-800 CC 19/21 con cuantización round(), DX7 SysEx con checksum Yamaha y pacing de 20 ms, bloqueo con 0 mensajes ante consentimiento denegado, preflight mismatch o pacing pendiente) — Build #457 PASS (3 test cases, 52 assertions).
+      * test_TargetProfileTransportFailureRecovery.cpp (WriteFailed, Disconnected, Timeout con requiresResponseAck = true -> fail-closed y export blocked; Timeout con requiresResponseAck = false -> no error; preservación de evidencia) — Build #457 PASS (3 test cases, 48 assertions).
+- [x] D2.7: Compilación oficial Release x64, verificación de baseline (44 test cases, 613 assertions PASS en [hardware], 0 FAIL) y emisión de ACTA_HITO_10D2_HARDWARE_DISPATCH.md.
+
+---
+
+DETALLE OPERATIVO HITO-10V0: VES Capability & Transport Feasibility Spike
+Axioma rector: "Un emulador puede reproducir una máquina vintage, pero solo una prueba de capacidad puede demostrar qué interfaz de control ofrece realmente al host y qué transporte declarativo puede usar ABDAudioLab sin inventar capacidades."
+
+Alcance estricto de V0:
+- [x] Suite única src/tests/test_VesCz101Feasibility.cpp ([ves][external][firmware_emulated][feasibility]).
+- [x] Resolución de rutas VST3 consultando directorios persistidos en la aplicación (PluginCache.xml, PluginScanDirs.xml) además de rutas de sistema.
+- [x] Detección de ROM en directorio configurado (sizeBytes, SHA-256) sin almacenar bytes de ROM en el repositorio ni en tests.
+- [x] Introspección de catálogo de parámetros VST3 para CZ-101 y selección de máquina.
+- [x] Inyección de eventos NoteOn, NoteOff, CC y SysEx virtual para verificar tolerancia y respuesta (NoCrash / HostAccepted).
+- [x] Prueba de renderizado de audio y clasificación de repetibilidad (SilentBufferByteIdentical).
+- [x] Ejecución de la suite, análisis de telemetría y emisión de ACTA_HITO_10V0_VES_FEASIBILITY.md.
+
+---
+
+DETALLE OPERATIVO HITO-10V0.1: VES CZ-101 Semantic Control & Audible Output Probe
+Axioma rector: "Que un mensaje atraviese un MidiBuffer sin crash demuestra transporte de host; solo un cambio reproducible de estado o audio demuestra control real de la máquina emulada."
+
+Objetivo: Demostrar que existe un camino reproducible: Estado CZ-101 válido -> NoteOn -> audio audible no silencioso -> SysEx o CC concreto -> cambio observable de estado o audio -> reset -> repetibilidad.
+
+Alcance estricto de V0.1:
+- [x] Suite src/tests/test_VesCz101SemanticControl.cpp ([ves][external][firmware_emulated][semantic_control]).
+- [x] Test 1: Estado inicial CZ-101 verificable sin ROM incrustada en tests ni artefactos (586 B, sin volcado directo de ROM — PASS).
+- [x] Test 2: NoteOn C4 produce silencio en arranque frío headless (peak 0.0, RMS -120 dBFS; advertencia WARN_VES_HEADLESS_MACHINE_NOT_BOOTED registrada).
+- [x] Test 3: Mensaje SysEx y CC no alteran el hash de estado VST3 devuelto por getStateInformation (sin control semántico demostrable en headless).
+- [x] Test 4: Restauración de snapshot y repetibilidad sobre silencio confirmada (SilentBufferByteIdentical).
+- [x] Advertencias WARN_VES_ROM_DUMP_QUALITY_UNVERIFIED y WARN_VES_HEADLESS_MACHINE_NOT_BOOTED registradas formalmente.
+- [x] Emisión de ACTA_HITO_10V0_1_SEMANTIC_CONTROL_PROBE.md con dictamen de BLOQUEO PREVENTIVO DE HITO-10V1.
+
+---
+
+DETALLE OPERATIVO HITO-10E: TargetProfile — Retirada Segura de Duplicados Legacy
+Axioma rector: "Ningún contrato, campo, fixture ni fallback legacy se elimina porque parezca redundante; solo se retira cuando existe un reemplazo canónico, los consumidores han migrado, la equivalencia está probada y la ausencia del legacy mantiene la suite global verde."
+
+Fases Vinculantes de Ejecución:
+- [x] E1: Inventario exhaustivo de contratos y consumidores (docs/audits/TARGETPROFILE_LEGACY_INVENTORY.md y test_TargetProfileLegacyInventory.cpp — 31/31 assertions PASS). Prohibido borrar código.
+- [x] E2: Matriz de equivalencia y análisis de riesgos (Keep, Deprecate, Migrate, Removable) formalizada en el inventario. Prohibido borrar código.
+- [x] E3: Adaptador unidireccional estricto TargetProfileLegacyAdapter (TargetProfile -> HardwareContract legacy) y test_TargetProfileLegacyAdapter.cpp (228 assertions PASS). Prohibido borrar código.
+- [x] E4: Integración controlada en HardwareContractRegistry: carga all-or-nothing, precedencia canónica, procedencia tipada, indexación de aliases y fail-closed estricto ante colisiones (Build #473 — 15 assertions en 10 casos PASS). Prohibido borrar código.
+- [x] E4.1: Normalización métrica y reconciliación de inventario (32 entradas filesystem: 31 perfiles + 1 schema; 3 perfiles migrados + 28 no migrados).
+- [x] E5: Baterías de Paridad E2E (test_TargetProfileLegacyEndToEndParity.cpp) y Ausencia Controlada en fixture temporal hermética (test_TargetProfileLegacyControlledAbsence.cpp) (Build #475 — 156 assertions en 9 casos PASS; 456 assertions acumuladas en HITO-10E; 613 assertions en [hardware]). Cero archivos reales borrados.
+- [ ] E6: Retirada selectiva y condicionada de los 3 archivos JSON migrados (behringer_pro800.json, yamaha_dx7.json, boss_ds1_distortion.json). Prohibido sin autorización formal.
+- [ ] E7: Certificación global con baseline completa verde y emisión de ACTA_HITO_10E_LEGACY_REMOVAL.md.
+
+
+
+

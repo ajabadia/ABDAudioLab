@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "kind": "abd.target-profile",
+  "targetProfileId": "hw-behringer-pro800-canonical",
+  "displayName": "Behringer PRO-800",
+  "vendor": "Behringer",
+  "targetKind": "HardwareDigital",
+  "revision": 1,
+  "identity": {
+    "canonicalTargetId": "hw-behringer-pro800",
+    "acceptedUniqueIds": [
+      "Behringer PRO-800",
+      "PRO-800",
+      "PRO 800",
+      "hw-pro800"
+    ],
+    "binaryIdentityPolicy": "not-applicable"
+  },
+  "capabilities": {
+    "midiInput": true,
+    "supportsParameterAutomation": true,
+    "controlTransports": [
+      "MidiContinuousController"
+    ],
+    "audioOutput": {
+      "supportedChannelCounts": [
+        1,
+        2
+      ],
+      "requiredChannelCount": 1,
+      "channelLayout": "mono",
+      "supportedObservationLayouts": [
+        "mono",
+        "stereo"
+      ]
+    },
+    "sampleRatesHz": [
+      44100,
+      48000,
+      96000
+    ],
+    "blockSizes": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "supportsPolyphony": true,
+    "midiChannels": [
+      1
+    ],
+    "midiNoteRange": [
+      0,
+      127
+    ]
+  },
+  "parameters": [
+    {
+      "semanticId": "filter_cutoff",
+      "displayName": "Filter Cutoff",
+      "technicalIdentifier": {
+        "kind": "MidiContinuousController",
+        "channel": 1,
+        "controllerNumber": 19
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "filter_resonance",
+      "displayName": "Resonance",
+      "technicalIdentifier": {
+        "kind": "MidiContinuousController",
+        "channel": 1,
+        "controllerNumber": 21
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "filter_envelope_amount",
+      "displayName": "Filter Envelope Amount",
+      "technicalIdentifier": {
+        "kind": "MidiContinuousController",
+        "channel": 1,
+        "controllerNumber": 20
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    }
+  ],
+  "measurementPolicies": {
+    "warmupTimeMs": 30,
+    "defaultSettlingTimeMs": 50,
+    "recommendedCalibrationPolicy": "None",
+    "requiresResetBetweenTrials": false
+  },
+  "transportPolicy": {
+    "minimumInterMessageDelayMs": 5,
+    "maximumMessagesPerSecond": 50,
+    "requiresResponseAck": false,
+    "responseTimeoutMs": 0,
+    "retryPolicy": "none",
+    "maxRetries": 0,
+    "requiresExplicitConfirmation": false,
+    "allowsBulkDump": false,
+    "requiresVerifiedIdentity": false,
+    "allowsUserConfirmedUnverifiedIdentity": true
+  }
+}

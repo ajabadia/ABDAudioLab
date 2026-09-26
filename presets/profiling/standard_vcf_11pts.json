@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "abd.measurement-recipe",
+  "recipeId": "org.abd.profiling.vcf.standard-11pts",
+  "displayName": "VCF estándar — 11 puntos",
+  "description": "Caracterización estándar de curva de corte VCF con 11 puntos equidistantes (paso de 10%) para modelado acústico.",
+  "assistanceLevel": "Configurable",
+  "revision": 1,
+  "targetConstraints": {
+    "targetKinds": ["Plugin", "InternalSynth", "SyntheticFixture", "HardwareMidiOutboard"],
+    "requiredCapabilities": ["MidiInput", "StereoAudioOutput"],
+    "allowedSampleRatesHz": [48000, 96000],
+    "channels": 2
+  },
+  "excitation": {
+    "notes": [
+      {
+        "midiNote": 60,
+        "velocity": 0.7,
+        "gateMs": 300.0,
+        "settlingMs": 50.0
+      }
+    ],
+    "repetitions": 2,
+    "seed": 42
+  },
+  "measurement": {
+    "points": [
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.0 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.1 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.2 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.3 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.4 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.5 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.6 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.7 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.8 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.9 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 1.0 }
+    ],
+    "calibrationPolicy": "Required",
+    "analysisPolicy": "CanonicalV1"
+  },
+  "evaluationPolicy": {
+    "minimumSnrDb": 55.0,
+    "maximumThdPercent": 1.5,
+    "f0ToleranceCents": 10.0
+  },
+  "provenance": {
+    "authoringSource": "builtin",
+    "documentationRef": "docs/recipes/vcf-standard-11pts.md"
+  }
+}

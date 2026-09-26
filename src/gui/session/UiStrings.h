@@ -18,6 +18,7 @@ inline constexpr const char* MODE_FREE              = "Mode: Free Capture";
 // Ad-hoc / Free Capture Controls
 inline constexpr const char* FREE_CAPTURE           = "Capture Free Take";
 inline constexpr const char* STOP                   = "Stop";
+inline constexpr const char* PROMOTE_TO_RECIPE       = "Promote to Recipe";
 
 // Coordinator Lifecycle States
 inline constexpr const char* STATE_NO_SESSION       = "No Session";
@@ -52,5 +53,6 @@ inline constexpr const char* TOOLTIP_CANCEL         = "Cancel current measuremen
 inline constexpr const char* TOOLTIP_VIEW_RESULTS   = "View results summary and generate export files";
 inline constexpr const char* TOOLTIP_FREE_CAPTURE   = "Trigger immediate ad-hoc audio capture";
 inline constexpr const char* TOOLTIP_FREE_STOP      = "Stop current recording take";
+inline constexpr const char* TOOLTIP_PROMOTE_TO_RECIPE = "Promote current exploration into a reproducible MeasurementRecipe";
 
 } // namespace abdaudiolab::gui::strings

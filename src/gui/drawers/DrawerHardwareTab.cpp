@@ -360,6 +360,22 @@ void DrawerHardwareTab::setSelectedHardwareId(const juce::String& id)
             return;
         }
     }
+
+    // Buscar por alias en availableContracts
+    for (size_t i = 0; i < hardwareList.size(); ++i)
+    {
+        for (const auto& c : availableContracts)
+        {
+            if (c.id == hardwareList[i].id.toStdString())
+            {
+                if (std::find(c.aliases.begin(), c.aliases.end(), id.toStdString()) != c.aliases.end())
+                {
+                    hwModeCombo.setSelectedId(static_cast<int>(i + 1), juce::sendNotification);
+                    return;
+                }
+            }
+        }
+    }
 }
 
 void DrawerHardwareTab::clearSelectedHardware()

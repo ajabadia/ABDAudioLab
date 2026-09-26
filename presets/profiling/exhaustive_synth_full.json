@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "abd.measurement-recipe",
+  "recipeId": "org.abd.profiling.synth.exhaustive-full",
+  "displayName": "Sintetizador exhaustivo — barrido completo",
+  "description": "Perfilado exhaustivo multi-nota y multi-parámetro para extracción completa de modelo neuronal/físico.",
+  "assistanceLevel": "Advanced",
+  "revision": 1,
+  "targetConstraints": {
+    "targetKinds": ["Plugin", "InternalSynth", "SyntheticFixture", "HardwareMidiOutboard", "ModularDut"],
+    "requiredCapabilities": ["MidiInput", "StereoAudioOutput", "ParameterAutomation"],
+    "allowedSampleRatesHz": [48000, 96000, 192000],
+    "channels": 2
+  },
+  "excitation": {
+    "notes": [
+      {
+        "midiNote": 36,
+        "velocity": 0.8,
+        "gateMs": 400.0,
+        "settlingMs": 100.0
+      },
+      {
+        "midiNote": 60,
+        "velocity": 0.8,
+        "gateMs": 400.0,
+        "settlingMs": 100.0
+      },
+      {
+        "midiNote": 84,
+        "velocity": 0.8,
+        "gateMs": 400.0,
+        "settlingMs": 100.0
+      }
+    ],
+    "repetitions": 3,
+    "seed": 999
+  },
+  "measurement": {
+    "points": [
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.0 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.25 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.5 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 0.75 },
+      { "parameter": "vcf.cutoff", "normalizedValue": 1.0 },
+      { "parameter": "vcf.resonance", "normalizedValue": 0.0 },
+      { "parameter": "vcf.resonance", "normalizedValue": 0.5 },
+      { "parameter": "vcf.resonance", "normalizedValue": 0.9 }
+    ],
+    "calibrationPolicy": "Required",
+    "analysisPolicy": "HarmonicFull"
+  },
+  "evaluationPolicy": {
+    "minimumSnrDb": 60.0,
+    "maximumThdPercent": 2.0,
+    "f0ToleranceCents": 5.0
+  },
+  "provenance": {
+    "authoringSource": "builtin",
+    "documentationRef": "docs/recipes/exhaustive-synth-full.md"
+  }
+}

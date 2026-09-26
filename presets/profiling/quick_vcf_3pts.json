@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "kind": "abd.measurement-recipe",
+  "recipeId": "org.abd.profiling.vcf.quick-3pts",
+  "displayName": "VCF rápido — 3 puntos",
+  "description": "Verificación canónica rápida de respuesta en frecuencia con 3 puntos normalizados de corte (0.0, 0.5, 1.0) y 3 repeticiones.",
+  "assistanceLevel": "Quick",
+  "revision": 1,
+  "targetConstraints": {
+    "targetKinds": ["Plugin", "InternalSynth", "SyntheticFixture"],
+    "requiredCapabilities": ["MidiInput", "StereoAudioOutput"],
+    "allowedSampleRatesHz": [48000],
+    "channels": 2
+  },
+  "excitation": {
+    "notes": [
+      {
+        "midiNote": 60,
+        "velocity": 0.5,
+        "gateMs": 250.0,
+        "settlingMs": 50.0
+      }
+    ],
+    "repetitions": 3,
+    "seed": 123456
+  },
+  "measurement": {
+    "points": [
+      {
+        "parameter": "vcf.cutoff",
+        "normalizedValue": 0.0
+      },
+      {
+        "parameter": "vcf.cutoff",
+        "normalizedValue": 0.5
+      },
+      {
+        "parameter": "vcf.cutoff",
+        "normalizedValue": 1.0
+      }
+    ],
+    "calibrationPolicy": "Required",
+    "analysisPolicy": "CanonicalV1"
+  },
+  "evaluationPolicy": {
+    "minimumSnrDb": 50.0,
+    "maximumThdPercent": 1.0,
+    "f0ToleranceCents": 10.0
+  },
+  "provenance": {
+    "authoringSource": "builtin",
+    "documentationRef": "docs/recipes/vcf-quick-3pts.md"
+  }
+}

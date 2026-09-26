@@ -8,9 +8,11 @@ TEST_CASE("MidiDeviceHotplugMonitor Plug and Unplug Events", "[hardware][midi][h
     using namespace abdaudiolab::hardware;
 
     core::HardwareContractRegistry registry;
-    juce::File contractsDir("D:/desarrollos/ABDSynths/ABDSharedAssets/contracts");
+    juce::File contractsDir = juce::File::getCurrentWorkingDirectory().getChildFile("contracts").getChildFile("hardware");
     if (!contractsDir.isDirectory())
-        contractsDir = juce::File::getCurrentWorkingDirectory().getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
+        contractsDir = juce::File::getCurrentWorkingDirectory().getParentDirectory().getChildFile("contracts").getChildFile("hardware");
+    if (!contractsDir.isDirectory())
+        contractsDir = juce::File("D:/desarrollos/ABDSynths/ABDSharedAssets/contracts");
     registry.loadContractsFromDirectory(contractsDir);
 
     MidiDeviceHotplugMonitor monitor;

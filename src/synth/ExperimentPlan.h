@@ -125,7 +125,10 @@ struct ExperimentPlan
         {
             if (ev.eventType == TargetEventType::Midi)
             {
-                blob += "M:" + std::to_string(static_cast<int>(ev.midi.type)) + "@" + std::to_string(ev.absoluteSample) + "\n";
+                blob += "M:" + std::to_string(static_cast<int>(ev.midi.type))
+                      + ":N=" + std::to_string(ev.midi.noteNumber)
+                      + ":V=" + std::to_string(ev.midi.velocity)
+                      + "@" + std::to_string(ev.absoluteSample) + "\n";
             }
             else
             {

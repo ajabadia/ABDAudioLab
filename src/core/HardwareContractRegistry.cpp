@@ -1,8 +1,42 @@
 #include "HardwareContractRegistry.h"
+#include "profiling/TargetProfileService.h"
+#include "profiling/TargetProfileLegacyAdapter.h"
 #include <fstream>
+#include <algorithm>
 
 namespace abdaudiolab::core
 {
+
+namespace
+{
+
+struct CertifiedParityPair
+{
+    std::string canonicalId;
+    std::string legacyId;
+};
+
+const std::vector<CertifiedParityPair>& getCertifiedParityPairs()
+{
+    static const std::vector<CertifiedParityPair> pairs = {
+        { "hw-behringer-pro800-canonical", "behringer_pro800" },
+        { "hw-yamaha-dx7-canonical", "yamaha_dx7" },
+        { "hw-boss-ds1-canonical", "boss_ds1_distortion" }
+    };
+    return pairs;
+}
+
+const std::unordered_set<std::string>& getCertifiedParityLegacyIds()
+{
+    static const std::unordered_set<std::string> certified = {
+        "behringer_pro800",
+        "yamaha_dx7",
+        "boss_ds1_distortion"
+    };
+    return certified;
+}
+
+} // namespace
 
 bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, HardwareContract& outContract, juce::String& outWarning)
 {
@@ -270,6 +304,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
         }
         else
         {
+            invalidLegacyProfiles.insert(file.getFileNameWithoutExtension().toStdString());
             if (warning.isNotEmpty())
             {
                 warnings.push_back(warning);
@@ -286,6 +321,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
     {
         contracts = std::move(loadedContracts);
         lastErrorMessage.clear();
+        rebuildEffectiveContracts();
         return true;
     }
 
@@ -293,13 +329,357 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
     return false;
 }
 
+CanonicalTargetProfileLoadResult HardwareContractRegistry::loadCanonicalTargetProfiles(const juce::File& targetsDir)
+{
+    CanonicalTargetProfileLoadResult result;
+
+    if (!targetsDir.isDirectory())
+    {
+        result.outcome = CanonicalTargetProfileLoadOutcome::TargetDirectoryMissing;
+        result.diagnosticCodes.push_back("ERR_TARGET_DIRECTORY_MISSING");
+        result.diagnosticMessages.push_back("Targets directory does not exist: " + targetsDir.getFullPathName().toStdString());
+        return result;
+    }
+
+    auto files = targetsDir.findChildFiles(juce::File::findFiles, false, "*.target.json");
+    if (files.isEmpty())
+    {
+        files = targetsDir.findChildFiles(juce::File::findFiles, false, "*.json");
+    }
+
+    result.profilesDiscovered = static_cast<std::size_t>(files.size());
+    if (files.isEmpty())
+    {
+        result.outcome = CanonicalTargetProfileLoadOutcome::Loaded;
+        return result;
+    }
+
+    profiling::TargetProfileService service;
+    std::vector<profiling::TargetProfile> validatedProfiles;
+    validatedProfiles.reserve(result.profilesDiscovered);
+
+    // 1. Validar todos los perfiles de forma atómica
+    for (const auto& file : files)
+    {
+        auto valResult = service.loadAndValidateProfile(file);
+        if (!valResult.isSuccess())
+        {
+            std::string errorMsg;
+            for (const auto& diag : valResult.diagnostics)
+            {
+                if (diag.severity == profiling::DiagnosticSeverity::Error)
+                {
+                    if (!errorMsg.empty()) errorMsg += "; ";
+                    errorMsg += diag.toString();
+                }
+            }
+            if (errorMsg.empty()) errorMsg = "Validation failed";
+
+            invalidCanonicalProfiles[file.getFileNameWithoutExtension().toStdString()] = errorMsg;
+            result.outcome = CanonicalTargetProfileLoadOutcome::TargetProfileInvalid;
+            result.diagnosticCodes.push_back("ERR_CANONICAL_TARGET_PROFILE_INVALID");
+            result.diagnosticMessages.push_back(file.getFileName().toStdString() + ": " + errorMsg);
+            return result; // RegistryUnchanged
+        }
+        validatedProfiles.push_back(valResult.profile);
+    }
+
+    // 2. Construir contenedores de ensayo (staging)
+    std::vector<HardwareContract> stagedContracts;
+    std::unordered_map<std::string, std::size_t> stagedCanonicalIdToIndex;
+    std::unordered_map<std::string, std::string> stagedAliasToCanonicalId;
+
+    const auto& certifiedParityLegacyIds = getCertifiedParityLegacyIds();
+
+    for (const auto& profile : validatedProfiles)
+    {
+        const std::string& canId = profile.targetProfileId;
+
+        // Comprobar colisión de ID canónico duplicado en el lote
+        if (stagedCanonicalIdToIndex.find(canId) != stagedCanonicalIdToIndex.end())
+        {
+            result.outcome = CanonicalTargetProfileLoadOutcome::CanonicalAliasCollision;
+            result.diagnosticCodes.push_back("ERR_CANONICAL_ID_DUPLICATE");
+            result.diagnosticMessages.push_back("Duplicate canonical profile ID: " + canId);
+            return result;
+        }
+
+        // Comprobar si canId coincide con un perfil legacy no certificado
+        for (const auto& leg : contracts)
+        {
+            if (leg.id == canId && certifiedParityLegacyIds.find(leg.id) == certifiedParityLegacyIds.end())
+            {
+                result.outcome = CanonicalTargetProfileLoadOutcome::CanonicalLegacyParityUnproven;
+                result.diagnosticCodes.push_back("ERR_CANONICAL_LEGACY_PARITY_UNPROVEN");
+                result.diagnosticMessages.push_back("Canonical ID '" + canId + "' collides with unproven legacy contract");
+                return result;
+            }
+        }
+
+        // Construir vista legacy adaptada
+        HardwareContract adapted = profiling::TargetProfileLegacyAdapter::toLegacyHardwareContract(profile);
+        stagedContracts.push_back(adapted);
+        std::size_t idx = stagedContracts.size() - 1;
+        stagedCanonicalIdToIndex[canId] = idx;
+
+        // Validar y registrar aliases (acceptedUniqueIds)
+        for (const auto& alias : profile.identity.acceptedUniqueIds)
+        {
+            if (alias == canId)
+                continue; // auto-alias consistente
+
+            // Un alias apunta a dos perfiles canónicos distintos
+            auto itAlias = stagedAliasToCanonicalId.find(alias);
+            if (itAlias != stagedAliasToCanonicalId.end() && itAlias->second != canId)
+            {
+                result.outcome = CanonicalTargetProfileLoadOutcome::CanonicalAliasCollision;
+                result.diagnosticCodes.push_back("ERR_CANONICAL_ALIAS_COLLISION");
+                result.diagnosticMessages.push_back("Alias '" + alias + "' claimed by multiple canonical profiles");
+                return result;
+            }
+
+            // Un alias coincide con el ID canónico de otro perfil
+            if (stagedCanonicalIdToIndex.find(alias) != stagedCanonicalIdToIndex.end() && alias != canId)
+            {
+                result.outcome = CanonicalTargetProfileLoadOutcome::CanonicalAliasCollision;
+                result.diagnosticCodes.push_back("ERR_CANONICAL_ALIAS_COLLIDES_WITH_CANONICAL_ID");
+                result.diagnosticMessages.push_back("Alias '" + alias + "' collides with another canonical ID");
+                return result;
+            }
+
+            // Un alias coincide con un contrato legacy no certificado
+            for (const auto& leg : contracts)
+            {
+                if (leg.id == alias && certifiedParityLegacyIds.find(leg.id) == certifiedParityLegacyIds.end())
+                {
+                    result.outcome = CanonicalTargetProfileLoadOutcome::CanonicalLegacyParityUnproven;
+                    result.diagnosticCodes.push_back("ERR_CANONICAL_LEGACY_PARITY_UNPROVEN");
+                    result.diagnosticMessages.push_back("Alias '" + alias + "' collides with unproven legacy contract: " + leg.id);
+                    return result;
+                }
+            }
+
+            stagedAliasToCanonicalId[alias] = canId;
+        }
+    }
+
+    // Registrar aliases legacy para pares con paridad certificada
+    for (const auto& pair : getCertifiedParityPairs())
+    {
+        if (stagedCanonicalIdToIndex.find(pair.canonicalId) != stagedCanonicalIdToIndex.end())
+        {
+            stagedAliasToCanonicalId[pair.legacyId] = pair.canonicalId;
+        }
+    }
+
+    // 3. Compromiso atómico (Atomic Commit)
+    canonicalAdaptedContracts = std::move(stagedContracts);
+    canonicalIdToIndex = std::move(stagedCanonicalIdToIndex);
+    aliasToCanonicalId = std::move(stagedAliasToCanonicalId);
+
+    rebuildEffectiveContracts();
+
+    result.outcome = CanonicalTargetProfileLoadOutcome::Loaded;
+    result.profilesLoaded = canonicalAdaptedContracts.size();
+    result.diagnosticCodes.push_back("INFO_CANONICAL_PROFILES_LOADED");
+    result.diagnosticMessages.push_back("Successfully loaded " + std::to_string(result.profilesLoaded) + " canonical target profiles.");
+    return result;
+}
+
+void HardwareContractRegistry::rebuildEffectiveContracts()
+{
+    effectiveContracts.clear();
+    effectiveContracts.reserve(contracts.size() + canonicalAdaptedContracts.size());
+
+    const auto& certifiedLegacyIds = getCertifiedParityLegacyIds();
+
+    // 1. Agregar contratos legacy no superados por canónicos adaptados
+    for (const auto& leg : contracts)
+    {
+        bool superseded = false;
+        if (certifiedLegacyIds.find(leg.id) != certifiedLegacyIds.end())
+        {
+            for (const auto& pair : getCertifiedParityPairs())
+            {
+                if (pair.legacyId == leg.id)
+                {
+                    if (canonicalIdToIndex.find(pair.canonicalId) != canonicalIdToIndex.end())
+                    {
+                        superseded = true;
+                    }
+                    break;
+                }
+            }
+        }
+        if (!superseded)
+        {
+            effectiveContracts.push_back(leg);
+        }
+    }
+
+    // 2. Agregar contratos canónicos adaptados con precedencia
+    for (const auto& can : canonicalAdaptedContracts)
+    {
+        effectiveContracts.push_back(can);
+    }
+}
+
+HardwareContractResolution HardwareContractRegistry::resolveContractById(const std::string& id) const
+{
+    HardwareContractResolution res;
+
+    // 0. Si se solicita un perfil canónico que se sabe inválido, bloquear sin fallback
+    auto itInv = invalidCanonicalProfiles.find(id);
+    if (itInv != invalidCanonicalProfiles.end())
+    {
+        res.contract = std::nullopt;
+        res.source = HardwareContractResolutionSource::CanonicalProfileInvalid;
+        res.diagnosticCode = "ERR_CANONICAL_TARGET_PROFILE_INVALID";
+        res.diagnosticMessage = itInv->second;
+        return res;
+    }
+
+    const auto& certifiedParityLegacyIds = getCertifiedParityLegacyIds();
+
+    // 1. Buscar en perfiles canónicos adaptados (por ID canónico o por acceptedUniqueId / alias)
+    std::string canonicalId;
+    auto itId = canonicalIdToIndex.find(id);
+    if (itId != canonicalIdToIndex.end())
+    {
+        canonicalId = id;
+    }
+    else
+    {
+        auto itAlias = aliasToCanonicalId.find(id);
+        if (itAlias != aliasToCanonicalId.end())
+        {
+            canonicalId = itAlias->second;
+        }
+    }
+
+    if (!canonicalId.empty())
+    {
+        std::size_t index = canonicalIdToIndex.at(canonicalId);
+        const auto& canonicalContract = canonicalAdaptedContracts[index];
+
+        // Verificar si existe colisión en los contratos legacy nativos
+        const HardwareContract* nativeLegacy = nullptr;
+        std::string certifiedLegacyId;
+        for (const auto& pair : getCertifiedParityPairs())
+        {
+            if (pair.canonicalId == canonicalId)
+            {
+                certifiedLegacyId = pair.legacyId;
+                break;
+            }
+        }
+
+        for (const auto& leg : contracts)
+        {
+            if (leg.id == id || leg.id == canonicalId || (!certifiedLegacyId.empty() && leg.id == certifiedLegacyId))
+            {
+                nativeLegacy = &leg;
+                break;
+            }
+            auto itA = aliasToCanonicalId.find(leg.id);
+            if (itA != aliasToCanonicalId.end() && itA->second == canonicalId)
+            {
+                nativeLegacy = &leg;
+                break;
+            }
+        }
+
+        if (nativeLegacy != nullptr)
+        {
+            // Existen ambos: verificar si es uno de los tres con paridad certificada
+            if (certifiedParityLegacyIds.find(nativeLegacy->id) != certifiedParityLegacyIds.end())
+            {
+                res.contract = canonicalContract;
+                res.source = HardwareContractResolutionSource::CanonicalTargetProfileAdapted;
+                res.diagnosticCode = "INFO_CANONICAL_LEGACY_PARITY_CERTIFIED";
+                res.diagnosticMessage = "Resolved canonical profile with certified legacy parity for id: " + id;
+                return res;
+            }
+            else
+            {
+                // Colisión no certificada -> Fail-Closed
+                res.contract = std::nullopt;
+                res.source = HardwareContractResolutionSource::CanonicalLegacyParityViolation;
+                res.diagnosticCode = "ERR_CANONICAL_LEGACY_PARITY_UNPROVEN";
+                res.diagnosticMessage = "Unproven parity collision between canonical and legacy for id: " + id;
+                return res;
+            }
+        }
+
+        // Si legacy existe pero fue inválido
+        if (invalidLegacyProfiles.find(id) != invalidLegacyProfiles.end())
+        {
+            res.contract = canonicalContract;
+            res.source = HardwareContractResolutionSource::CanonicalTargetProfileAdapted;
+            res.diagnosticCode = "WARN_LEGACY_PROFILE_INVALID_CANONICAL_USED";
+            res.diagnosticMessage = "Legacy profile was invalid; resolved certified canonical profile for id: " + id;
+            return res;
+        }
+
+        // Solo existe canónico adaptado
+        res.contract = canonicalContract;
+        res.source = HardwareContractResolutionSource::CanonicalTargetProfileAdapted;
+        res.diagnosticCode = "INFO_CANONICAL_TARGET_PROFILE_ADAPTED";
+        res.diagnosticMessage = "Resolved canonical profile adapted for id: " + id;
+        return res;
+    }
+
+    // 2. Si no existe canónico, buscar en contratos legacy nativos
+    for (const auto& leg : contracts)
+    {
+        if (leg.id == id)
+        {
+            res.contract = leg;
+            res.source = HardwareContractResolutionSource::NativeLegacyContract;
+            res.diagnosticCode = "INFO_NATIVE_LEGACY_CONTRACT";
+            res.diagnosticMessage = "Resolved native legacy contract for id: " + id;
+            return res;
+        }
+    }
+
+    // 3. No existe en ninguno
+    if (invalidLegacyProfiles.find(id) != invalidLegacyProfiles.end())
+    {
+        res.contract = std::nullopt;
+        res.source = HardwareContractResolutionSource::LegacyProfileInvalid;
+        res.diagnosticCode = "ERR_LEGACY_PROFILE_INVALID";
+        res.diagnosticMessage = "Legacy profile was invalid for id: " + id;
+        return res;
+    }
+
+    res.contract = std::nullopt;
+    res.source = HardwareContractResolutionSource::NotFound;
+    res.diagnosticCode = "ERR_HARDWARE_CONTRACT_NOT_FOUND";
+    res.diagnosticMessage = "Hardware contract not found for id: " + id;
+    return res;
+}
+
 const HardwareContract* HardwareContractRegistry::findContractById(const std::string& id) const noexcept
 {
-    for (const auto& c : contracts)
+    auto resolution = resolveContractById(id);
+    if (!resolution.contract.has_value())
+        return nullptr;
+
+    if (resolution.source == HardwareContractResolutionSource::CanonicalTargetProfileAdapted)
     {
-        if (c.id == id)
-            return &c;
+        auto it = canonicalIdToIndex.find(resolution.contract->id);
+        if (it != canonicalIdToIndex.end() && it->second < canonicalAdaptedContracts.size())
+            return &canonicalAdaptedContracts[it->second];
     }
+    else if (resolution.source == HardwareContractResolutionSource::NativeLegacyContract)
+    {
+        for (const auto& c : contracts)
+        {
+            if (c.id == resolution.contract->id)
+                return &c;
+        }
+    }
+
     return nullptr;
 }
 

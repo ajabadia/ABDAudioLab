@@ -32,6 +32,11 @@ namespace soundid
     class SoundIdExcitationConfigPanel;
 }
 
+namespace recipes
+{
+    class RecipeEditorComponent;
+}
+
 /**
  * @enum TargetViewIntegrationMode
  * @brief Runtime feature flag for SoundIdTargetView integration in Step 1 (HardwareRouting).
@@ -83,6 +88,8 @@ public:
     [[nodiscard]] TargetViewIntegrationMode getTargetViewIntegrationMode() const noexcept { return targetViewIntegrationMode; }
 
     void setExcitationConfigPanel(soundid::SoundIdExcitationConfigPanel* panel) noexcept;
+    void setRecipeEditorComponent(recipes::RecipeEditorComponent* editor) noexcept;
+    [[nodiscard]] recipes::RecipeEditorComponent* getRecipeEditorComponent() const noexcept { return recipeEditorComponent; }
 
     std::function<void(Step newStep)> onStepChanged;
 
@@ -104,6 +111,7 @@ private:
 
     soundid::SoundIdTargetView* targetView { nullptr };
     soundid::SoundIdExcitationConfigPanel* excitationConfigPanel { nullptr };
+    recipes::RecipeEditorComponent* recipeEditorComponent { nullptr };
     TargetViewIntegrationMode targetViewIntegrationMode { TargetViewIntegrationMode::ClassicStep1 };
 };
 

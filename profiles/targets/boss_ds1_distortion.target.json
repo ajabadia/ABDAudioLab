@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "kind": "abd.target-profile",
+  "targetProfileId": "hw-boss-ds1-canonical",
+  "displayName": "BOSS DS-1 Distortion (Analogue Pedal)",
+  "vendor": "BOSS",
+  "targetKind": "HardwareAnalogue",
+  "revision": 1,
+  "identity": {
+    "canonicalTargetId": "hw-boss-ds1",
+    "acceptedUniqueIds": [
+      "BOSS DS-1",
+      "DS-1",
+      "boss-ds1-distortion",
+      "hw-ds1"
+    ],
+    "binaryIdentityPolicy": "not-applicable"
+  },
+  "capabilities": {
+    "midiInput": false,
+    "supportsParameterAutomation": false,
+    "controlTransports": [
+      "ManualOperator"
+    ],
+    "audioOutput": {
+      "supportedChannelCounts": [
+        1
+      ],
+      "requiredChannelCount": 1,
+      "channelLayout": "mono",
+      "supportedObservationLayouts": [
+        "mono"
+      ]
+    },
+    "sampleRatesHz": [
+      44100,
+      48000,
+      96000
+    ],
+    "blockSizes": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "supportsPolyphony": false,
+    "midiChannels": [
+      1
+    ],
+    "midiNoteRange": [
+      0,
+      127
+    ]
+  },
+  "parameters": [
+    {
+      "semanticId": "distortion_tone",
+      "displayName": "TONE Potentiometer",
+      "technicalIdentifier": {
+        "kind": "ManualOperator",
+        "instructionId": "adjust_tone_pot",
+        "confirmationPrompt": "Ajuste el potenciometro TONE al valor indicado y pulse [Espacio] para continuar.",
+        "controlWidget": "Knob"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "distortion_level",
+      "displayName": "LEVEL Potentiometer",
+      "technicalIdentifier": {
+        "kind": "ManualOperator",
+        "instructionId": "adjust_level_pot",
+        "confirmationPrompt": "Ajuste el potenciometro LEVEL al valor indicado y pulse [Espacio] para continuar.",
+        "controlWidget": "Knob"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "distortion_drive",
+      "displayName": "DIST Potentiometer",
+      "technicalIdentifier": {
+        "kind": "ManualOperator",
+        "instructionId": "adjust_dist_pot",
+        "confirmationPrompt": "Ajuste el potenciometro DIST al valor indicado y pulse [Espacio] para continuar.",
+        "controlWidget": "Knob"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    }
+  ],
+  "measurementPolicies": {
+    "warmupTimeMs": 100,
+    "defaultSettlingTimeMs": 500,
+    "recommendedCalibrationPolicy": "None",
+    "requiresResetBetweenTrials": false
+  },
+  "transportPolicy": {
+    "minimumInterMessageDelayMs": 500,
+    "maximumMessagesPerSecond": 1,
+    "requiresResponseAck": false,
+    "responseTimeoutMs": 0,
+    "retryPolicy": "none",
+    "maxRetries": 0,
+    "requiresExplicitConfirmation": true,
+    "allowsBulkDump": false,
+    "requiresVerifiedIdentity": false,
+    "allowsUserConfirmedUnverifiedIdentity": true
+  }
+}

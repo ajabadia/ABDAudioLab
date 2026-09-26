@@ -27,6 +27,9 @@
 #include "gui/controllers/CanonicalWorkflowTypes.h"
 #include "gui/soundid/SoundIdSidebarStepper.h"
 #include "gui/soundid/SoundIdHardwareCatalogSelector.h"
+#include "gui/recipes/RecipeExecutionController.h"
+#include "gui/recipes/RecipeEditorComponent.h"
+#include "profiling/RecipePromotionService.h"
 #include "gui/ExportReportPanel.h"
 #include "gui/SoundIdCurvePlotter.h"
 #include "gui/SoundIdMeterStrip.h"
@@ -244,8 +247,10 @@ private:
     gui::session::ProfilingSessionController profilingSessionController;
     gui::soundid::SoundIdTargetView targetView { profilingSessionController };
     gui::soundid::SoundIdExcitationConfigPanel excitationConfigPanel { profilingSessionController };
+    gui::recipes::RecipeEditorComponent recipeEditorComponent;
 
     // Sub-controllers
+    gui::recipes::RecipeExecutionController recipeExecutionController { profilingSessionController };
     gui::SessionIoController sessionIoController { sessionManager, sessionReportManager, exportReportPanel, confirmationModal };
     gui::WorkflowNavigationController workflowNavController { sidebarStepper, setupInfoTab, catalogSelector, nativeCalibrationPanel, exportReportPanel, curvePlotter, healthPanel, suiteList, operatorStepModal, centerSplitterBar };
     gui::ReportExportUiController reportExportController { *this };
@@ -267,6 +272,7 @@ private:
     juce::Label lblActionReasonBanner;
     juce::TextButton btnFreeCapture;
     juce::TextButton btnFreeStop;
+    juce::TextButton btnPromoteToRecipe;
     juce::TextButton btnPrimaryAction;
     juce::TextButton btnCancelAction;
     void updateGovernanceUi();

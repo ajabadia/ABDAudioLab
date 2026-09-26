@@ -695,6 +695,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     workflowNavController.setTargetView(&targetView);
     addChildComponent(excitationConfigPanel);
     workflowNavController.setExcitationConfigPanel(&excitationConfigPanel);
+    recipeEditorComponent.setController(&recipeExecutionController);
+    addChildComponent(recipeEditorComponent);
+    workflowNavController.setRecipeEditorComponent(&recipeEditorComponent);
     profilingSessionController.onOperatorStepConfirmed = [this] { confirmManualStep(); };
     nativeCalibrationPanel.onVerifyDigitalRequested = [this] {
         profilingSessionController.verifyDigitalCalibration();
@@ -1230,6 +1233,55 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
     addChildComponent(btnFreeStop);
 
+    btnPromoteToRecipe.setButtonText(gui::strings::PROMOTE_TO_RECIPE);
+    btnPromoteToRecipe.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentBlue.withAlpha(0.2f));
+    btnPromoteToRecipe.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentBlue);
+    btnPromoteToRecipe.setTooltip(gui::strings::TOOLTIP_PROMOTE_TO_RECIPE);
+    btnPromoteToRecipe.onClick = [this] {
+        const auto* activeSession = sessionCoordinator.getActiveMeasurementSession();
+        profiling::ExplorationContext ctx;
+        if (activeSession != nullptr)
+        {
+            ctx.explorationSessionId = activeSession->sessionId;
+            ctx.targetId = activeSession->profileId;
+            ctx.targetName = activeSession->targetFunction;
+            ctx.targetDeviceType = activeSession->deviceType;
+            ctx.controlSnapshots = activeSession->controlStates;
+        }
+        else
+        {
+            auto optTarget = resolveCanonicalTarget();
+            if (optTarget.has_value())
+            {
+                ctx.targetId = optTarget->targetId;
+                ctx.targetName = optTarget->targetName;
+                ctx.targetDeviceType = (optTarget->kind == gui::session::TargetKind::SyntheticFixture) ? "SyntheticFixture" : "VST3_Instrument";
+            }
+        }
+        ctx.sampleRate = audioEngine.getSampleRate() > 0.0 ? audioEngine.getSampleRate() : 48000.0;
+        ctx.channels = 2;
+
+        profiling::RecipePromotionService promoService;
+        auto result = promoService.promoteExploration(ctx);
+
+        if (result.isExecutableRecipe())
+        {
+            recipeExecutionController.promoteExploration(*result.promotedRecipe, result.recipeDocumentHash);
+            recipeEditorComponent.updateFromState();
+            recipeEditorComponent.setVisible(true);
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);
+            lblActionReasonBanner.setText(juce::String::fromUTF8(u8"Nueva receta temporal derivada de exploración en Paso 2 (Calibration & Setup). La exploración original no ha sido certificada como medición. Esta receta no se ha guardado aún en disco."), juce::dontSendNotification);
+            lblActionReasonBanner.setVisible(true);
+        }
+        else
+        {
+            juce::String msg = juce::String::fromUTF8(u8"No se puede crear una receta ejecutable: el control observado no tiene semanticId o valor normalizado.\nLa exploración se ha conservado sin modificaciones.");
+            lblActionReasonBanner.setText(msg, juce::dontSendNotification);
+            lblActionReasonBanner.setVisible(true);
+        }
+    };
+    addChildComponent(btnPromoteToRecipe);
+
     btnPrimaryAction.setButtonText(juce::String::fromUTF8(u8"▶  INICIAR MEDICIÓN"));
     btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
     btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
@@ -1601,6 +1653,7 @@ void MainContentComponent::updateGovernanceUi()
         lblHeaderStatusBadge.setVisible(false);
         btnFreeCapture.setVisible(false);
         btnFreeStop.setVisible(false);
+        btnPromoteToRecipe.setVisible(false);
         btnPrimaryAction.setVisible(false);
         btnCancelAction.setVisible(false);
         lblActionReasonBanner.setVisible(false);
@@ -1697,11 +1750,18 @@ void MainContentComponent::updateGovernanceUi()
             btnFreeStop.setTooltip(sessionCoordinator.getRejectionReasonForAction("cancel"));
         else
             btnFreeStop.setTooltip(gui::strings::TOOLTIP_FREE_STOP);
+
+        btnPromoteToRecipe.setButtonText(gui::strings::PROMOTE_TO_RECIPE);
+        btnPromoteToRecipe.setVisible(true);
+        bool hasContext = (sessionCoordinator.getActiveMeasurementSession() != nullptr || resolveCanonicalTarget().has_value());
+        btnPromoteToRecipe.setEnabled(hasContext);
+        btnPromoteToRecipe.setTooltip(gui::strings::TOOLTIP_PROMOTE_TO_RECIPE);
     }
     else
     {
         btnFreeCapture.setVisible(false);
         btnFreeStop.setVisible(false);
+        btnPromoteToRecipe.setVisible(false);
         btnPrimaryAction.setVisible(true);
 
         if (isCompleted)
@@ -1866,6 +1926,8 @@ void MainContentComponent::resized()
             btnFreeCapture.setBounds(govRow.removeFromLeft(160));
             govRow.removeFromLeft(8);
             btnFreeStop.setBounds(govRow.removeFromLeft(80));
+            govRow.removeFromLeft(8);
+            btnPromoteToRecipe.setBounds(govRow.removeFromLeft(160));
             govRow.removeFromLeft(10);
         }
         else

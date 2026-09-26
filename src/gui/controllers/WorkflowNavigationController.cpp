@@ -8,6 +8,7 @@
 #include "WorkflowNavigationController.h"
 #include "../soundid/SoundIdTargetView.h"
 #include "../soundid/SoundIdExcitationConfigPanel.h"
+#include "../recipes/RecipeEditorComponent.h"
 
 namespace abdaudiolab::gui
 {
@@ -51,6 +52,11 @@ void WorkflowNavigationController::setTargetViewIntegrationMode(TargetViewIntegr
 void WorkflowNavigationController::setExcitationConfigPanel(soundid::SoundIdExcitationConfigPanel* panel) noexcept
 {
     excitationConfigPanel = panel;
+}
+
+void WorkflowNavigationController::setRecipeEditorComponent(recipes::RecipeEditorComponent* editor) noexcept
+{
+    recipeEditorComponent = editor;
 }
 
 void WorkflowNavigationController::setStep(Step targetStep)
@@ -123,6 +129,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
             targetView->setVisible(false);
         if (excitationConfigPanel != nullptr)
             excitationConfigPanel->setVisible(false);
+        if (recipeEditorComponent != nullptr)
+            recipeEditorComponent->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
@@ -144,6 +152,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         nativeCalibrationPanel.setVisible(false);
         if (excitationConfigPanel != nullptr)
             excitationConfigPanel->setVisible(false);
+        if (recipeEditorComponent != nullptr)
+            recipeEditorComponent->setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -184,22 +194,28 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         healthPanel.setVisible(false);
         curvePlotter.setVisible(false);
 
-        if (excitationConfigPanel != nullptr)
-        {
-            int panelW = std::min(580, std::max(380, bounds.getWidth() * 45 / 100));
-            auto panelArea = bounds.removeFromRight(panelW);
-            bounds.removeFromRight(12);
+        int panelW = std::min(580, std::max(380, bounds.getWidth() * 45 / 100));
+        auto panelArea = bounds.removeFromRight(panelW);
+        bounds.removeFromRight(12);
 
-            nativeCalibrationPanel.setVisible(true);
-            nativeCalibrationPanel.setBounds(bounds);
+        nativeCalibrationPanel.setVisible(true);
+        nativeCalibrationPanel.setBounds(bounds);
+
+        if (recipeEditorComponent != nullptr && (recipeEditorComponent->showsWorkingRecipe() || recipeEditorComponent->isVisible()))
+        {
+            if (excitationConfigPanel != nullptr)
+                excitationConfigPanel->setVisible(false);
+
+            recipeEditorComponent->setVisible(true);
+            recipeEditorComponent->setBounds(panelArea);
+        }
+        else if (excitationConfigPanel != nullptr)
+        {
+            if (recipeEditorComponent != nullptr)
+                recipeEditorComponent->setVisible(false);
 
             excitationConfigPanel->setVisible(true);
             excitationConfigPanel->setBounds(panelArea);
-        }
-        else
-        {
-            nativeCalibrationPanel.setVisible(true);
-            nativeCalibrationPanel.setBounds(bounds);
         }
     }
     else if (currentStep == Step::ExportReport)
@@ -210,6 +226,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
             targetView->setVisible(false);
         if (excitationConfigPanel != nullptr)
             excitationConfigPanel->setVisible(false);
+        if (recipeEditorComponent != nullptr)
+            recipeEditorComponent->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -228,6 +246,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
             targetView->setVisible(false);
         if (excitationConfigPanel != nullptr)
             excitationConfigPanel->setVisible(false);
+        if (recipeEditorComponent != nullptr)
+            recipeEditorComponent->setVisible(false);
         nativeCalibrationPanel.setVisible(false);
         exportReportPanel.setVisible(false);
 

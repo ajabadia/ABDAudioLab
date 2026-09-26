@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <optional>
+#include <unordered_map>
+#include <unordered_set>
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
@@ -133,6 +136,43 @@ struct HardwareContract
     std::vector<HardwareFunction> functions;
 };
 
+enum class CanonicalTargetProfileLoadOutcome
+{
+    Loaded,
+    TargetDirectoryMissing,
+    TargetProfileInvalid,
+    CanonicalAliasCollision,
+    CanonicalLegacyParityUnproven,
+    RegistryUnchanged
+};
+
+struct CanonicalTargetProfileLoadResult
+{
+    CanonicalTargetProfileLoadOutcome outcome { CanonicalTargetProfileLoadOutcome::RegistryUnchanged };
+    std::size_t profilesDiscovered { 0 };
+    std::size_t profilesLoaded { 0 };
+    std::vector<std::string> diagnosticCodes;
+    std::vector<std::string> diagnosticMessages;
+};
+
+enum class HardwareContractResolutionSource
+{
+    CanonicalTargetProfileAdapted,
+    NativeLegacyContract,
+    CanonicalLegacyParityViolation,
+    CanonicalProfileInvalid,
+    LegacyProfileInvalid,
+    NotFound
+};
+
+struct HardwareContractResolution
+{
+    std::optional<HardwareContract> contract;
+    HardwareContractResolutionSource source { HardwareContractResolutionSource::NotFound };
+    std::string diagnosticCode;
+    std::string diagnosticMessage;
+};
+
 class HardwareContractRegistry
 {
 public:
@@ -142,12 +182,19 @@ public:
     bool loadContractsFromDirectory(const juce::File& contractsDir);
     bool loadProfileResilient(const juce::File& jsonFile, HardwareContract& outContract, juce::String& outWarning);
 
+    CanonicalTargetProfileLoadResult loadCanonicalTargetProfiles(const juce::File& targetsDir);
+
     std::function<void(const juce::String& warningMsg)> onProfileWarning;
 
-    [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return contracts; }
-    [[nodiscard]] bool hasContracts() const noexcept { return !contracts.empty(); }
+    [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return effectiveContracts; }
+    [[nodiscard]] bool hasContracts() const noexcept { return !effectiveContracts.empty(); }
     [[nodiscard]] const std::vector<juce::String>& getWarnings() const noexcept { return warnings; }
+
+    [[nodiscard]] HardwareContractResolution resolveContractById(const std::string& id) const;
     [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
+
+    [[nodiscard]] const std::vector<HardwareContract>& getCanonicalAdaptedContracts() const noexcept { return canonicalAdaptedContracts; }
+    [[nodiscard]] std::size_t getCanonicalAdaptedContractCount() const noexcept { return canonicalAdaptedContracts.size(); }
     [[nodiscard]] const std::string& getLastError() const noexcept { return lastErrorMessage; }
 
     void registerContract(const HardwareContract& contract)
@@ -157,10 +204,12 @@ public:
             if (c.id == contract.id)
             {
                 c = contract;
+                rebuildEffectiveContracts();
                 return;
             }
         }
         contracts.push_back(contract);
+        rebuildEffectiveContracts();
     }
 
     bool unregisterContract(const std::string& id)
@@ -170,13 +219,22 @@ public:
         if (it != contracts.end())
         {
             contracts.erase(it, contracts.end());
+            rebuildEffectiveContracts();
             return true;
         }
         return false;
     }
 
 private:
+    void rebuildEffectiveContracts();
+
     std::vector<HardwareContract> contracts;
+    std::vector<HardwareContract> canonicalAdaptedContracts;
+    std::vector<HardwareContract> effectiveContracts;
+    std::unordered_map<std::string, std::size_t> canonicalIdToIndex;
+    std::unordered_map<std::string, std::string> aliasToCanonicalId;
+    std::unordered_map<std::string, std::string> invalidCanonicalProfiles;
+    std::unordered_set<std::string> invalidLegacyProfiles;
     std::vector<juce::String> warnings;
     std::string lastErrorMessage;
 };

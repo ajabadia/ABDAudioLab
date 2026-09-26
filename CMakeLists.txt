@@ -219,6 +219,22 @@ target_sources(ABDAudioLab
         src/hardware/MockHardwareController.h
         src/hardware/CasioCzVirtualController.h
         src/hardware/RoutingValidator.h
+        src/hardware/transport/MidiTransportTypes.h
+        src/hardware/transport/IMidiTransport.h
+        src/hardware/preflight/HardwareTransportPreflightTypes.h
+        src/hardware/preflight/IMidiIdentityProbe.h
+        src/hardware/preflight/HardwareTransportPreflightService.h
+        src/hardware/preflight/HardwareTransportPreflightService.cpp
+        src/hardware/consent/OperatorConsentRequest.h
+        src/hardware/consent/OperatorConsentService.h
+        src/hardware/consent/OperatorConsentService.cpp
+        src/hardware/transport/IMonotonicClock.h
+        src/hardware/transport/IMidiResponseAwaiter.h
+        src/hardware/transport/HardwareDispatchEvidenceRecord.h
+        src/hardware/transport/HardwareDispatchScheduler.h
+        src/hardware/transport/HardwareDispatchScheduler.cpp
+        src/hardware/transport/JuceMidiTransport.h
+        src/hardware/transport/JuceMidiTransport.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
@@ -394,12 +410,43 @@ target_sources(ABDAudioLab
         src/synth/AdaptiveExperimentPlanner.h
         src/synth/AdaptiveExperimentPlanner.cpp
 
+        # Profiling Declarative Recipes & Execution Plans (HITO-09A)
+        src/profiling/MeasurementRecipe.h
+        src/profiling/MeasurementRecipeService.h
+        src/profiling/MeasurementRecipeService.cpp
+        src/profiling/ExperimentPlanCompiler.h
+        src/profiling/ExperimentPlanCompiler.cpp
+        src/profiling/RecipePromotionService.h
+        src/profiling/RecipePromotionService.cpp
+
+        # Target Profiles (HITO-10A, HITO-10C)
+        src/profiling/TargetProfile.h
+        src/profiling/TargetProfileDraft.h
+        src/profiling/TargetProfileService.h
+        src/profiling/TargetProfileService.cpp
+        src/profiling/TargetProfileLegacyAdapter.h
+        src/profiling/TargetProfileLegacyAdapter.cpp
+
         # Session Domain Controller & Contracts (Phase 16 / UX Simplification)
         src/gui/session/ProfilingSessionContracts.h
         src/gui/session/ProfilingSessionCoordinator.h
         src/gui/session/ProfilingSessionCoordinator.cpp
         src/gui/session/ProfilingSessionController.h
         src/gui/session/ProfilingSessionController.cpp
+
+        # Unified Workbench Recipe Presentation Adapter (HITO-09B, HITO-09C)
+        src/gui/recipes/RecipeCatalogModel.h
+        src/gui/recipes/RecipeCatalogModel.cpp
+        src/gui/recipes/RecipeSummaryCardComponent.h
+        src/gui/recipes/RecipeSummaryCardComponent.cpp
+        src/gui/recipes/RecipeCatalogComponent.h
+        src/gui/recipes/RecipeCatalogComponent.cpp
+        src/gui/recipes/RecipeExecutionController.h
+        src/gui/recipes/RecipeExecutionController.cpp
+        src/gui/recipes/RecipeAssistanceLevelSelectorComponent.h
+        src/gui/recipes/RecipeAssistanceLevelSelectorComponent.cpp
+        src/gui/recipes/RecipeEditorComponent.h
+        src/gui/recipes/RecipeEditorComponent.cpp
 
         # GUI & Interactive Visualizers (SoundID Architecture)
         src/gui/SoundIdTheme.h
@@ -515,6 +562,27 @@ target_sources(ABDAudioLab
         src/gui/PlotterFrequencyCurveRenderer.cpp
         src/gui/ControlIcon.h
         
+        # Profiling Recipes & Assistance Levels (Phase 20 / HITO-09)
+        src/profiling/MeasurementRecipe.h
+        src/profiling/MeasurementRecipeService.h
+        src/profiling/MeasurementRecipeService.cpp
+        src/profiling/ExperimentPlanCompiler.h
+        src/profiling/ExperimentPlanCompiler.cpp
+        src/profiling/RecipePromotionService.h
+        src/profiling/RecipePromotionService.cpp
+        src/gui/recipes/RecipeCatalogModel.h
+        src/gui/recipes/RecipeCatalogModel.cpp
+        src/gui/recipes/RecipeCatalogComponent.h
+        src/gui/recipes/RecipeCatalogComponent.cpp
+        src/gui/recipes/RecipeSummaryCardComponent.h
+        src/gui/recipes/RecipeSummaryCardComponent.cpp
+        src/gui/recipes/RecipeExecutionController.h
+        src/gui/recipes/RecipeExecutionController.cpp
+        src/gui/recipes/RecipeAssistanceLevelSelectorComponent.h
+        src/gui/recipes/RecipeAssistanceLevelSelectorComponent.cpp
+        src/gui/recipes/RecipeEditorComponent.h
+        src/gui/recipes/RecipeEditorComponent.cpp
+
         # Exporting & Code Generation
         src/export/LutExporter.h
         src/export/LutExporter.cpp
@@ -899,6 +967,62 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Parity01GuidedVsClassic.cpp
     src/tests/test_Convergence01ExperimentClassification.cpp
     src/tests/test_Integration01GuidedVsClassicAudio.cpp
+    src/profiling/MeasurementRecipeService.cpp
+    src/profiling/ExperimentPlanCompiler.cpp
+    src/tests/test_MeasurementRecipeParsing.cpp
+    src/tests/test_MeasurementRecipeValidation.cpp
+    src/tests/test_ExperimentPlanCompilation.cpp
+    src/tests/test_MeasurementRecipeCanonicalHash.cpp
+    src/tests/test_MeasurementRecipeRegression.cpp
+    src/gui/recipes/RecipeCatalogModel.cpp
+    src/gui/recipes/RecipeSummaryCardComponent.cpp
+    src/gui/recipes/RecipeCatalogComponent.cpp
+    src/gui/recipes/RecipeExecutionController.cpp
+    src/gui/recipes/RecipeAssistanceLevelSelectorComponent.cpp
+    src/gui/recipes/RecipeEditorComponent.cpp
+    src/tests/test_UnifiedWorkbenchRecipeAdapter.cpp
+    src/tests/test_AssistanceLevelsRecipeViews.cpp
+    src/profiling/RecipePromotionService.cpp
+    src/tests/test_FreeCaptureRecipePromotion.cpp
+    src/profiling/TargetProfileService.cpp
+    src/tests/test_TargetProfileParsing.cpp
+    src/tests/test_TargetProfileValidation.cpp
+    src/tests/test_TargetProfileResolution.cpp
+    src/tests/test_TargetProfileNoBypass.cpp
+    src/tests/support/ResolvedExecutionPlanParity.cpp
+    src/tests/test_TargetProfileLegacyCharacterization.cpp
+    src/tests/test_TargetProfileLegacyParity.cpp
+    src/profiling/TargetProfileDraft.h
+    src/tests/test_TargetProfileDexedProfile.cpp
+    src/tests/test_TargetProfileDraftGeneration.cpp
+    src/tests/test_TargetProfileBinaryFixity.cpp
+    src/tests/test_TargetProfileDexedHosting.cpp
+    src/tests/test_TargetProfileDexedBehavior.cpp
+    src/tests/test_TargetProfileMidiCc.cpp
+    src/tests/test_TargetProfileMidiSysEx.cpp
+    src/tests/test_TargetProfileManualOperator.cpp
+    src/tests/test_TargetProfileTransportSafety.cpp
+    src/tests/test_TargetProfileTransportPolicy.cpp
+    src/tests/support/MockMidiTransport.cpp
+    src/tests/test_MidiTransportContracts.cpp
+    src/hardware/preflight/HardwareTransportPreflightService.cpp
+    src/tests/test_TargetProfileHardwarePreflight.cpp
+    src/hardware/consent/OperatorConsentService.cpp
+    src/tests/test_TargetProfileOperatorConsent.cpp
+    src/hardware/transport/HardwareDispatchScheduler.cpp
+    src/hardware/transport/JuceMidiTransport.cpp
+    src/tests/test_TargetProfileHardwareScheduler.cpp
+    src/tests/test_TargetProfilePhysicalDispatch.cpp
+    src/tests/test_TargetProfileTransportFailureRecovery.cpp
+    src/tests/test_VesCz101Feasibility.cpp
+    src/tests/test_VesCz101SemanticControl.cpp
+    src/tests/test_TargetProfileLegacyInventory.cpp
+    src/profiling/TargetProfileLegacyAdapter.cpp
+    src/tests/test_TargetProfileLegacyAdapter.cpp
+    src/tests/test_HardwareContractRegistryCanonicalResolution.cpp
+    src/tests/test_TargetProfileLegacyEndToEndParity.cpp
+    src/tests/test_TargetProfileLegacyControlledAbsence.cpp
+    src/tests/test_TargetProfileLegacyConsumerParity.cpp
 )
 
 # ------------------------------------------------------------------------------

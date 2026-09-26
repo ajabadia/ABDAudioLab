@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "kind": "abd.target-profile",
+  "targetProfileId": "org.abd.reference-synth.v1",
+  "displayName": "Reference Synth",
+  "vendor": "ABD AudioLab",
+  "targetKind": "SyntheticFixture",
+  "revision": 1,
+  "identity": {
+    "canonicalTargetId": "reference-synth",
+    "acceptedUniqueIds": [
+      "reference-synth-v1"
+    ],
+    "binaryIdentityPolicy": "not-applicable"
+  },
+  "capabilities": {
+    "midiInput": true,
+    "supportsParameterAutomation": true,
+    "controlTransports": [
+      "InternalParameter"
+    ],
+    "audioOutput": {
+      "supportedChannelCounts": [2],
+      "requiredChannelCount": 2,
+      "channelLayout": "stereo",
+      "supportedObservationLayouts": [
+        "stereo"
+      ]
+    },
+    "sampleRatesHz": [
+      44100,
+      48000,
+      96000
+    ],
+    "blockSizes": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "supportsPolyphony": true,
+    "midiChannels": [
+      1
+    ],
+    "midiNoteRange": [
+      0,
+      127
+    ]
+  },
+  "parameters": [
+    {
+      "semanticId": "filter_cutoff",
+      "displayName": "Filter Cutoff",
+      "technicalIdentifier": {
+        "kind": "InternalParameter",
+        "parameterKey": "filter.cutoff"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "Declared"
+    },
+    {
+      "semanticId": "filter_resonance",
+      "displayName": "Filter Resonance",
+      "technicalIdentifier": {
+        "kind": "InternalParameter",
+        "parameterKey": "filter.resonance"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "Declared"
+    }
+  ],
+  "measurementPolicies": {
+    "warmupTimeMs": 0,
+    "defaultSettlingTimeMs": 50,
+    "recommendedCalibrationPolicy": "None",
+    "requiresResetBetweenTrials": false
+  }
+}

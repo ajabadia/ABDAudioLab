@@ -1,5 +1,5 @@
 {
-  "canonicalEvaluationHash": "e72b3949c992bcb51268d43cd96bf77b32e72c99bfa99e04e63aa828c1daf5e1",
+  "canonicalEvaluationHash": "d7fd95118f18550beb82d9a417f503fc0e6f84733da684d1150beedc1e4442ce",
   "decision": {
     "rationale": "ESR (-5.318511 dB) exceeds max warning threshold (-24.000000 dB)",
     "recommendedModelId": "LUT_SIMD_2D",
@@ -9,7 +9,7 @@
     "peakAutocorrelation": 0.9943618239579386,
     "residualCharacterization": "CorrelatedDynamicResidual"
   },
-  "evaluationId": "eval_17900970835589320",
+  "evaluationId": "eval_17903308761355335",
   "evaluationOrigin": "MeasuredFixture",
   "limitations": [
     "InsufficientFidelity"

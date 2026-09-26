@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "kind": "abd.target-profile",
+  "targetProfileId": "hw-yamaha-dx7-canonical",
+  "displayName": "Yamaha DX7 (Mark I)",
+  "vendor": "Yamaha",
+  "targetKind": "HardwareDigital",
+  "revision": 1,
+  "identity": {
+    "canonicalTargetId": "hw-yamaha-dx7",
+    "acceptedUniqueIds": [
+      "Yamaha DX7",
+      "DX7",
+      "DX-7",
+      "TX7",
+      "hw-dx7"
+    ],
+    "binaryIdentityPolicy": "not-applicable"
+  },
+  "capabilities": {
+    "midiInput": true,
+    "supportsParameterAutomation": true,
+    "controlTransports": [
+      "MidiSysEx"
+    ],
+    "audioOutput": {
+      "supportedChannelCounts": [
+        1,
+        2
+      ],
+      "requiredChannelCount": 1,
+      "channelLayout": "mono",
+      "supportedObservationLayouts": [
+        "mono",
+        "stereo"
+      ]
+    },
+    "sampleRatesHz": [
+      44100,
+      48000,
+      96000
+    ],
+    "blockSizes": [
+      64,
+      128,
+      256,
+      512
+    ],
+    "supportsPolyphony": true,
+    "midiChannels": [
+      1
+    ],
+    "midiNoteRange": [
+      0,
+      127
+    ]
+  },
+  "parameters": [
+    {
+      "semanticId": "operator_1_level",
+      "displayName": "Op 1 Output Level",
+      "technicalIdentifier": {
+        "kind": "MidiSysEx",
+        "messageTemplate": "F0 43 {deviceId} 09 10 {value7bit} F7",
+        "manufacturerId": "43",
+        "deviceIdPolicy": "user-configured",
+        "valueEncoding": "7bit",
+        "checksumPolicy": "none",
+        "requiresExplicitConfirmation": false
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "operator_2_level",
+      "displayName": "Op 2 Output Level",
+      "technicalIdentifier": {
+        "kind": "MidiSysEx",
+        "messageTemplate": "F0 43 {deviceId} 09 11 {value7bit} F7",
+        "manufacturerId": "43",
+        "deviceIdPolicy": "user-configured",
+        "valueEncoding": "7bit",
+        "checksumPolicy": "none",
+        "requiresExplicitConfirmation": false
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "algorithm_select",
+      "displayName": "Algorithm Select",
+      "technicalIdentifier": {
+        "kind": "MidiSysEx",
+        "messageTemplate": "F0 43 {deviceId} 09 40 {value7bit} F7",
+        "manufacturerId": "43",
+        "deviceIdPolicy": "user-configured",
+        "valueEncoding": "7bit",
+        "checksumPolicy": "none",
+        "requiresExplicitConfirmation": false
+      },
+      "valueType": "discrete",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    }
+  ],
+  "measurementPolicies": {
+    "warmupTimeMs": 50,
+    "defaultSettlingTimeMs": 50,
+    "recommendedCalibrationPolicy": "None",
+    "requiresResetBetweenTrials": false
+  },
+  "transportPolicy": {
+    "minimumInterMessageDelayMs": 20,
+    "maximumMessagesPerSecond": 20,
+    "requiresResponseAck": false,
+    "responseTimeoutMs": 500,
+    "retryPolicy": "none",
+    "maxRetries": 0,
+    "requiresExplicitConfirmation": true,
+    "allowsBulkDump": false,
+    "requiresVerifiedIdentity": false,
+    "allowsUserConfirmedUnverifiedIdentity": true
+  }
+}

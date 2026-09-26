@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schemaVersion": "1.0",
+  "kind": "abd.target-profile",
+  "targetProfileId": "vst3-dexed-canonical",
+  "displayName": "Dexed FM Synthesizer",
+  "vendor": "Digital Suburban",
+  "targetKind": "PluginVST3",
+  "revision": 1,
+  "identity": {
+    "canonicalTargetId": "vst3-dexed-3f015740-d7709eec",
+    "acceptedUniqueIds": [
+      "VST3-Dexed-3f015740-d7709eec",
+      "Dexed",
+      "3f015740-d7709eec"
+    ],
+    "binaryIdentityPolicy": "warn-on-mismatch",
+    "expectedBinarySha256": "e8b3b00a53bb0aa1ef082b0c1b5cb66bdf1af5eddf787b8f47397df6d2411a40"
+  },
+  "capabilities": {
+    "midiInput": true,
+    "supportsParameterAutomation": true,
+    "controlTransports": [
+      "VST3Parameter"
+    ],
+    "audioOutput": {
+      "supportedChannelCounts": [
+        2
+      ],
+      "requiredChannelCount": 2,
+      "channelLayout": "stereo",
+      "supportedObservationLayouts": [
+        "stereo"
+      ]
+    },
+    "sampleRatesHz": [
+      44100,
+      48000,
+      96000
+    ],
+    "blockSizes": [
+      64,
+      128,
+      256,
+      512,
+      1024
+    ],
+    "supportsPolyphony": true,
+    "midiChannels": [
+      1
+    ],
+    "midiNoteRange": [
+      0,
+      127
+    ]
+  },
+  "parameters": [
+    {
+      "semanticId": "filter_cutoff",
+      "displayName": "Cutoff Frequency",
+      "technicalIdentifier": {
+        "kind": "VST3Parameter",
+        "parameterIndex": 24,
+        "parameterId": "Cutoff"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "filter_resonance",
+      "displayName": "Resonance",
+      "technicalIdentifier": {
+        "kind": "VST3Parameter",
+        "parameterIndex": 25,
+        "parameterId": "Resonance"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    },
+    {
+      "semanticId": "master_volume",
+      "displayName": "Master Volume",
+      "technicalIdentifier": {
+        "kind": "VST3Parameter",
+        "parameterIndex": 0,
+        "parameterId": "Master"
+      },
+      "valueType": "continuous",
+      "normalizedRange": [
+        0.0,
+        1.0
+      ],
+      "mappingCurve": {
+        "kind": "linear"
+      },
+      "confirmationStatus": "UserConfirmed"
+    }
+  ],
+  "measurementPolicies": {
+    "warmupTimeMs": 50,
+    "defaultSettlingTimeMs": 50,
+    "recommendedCalibrationPolicy": "None",
+    "requiresResetBetweenTrials": true
+  }
+}

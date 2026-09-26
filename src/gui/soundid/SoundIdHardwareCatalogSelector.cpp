@@ -729,7 +729,13 @@ void SoundIdHardwareCatalogSelector::setSelectedHardware(const juce::String& hwI
 {
     for (size_t i = 0; i < contractsList.size(); ++i)
     {
-        if (contractsList[i].id == hwId.toStdString())
+        bool idMatches = (contractsList[i].id == hwId.toStdString());
+        if (!idMatches)
+        {
+            const auto& aliases = contractsList[i].aliases;
+            idMatches = (std::find(aliases.begin(), aliases.end(), hwId.toStdString()) != aliases.end());
+        }
+        if (idMatches)
         {
             const auto& c = contractsList[i];
             for (int t = 1; t <= comboDeviceType.getNumItems(); ++t)
