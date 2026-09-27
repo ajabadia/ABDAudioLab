@@ -37,7 +37,7 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
         CHECK_FALSE(res3.canonicalProfileHash.empty());
     }
 
-    SECTION("2. Preservacion integra de contratos legacy de hardware (32 contratos)")
+    SECTION("2. Preservacion integra de contratos de hardware post-retirada")
     {
         HardwareContractRegistry registry;
         juce::File contractsDir("D:/desarrollos/ABDSynths/ABDAudioLab/contracts/hardware");
@@ -45,9 +45,14 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
 
         bool loaded = registry.loadContractsFromDirectory(contractsDir);
         REQUIRE(loaded);
-        CHECK(registry.getContracts().size() >= 30);
+        CHECK(registry.getContracts().size() == 28);
 
-        // Los contratos legacy clave se preservan intactos
+        juce::File targetsDir("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets");
+        if (targetsDir.isDirectory())
+            registry.loadCanonicalTargetProfiles(targetsDir);
+        CHECK(registry.getContracts().size() == 33);
+
+        // Los contratos legacy clave se preservan intactos vía resolución canónica adaptada
         const auto* dx7Legacy = registry.findContractById("yamaha_dx7");
         REQUIRE(dx7Legacy != nullptr);
         CHECK(dx7Legacy->displayName == "Yamaha DX7 (Mark I)");

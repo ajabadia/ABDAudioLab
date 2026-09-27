@@ -80,25 +80,25 @@ TEST_CASE("HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion G
 
     std::size_t legacyProfileDocumentCount = migratedLegacyProfileCount + unmigratedLegacyProfileCount;
 
-    // Validación formal de las igualdades métricas de inventario (HITO-10E / E4.1)
+    // Validación formal de las igualdades métricas de inventario (HITO-10E / E6 Post-Retirement)
     REQUIRE(legacyProfileDocumentCount == migratedLegacyProfileCount + unmigratedLegacyProfileCount);
     REQUIRE(legacyFilesystemEntryCount == legacyProfileDocumentCount + legacySchemaDocumentCount);
 
-    CHECK(legacyFilesystemEntryCount == 32);
+    CHECK(legacyFilesystemEntryCount == 29);
     CHECK(legacySchemaDocumentCount == 1);
-    CHECK(legacyProfileDocumentCount == 31);
-    CHECK(migratedLegacyProfileCount == 3);
+    CHECK(legacyProfileDocumentCount == 28);
+    CHECK(migratedLegacyProfileCount == 0);
     CHECK(unmigratedLegacyProfileCount == 28);
 
     // 1. Schema legacy obligatorio
     CHECK(fileNames.count("hardware_profile.schema.json") == 1);
 
-    // 2. Los 3 targets migrados a TargetProfile en HITO-10D1
-    CHECK(fileNames.count("behringer_pro800.json") == 1);
-    CHECK(fileNames.count("yamaha_dx7.json") == 1);
-    CHECK(fileNames.count("boss_ds1_distortion.json") == 1);
+    // 2. Los 3 targets homologados retirados físicamente de contracts/hardware/ en E6
+    CHECK(fileNames.count("behringer_pro800.json") == 0);
+    CHECK(fileNames.count("yamaha_dx7.json") == 0);
+    CHECK(fileNames.count("boss_ds1_distortion.json") == 0);
 
-    // 3. Salvaguarda estricta: Los 28 perfiles no migrados DEBEN seguir existiendo
+    // 3. Salvaguarda estricta: Los 28 perfiles no migrados DEBEN seguir existiendo físicamente
     CHECK(fileNames.count("casio_cz101.json") == 1);
     CHECK(fileNames.count("roland_juno106.json") == 1);
     CHECK(fileNames.count("roland_juno60.json") == 1);
@@ -131,7 +131,7 @@ TEST_CASE("HITO-10E - 2. Canonical TargetProfile Directory Inventory",
     CHECK(targetNames.count("boss_ds1_distortion.target.json") == 1);
 }
 
-TEST_CASE("HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate",
+TEST_CASE("HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate Post-Retirement",
           "[targetprofile][legacy][inventory]")
 {
     juce::File legacyDir = getContractsHardwareDir();
@@ -142,15 +142,24 @@ TEST_CASE("HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate",
     REQUIRE(loaded);
     REQUIRE(registry.hasContracts());
 
-    // El registry legacy carga exactamente los 31 perfiles resolubles (el schema se omite metrológicamente)
-    CHECK(registry.getContracts().size() == 31);
+    // El registry físico contiene exactamente 28 perfiles (el schema se omite metrológicamente)
+    CHECK(registry.getContracts().size() == 28);
 
-    // Targets migrados deben seguir siendo encontrados por compatibilidad
+    // Tras cargar el catálogo canónico (5 perfiles), la suite efectiva alcanza 33 contratos
+    auto canonicalRes = registry.loadCanonicalTargetProfiles(getCanonicalTargetsDir());
+    REQUIRE(canonicalRes.outcome == CanonicalTargetProfileLoadOutcome::Loaded);
+    CHECK(registry.getContracts().size() == 33);
+
+    // Targets retirados de contracts/hardware/ resuelven desde TargetProfile canónico con compatibilidad histórica
+    auto resPro = registry.resolveContractById("behringer_pro800");
+    CHECK(resPro.source == HardwareContractResolutionSource::CanonicalTargetProfileAdapted);
     CHECK(registry.findContractById("behringer_pro800") != nullptr);
     CHECK(registry.findContractById("yamaha_dx7") != nullptr);
     CHECK(registry.findContractById("boss_ds1_distortion") != nullptr);
 
-    // Targets no migrados siguen resolviéndose sin fallo
+    // Targets no migrados siguen resolviéndose como contratos nativos sin degradación
+    auto resCz = registry.resolveContractById("casio_cz101");
+    CHECK(resCz.source == HardwareContractResolutionSource::NativeLegacyContract);
     CHECK(registry.findContractById("casio_cz101") != nullptr);
     CHECK(registry.findContractById("roland_juno106") != nullptr);
     CHECK(registry.findContractById("behringer_deepmind12") != nullptr);

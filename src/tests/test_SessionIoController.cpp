@@ -28,6 +28,7 @@ TEST_CASE("SessionIoController: Session Persistence and Lifecycle Characterizati
         tempDir.deleteRecursively();
     tempDir.createDirectory();
     controller.setExportDirectory(tempDir);
+    controller.setSuppressModals(true);
 
     // Setup dummy session snapshot context
     core::SessionManifest dummyManifest;

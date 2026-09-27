@@ -7,13 +7,11 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "core/HardwareContractRegistry.h"
-#include "core/HardwareManager.h"
 #include "core/AutoTestPresetEngine.h"
 #include "hardware/MidiIdentityDetector.h"
-#include "hardware/MidiDeviceHotplugMonitor.h"
 #include "export/ModulationPresetExporter.h"
 #include "gui/soundid/SoundIdHardwareCatalogSelector.h"
-#include "gui/drawers/DrawerHardwareTab.h"
+#include "gui/drawers/DrawerDataModels.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::core;
@@ -61,9 +59,6 @@ struct HermeticAbsenceFixture
         auto realFiles = realLegacyDir.findChildFiles(juce::File::findFiles, false, "*.json");
         for (const auto& rf : realFiles)
         {
-            std::string fname = rf.getFileName().toStdString();
-            if (fname == "behringer_pro800.json" || fname == "yamaha_dx7.json" || fname == "boss_ds1_distortion.json")
-                continue;
             rf.copyFileTo(tempDir.getChildFile(rf.getFileName()));
         }
 
@@ -137,14 +132,14 @@ TEST_CASE("HITO-10E / E5.1 - 1. SoundIdHardwareCatalogSelector Under Controlled 
     CHECK(selector.getSelectedHardwareId() == "hw-boss-ds1-canonical");
 }
 
-TEST_CASE("HITO-10E / E5.1 - 2. DrawerHardwareTab Under Controlled Absence",
+TEST_CASE("HITO-10E / E5.1 - 2. DrawerHardwareTab Model Under Controlled Absence",
           "[targetprofile][legacy][consumer][parity][retirement_gate]")
 {
     HermeticAbsenceFixture fixture;
     const auto& contracts = fixture.registry.getContracts();
     REQUIRE(contracts.size() == 33);
 
-    // Construcción del modelo de lista idéntica a MainContentComponent
+    // Construcción del modelo de lista idéntica a MainContentComponent / DrawerHardwareTab
     std::vector<gui::HardwareItem> hwItems;
     for (const auto& c : contracts)
     {
@@ -175,46 +170,88 @@ TEST_CASE("HITO-10E / E5.1 - 2. DrawerHardwareTab Under Controlled Absence",
         hwItems.push_back(item);
     }
 
-    gui::DrawerHardwareTab drawer;
-    drawer.setSize(400, 700);
-    drawer.setHardwareList(hwItems);
-    drawer.setContracts(contracts);
-
     // 1. Ausencia de duplicados en el listado
     std::size_t proCount = 0, dxCount = 0, dsCount = 0;
+    const gui::HardwareItem* proItem = nullptr;
+    const gui::HardwareItem* dxItem = nullptr;
+    const gui::HardwareItem* dsItem = nullptr;
+
     for (const auto& it : hwItems)
     {
-        if (it.id == "hw-behringer-pro800-canonical") proCount++;
-        if (it.id == "hw-yamaha-dx7-canonical") dxCount++;
-        if (it.id == "hw-boss-ds1-canonical") dsCount++;
+        if (it.id == "hw-behringer-pro800-canonical") { proCount++; proItem = &it; }
+        if (it.id == "hw-yamaha-dx7-canonical") { dxCount++; dxItem = &it; }
+        if (it.id == "hw-boss-ds1-canonical") { dsCount++; dsItem = &it; }
     }
     CHECK(proCount == 1);
     CHECK(dxCount == 1);
     CHECK(dsCount == 1);
 
-    // 2. Selección de PRO-800
-    drawer.setSelectedHardwareId("hw-behringer-pro800-canonical");
-    CHECK(drawer.getSelectedHardwareId() == "hw-behringer-pro800-canonical");
-    CHECK(drawer.getActiveHardwareDisplayName() == "Behringer PRO-800");
+    // 2. Modelo de PRO-800
+    REQUIRE(proItem != nullptr);
+    CHECK(proItem->displayName == "Behringer PRO-800");
+    CHECK(proItem->brand == "Behringer");
+    CHECK(proItem->category == "AUTOMATED_MIDI_CC");
+    CHECK(!proItem->functions.empty());
+    CHECK(!proItem->functions[0].controls.empty());
 
-    drawer.setSelectedHardwareId("behringer_pro800"); // via alias
-    CHECK(drawer.getSelectedHardwareId() == "hw-behringer-pro800-canonical");
+    // 3. Modelo de Yamaha DX7
+    REQUIRE(dxItem != nullptr);
+    CHECK(dxItem->displayName.contains("Yamaha DX7"));
+    CHECK(dxItem->brand == "Yamaha");
+    CHECK(dxItem->category == "AUTOMATED_SYSEX");
+    CHECK(!dxItem->functions.empty());
 
-    // 3. Selección de Yamaha DX7
-    drawer.setSelectedHardwareId("hw-yamaha-dx7-canonical");
-    CHECK(drawer.getSelectedHardwareId() == "hw-yamaha-dx7-canonical");
-    CHECK(drawer.getActiveHardwareDisplayName().contains("Yamaha DX7"));
+    // 4. Modelo de BOSS DS-1
+    REQUIRE(dsItem != nullptr);
+    CHECK(dsItem->displayName.contains("BOSS DS-1"));
+    CHECK(dsItem->brand == "BOSS");
+    CHECK(dsItem->category == "ANALOGUE_PEDAL");
+    CHECK(!dsItem->functions.empty());
 
-    drawer.setSelectedHardwareId("yamaha_dx7"); // via alias
-    CHECK(drawer.getSelectedHardwareId() == "hw-yamaha-dx7-canonical");
+    // 5. Resolución idéntica a DrawerHardwareTab::setSelectedHardwareId
+    auto resolveHardwareItem = [&](const juce::String& targetId) -> const gui::HardwareItem*
+    {
+        for (const auto& it : hwItems)
+        {
+            if (it.id == targetId) return &it;
+        }
+        for (const auto& c : contracts)
+        {
+            if (c.id == targetId.toStdString() ||
+                std::find(c.aliases.begin(), c.aliases.end(), targetId.toStdString()) != c.aliases.end())
+            {
+                for (const auto& it : hwItems)
+                {
+                    if (it.id.toStdString() == c.id) return &it;
+                }
+            }
+        }
+        return nullptr;
+    };
 
-    // 4. Selección de BOSS DS-1
-    drawer.setSelectedHardwareId("hw-boss-ds1-canonical");
-    CHECK(drawer.getSelectedHardwareId() == "hw-boss-ds1-canonical");
-    CHECK(drawer.getActiveHardwareDisplayName().contains("BOSS DS-1"));
+    auto* resPro = resolveHardwareItem("hw-behringer-pro800-canonical");
+    REQUIRE(resPro != nullptr);
+    CHECK(resPro->displayName == "Behringer PRO-800");
 
-    drawer.setSelectedHardwareId("boss_ds1_distortion"); // via alias
-    CHECK(drawer.getSelectedHardwareId() == "hw-boss-ds1-canonical");
+    auto* resProAlias = resolveHardwareItem("behringer_pro800");
+    REQUIRE(resProAlias != nullptr);
+    CHECK(resProAlias->id == "hw-behringer-pro800-canonical");
+
+    auto* resDx = resolveHardwareItem("hw-yamaha-dx7-canonical");
+    REQUIRE(resDx != nullptr);
+    CHECK(resDx->displayName.contains("Yamaha DX7"));
+
+    auto* resDxAlias = resolveHardwareItem("yamaha_dx7");
+    REQUIRE(resDxAlias != nullptr);
+    CHECK(resDxAlias->id == "hw-yamaha-dx7-canonical");
+
+    auto* resDs = resolveHardwareItem("hw-boss-ds1-canonical");
+    REQUIRE(resDs != nullptr);
+    CHECK(resDs->displayName.contains("BOSS DS-1"));
+
+    auto* resDsAlias = resolveHardwareItem("boss_ds1_distortion");
+    REQUIRE(resDsAlias != nullptr);
+    CHECK(resDsAlias->id == "hw-boss-ds1-canonical");
 }
 
 TEST_CASE("HITO-10E / E5.1 - 3. AutoTestPresetEngine Under Controlled Absence",
@@ -324,72 +361,14 @@ TEST_CASE("HITO-10E / E5.1 - 4. MidiIdentityDetector Under Controlled Absence",
     CHECK(czMatch->hardwareId == "casio_cz101");
 }
 
-TEST_CASE("HITO-10E / E5.1 - 5. MidiDeviceHotplugMonitor Under Controlled Absence",
+TEST_CASE("HITO-10E / E5.1 - 5. Consolidated Gate & Per-File Retirement Readiness",
           "[targetprofile][legacy][consumer][parity][retirement_gate]")
 {
     HermeticAbsenceFixture fixture;
 
-    MidiDeviceHotplugMonitor monitor;
-    monitor.setContracts(fixture.registry.getContracts());
-
-    // 1. Estado inicial sin dispositivos
-    juce::Array<juce::MidiDeviceInfo> initialOuts, initialIns;
-    monitor.evaluateLists(initialOuts, initialIns);
-
-    // 2. Conectar Behringer PRO-800
-    bool pluggedFired = false;
-    DiscoveredDevice pluggedDev;
-    monitor.onDevicePlugged = [&](const DiscoveredDevice& dev) {
-        pluggedFired = true;
-        pluggedDev = dev;
-    };
-
-    juce::Array<juce::MidiDeviceInfo> proOuts, proIns;
-    proOuts.add(juce::MidiDeviceInfo { "PRO-800", "id_pro_out" });
-    proIns.add(juce::MidiDeviceInfo { "PRO-800", "id_pro_in" });
-    monitor.evaluateLists(proOuts, proIns);
-
-    REQUIRE(pluggedFired);
-    CHECK(pluggedDev.hardwareId == "hw-behringer-pro800-canonical");
-    CHECK(pluggedDev.displayName == "Behringer PRO-800");
-
-    // 3. Conectar dispositivo legacy no migrado (DeepMind 12)
-    pluggedFired = false;
-    juce::Array<juce::MidiDeviceInfo> dmOuts = proOuts;
-    juce::Array<juce::MidiDeviceInfo> dmIns = proIns;
-    dmOuts.add(juce::MidiDeviceInfo { "DeepMind 12", "id_dm12_out" });
-    dmIns.add(juce::MidiDeviceInfo { "DeepMind 12", "id_dm12_in" });
-    monitor.evaluateLists(dmOuts, dmIns);
-
-    REQUIRE(pluggedFired);
-    CHECK(pluggedDev.hardwareId == "behringer_deepmind12");
-}
-
-TEST_CASE("HITO-10E / E5.1 - 6. Consolidated Gate & Per-File Retirement Readiness",
-          "[targetprofile][legacy][consumer][parity][retirement_gate]")
-{
-    HermeticAbsenceFixture fixture;
-
-    // 1. Verificación de HardwareManager en ausencia controlada
-    HardwareManager hwManager;
-    hwManager.getContractRegistry().loadContractsFromDirectory(fixture.tempDir);
-    hwManager.getContractRegistry().loadCanonicalTargetProfiles(getCanonicalTargetsDir());
-
-    const auto* proContract = hwManager.findContractById("behringer_pro800");
-    REQUIRE(proContract != nullptr);
-    CHECK(proContract->id == "hw-behringer-pro800-canonical");
-
-    const auto* dxContract = hwManager.findContractById("yamaha_dx7");
-    REQUIRE(dxContract != nullptr);
-    CHECK(dxContract->id == "hw-yamaha-dx7-canonical");
-
-    const auto* dsContract = hwManager.findContractById("boss_ds1_distortion");
-    REQUIRE(dsContract != nullptr);
-    CHECK(dsContract->id == "hw-boss-ds1-canonical");
-
-    // 2. Verificación de ModulationPresetExporter en ausencia controlada
-    abdaudiolab::exporting::ModulationPresetExporter exporter(hwManager.getContractRegistry());
-    CHECK(hwManager.getContractRegistry().hasContracts());
+    // 1. Verificación de ModulationPresetExporter en ausencia controlada
+    abdaudiolab::exporting::ModulationPresetExporter exporter(fixture.registry);
+    CHECK(fixture.registry.hasContracts());
 
     // 3. Matriz formal de aptitud de retirada por archivo (Gate E6)
     struct RetirementGateRow

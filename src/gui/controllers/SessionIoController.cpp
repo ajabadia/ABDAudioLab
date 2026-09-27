@@ -191,12 +191,15 @@ bool SessionIoController::saveSessionToFile(const juce::File& file,
     }
     else
     {
-        juce::AlertWindow::showMessageBoxAsync(
-            juce::AlertWindow::WarningIcon,
-            "Save Failed",
-            "Could not write session package to:\n" + file.getFullPathName() + "\n\nPlease check disk space and folder permissions.",
-            "OK"
-        );
+        if (!suppressModals)
+        {
+            juce::AlertWindow::showMessageBoxAsync(
+                juce::AlertWindow::WarningIcon,
+                "Save Failed",
+                "Could not write session package to:\n" + file.getFullPathName() + "\n\nPlease check disk space and folder permissions.",
+                "OK"
+            );
+        }
         return false;
     }
 }

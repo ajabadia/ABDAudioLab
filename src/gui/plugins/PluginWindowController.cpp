@@ -29,6 +29,16 @@ public:
             addAndMakeVisible(*pluginEditor);
     }
 
+    ~PluginContainerComponent() override
+    {
+        if (pluginEditor != nullptr)
+        {
+            removeChildComponent(pluginEditor.get());
+            pluginEditor.reset();
+        }
+        removeChildComponent(&btnKeyboard);
+    }
+
     void paint(juce::Graphics& g) override
     {
         g.fillAll(SoundIdTheme::bgLight);
@@ -57,7 +67,7 @@ PluginWindowController::PluginWindow::PluginWindow(const juce::String& title,
                                                    std::unique_ptr<juce::AudioProcessorEditor> editor,
                                                    std::function<void()> onCloseCallback,
                                                    std::function<void()> onOpenKeyboardCallback)
-    : juce::DocumentWindow(title, AppTheme::BackgroundApp, juce::DocumentWindow::closeButton),
+    : juce::DocumentWindow(title, AppTheme::BackgroundApp, juce::DocumentWindow::closeButton, false),
       onClose(std::move(onCloseCallback))
 {
     juce::Logger::writeToLog("[PluginWindow] Constructing DocumentWindow for: " + title);
@@ -110,13 +120,22 @@ PluginWindowController::~PluginWindowController()
 void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin, const juce::String& windowTitle)
 {
     juce::Logger::writeToLog("[PluginWindow] showPluginWindow called. WindowTitle: " + windowTitle);
-    closePluginWindow();
 
     if (plugin == nullptr)
     {
+        closePluginWindow();
         juce::Logger::writeToLog("[PluginWindow WARNING] Cannot show window: plugin is nullptr.");
         return;
     }
+
+    // Idempotent guard: if window is already open, bring it to front
+    if (activeWindow != nullptr && isWindowOpen())
+    {
+        activeWindow->toFront(true);
+        return;
+    }
+
+    closePluginWindow();
 
     juce::Logger::writeToLog("[PluginWindow] Plugin name: '" + plugin->getName()
         + "', hasEditor: " + juce::String(plugin->hasEditor() ? "YES" : "NO"));
@@ -165,7 +184,7 @@ void PluginWindowController::closePluginWindow()
     if (activeWindow != nullptr)
     {
         juce::Logger::writeToLog("[PluginWindow] Closing active plugin window.");
-        activeWindow->clearContentComponent();
+        activeWindow->setVisible(false);
         activeWindow.reset();
         juce::Logger::writeToLog("[PluginWindow] Active plugin window reset complete.");
 

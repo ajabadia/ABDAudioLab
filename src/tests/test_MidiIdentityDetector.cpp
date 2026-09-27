@@ -27,6 +27,16 @@ static std::vector<abdaudiolab::core::HardwareContract> loadTestContracts()
             break;
     }
 
+    for (const auto& root : searchRoots)
+    {
+        auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
+        if (targetsDir.isDirectory())
+        {
+            registry.loadCanonicalTargetProfiles(targetsDir);
+            break;
+        }
+    }
+
     return registry.getContracts();
 }
 
@@ -133,7 +143,7 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Identity Reply Parsing", "[midi]
         DiscoveredDevice dev;
         REQUIRE(MidiIdentityDetector::parseIdentityReply(msg, dev, contracts));
         REQUIRE(dev.manufacturer == "Behringer");
-        REQUIRE(dev.hardwareId == "behringer_pro800");
+        REQUIRE((dev.hardwareId == "behringer_pro800" || dev.hardwareId == "hw-behringer-pro800-canonical"));
     }
 
     SECTION("Behringer DeepMind 12 Universal Reply")
@@ -193,7 +203,7 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Port Name Heuristics", "[midi][s
 
         auto match = MidiIdentityDetector::matchFromPortNames(inDev, outDev, contracts);
         REQUIRE(match.has_value());
-        REQUIRE(match->hardwareId == "behringer_pro800");
+        REQUIRE((match->hardwareId == "behringer_pro800" || match->hardwareId == "hw-behringer-pro800-canonical"));
     }
 
     SECTION("Behringer DeepMind 12")
@@ -253,7 +263,7 @@ TEST_CASE("MidiIdentityDetector Contract-Driven Port Name Heuristics", "[midi][s
 
         auto match = MidiIdentityDetector::matchFromPortNames(inDev, outDev, contracts);
         REQUIRE(match.has_value());
-        REQUIRE(match->hardwareId == "yamaha_dx7");
+        REQUIRE((match->hardwareId == "yamaha_dx7" || match->hardwareId == "hw-yamaha-dx7-canonical"));
     }
 
     SECTION("Yamaha DX7II")

@@ -65,7 +65,7 @@ All tests passed (35 assertions in 2 test cases)
 | **12** | **HITO-10V0** | `VES Capability & Transport Feasibility Spike`: Discovery, hosting y estabilidad básica de VES/CZ-101 (`test_VesCz101Feasibility.cpp`). | ✅ **CERTIFICADO (DISCOVERY SPIKE)** (Build #459 — 22/22 assertions PASS) |
 | **13** | **HITO-10V0.1** | `VES CZ-101 Semantic Control & Audible Output Probe`: Demostración de estado CZ-101 válido, NoteOn audible, control semántico SysEx/CC, repetibilidad audible y cero ROM en artefactos (`test_VesCz101SemanticControl.cpp`). | ✅ **CERTIFICADO (SONDA CONCLUIDA — BLOQUEO PREVENTIVO DE V1)** (Build #461) |
 | **14** | **HITO-10V1** | `FirmwareEmulated Targets / VES Integration`: Formalización declarativa y transporte según resultados de V0.1. | ⛔ **BLOQUEADO (Sin control audible headless en VES)** |
-| **15** | **HITO-10E** | `TargetProfile`: Retirada segura de duplicados legacy con preservación de fallbacks de compatibilidad (Fases E1 a E5 certificadas; E6 pendiente de autorización). | 🟢 **FASES E1-E5 CERTIFICADAS (E6 BLOQUEADA)** |
+| **15** | **HITO-10E** | `TargetProfile`: Retirada segura de duplicados legacy con preservación de fallbacks de compatibilidad (Fases E1 a E7 completadas y certificadas). | ✅ **CERTIFICADO** (Build #495 — 754 test cases, 269.224 assertions PASS, 0 FAIL, 8 SKIPPED) |
 
 ---
 
@@ -76,9 +76,10 @@ All tests passed (35 assertions in 2 test cases)
 - **E2 (Certificado y Congelado):** Matriz de equivalencia y análisis de riesgos (32 entradas filesystem: 31 perfiles + 1 schema; 3 perfiles migrados + 28 no migrados) formalizada en `docs/audits/TARGETPROFILE_EQUIVALENCE_MATRIX.md`. *(0 líneas borradas).*
 - **E3 (Certificado):** Adaptador unidireccional estricto `TargetProfileLegacyAdapter` (`TargetProfile` -> `HardwareContract` legacy de solo lectura) y `test_TargetProfileLegacyAdapter.cpp` (228 assertions en 17 casos). Extirpado `fromLegacyHardwareContract` de runtime. *(0 líneas borradas).*
 - **E4 (Certificado):** Integración controlada en `HardwareContractRegistry`: carga canónica all-or-nothing, precedencia canónica sobre legacy, procedencia tipada (`HardwareContractResolutionSource`), indexación de aliases y fail-closed estricto ante colisiones no certificadas (`test_HardwareContractRegistryCanonicalResolution.cpp` — 15 assertions en 10 casos). *(0 líneas borradas).*
-- **E5 (Certificado):** Paridad funcional extremo a extremo (`test_TargetProfileLegacyEndToEndParity.cpp`) y ausencia controlada hermética (`test_TargetProfileLegacyControlledAbsence.cpp`) simulada sobre fixture temporal con cero alteraciones en el árbol de trabajo (156 assertions en 9 casos; 456 assertions acumuladas en HITO-10E; 613 assertions en `[hardware]`). *(0 archivos reales borrados).*
-- **E6 (Bloqueada):** Retirada selectiva y condicionada de los 3 archivos JSON migrados (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`). *Requiere autorización formal explícita del usuario.*
-- **E7:** Certificación global de baseline sin dependencias legacy residuales y emisión de `ACTA_HITO_10E_LEGACY_REMOVAL.md`.
+- **E5 (Certificado):** Paridad funcional extremo a extremo (`test_TargetProfileLegacyEndToEndParity.cpp`) y ausencia controlada hermética (`test_TargetProfileLegacyControlledAbsence.cpp`) simulada sobre fixture temporal con cero alteraciones en el árbol de trabajo (156 assertions en 9 casos).
+- **E5.1 (Certificado):** Cobertura exhaustiva de consumidores directos en ausencia hermética (`test_TargetProfileLegacyConsumerParity.cpp` y `test_TargetProfileLegacyHotplugParity.cpp` — 104 assertions en 7 casos; 560 assertions acumuladas en HITO-10E; baseline global 754 tests / 269.222 assertions PASS). Superado el Gate de Retirada.
+- **E6 (Certificado):** Retirada física de los 3 archivos JSON legacy migrados (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`). Reconciliación métrica en 29 entradas filesystem (28 perfiles + 1 schema). Correcciones de estabilidad RAII en `PluginWindowController` y resiliencia de portapapeles en `test_SmokeStep4UI.cpp`.
+- **E7 (Certificado):** Verificación global de baseline completa (754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de `docs/audits/ACTA_HITO_10E_LEGACY_REMOVAL.md`. Hito 10E concluido.
 
 ---
 

@@ -117,31 +117,31 @@ Esta tabla documenta taxativamente por qué la función inversa `fromLegacyHardw
 
 ---
 
-## 6. Perfiles con Paridad Formal Certificada (3 Perfiles)
+## 6. Perfiles con Paridad Formal Certificada y Retirados en E6 (3 Perfiles)
 
-Los siguientes 3 perfiles cuentan con paridad estructural y de ejecución demostrada en HITO-10D1 y HITO-10E3:
+Los siguientes 3 perfiles cuentan con paridad estructural, de ejecución y de consumidores directos demostrada en HITO-10D1, HITO-10E3, E5 y E5.1:
 
 1. **Behringer PRO-800**
    - Canónico: `profiles/targets/behringer_pro800.target.json`
-   - Legacy: `contracts/hardware/behringer_pro800.json`
+   - Legacy: `contracts/hardware/behringer_pro800.json` (Retirado en E6)
    - Transporte: MIDI CC automatizado (CC 19, CC 20, etc.).
-   - Estado: `ParityCertified` (Listo para Fase E4 y eventual retirada física en E6).
+   - Estado: `Retired (E6)` (Retirado físicamente del sistema de archivos con compatibilidad histórica por alias preservada).
 2. **Yamaha DX7 (Mark I)**
    - Canónico: `profiles/targets/yamaha_dx7.target.json`
-   - Legacy: `contracts/hardware/yamaha_dx7.json`
+   - Legacy: `contracts/hardware/yamaha_dx7.json` (Retirado en E6)
    - Transporte: MIDI SysEx automatizado con plantilla estructurada.
-   - Estado: `ParityCertified` (Listo para Fase E4 y eventual retirada física en E6).
+   - Estado: `Retired (E6)` (Retirado físicamente del sistema de archivos con compatibilidad histórica por alias preservada).
 3. **BOSS DS-1 Distortion**
    - Canónico: `profiles/targets/boss_ds1_distortion.target.json`
-   - Legacy: `contracts/hardware/boss_ds1_distortion.json`
+   - Legacy: `contracts/hardware/boss_ds1_distortion.json` (Retirado en E6)
    - Transporte: Operador Manual con prompts de confirmación guiada.
-   - Estado: `ParityCertified` (Listo para Fase E4 y eventual retirada física en E6).
+   - Estado: `Retired (E6)` (Retirado físicamente del sistema de archivos con compatibilidad histórica por alias preservada).
 
 ---
 
-## 7. Perfiles Que NO Pueden Entrar en Ruta Canónica (28 Perfiles Legacy No Migrados)
+## 7. Perfiles Que NO Pueden Entrar en Ruta Canónica (28 Perfiles Legacy Activos)
 
-De los 31 documentos de perfil de hardware en `contracts/hardware/`, los 28 perfiles restantes **no poseen equivalente canónico certificado**:
+De los 28 documentos de perfil de hardware activos en `contracts/hardware/`, todos permanecen en la ruta canónica exclusiva de `NativeLegacyContract`:
 - `casio_cz101.json` (Hardware físico legacy; NO confundir con VES emulado cuyo HITO-10V1 está bloqueado).
 - `roland_juno106.json`, `roland_juno60.json`, `behringer_deepmind12.json`, `korg_ms2000.json`, `korg_microkorg.json`, `roland_aira_bitrazer.json`, `manual_eurorack_vcf.json`, etc. (Total: 28 perfiles).
 

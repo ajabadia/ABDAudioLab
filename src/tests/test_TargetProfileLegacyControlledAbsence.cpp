@@ -50,7 +50,7 @@ TEST_CASE("HITO-10E / E5 - 1. Fixture de Ausencia Controlada (Simulacion Hermeti
     tempFixtureDir.deleteFile();
     tempFixtureDir.createDirectory();
 
-    // Copiar todos los archivos excepto los 3 perfiles legacy homologados
+    // Copiar todos los archivos del catálogo físico post-retirada (28 perfiles + 1 schema)
     auto realFiles = realLegacyDir.findChildFiles(juce::File::findFiles, false, "*.json");
     std::size_t copiedProfiles = 0;
     std::size_t copiedSchemas = 0;
@@ -58,12 +58,6 @@ TEST_CASE("HITO-10E / E5 - 1. Fixture de Ausencia Controlada (Simulacion Hermeti
     for (const auto& rf : realFiles)
     {
         std::string fname = rf.getFileName().toStdString();
-        if (fname == "behringer_pro800.json" || fname == "yamaha_dx7.json" || fname == "boss_ds1_distortion.json")
-        {
-            // Excluir deliberadamente
-            continue;
-        }
-
         auto targetFile = tempFixtureDir.getChildFile(rf.getFileName());
         rf.copyFileTo(targetFile);
 

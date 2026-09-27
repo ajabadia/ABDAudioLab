@@ -136,18 +136,20 @@ TEST_CASE("HITO-10E - Parity and Invariant Preservation for Certified Profiles (
 
     HardwareContractRegistry registry;
     REQUIRE(registry.loadContractsFromDirectory(legacyDir));
+    auto canonicalLoad = registry.loadCanonicalTargetProfiles(targetsDir);
+    REQUIRE(canonicalLoad.outcome == CanonicalTargetProfileLoadOutcome::Loaded);
 
     // 1. Paridad PRO-800
     auto pro800CanonicalFile = targetsDir.getChildFile("behringer_pro800.target.json");
     auto resPro800 = service.loadAndValidateProfile(pro800CanonicalFile);
     REQUIRE(resPro800.isSuccess());
 
-    const auto* legacyPro800 = registry.findContractById("behringer_pro800");
-    REQUIRE(legacyPro800 != nullptr);
+    const auto* resolvedPro800 = registry.findContractById("behringer_pro800");
+    REQUIRE(resolvedPro800 != nullptr);
 
     HardwareContract adaptedPro800 = TargetProfileLegacyAdapter::toLegacyHardwareContract(resPro800.profile);
-    CHECK(adaptedPro800.manufacturer == legacyPro800->manufacturer);
-    CHECK(adaptedPro800.deviceType == legacyPro800->deviceType);
+    CHECK(adaptedPro800.manufacturer == resolvedPro800->manufacturer);
+    CHECK(adaptedPro800.deviceType == resolvedPro800->deviceType);
     CHECK(adaptedPro800.functions.size() == 1);
 
     // 2. Paridad DX7
@@ -155,11 +157,11 @@ TEST_CASE("HITO-10E - Parity and Invariant Preservation for Certified Profiles (
     auto resDx7 = service.loadAndValidateProfile(dx7CanonicalFile);
     REQUIRE(resDx7.isSuccess());
 
-    const auto* legacyDx7 = registry.findContractById("yamaha_dx7");
-    REQUIRE(legacyDx7 != nullptr);
+    const auto* resolvedDx7 = registry.findContractById("yamaha_dx7");
+    REQUIRE(resolvedDx7 != nullptr);
 
     HardwareContract adaptedDx7 = TargetProfileLegacyAdapter::toLegacyHardwareContract(resDx7.profile);
-    CHECK(adaptedDx7.deviceType == legacyDx7->deviceType);
+    CHECK(adaptedDx7.deviceType == resolvedDx7->deviceType);
     CHECK(adaptedDx7.functions.size() == 1);
 
     // 3. Paridad DS-1
@@ -167,10 +169,10 @@ TEST_CASE("HITO-10E - Parity and Invariant Preservation for Certified Profiles (
     auto resDs1 = service.loadAndValidateProfile(ds1CanonicalFile);
     REQUIRE(resDs1.isSuccess());
 
-    const auto* legacyDs1 = registry.findContractById("boss_ds1_distortion");
-    REQUIRE(legacyDs1 != nullptr);
+    const auto* resolvedDs1 = registry.findContractById("boss_ds1_distortion");
+    REQUIRE(resolvedDs1 != nullptr);
 
     HardwareContract adaptedDs1 = TargetProfileLegacyAdapter::toLegacyHardwareContract(resDs1.profile);
-    CHECK(adaptedDs1.deviceType == legacyDs1->deviceType);
+    CHECK(adaptedDs1.deviceType == resolvedDs1->deviceType);
     CHECK(adaptedDs1.functions.size() == 1);
 }

@@ -1023,6 +1023,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_TargetProfileLegacyEndToEndParity.cpp
     src/tests/test_TargetProfileLegacyControlledAbsence.cpp
     src/tests/test_TargetProfileLegacyConsumerParity.cpp
+    src/tests/test_TargetProfileLegacyHotplugParity.cpp
 )
 
 # ------------------------------------------------------------------------------

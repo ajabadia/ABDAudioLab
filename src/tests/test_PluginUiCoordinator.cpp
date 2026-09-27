@@ -147,8 +147,6 @@ public:
 
 struct CoordinatorFixture
 {
-    juce::ScopedJuceInitialiser_GUI juceGui;
-
     core::PluginHostManager hostManager;
     PluginWindowController windowController;
     audio::LabAudioEngine audioEngine;
@@ -177,7 +175,7 @@ struct CoordinatorFixture
 
 } // namespace
 
-TEST_CASE("PluginUiCoordinator: Lifecycle, Routing & Identity Contracts", "[PluginUiCoordinator]")
+TEST_CASE("PluginUiCoordinator: Lifecycle, Routing & Identity Contracts", "[gui][PluginUiCoordinator]")
 {
     CoordinatorFixture f;
 

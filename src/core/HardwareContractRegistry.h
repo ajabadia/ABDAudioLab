@@ -119,6 +119,7 @@ struct HardwareContract
 {
     std::string schemaVersion { "2.0" };
     std::string id;
+    std::vector<std::string> aliases;
     std::string displayName;
     std::string description;
     std::string deviceType; // "MANUAL_EURORACK", "ANALOGUE_PEDAL", "AUTOMATED_SYSEX", "AUTOMATED_MIDI_CC", "VIRTUAL_LOOPBACK_ASIO", "MOCK_DSP", "SOFTWARE_PLUGIN"

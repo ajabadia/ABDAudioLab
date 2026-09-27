@@ -82,6 +82,14 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         HardwareContract c;
         c.schemaVersion = j.value("schemaVersion", std::string("2.0"));
         c.id = j["id"].get<std::string>();
+        if (j.contains("aliases") && j["aliases"].is_array())
+        {
+            for (const auto& a : j["aliases"])
+            {
+                if (a.is_string())
+                    c.aliases.push_back(a.get<std::string>());
+            }
+        }
         c.displayName = j["displayName"].get<std::string>();
         c.description = j.value("description", std::string(""));
         c.deviceType = j.value("deviceType", j.value("category", std::string("MANUAL_EURORACK")));

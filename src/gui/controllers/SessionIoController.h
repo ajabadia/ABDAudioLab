@@ -52,6 +52,12 @@ public:
     [[nodiscard]] const juce::File& getExportDirectory() const noexcept { return exportDirectory; }
 
     /**
+     * @brief Controls whether modal alert dialogs (such as Save Failed) are suppressed (e.g. during headless tests).
+     */
+    void setSuppressModals(bool suppress) noexcept { suppressModals = suppress; }
+    [[nodiscard]] bool areModalsSuppressed() const noexcept { return suppressModals; }
+
+    /**
      * @brief Configures a snapshot provider callback returning session context by value.
      */
     void setSessionContextProvider(SessionContextProvider provider) { sessionContextProvider = std::move(provider); }
@@ -99,6 +105,7 @@ private:
 
     SessionContextProvider sessionContextProvider;
     juce::File exportDirectory;
+    bool suppressModals { false };
 };
 
 } // namespace abdaudiolab::gui

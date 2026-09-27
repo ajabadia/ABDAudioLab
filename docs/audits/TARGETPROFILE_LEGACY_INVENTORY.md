@@ -40,9 +40,9 @@
 
 | legacyId | path | symbol | kind | currentConsumers | canonicalReplacement | semanticParity | removalRisk | migrationState | requiredProof | owner |
 |---|---|---|---|---|---|:---:|:---:|:---:|---|---|
-| `LEGACY-JSON-MIGRATED-01` | `contracts/hardware/behringer_pro800.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/behringer_pro800.target.json` | Proven | Low | `Deprecate` | Paridad de `ResolvedExecutionPlan` verificada en HITO-10D1. Fallback temporal en registry. | Profiling / Hardware |
-| `LEGACY-JSON-MIGRATED-02` | `contracts/hardware/yamaha_dx7.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/yamaha_dx7.target.json` | Proven | Low | `Deprecate` | Paridad de `ResolvedExecutionPlan` y checksum SysEx verificada en HITO-10D1. | Profiling / Hardware |
-| `LEGACY-JSON-MIGRATED-03` | `contracts/hardware/boss_ds1_distortion.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/boss_ds1_distortion.target.json` | Proven | Low | `Deprecate` | Paridad de resolución manual y prompts verificada en HITO-10D1. | Profiling / Hardware |
+| `LEGACY-JSON-MIGRATED-01` | `contracts/hardware/behringer_pro800.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/behringer_pro800.target.json` | Proven | Low | `Retired (E6)` | Retirado físicamente en E6 tras certificar paridad E2E y de consumidores directos en E5.1. | Profiling / Hardware |
+| `LEGACY-JSON-MIGRATED-02` | `contracts/hardware/yamaha_dx7.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/yamaha_dx7.target.json` | Proven | Low | `Retired (E6)` | Retirado físicamente en E6 tras certificar paridad E2E y de consumidores directos en E5.1. | Profiling / Hardware |
+| `LEGACY-JSON-MIGRATED-03` | `contracts/hardware/boss_ds1_distortion.json` | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, tests de compatibilidad | `profiles/targets/boss_ds1_distortion.target.json` | Proven | Low | `Retired (E6)` | Retirado físicamente en E6 tras certificar paridad E2E y de consumidores directos en E5.1. | Profiling / Hardware |
 | `LEGACY-JSON-UNMIGRATED-28` | `contracts/hardware/*.json` (28 perfiles restantes) | `HardwareProfile` JSON Schema 2.0 | Perfil legacy | `HardwareContractRegistry`, `DrawerHardwareTab`, UI de hardware | `profiles/targets/<target>.target.json` (Pendiente) | Partial | **Critical** | `Keep` | **PROHIBIDO BORRAR**. Contiene los metadatos exclusivos de Juno, DeepMind, CZ-101, AIRA, etc. Requiere migración individual a TargetProfile. | Hardware Registry |
 | `LEGACY-SCHEMA-01` | `contracts/hardware/hardware_profile.schema.json` | Schema JSON Draft-07 (v2.0) | Schema legacy | Validador de perfiles legacy | `docs/contracts/TARGET_PROFILE_CONTRACT.md` (Draft 2020-12) | Partial | High | `Keep` | Necesario para validar los 28 perfiles no migrados al cargar el directorio legacy. | Hardware Registry |
 | `LEGACY-CORE-REGISTRY-01` | `src/core/HardwareContractRegistry.h` | `class HardwareContractRegistry` | Loader / Registry legacy | `ProfilingSession`, `ProfilingSequencer`, `DrawerHardwareTab`, `HardwareManager`, `ModulationPresetExporter`, tests | `TargetProfileService` + `TargetProfileResolution` | Partial | **High** | `Keep` (Con adaptador bridge) | Migrar consumidores uno a uno a `TargetProfileService`. Cero regresiones en `[hardware]`. | Core / Hardware |
@@ -58,45 +58,39 @@
 
 ---
 
-## 4. Análisis de Riesgos y Ecuaciones Métricas Formales
+## 4. Análisis de Riesgos y Ecuaciones Métricas Formales Post-Retirada (E6)
 
-### Reconciliación Aritmética de Entradas Filesystem
-- **`legacyFilesystemEntryCount`**: **32** archivos en `contracts/hardware/`.
+### Reconciliación Aritmética de Entradas Filesystem Post-E6
+- **`legacyFilesystemEntryCount`**: **29** archivos en `contracts/hardware/`.
 - **`legacySchemaDocumentCount`**: **1** archivo de validación (`hardware_profile.schema.json`).
-- **`legacyProfileDocumentCount`**: **31** documentos JSON de perfil de hardware.
-- **`migratedLegacyProfileCount`**: **3** perfiles con TargetProfile canónico certificado (`behringer_pro800`, `yamaha_dx7`, `boss_ds1_distortion`).
+- **`legacyProfileDocumentCount`**: **28** documentos JSON de perfil de hardware activos.
+- **`migratedLegacyProfileCount`**: **0** en `contracts/hardware/` (3 retirados físicamente en E6; resueltos desde `profiles/targets/`).
 - **`unmigratedLegacyProfileCount`**: **28** perfiles que continúan resolviéndose exclusivamente como `NativeLegacyContract`.
 - **`canonicalTargetProfileCount`**: **5** archivos canónicos certificados en `profiles/targets/`.
 
-$$\text{legacyProfileDocumentCount (31)} = \text{migratedLegacyProfileCount (3)} + \text{unmigratedLegacyProfileCount (28)}$$
-$$\text{legacyFilesystemEntryCount (32)} = \text{legacyProfileDocumentCount (31)} + \text{legacySchemaDocumentCount (1)}$$
+$$\text{legacyProfileDocumentCount (28)} = \text{migratedLegacyProfileCount (0)} + \text{unmigratedLegacyProfileCount (28)}$$
+$$\text{legacyFilesystemEntryCount (29)} = \text{legacyProfileDocumentCount (28)} + \text{legacySchemaDocumentCount (1)}$$
 
 ### Grupo 1: Perfiles JSON en `contracts/hardware/`
-- **Total de perfiles cargables:** 31 documentos.
-- **Migrados con paridad formal en HITO-10D1:** 3 perfiles (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`).
-- **Pendientes de migrar:** 28 perfiles.
-- **Decisión E1/E2/E4:**
-  - Los 3 perfiles migrados se marcan como `Deprecate`. **No se eliminan todavía** (solo en E6).
-  - Los 28 perfiles no migrados se marcan como `Keep` estricto (`NativeLegacyContract`). Su eliminación causaría regresión inmediata en el catálogo de hardware.
+- **Total de perfiles físicos remanentes:** 28 documentos.
+- **Migrados y retirados en E6 con autorización:** 3 perfiles (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`).
+- **Pendientes de migrar:** 28 perfiles (marcados como `Keep` estricto `NativeLegacyContract`).
+- **Invariante post-retirada:** Los 3 IDs históricos (`behringer_pro800`, `yamaha_dx7`, `boss_ds1_distortion`) resuelven mediante `acceptedUniqueIds` hacia `CanonicalTargetProfileAdapted` con paridad metrológica total.
 
 ### Grupo 2: `HardwareContractRegistry` y DTOs legacy
 - **Total de consumidores en producción reconciliados:** 11 archivos de cabecera y controladores.
 - **Decisión:** Mantener compatibilidad total y procedencia tipada implementada en Fase E4.
-  - Migrar los consumidores en **E4** empezando por los de menor acoplamiento (`ModulationPresetExporter`, `DrawerHardwareTab`).
 
 ### Grupo 3: Decodificadores SysEx de dominio (`SysExContracts.h`, `CasioCz101SysExContracts.h`)
 - **Clasificación:** **Categoría F (Duplicado aparente con semántica distinta)**.
-- **Decisión E1/E2:**
-  - No son duplicados de `TargetProfile`. `TargetProfile` declara la política y el template (`MidiSysExIdentifier`), mientras que estos headers implementan la aritmética de checksums y la decodificación de parámetros a nivel de byte.
-  - Se congelan como código permanente de dominio (`Keep Permanente`).
+- **Decisión:** Se congelan como código permanente de dominio (`Keep Permanente`).
 
 ---
 
-## 5. Próximo Paso Vinculante: Fase E2 y Suite de Verificación de Inventario
+## 5. Estado de Retirada E6 y Transición a E7
 
-1. Registrar la suite hermética de inventario [`src/tests/test_TargetProfileLegacyInventory.cpp`](src/tests/test_TargetProfileLegacyInventory.cpp) con tags `[targetprofile][legacy][inventory]`:
-   - Valida que los 32 archivos de `contracts/hardware/` están inventariados.
-   - Valida que los 5 archivos de `profiles/targets/` están identificados.
-   - Comprueba que los 3 targets migrados tienen correspondencia canónica exacta.
-   - Actúa como salvaguarda automatizada (gate) para impedir borrados accidentales de perfiles no migrados.
-2. Presentar la matriz al usuario para confirmación antes de redactar los adaptadores de la fase E3.
+1. **Fase E6**: Ejecutada con éxito tras autorización explícita:
+   - 3 JSON legacy retirados del sistema de archivos.
+   - Inventario físico reconciliado en 29 entradas (28 perfiles + 1 schema).
+   - Gates de inventario, resolución, ausencia y consumidores directos verificados en verde.
+2. **Fase E7**: Pendiente de confirmación de baseline global para emisión del acta final y commit atómico.

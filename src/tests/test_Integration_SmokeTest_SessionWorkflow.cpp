@@ -403,19 +403,20 @@ TEST_CASE("Integration Smoke Test - VST3 Dexed / Mock DSP Workflow", "[smoke_tes
 
 TEST_CASE("Integration Smoke Test - Boss DS-1 Manual Analogue Pedal Workflow", "[smoke_test][pedal][integration]")
 {
-    // 1. Cargar Perfil Real de Pedal Analógico desde contracts/hardware/
+    // 1. Cargar Perfil Real de Pedal Analógico vía Registry y TargetProfile canónico
     core::HardwareContractRegistry registry;
     auto contractsDir = findContractsDirectory();
     REQUIRE(contractsDir.isDirectory());
+    registry.loadContractsFromDirectory(contractsDir);
 
-    auto profileFile = contractsDir.getChildFile("boss_ds1_distortion.json");
-    REQUIRE(profileFile.existsAsFile());
+    juce::File targetsDir = contractsDir.getParentDirectory().getChildFile("profiles").getChildFile("targets");
+    if (!targetsDir.isDirectory())
+        targetsDir = contractsDir.getParentDirectory().getParentDirectory().getChildFile("profiles").getChildFile("targets");
+    registry.loadCanonicalTargetProfiles(targetsDir);
 
-    core::HardwareContract contract;
-    juce::String warning;
-    bool loadOk = registry.loadProfileResilient(profileFile, contract, warning);
-    REQUIRE(loadOk);
-    REQUIRE(contract.id == "boss_ds1_distortion");
+    auto resolution = registry.resolveContractById("boss_ds1_distortion");
+    REQUIRE(resolution.contract.has_value());
+    const auto& contract = *resolution.contract;
     REQUIRE(contract.deviceType == "ANALOGUE_PEDAL");
     REQUIRE(contract.functions.size() == 1);
 
@@ -460,6 +461,7 @@ TEST_CASE("Integration Smoke Test - Boss DS-1 Manual Analogue Pedal Workflow", "
 
     // 4. Construcción de MeasurementSession para Pedal
     MeasurementSession session;
+    auto profileFile = targetsDir.getChildFile("boss_ds1_distortion.target.json");
     session.sessionId = "session_boss_ds1_001";
     session.profileId = contract.id;
     session.profileSha256 = synth::Sha256::computeHex(profileFile.loadFileAsString().toStdString());

@@ -145,6 +145,23 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             break;
     }
 
+    // 3. Cargar perfiles canónicos adaptados (profiles/targets)
+    for (auto root : roots)
+    {
+        for (int i = 0; i < 6; ++i)
+        {
+            auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
+            if (targetsDir.isDirectory())
+            {
+                hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(targetsDir);
+                break;
+            }
+            root = root.getParentDirectory();
+        }
+        if (!hardwareManager.getContractRegistry().getCanonicalAdaptedContracts().empty())
+            break;
+    }
+
     if (!hardwareManager.getContractRegistry().hasContracts())
     {
         juce::Logger::writeToLog("[HardwareContractRegistry ERROR] " + juce::String(hardwareManager.getContractRegistry().getLastError()));

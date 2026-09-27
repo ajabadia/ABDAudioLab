@@ -322,9 +322,10 @@ Fases Vinculantes de Ejecución:
 - [x] E3: Adaptador unidireccional estricto TargetProfileLegacyAdapter (TargetProfile -> HardwareContract legacy) y test_TargetProfileLegacyAdapter.cpp (228 assertions PASS). Prohibido borrar código.
 - [x] E4: Integración controlada en HardwareContractRegistry: carga all-or-nothing, precedencia canónica, procedencia tipada, indexación de aliases y fail-closed estricto ante colisiones (Build #473 — 15 assertions en 10 casos PASS). Prohibido borrar código.
 - [x] E4.1: Normalización métrica y reconciliación de inventario (32 entradas filesystem: 31 perfiles + 1 schema; 3 perfiles migrados + 28 no migrados).
-- [x] E5: Baterías de Paridad E2E (test_TargetProfileLegacyEndToEndParity.cpp) y Ausencia Controlada en fixture temporal hermética (test_TargetProfileLegacyControlledAbsence.cpp) (Build #475 — 156 assertions en 9 casos PASS; 456 assertions acumuladas en HITO-10E; 613 assertions en [hardware]). Cero archivos reales borrados.
-- [ ] E6: Retirada selectiva y condicionada de los 3 archivos JSON migrados (behringer_pro800.json, yamaha_dx7.json, boss_ds1_distortion.json). Prohibido sin autorización formal.
-- [ ] E7: Certificación global con baseline completa verde y emisión de ACTA_HITO_10E_LEGACY_REMOVAL.md.
+- [x] E5: Baterías de Paridad E2E (test_TargetProfileLegacyEndToEndParity.cpp) y Ausencia Controlada en fixture temporal hermética (test_TargetProfileLegacyControlledAbsence.cpp) (Build #475 — 156 assertions en 9 casos PASS).
+- [x] E5.1: Cobertura exhaustiva de consumidores directos en ausencia hermética (test_TargetProfileLegacyConsumerParity.cpp y test_TargetProfileLegacyHotplugParity.cpp — 104 assertions en 7 casos; 560 assertions acumuladas en HITO-10E; baseline global 754 tests / 269.222 assertions PASS). Superado el Gate de Retirada.
+- [x] E6: Retirada selectiva y condicionada de los 3 archivos JSON migrados (behringer_pro800.json, yamaha_dx7.json, boss_ds1_distortion.json). Reconciliación métrica de inventario (29 filesystem entries: 28 perfiles + 1 schema). Correcciones de estabilidad en PluginWindowController y test_SmokeStep4UI.
+- [x] E7: Certificación global con baseline completa verde (754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de ACTA_HITO_10E_LEGACY_REMOVAL.md y preparación para commit atómico de cierre. HITO-10E CONCLUIDO.
 
 
 
