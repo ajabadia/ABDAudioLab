@@ -16,6 +16,9 @@ namespace abdaudiolab::hardware
 struct HardwareDispatchEvidenceRecord
 {
     std::string targetProfileId;
+    std::string targetContractId;
+    std::string targetResolutionSource;
+    std::string benchSessionId;
     std::string recipeDocumentHash;
     std::string resolvedExecutionPlanHash;
 

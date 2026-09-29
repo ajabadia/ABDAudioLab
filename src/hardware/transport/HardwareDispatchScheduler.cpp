@@ -1,4 +1,5 @@
 #include "HardwareDispatchScheduler.h"
+#include "hardware/consent/OperatorConsentService.h"
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
@@ -241,6 +242,9 @@ HardwareDispatchEvidenceRecord HardwareDispatchScheduler::executeDispatchCc(
 {
     HardwareDispatchEvidenceRecord record;
     record.targetProfileId = request.targetProfileId;
+    record.targetContractId = request.targetContractId;
+    record.targetResolutionSource = request.targetResolutionSource;
+    record.benchSessionId = request.benchSessionId;
     record.recipeDocumentHash = request.recipeDocumentHash;
     record.resolvedExecutionPlanHash = activePlanHash;
     record.portSelection = activePort;
@@ -251,11 +255,7 @@ HardwareDispatchEvidenceRecord HardwareDispatchScheduler::executeDispatchCc(
     record.nativeParameterId = request.semanticId;
     record.commandDigest = request.commandDigest;
 
-    std::ostringstream msgDigestStream;
-    msgDigestStream << "CC:" << static_cast<int>(message.channel) << ":"
-                    << static_cast<int>(message.controllerNumber) << ":"
-                    << static_cast<int>(message.value);
-    record.messageDigest = synth::Sha256::computeHex(msgDigestStream.str());
+    record.messageDigest = OperatorConsentService::computeMessageDigest(message);
 
     // 1. Preflight status validation
     if (request.identityState == HardwareIdentityState::IdentityMismatch)
@@ -382,6 +382,9 @@ HardwareDispatchEvidenceRecord HardwareDispatchScheduler::executeDispatchSysEx(
 {
     HardwareDispatchEvidenceRecord record;
     record.targetProfileId = request.targetProfileId;
+    record.targetContractId = request.targetContractId;
+    record.targetResolutionSource = request.targetResolutionSource;
+    record.benchSessionId = request.benchSessionId;
     record.recipeDocumentHash = request.recipeDocumentHash;
     record.resolvedExecutionPlanHash = activePlanHash;
     record.portSelection = activePort;
@@ -392,13 +395,7 @@ HardwareDispatchEvidenceRecord HardwareDispatchScheduler::executeDispatchSysEx(
     record.nativeParameterId = request.semanticId;
     record.commandDigest = request.commandDigest;
 
-    std::ostringstream msgDigestStream;
-    msgDigestStream << "SYSEX:";
-    for (const auto b : message.bytes)
-    {
-        msgDigestStream << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-    }
-    record.messageDigest = synth::Sha256::computeHex(msgDigestStream.str());
+    record.messageDigest = OperatorConsentService::computeMessageDigest(message);
 
     // 1. Preflight status validation
     if (request.identityState == HardwareIdentityState::IdentityMismatch)

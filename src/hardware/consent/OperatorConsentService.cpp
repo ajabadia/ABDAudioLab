@@ -6,15 +6,48 @@
 namespace abdaudiolab::hardware
 {
 
-std::string OperatorConsentService::computeCommandDigest(const OperatorConsentRequest& request)
+std::string OperatorConsentService::computeMessageDigest(const MidiCcMessage& message)
 {
+    // MIDI channel in MidiCcMessage is 1..16; status byte nibble is 0..15 (channel - 1)
+    const uint8_t channelIndex = (message.channel >= 1 && message.channel <= 16)
+                                     ? static_cast<uint8_t>(message.channel - 1)
+                                     : static_cast<uint8_t>(message.channel & 0x0F);
+    const uint8_t rawBytes[3] = {
+        static_cast<uint8_t>(0xB0 | (channelIndex & 0x0F)),
+        static_cast<uint8_t>(message.controllerNumber & 0x7F),
+        static_cast<uint8_t>(message.value & 0x7F)
+    };
+    return synth::Sha256::computeHex(rawBytes, 3);
+}
+
+std::string OperatorConsentService::computeMessageDigest(const MidiSysExMessage& message)
+{
+    return synth::Sha256::computeHex(message.bytes.data(), message.bytes.size());
+}
+
+std::string OperatorConsentService::buildCanonicalCommandString(const OperatorConsentRequest& request)
+{
+    const std::string recipeKey = !request.recipeContextId.empty()
+                                      ? request.recipeContextId
+                                      : request.recipeDocumentHash;
+    const std::string planKey = !request.executionPlanContextId.empty()
+                                    ? request.executionPlanContextId
+                                    : request.resolvedExecutionPlanHash;
+    const std::string targetProfileStr = !request.targetProfileId.empty()
+                                             ? request.targetProfileId
+                                             : "NotApplicableForNativeLegacyContract";
+
     std::ostringstream ss;
-    ss << "TARGET:" << request.targetProfileId << "|"
+    ss << "CANONICAL_V1|"
+       << "TARGET_PROFILE:" << targetProfileStr << "|"
+       << "CONTRACT_ID:" << request.targetContractId << "|"
+       << "RESOLUTION_SOURCE:" << request.targetResolutionSource << "|"
+       << "BENCH_SESSION:" << request.benchSessionId << "|"
        << "VENDOR:" << request.vendor << "|"
        << "PORT_ID:" << request.portSelection.stableDeviceId << "|"
        << "PORT_NAME:" << request.portSelection.displayName << "|"
-       << "RECIPE_HASH:" << request.recipeDocumentHash << "|"
-       << "PLAN_HASH:" << request.resolvedExecutionPlanHash << "|"
+       << "RECIPE_CONTEXT_ID:" << recipeKey << "|"
+       << "PLAN_CONTEXT_ID:" << planKey << "|"
        << "SEMANTIC_ID:" << request.semanticId << "|"
        << "NORM_VAL:" << std::fixed << std::setprecision(6) << request.normalizedValue << "|";
 
@@ -40,9 +73,22 @@ std::string OperatorConsentService::computeCommandDigest(const OperatorConsentRe
         ss << "|";
     }
 
-    ss << "DELAY_MS:" << request.minimumInterMessageDelayMs;
+    ss << "MSG_DIGEST:" << request.messageDigest << "|"
+       << "DELAY_MS:" << request.minimumInterMessageDelayMs << "|"
+       << "REQUIRES_ACK:" << (request.requiresResponseAck ? "1" : "0") << "|"
+       << "EXPORT_READINESS:BLOCKED";
 
-    return synth::Sha256::computeHex(ss.str());
+    return ss.str();
+}
+
+std::string OperatorConsentService::computeCommandDigest(const OperatorConsentRequest& request)
+{
+    return synth::Sha256::computeHex(buildCanonicalCommandString(request));
+}
+
+std::string OperatorConsentService::computeCommandDigest(std::string_view canonicalString)
+{
+    return synth::Sha256::computeHex(canonicalString);
 }
 
 OperatorConsentRequest OperatorConsentService::buildRequest(
@@ -78,11 +124,16 @@ OperatorConsentRequest OperatorConsentService::buildRequest(
     if (ccMessage.has_value())
     {
         req.rawValue = static_cast<int>(ccMessage->value);
+        req.messageDigest = computeMessageDigest(*ccMessage);
     }
     else if (sysExMessage.has_value() && !sysExMessage->bytes.empty())
     {
         req.rawValue = static_cast<int>(std::round(normalizedValue * 127.0));
+        req.messageDigest = computeMessageDigest(*sysExMessage);
     }
+
+    req.commandCanonicalization = "abdaudiolab::hardware::OperatorConsentService::CanonicalV1";
+    req.requiresResponseAck = profile.transportPolicy.requiresResponseAck;
 
     req.minimumInterMessageDelayMs = profile.transportPolicy.minimumInterMessageDelayMs;
     req.maximumMessagesPerSecond = profile.transportPolicy.maximumMessagesPerSecond;
@@ -222,18 +273,21 @@ OperatorConsentResult OperatorConsentService::validateConsentToken(
         return result;
     }
 
-    // Anti-TOCTOU validation: verify that plan hash, port, and message payloads are identical
-    const bool planMatches = (currentPlanHash == originalRequest.resolvedExecutionPlanHash);
+    // Anti-TOCTOU validation: verify that plan hash, port, message payloads, and digests are identical
+    const bool planMatches = (currentPlanHash == originalRequest.resolvedExecutionPlanHash) ||
+                             (!originalRequest.executionPlanContextId.empty() && currentPlanHash == originalRequest.executionPlanContextId);
     const bool portMatches = (currentPort == originalRequest.portSelection);
     const bool ccMatches = (currentCc == originalRequest.ccMessage);
     const bool sysExMatches = (currentSysEx == originalRequest.sysExMessage);
+    const bool digestMatches = (priorConsent.commandDigest == originalRequest.commandDigest) &&
+                               (computeCommandDigest(originalRequest) == originalRequest.commandDigest);
 
-    if (!planMatches || !portMatches || !ccMatches || !sysExMatches)
+    if (!planMatches || !portMatches || !ccMatches || !sysExMatches || !digestMatches)
     {
         result.decision = OperatorConsentDecision::Invalidated;
         result.readyForDispatch = false;
         result.diagnosticCode = "ERR_CONSENT_INVALIDATED_TOCTOU";
-        result.diagnosticMessage = "Execution plan, target port, or message payload changed after consent was granted.";
+        result.diagnosticMessage = "Execution plan, target port, message payload, or command digest changed after consent was granted.";
         return result;
     }
 

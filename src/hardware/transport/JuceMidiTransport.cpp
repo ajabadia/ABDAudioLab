@@ -22,13 +22,35 @@ MidiTransportOpenResult JuceMidiTransport::open(const MidiPortSelection& selecti
 
     close();
 
-    midiOutput_ = juce::MidiOutput::openDevice(selection.stableDeviceId);
+    const auto available = juce::MidiOutput::getAvailableDevices();
+    juce::MidiDeviceInfo targetDev;
+    bool deviceFound = false;
+    for (const auto& dev : available)
+    {
+        if (dev.identifier == juce::String(selection.stableDeviceId) ||
+            dev.name == juce::String(selection.stableDeviceId))
+        {
+            targetDev = dev;
+            deviceFound = true;
+            break;
+        }
+    }
+
+    if (!deviceFound)
+    {
+        return MidiTransportOpenResult::fail(
+            MidiTransportError::OpenFailed,
+            "ERR_MIDI_OUTPUT_OPEN_FAILED",
+            "Device ID not found in available MIDI outputs: " + selection.stableDeviceId);
+    }
+
+    midiOutput_ = juce::MidiOutput::openDevice(targetDev.identifier);
     if (!midiOutput_)
     {
         return MidiTransportOpenResult::fail(
             MidiTransportError::OpenFailed,
             "ERR_MIDI_OUTPUT_OPEN_FAILED",
-            "juce::MidiOutput::openDevice failed for deviceId: " + selection.stableDeviceId);
+            "juce::MidiOutput::openDevice failed for deviceId: " + targetDev.identifier.toStdString());
     }
 
     activePort_ = selection;

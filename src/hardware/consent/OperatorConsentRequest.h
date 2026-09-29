@@ -53,6 +53,8 @@ struct OperatorConsentRequest
 
     std::string recipeDocumentHash;
     std::string resolvedExecutionPlanHash;
+    std::string recipeContextId;
+    std::string executionPlanContextId;
 
     std::string semanticId;
     std::string parameterDisplayName;
@@ -63,6 +65,12 @@ struct OperatorConsentRequest
     std::optional<MidiCcMessage> ccMessage;
     std::optional<MidiSysExMessage> sysExMessage;
 
+    std::string targetContractId;
+    std::string targetResolutionSource;
+    std::string benchSessionId;
+
+    std::string messageDigest;
+    std::string commandCanonicalization { "abdaudiolab::hardware::OperatorConsentService::CanonicalV1" };
     std::string commandDigest;
     std::string humanReadableSummary;
 
@@ -73,6 +81,7 @@ struct OperatorConsentRequest
     bool profileIsTrusted { false };
     bool requiresExplicitConfirmation { false };
     bool requiresIdentityConfirmation { false };
+    bool requiresResponseAck { false };
     bool containsSysEx { false };
 };
 

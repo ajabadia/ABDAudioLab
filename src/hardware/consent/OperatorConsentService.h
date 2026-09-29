@@ -11,9 +11,29 @@ class OperatorConsentService
 {
 public:
     /**
+     * @brief Computes raw binary SHA-256 digest for MIDI CC message (exact wire bytes).
+     */
+    static std::string computeMessageDigest(const MidiCcMessage& message);
+
+    /**
+     * @brief Computes raw binary SHA-256 digest for MIDI SysEx message (exact wire bytes).
+     */
+    static std::string computeMessageDigest(const MidiSysExMessage& message);
+
+    /**
+     * @brief Builds the canonical UTF-8 representation (CanonicalV1) of the consent request.
+     */
+    static std::string buildCanonicalCommandString(const OperatorConsentRequest& request);
+
+    /**
      * @brief Computes immutable deterministic command digest (SHA-256) binding plan, recipe, port and message.
      */
     static std::string computeCommandDigest(const OperatorConsentRequest& request);
+
+    /**
+     * @brief Computes immutable deterministic command digest (SHA-256) from a declared canonical string.
+     */
+    static std::string computeCommandDigest(std::string_view canonicalString);
 
     /**
      * @brief Builds a strongly typed OperatorConsentRequest from preflight, profile, plan and command.

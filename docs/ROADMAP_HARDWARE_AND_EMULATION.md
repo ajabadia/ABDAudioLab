@@ -283,11 +283,51 @@ VES debe servir para probar perfiles CZ-101, validar SysEx sin riesgo para hardw
 ## 5. Orden de Ejecución Vinculante
 
 ```text
-1. D2.3: Preflight e identidad (EN CURSO)
-2. D2.4: Consentimiento explícito
-3. D2.5: Scheduler y despacho integrado
-4. D2.6: Pruebas de despacho, timeout y fail-closed
-5. D2.7: Cierre de HITO-10D2 (Baseline global y Acta)
-6. HITO-10V: VES / Casio CZ-101 emulado (Firmware-Emulated Target)
-7. HITO-10E: Retirada gradual de duplicados legacy
+1. D2.3: Preflight e identidad (CERTIFICADO)
+2. D2.4: Consentimiento explícito (CERTIFICADO)
+3. D2.5: Scheduler y despacho integrado (CERTIFICADO)
+4. D2.6: Pruebas de despacho, timeout y fail-closed (CERTIFICADO)
+5. D2.7A: Banco Físico Controlado — Preflight, Identidad, Consentimiento y Observación (EN CURSO)
+6. D2.7B: Banco Físico Metrológico (Audio + Exportación) (BLOQUEADO TRAS D2.7A)
+7. HITO-10V: VES / Casio CZ-101 emulado (Firmware-Emulated Target) (BLOQUEO PREVENTIVO TRAS V0.1)
+8. HITO-10E: Retirada gradual de duplicados legacy (CERTIFICADO)
+9. HITO-SHARED-SYNC: Enriquecimiento y Transferencia hacia ABDSharedCode (PROGRAMADO)
 ```
+
+---
+
+## 6. Enriquecimiento y Transferencia hacia ABDSharedCode (`HITO-SHARED-SYNC`)
+
+### 6.1. Delimitación de Autoridad y Responsabilidades entre Capas
+
+| Capa | Módulos Clave | Propósito Arquitectónico |
+|---|---|---|
+| **Capa Compartida** (`ABDSharedCode/HardwareMidiDetect` y `HardwareDrivers`) | `HardwareMidiDetector`, `HardwareMidiHotplugMonitor`, `JuceHardwareMidiPicker`, `MidiCcController`, `HardwareContractRegistry` | **Descubrimiento y UI:** Detectar puertos conectados en caliente (*hotplug*), consultar identidades estándar y ofrecer los componentes gráficos / WebView para seleccionar puertos en la interfaz de usuario. |
+| **Capa de Gobernanza Metrológica** (`ABDAudioLab` D2.1–D2.6) | `HardwareTransportPreflightService`, `OperatorConsentService`, `HardwareDispatchScheduler`, `JuceMidiTransport` | **Seguridad y Ejecución Crítica:** Garantizar que ningún byte se transmite sin consentimiento explícito (con hash criptográfico SHA-256), controlar la tasa de envío (*pacing*), gestionar timeouts, aislar fallos de transporte (*fail-closed*) e impedir la exportación metrológica inválida. |
+
+> **Principio Rector:** No se están duplicando funciones, sino delimitando la autoridad:  
+> * `ABDSharedCode` se encarga de descubrir y conectar.  
+> * `ABDAudioLab` (D2) se encarga de auditar, gobernar y proteger el hardware físico durante las sesiones de medición científica.
+
+### 6.2. Alimentación del Laboratorio desde ABDSharedCode
+El preflight de `HITO-10D2.7A` ya reutiliza y valida el contrato nativo compartido: en el test de coincidencia dirigida por contrato (*Contract-Driven Matching*), el sistema consulta el catálogo nativo (`contracts/hardware/behringer_deepmind12.json`) y empareja automáticamente `"DeepMind12D"` usando los `portNameMatches` de la capa compartida.
+
+### 6.3. Paquete de Transferencia y Mejoras Hacia ABDSharedCode
+
+1. **Blindaje contra el bug de fallback de JUCE en Windows (`JuceMidiHardwareBackend`)**:
+   * *Hallazgo:* `juce::MidiOutput::openDevice` en Windows realiza un fallback silencioso al puerto en índice 0 si el identificador no existe o es inválido (evaluando `getIntValue()` que devuelve `0`).
+   * *Acción:* Trasladar la validación estricta previa contra `getAvailableDevices()` implementada en `JuceMidiTransport` a `ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp` para proteger todas las herramientas compartidas contra conexiones accidentales.
+
+2. **Adopción del modelo canónico de 5 Estados de Preflight**:
+   * *Situación actual:* `HardwareMidiDetector` en `ABDSharedCode` opera con un enfoque binario (*detectado / no detectado*).
+   * *Acción:* Enriquecer la capa compartida con los cinco estados ortogonales formalizados en D2:
+     * `PortAvailable`: endpoint presente y accesible.
+     * `IdentityVerified`: hardware responde a sondeo y concuerda con firma.
+     * `IdentityUnavailable`: endpoint accesible sin telemetría de identidad automática.
+     * `IdentityMismatch`: respuesta de hardware colisiona con el target esperado.
+     * `UserConfirmedUnverified`: dispositivo no verificable por protocolo pero confirmado visualmente por el operador.
+
+3. **Gobernanza de SysEx Broadcast y Exclusión de Puertos Virtuales**:
+   * *Hallazgo:* Los puertos virtuales (`LoopBe`, `loopMIDI`, `teVirtualMIDI`) provocan bucles y colisiones cuando reciben transmisiones no controladas de sondeo (*Universal Device Inquiry* `F0 7E 7F 06 01 F7`).
+   * *Acción:* Incorporar a la capa compartida de detección la exclusión explícita y configurable de endpoints virtuales durante ráfagas de escaneo automático.
+
