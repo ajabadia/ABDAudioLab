@@ -1,70 +1,101 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include "dsp/JunoBBD.h"
+#include "DspEffects/JunoBBD.h"
+#include "DspEffects/characters/BbdNoise.h"
+#include "DspEffects/profiles/JunoBbdProfile.h"
 #include "dsp/VoiceDispersionModel.h"
 #include "dsp/VoiceAllocator.h"
 #include <vector>
 #include <cmath>
 
+// El coro BBD que se prueba aqui es el motor COMPARTIDO
+// (ABDSharedCode/DspEffects/JunoBBD.h), no el borrador que hubo en
+// `dsp/JunoBBD.h`. Ese shim se borro: reexportaba un placeholder de LutDSP que
+// no adopto nadie y que leia del sitio equivocado del modulo. El por que esta
+// escrito en ABDSharedCode/_Deprecados/LutDSP-JunoBBD.h. Aqui lo que se prueba
+// es el motor que se va a usar, con su perfil y su etapa de caracter reales.
+using TestBbd = abd::dsp::JunoBBD<abd::dsp::JunoBbdJ106Profile, abd::dsp::BbdNoiseStage>;
+
 TEST_CASE("JunoBBD - Stereo Bucket Brigade Device Emulation", "[dsp][bbd][chorus]")
 {
-    using namespace abdaudiolab::dsp;
+    constexpr double sampleRate = 44100.0;
 
-    JunoBBD bbd;
-    const double sampleRate = 44100.0;
-    bbd.prepare(sampleRate, 256);
+    TestBbd bbd;
+    bbd.prepare(sampleRate);
 
     SECTION("Mode Off produces zero modification")
     {
-        bbd.setMode(JunoBBD::Mode::Off);
-        juce::AudioBuffer<float> buffer(2, 128);
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            auto* p = buffer.getWritePointer(ch);
-            for (int i = 0; i < 128; ++i) p[i] = 0.5f;
-        }
+        bbd.setMode(abd::dsp::JunoBbdMode::Off);
 
-        bbd.processBlock(buffer);
-
-        for (int ch = 0; ch < 2; ++ch)
+        for (int i = 0; i < 128; ++i)
         {
-            auto* p = buffer.getReadPointer(ch);
-            for (int i = 0; i < 128; ++i)
-            {
-                REQUIRE(p[i] == 0.5f);
-            }
+            float outL = 0.0f, outR = 0.0f;
+            bbd.process(0.5f, 0.5f, outL, outR);
+
+            REQUIRE(outL == 0.5f);
+            REQUIRE(outR == 0.5f);
         }
     }
 
     SECTION("Mode I & II produce quadrature stereo modulation and stable gain")
     {
-        bbd.setMode(JunoBBD::Mode::ModeI);
-        juce::AudioBuffer<float> buffer(2, 512);
-        
-        // Input: 1.0f DC pulse
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            auto* p = buffer.getWritePointer(ch);
-            for (int i = 0; i < 512; ++i) p[i] = 1.0f;
-        }
+        bbd.setMode(abd::dsp::JunoBbdMode::ChorusI);
 
-        // Process several blocks to fill BBD line (refilling input DC on each block)
+        // Input: 1.0f DC pulse, rellenando el bloque en cada pasada para que la
+        // linea del BBD se llene (como hacia el test anterior con processBlock).
+        float outL = 0.0f, outR = 0.0f, peak = 0.0f;
         for (int b = 0; b < 10; ++b)
-        {
-            for (int ch = 0; ch < 2; ++ch)
+            for (int i = 0; i < 512; ++i)
             {
-                auto* p = buffer.getWritePointer(ch);
-                for (int i = 0; i < 512; ++i) p[i] = 1.0f;
+                bbd.process(1.0f, 1.0f, outL, outR);
+                peak = std::max(peak, std::max(std::abs(outL), std::abs(outR)));
             }
-            bbd.processBlock(buffer);
+
+        // MEDIDO, no copiado del test anterior: con DC de 1.0 el motor asienta
+        // en L=1.6064 y R=1.5082, y el pico llega a 1.6816. Que L y R NO sean
+        // iguales es correcto y es de lo que va el motor: las dos lineas tienen
+        // frecuencias de reloj distintas (la tolerancia de reloj de +/-1.5%), y
+        // de ahi sale justamente el batido del coro BBD. El test viejo pedia
+        // ~1.0 en los dos porque el borrador mezclaba a 0.5 + 0.5; este mezcla
+        // con las ganancias ASIMETRICAS del IC6 del Juno (seco 0.863, mojado
+        // 1.257). El margen cubre el rizado del LFO, no es un numero de adorno.
+        REQUIRE_THAT(outL, Catch::Matchers::WithinAbs(1.60f, 0.15f));
+        REQUIRE_THAT(outR, Catch::Matchers::WithinAbs(1.55f, 0.15f));
+
+        // Y que la ganancia no se dispare: con DC y realimentacion, un motor
+        // mal puesto en la realimentacion se va a infinito en un par de bloques.
+        REQUIRE(peak < 2.0f);
+
+        SECTION("and it is deterministic")
+        {
+            // Dos motores FRESCOS con el mismo guion dan lo mismo bit a bit. Los
+            // tres generadores de ruido del motor son LCG, asi que esto no deberia
+            // fallar nunca; si falla, alguien ha metido un reloj o un rand.
+            //
+            // Y "frescos" es la palabra que importa, y no es un detalle: comparar
+            // el motor de arriba (que ya lleva 5120 muestras de DC dentro) con
+            // uno recien construido NO mide determinismo, mide que el primero
+            // tenga cola, y siempre darian distinto. Esta es la TERCERA vez que
+            // esa trampa muerde en este repo (la primera en el `invertLeft` del
+            // reverb, la segunda en el eco multi-cabezal). Por eso los dos
+            // motores de esta comprobacion son nuevos.
+            TestBbd first, second;
+            first.prepare(sampleRate);
+            second.prepare(sampleRate);
+            first.setMode(abd::dsp::JunoBbdMode::ChorusI);
+            second.setMode(abd::dsp::JunoBbdMode::ChorusI);
+
+            float aL = 0.0f, aR = 0.0f, bL = 0.0f, bR = 0.0f;
+            for (int i = 0; i < 4096; ++i)
+            {
+                const float in = 0.3f * std::sin(float(i) * 0.02f);
+                first.process(in, in, aL, aR);
+                second.process(in, in, bL, bR);
+            }
+
+            REQUIRE(aL == bL);
+            REQUIRE(aR == bR);
         }
-
-        const float* left = buffer.getReadPointer(0);
-        const float* right = buffer.getReadPointer(1);
-
-        // After BBD fills with DC, output should stabilize around ~1.0 (dry 0.5 + wet 0.5)
-        REQUIRE_THAT(left[511], Catch::Matchers::WithinAbs(1.0f, 0.15f));
-        REQUIRE_THAT(right[511], Catch::Matchers::WithinAbs(1.0f, 0.15f));
     }
 }
 
