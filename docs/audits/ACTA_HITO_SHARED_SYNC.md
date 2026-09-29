@@ -127,18 +127,31 @@ ExportReadiness:                                       Blocked (permanente)
 D2.7B:                                                 Bloqueado
 ```
 
-### 4.4 Baseline global (Gate 4)
+### 4.4 Baseline global no-VES / baseline hermética principal (Gate 4)
 
 ```
 Baseline aprobada — HITO-10E (Build #495):
   754 test cases | 746 passed | 8 skipped | 0 failed
   269.224 assertions PASS
 
-Baseline global observada — SS6.1 (Build #512 — 2026-09-29):
+Baseline certificada — SS6.1 (Build #512 — 2026-09-29):
   Comando:        .\build\Release\ABDAudioLab_Tests.exe '~[ves]' -r console
   Código salida:  0 (finalización normal limpia)
   test cases:     843 | 835 passed | 8 skipped | 0 failed
   assertions:  269619 | 269619 passed | 0 failed
+
+Alcance y delimitación de la baseline:
+  - La baseline excluye explícitamente 9 test cases etiquetados [ves].
+    Dichas pruebas dependen de VES/CZ-101/MAME VST3 y permanecen
+    fuera de la baseline hermética principal mientras HITO-10V1
+    continúe bloqueado por falta de control semántico y audio
+    headless reproducible.
+  - Los 8 skipped registrados corresponden únicamente a los skips
+    históricos de GUI COM/WASAPI en test_UiCoordinatorGovernance.cpp
+    (líneas 144, 204, 280, 381, 506, 526, 551, 580; verificados
+    en aislamiento al 100% PASS bajo '[ui_governance]').
+  - Los 9 tests [ves] no son skips: están excluidos deliberadamente
+    de esta baseline por filtro (~[ves]).
 
 Acreditaciones de robustez del runner:
   - 0 SIGSEGV
@@ -146,15 +159,6 @@ Acreditaciones de robustez del runner:
   - 0 cuadros de diálogo modales interactivos
   - 0 cancelaciones manuales
   - Resumen literal emitido al 100% por Catch2
-
-Desglose de los 8 skips históricos (idénticos a Build #495):
-  - Archivo: `src/tests/test_UiCoordinatorGovernance.cpp` (líneas 144, 204, 280, 381, 506, 526, 551, 580).
-  - Justificación: `ABD_REQUIRE_JUCE_GUI_FRESH_PROCESS()`. Re-inicialización del singleton COM/WASAPI de JUCE dentro del mismo proceso del runner.
-  - Validación en aislamiento: Pasan al 100% ejecutando `.\build\Release\ABDAudioLab_Tests.exe "[ui_governance]"`.
-
-Desglose de la suite externa [ves] (9 test cases):
-  - Casos: HITO-10V0 (5 casos) y HITO-10V0.1 (4 casos) de la espiga de emulación de firmware Casio CZ-101 / MAME.
-  - Aislados de la suite hermética por requerir re-instanciación de DLL VST3 fuera de proceso.
 
 Delta vs HITO-10E:
   Delta test cases:   +89 casos en baseline hermética (+98 en total binario)
@@ -279,23 +283,20 @@ Consentimientos físicos consumidos (D2.7A.3 aprobado)
 ---
 
 ## 7. Decisión
-
+ 
 ```
-SS1:      CERTIFICADO
-SS2:      CERTIFICADO (Build #505 — 12 test cases, 39 assertions PASS)
-SS2.1:    CERTIFICADO (Build #506 — 12 test cases, 79 assertions PASS)
-SS3:      CERTIFICADO (Build #507 — 12 test cases, 57 assertions PASS)
-SS4-core: CERTIFICADO (Build #508 — 20 test cases, 27 assertions PASS)
-SS4.1:    CERTIFICADO (Build #508 — 20 test cases, 43 assertions PASS)
-SS5:      CERTIFICADO (Build #510 — 22 test cases, 87 assertions PASS)
-SS6:      CERTIFICADO (Build #512 — Baseline global limpia: 843 casos, 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; salida 0)
-SS6.1:    CERTIFICADO (Supresión de modales CRT, corrección de dangling callback en FskAudioModem, SKIP explícito en preflight físico)
+Baseline no-VES:          CERTIFICADA (Build #512 — 843 test cases: 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; exit code 0)
+Runner no interactivo:    CERTIFICADO (0 modales, 0 aborts, 0 SIGSEGV, 0 cancelaciones)
+SS1–SS5:                  CERTIFICADOS
+SS6:                      CERTIFICADO
+SS6.1:                    CERTIFICADO
 
-Commit:           PENDIENTE DE AUTORIZACIÓN DEL OPERADOR (desglose por alcance propuesto)
-D2.7B:            BLOQUEADO
-Autorización MIDI física: 0 bytes
-ExportReadiness:  Blocked
-HITO-10V1:        BLOQUEADO
+HITO-SHARED-SYNC:         CERRADO Y SELLADO EN GIT (6 commits atómicos)
+D2.7A:                    CERRADO COMO BANCO FÍSICO CONTROLADO Y NO METROLÓGICO
+D2.7B:                    BLOQUEADO (requiere contrato metrológico de captura/audio)
+HITO-10V1:                BLOQUEADO (requiere control semántico/headless en VES)
+Autorización MIDI nueva:  0 bytes
+ExportReadiness:          Blocked
 ```
 
 ---

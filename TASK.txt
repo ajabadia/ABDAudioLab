@@ -389,12 +389,12 @@ Estado actual:
   [shared] global: 88/88 PASS (336 assertions).
   [physical] con DeepMind 12D: 12/12 PASS (132 assertions).
   [integration]: 37/37 PASS (351 assertions).
-  Baseline global hermética: 843 casos | 835 PASS | 8 SKIPPED | 0 FAIL (269.619/269.619 assertions PASS).
+  Baseline global no-VES / baseline hermética principal: 843 casos | 835 PASS | 8 SKIPPED | 0 FAIL (269.619/269.619 assertions PASS; exit code 0).
 
 Autorización de transmisión física: ⛔ 0 BYTES AUTORIZADOS EN EL SISTEMA.
 D2.7B: ⛔ BLOQUEADO.
 HITO-10V1: ⛔ BLOQUEADO.
-Commit atómico: PENDIENTE DE AUTORIZACIÓN DEL OPERADOR.
+Commit atómico: COMPLETADO (sellado en 6 commits atómicos bb20c1e..5ba51ac).
 
 ---
 

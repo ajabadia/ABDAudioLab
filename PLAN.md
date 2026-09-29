@@ -137,7 +137,7 @@ All tests passed (35 assertions in 2 test cases)
 - [x] **SS4-core:** Clasificación de endpoints virtuales y política configurable de SysEx broadcast. *(CERTIFICADO — Build #508; 20 test cases, 27/27 assertions PASS; suite hermética `test_MidiEndpointSafetyPolicy.cpp`).*
 - [x] **SS4.1:** Integración del clasificador con hotplug, UI y labels — cero aperturas, cero inquiries. *(CERTIFICADO — Build #508; 20 test cases, 43/43 assertions PASS; suite `test_MidiEndpointSafetyPolicyWiring.cpp`).*
 - [x] **SS5:** Contrato hermético `ABDSharedCode → ABDAudioLab` — `SharedMidiHardwareAdapter`, frontera de autoridad, `ExportReadiness::Blocked`, `JuceMidiTransport::write()` = 0. *(CERTIFICADO — Build #510; 22 test cases, 87/87 assertions PASS; suite `test_SharedMidiHardwareIntegrationContract.cpp`).*
-- [x] **SS6:** Certificación técnica global, baseline verde, acta de cierre y preparación de commit atómico. *(CERTIFICADO — Build #512; 843 test cases: 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; salida 0; 0 modales; acta completada).*
+- [x] **SS6:** Certificación técnica global, baseline verde, acta de cierre y preparación de commit atómico. *(CERTIFICADO — Build #512; Baseline no-VES: 843 test cases: 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; salida 0; 0 modales; acta completada; sellado en 6 commits atómicos).*
 - [x] **SS6.1:** Estabilización del runner global y baseline completa no interactiva. *(CERTIFICADO — Supresión de modales CRT en TestMain.cpp, safe callback en test_FskAudioModem.cpp, SKIP explícito en test_TargetProfilePhysicalPreflightBench.cpp, aislamiento de [ves]).*
 
 ---
