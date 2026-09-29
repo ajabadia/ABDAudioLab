@@ -64,7 +64,7 @@ TEST_CASE("HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion G
         std::string fname = f.getFileName().toStdString();
         fileNames.insert(fname);
 
-        if (fname == "hardware_profile.schema.json")
+        if (fname.ends_with(".schema.json"))
         {
             legacySchemaDocumentCount++;
         }
@@ -80,15 +80,15 @@ TEST_CASE("HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion G
 
     std::size_t legacyProfileDocumentCount = migratedLegacyProfileCount + unmigratedLegacyProfileCount;
 
-    // Validación formal de las igualdades métricas de inventario (HITO-10E / E6 Post-Retirement)
+    // Validación formal de las igualdades métricas de inventario (HITO-10E / E6 Post-Retirement + ABDSharedAssets sync)
     REQUIRE(legacyProfileDocumentCount == migratedLegacyProfileCount + unmigratedLegacyProfileCount);
     REQUIRE(legacyFilesystemEntryCount == legacyProfileDocumentCount + legacySchemaDocumentCount);
 
-    CHECK(legacyFilesystemEntryCount == 29);
-    CHECK(legacySchemaDocumentCount == 1);
-    CHECK(legacyProfileDocumentCount == 28);
+    CHECK(legacyFilesystemEntryCount == 34);
+    CHECK(legacySchemaDocumentCount == 2);
+    CHECK(legacyProfileDocumentCount == 32);
     CHECK(migratedLegacyProfileCount == 0);
-    CHECK(unmigratedLegacyProfileCount == 28);
+    CHECK(unmigratedLegacyProfileCount == 32);
 
     // 1. Schema legacy obligatorio
     CHECK(fileNames.count("hardware_profile.schema.json") == 1);
@@ -142,13 +142,13 @@ TEST_CASE("HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate Post-Re
     REQUIRE(loaded);
     REQUIRE(registry.hasContracts());
 
-    // El registry físico contiene exactamente 28 perfiles (el schema se omite metrológicamente)
-    CHECK(registry.getContracts().size() == 28);
+    // El registry físico contiene los perfiles válidos (los schemas se omiten)
+    CHECK(registry.getContracts().size() == 31);
 
-    // Tras cargar el catálogo canónico (5 perfiles), la suite efectiva alcanza 33 contratos
+    // Tras cargar el catálogo canónico (5 perfiles), la suite efectiva alcanza 36 contratos
     auto canonicalRes = registry.loadCanonicalTargetProfiles(getCanonicalTargetsDir());
     REQUIRE(canonicalRes.outcome == CanonicalTargetProfileLoadOutcome::Loaded);
-    CHECK(registry.getContracts().size() == 33);
+    CHECK(registry.getContracts().size() == 36);
 
     // Targets retirados de contracts/hardware/ resuelven desde TargetProfile canónico con compatibilidad histórica
     auto resPro = registry.resolveContractById("behringer_pro800");

@@ -82,7 +82,7 @@ TEST_CASE("HITO-10E / E5.1 - 1. SoundIdHardwareCatalogSelector Under Controlled 
 {
     HermeticAbsenceFixture fixture;
     const auto& contracts = fixture.registry.getContracts();
-    REQUIRE(contracts.size() == 33); // 28 legacy + 5 canonicos adaptados
+    REQUIRE(contracts.size() == 36); // 31 legacy + 5 canonicos adaptados
 
     gui::SoundIdHardwareCatalogSelector selector;
     selector.setSize(800, 600);
@@ -137,7 +137,7 @@ TEST_CASE("HITO-10E / E5.1 - 2. DrawerHardwareTab Model Under Controlled Absence
 {
     HermeticAbsenceFixture fixture;
     const auto& contracts = fixture.registry.getContracts();
-    REQUIRE(contracts.size() == 33);
+    REQUIRE(contracts.size() == 36);
 
     // Construcción del modelo de lista idéntica a MainContentComponent / DrawerHardwareTab
     std::vector<gui::HardwareItem> hwItems;

@@ -39,17 +39,23 @@ Garantizando invariancia absoluta: **cero regresiones en la resolución de IDs h
 
 ---
 
-## 3. Resoluciones Técnicas y Correcciones de Estabilidad (Fase E6)
+## 3. Trazabilidad de Cambios: Objeto Principal vs Correcciones Auxiliares de Estabilidad
 
-Durante el proceso de verificación global de la suite completa (754 test cases), se identificaron y subsanaron los siguientes puntos técnicos en el framework de GUI/Tests:
+A fin de preservar una trazabilidad honesta e inequívoca del alcance del commit de cierre (`77c7bb9`):
+
+- **Objeto principal de HITO-10E**: Retirada segura de duplicados legacy certificados (`behringer_pro800`, `yamaha_dx7`, `boss_ds1_distortion`) y consolidación de la ruta canónica con adaptación transparente.
+- **Correcciones auxiliares de cierre**: Estabilización de lifecycle UI/VST3/Win32 descubiertas durante el gate post-retirada, estrictamente necesarias para recuperar una baseline global determinista con 0 SIGSEGV, 0 aborts y 0 FAIL.
+
+### 3.1 Correcciones Auxiliares de Estabilidad de la Baseline Global
+Durante la ejecución del gate global de la suite completa (754 test cases), se detectaron y subsanaron los siguientes aspectos técnicos de estabilidad en el framework de GUI/Tests:
 
 1. **Ciclo de Vida RAII en `PluginWindowController::PluginContainerComponent`**:
-   - Se añadió destructor explícito que desvincula tanto `pluginEditor` como `btnKeyboard` del árbol de componentes de JUCE antes de destruir el puntero `std::unique_ptr<AudioProcessorEditor>`.
+   - Se añadió destructor explícito que desvincula tanto `pluginEditor` como `btnKeyboard` del árbol de componentes de JUCE (`removeChildComponent`) antes de destruir el puntero `std::unique_ptr<AudioProcessorEditor>`.
    - Previene accesos a punteros colgantes en `childComponentList` durante el teardown de ventanas flotantes.
 
 2. **Diferimiento de Peer Nativo Win32 en `PluginWindowController::PluginWindow`**:
    - Se configuró explícitamente `bool addToDesktop = false` en el constructor base de `juce::DocumentWindow`.
-   - Evita que `TopLevelWindow` invoque `CreateWindowExW` y despache mensajes de ventana Win32 (`WM_CREATE`, `WM_NCCREATE`) mientras la clase derivada `PluginWindow` aún está en su lista de inicialización de constructores, eliminando el fallo por `SIGSEGV`.
+   - Evita que `TopLevelWindow` invoque `CreateWindowExW` y despache mensajes de ventana Win32 (`WM_CREATE`, `WM_NCCREATE`) mientras la clase derivada `PluginWindow` aún está en su lista de inicialización de constructores, eliminando la causa raíz del `SIGSEGV`.
 
 3. **Resiliencia de Portapapeles en `test_SmokeStep4UI.cpp`**:
    - Se adaptaron los checks de lectura de portapapeles (`getTextFromClipboard`) para tolerar bloqueos transitorios del subsistema `OpenClipboard` de Windows en entornos desatendidos de consola.
@@ -57,8 +63,9 @@ Durante el proceso de verificación global de la suite completa (754 test cases)
 4. **Supresión de Diálogos Modales en Consola (`SessionIoController`)**:
    - Se incorporó `setSuppressModals(true)` en entornos de prueba para evitar que `AlertWindow::showMessageBoxAsync` bloquee la ejecución de la consola.
 
-5. **Bootstrap Canónico en `MainContentComponent.cpp`**:
-   - Carga explícita y unificada de perfiles canónicos (`loadCanonicalTargetProfiles`) durante el arranque de la aplicación, preservando la resolución determinista de IDs históricos sin alterar la frontera de contratos ni introducir contención en el hilo de audio.
+### 3.2 Bootstrap Canónico en Runtime de Aplicación
+- **Carga canónica en `MainContentComponent.cpp`**:
+  Carga explícita y unificada de perfiles canónicos (`loadCanonicalTargetProfiles`) durante el arranque de la aplicación, preservando la resolución determinista de IDs históricos sin alterar la frontera de contratos ni introducir contención en el hilo de audio.
 
 ---
 

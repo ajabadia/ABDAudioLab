@@ -61,22 +61,22 @@ TEST_CASE("HITO-10E / E5 - 1. Fixture de Ausencia Controlada (Simulacion Hermeti
         auto targetFile = tempFixtureDir.getChildFile(rf.getFileName());
         rf.copyFileTo(targetFile);
 
-        if (fname == "hardware_profile.schema.json")
+        if (fname.ends_with(".schema.json"))
             copiedSchemas++;
         else
             copiedProfiles++;
     }
 
     // 1. Verificación de cardinalidad estricta en la fixture de ausencia
-    CHECK(copiedSchemas == 1);
-    CHECK(copiedProfiles == 28);
-    CHECK(tempFixtureDir.findChildFiles(juce::File::findFiles, false, "*.json").size() == 29); // 28 perfiles + 1 schema
+    CHECK(copiedSchemas == 2);
+    CHECK(copiedProfiles == 32);
+    CHECK(tempFixtureDir.findChildFiles(juce::File::findFiles, false, "*.json").size() == 34); // 32 perfiles + 2 schemas
 
     // 2. Cargar el registro desde la fixture aislada (sin los 3 JSON migrados)
     HardwareContractRegistry registry;
     bool legacyLoaded = registry.loadContractsFromDirectory(tempFixtureDir);
     REQUIRE(legacyLoaded);
-    CHECK(registry.getContracts().size() == 28);
+    CHECK(registry.getContracts().size() == 31);
 
     // 3. Cargar el catálogo canónico (all-or-nothing)
     auto canonicalLoadResult = registry.loadCanonicalTargetProfiles(canonicalTargetsDir);

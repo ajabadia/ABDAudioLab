@@ -45,12 +45,12 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
 
         bool loaded = registry.loadContractsFromDirectory(contractsDir);
         REQUIRE(loaded);
-        CHECK(registry.getContracts().size() == 28);
+        CHECK(registry.getContracts().size() == 31); // Actualizado post-HITO-SHARED-SYNC (D2.7A + SS4/SS5)
 
         juce::File targetsDir("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets");
         if (targetsDir.isDirectory())
             registry.loadCanonicalTargetProfiles(targetsDir);
-        CHECK(registry.getContracts().size() == 33);
+        CHECK(registry.getContracts().size() == 36); // Actualizado post-HITO-SHARED-SYNC
 
         // Los contratos legacy clave se preservan intactos vía resolución canónica adaptada
         const auto* dx7Legacy = registry.findContractById("yamaha_dx7");
