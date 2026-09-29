@@ -1,7 +1,8 @@
 # ACTA FINAL DE CIERRE Y CERTIFICACIÓN — HITO-AUDIO-AB-5D
 ## Acceptance Matrix, Canonical Preset Validation and Dedicated CI Baseline
 
-**Fecha de certificación:** 2026-09-29  
+**Fecha de cierre local:** 2026-09-29  
+**Fecha de certificación CI remota:** pendiente — Run #6 en curso  
 **Hito Global:** HITO-AUDIO-AB-5D (Fases 5D.1 a 5D.9)  
 **Documento Rector:** `docs/audits/ACTA_HITO_AUDIO_AB_5D.md`  
 **Compilador:** MSVC 18.4.3 (Visual Studio 2026 Community) · Release x64  
@@ -15,7 +16,9 @@
 
 ## 1. Declaración Formal de Alcance y Cierre de Fases
 
-Se declara formalmente completado y sellado el hito **HITO-AUDIO-AB-5D** tras la ejecución y certificación sucesiva de sus nueve tareas atómicas:
+Se declara formalmente completado y sellado **localmente** el hito **HITO-AUDIO-AB-5D** tras la ejecución y certificación local sucesiva de sus nueve tareas atómicas.
+
+La certificación CI remota permanece pendiente del resultado exitoso del Run #6, conforme a los criterios definidos en la sección 5.
 
 | Tarea | Denominación | Entregable Canónico | Estado |
 |:---:|---|---|:---:|
