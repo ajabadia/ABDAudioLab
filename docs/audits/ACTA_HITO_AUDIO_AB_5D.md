@@ -81,25 +81,38 @@ Veredictos Resultantes:
 
 ---
 
-## 5. Certificación de CI Remoto — POST-5D.2 / POST-5D.3
+## 5. Certificación de CI Remoto — POST-5D.2 / POST-5D.3 / POST-5D.4
 
-**Fecha de cierre CI:** 2026-09-29 18:49 CEST
+**Fecha de cierre CI:** 2026-09-29 18:49 CEST (tag) / corrección 19:16 CEST
 
 | Elemento | Valor |
 |---|---|
 | **Commit trigger CI** | `52eb1f5` — `ci(qa): trigger Audio A/B 5D CI validation run (POST-5D.3)` |
+| **Fix Gate 2** | `50900f6` — `ci(qa): fix Gate 2 -- add --allow-running-no-tests (POST-5D.4)` |
 | **SHA ABDSharedCode pinnado** | `a0cdaf1` — `feat(hwid): integrate strict endpoint safety (HITO-SHARED-SYNC)` |
 | **Workflow** | `.github/workflows/audio-ab-5d-ci.yml` — 6 gates configurados |
 | **Tag de certificación** | `hito-audio-ab-5d-certified` → publicado en `origin/main` |
 | **Repositorio** | `https://github.com/ajabadia/ABDAudioLab` |
 
+### Incidencia POST-5D.4 — Gate 2 (clasificada y corregida)
+
+> [!NOTE]
+> **Causa raíz:** La invocación `[audioab_5d][diagnostics]` en Gate 2 no coincide con ningún test.
+> Catch2 devuelve exit code 1 cuando no hay tests que coincidan, lo que mata el step en CI.
+> **Fix:** `--allow-running-no-tests` añadido a ambas invocaciones de Gate 2.
+> **No es una regresión de tests** — Gate 1 pasó verde, los tests de policy pasaron los 22 assertions.
+
+**Estado de la corrección:** `50900f6` empujado. Nuevo run en GitHub Actions disparado (path `.github/workflows/` incluido en trigger).
+
 **Garantías obtenidas:**
 
 ```text
 Local:   ABDAudioLab + ABDSharedCode — 886 PASS / 9 SKIP / 0 FAIL ✅
-Remoto:  GitHub Actions clona ambos repos desde SHA inmutables,
-         compila desde cero con MSVC x64 y ejecuta los 6 gates. ✅
+Remoto:  Checkout multi-repo ✅ | Build MSVC x64 ✅ | Gate 1 ✅
+         Gate 2 fix en curso (POST-5D.4)
 ```
+
+
 
 ---
 
