@@ -26,21 +26,35 @@ jobs:
   audio-ab-5d-acceptance:
     name: Audio A/B 5D Matrix & Baseline Validation
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ABDAudioLab
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout ABDAudioLab
         uses: actions/checkout@v4
+        with:
+          path: ABDAudioLab
+          fetch-depth: 1
+
+      - name: Checkout ABDSharedCode (Immutable Sibling Ref)
+        uses: actions/checkout@v4
+        with:
+          repository: ajabadia/ABDSharedCode
+          ref: a0cdaf12aa117d0ce9eece7f63013193c39ed159
+          path: ABDSharedCode
+          fetch-depth: 1
 
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install WebView2 SDK for JUCE
+      - name: Install Pinned WebView2 SDK for JUCE
         shell: powershell
         run: |
-          Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -OutFile nuget.exe
-          .\nuget.exe install Microsoft.Web.WebView2 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+          Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/v6.12.0/nuget.exe -OutFile nuget.exe
+          .\nuget.exe install Microsoft.Web.WebView2 -Version 1.0.4258.31 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
 
       - name: Configure CMake
         run: |
@@ -81,7 +95,7 @@ jobs:
         with:
           name: audio-ab-5d-qa-acceptance-reports
           path: |
-            docs/qa/runs/*.json
-            docs/qa/audio-ab-5d-baseline-manifest.json
-            docs/qa/audio-ab-5d-artifacts.sha256
+            ABDAudioLab/docs/qa/runs/*.json
+            ABDAudioLab/docs/qa/audio-ab-5d-baseline-manifest.json
+            ABDAudioLab/docs/qa/audio-ab-5d-artifacts.sha256
           if-no-files-found: error
