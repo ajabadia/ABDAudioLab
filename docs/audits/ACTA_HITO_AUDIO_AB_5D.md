@@ -8,7 +8,8 @@
 **Build Identity:** `Release x64 - MSVC 18.4.3 - Build #514`  
 **Policy de Tolerancias:** `audio-ab-5d-provisional-v1` (`sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57`)  
 **Baseline Canónica:** `audio-ab-5d-canonical-v1`  
-**Estado:** 🟢 **HITO COMPLETADO Y SELLADO (100% PASS / 0 FAIL)**
+**Estado local:** 🟢 **CERRADO Y SELLADO LOCALMENTE (886 PASS / 0 FAIL)**  
+**Estado CI remota:** ⏳ **CERTIFICACIÓN PENDIENTE — Run #6 en curso**
 
 ---
 
@@ -26,7 +27,7 @@ Se declara formalmente completado y sellado el hito **HITO-AUDIO-AB-5D** tras la
 | **5D.6** | Policy de tolerancias por clase acústica (calibración v1) | `docs/qa/audio-ab-5d-tolerance-policy.md` | ✅ **CERTIFICADO** |
 | **5D.7** | Fixtures herméticas y pruebas unitarias de comparator/verdict | `test_AudioABComparatorAndVerdict5D.cpp` | ✅ **CERTIFICADO** |
 | **5D.8** | Matriz QA, revisión de deltas 44.1k/48k y aceptación software | `ACTA_HITO_AUDIO_AB_5D8_SOFTWARE_ACCEPTANCE.md` | ✅ **CERTIFICADO** |
-| **5D.9** | CI dedicado, congelación de baseline y sellado del hito | `.github/workflows/audio-ab-5d-ci.yml` + manifest | ✅ **CERTIFICADO** |
+| **5D.9** | CI dedicado y congelación de baseline | `.github/workflows/audio-ab-5d-ci.yml` + manifest | 🟢 **CERTIFICADO LOCALMENTE** / ⏳ **CI REMOTA EN CURSO** |
 
 ---
 
