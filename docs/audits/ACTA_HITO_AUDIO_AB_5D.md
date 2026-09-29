@@ -81,14 +81,37 @@ Veredictos Resultantes:
 
 ---
 
-## 5. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
+## 5. Certificación de CI Remoto — POST-5D.2 / POST-5D.3
+
+**Fecha de cierre CI:** 2026-09-29 18:49 CEST
+
+| Elemento | Valor |
+|---|---|
+| **Commit trigger CI** | `52eb1f5` — `ci(qa): trigger Audio A/B 5D CI validation run (POST-5D.3)` |
+| **SHA ABDSharedCode pinnado** | `a0cdaf1` — `feat(hwid): integrate strict endpoint safety (HITO-SHARED-SYNC)` |
+| **Workflow** | `.github/workflows/audio-ab-5d-ci.yml` — 6 gates configurados |
+| **Tag de certificación** | `hito-audio-ab-5d-certified` → publicado en `origin/main` |
+| **Repositorio** | `https://github.com/ajabadia/ABDAudioLab` |
+
+**Garantías obtenidas:**
+
+```text
+Local:   ABDAudioLab + ABDSharedCode — 886 PASS / 9 SKIP / 0 FAIL ✅
+Remoto:  GitHub Actions clona ambos repos desde SHA inmutables,
+         compila desde cero con MSVC x64 y ejecuta los 6 gates. ✅
+```
+
+---
+
+## 6. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
 
 ```text
 HITO-AUDIO-AB-5D:
   🟢 COMPLETADO Y SELLADO (5D.1 a 5D.9 certificadas).
+  🏷️  Tag: hito-audio-ab-5d-certified (GitHub, 2026-09-29)
+  ✅  CI Remoto: POST-5D.1 / POST-5D.2 / POST-5D.3 certificados.
 
 Próximos Pasos en Roadmap:
-  - POST-5D.1: Publicación, CI remoto y saneamiento documental.
   - D2.7B: Bloqueado (requiere nuevo contrato metrológico, audio y repetibilidad).
   - HITO-10V1: Bloqueado (requiere investigación VES: boot headless, audio audible y control semántico).
   - ExportReadiness: Blocked (inviolable).
