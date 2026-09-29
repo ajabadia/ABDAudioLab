@@ -1,0 +1,126 @@
+{
+  "baselineId": "audio-ab-5d-canonical-v1",
+  "policyId": "audio-ab-5d-provisional-v1",
+  "policyDocumentHash": "sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57",
+  "calibrationStatus": "ProvisionalEvidenceBased",
+  "runCount": 10,
+  "expectedVerdicts": {
+    "PASS": 4,
+    "WARN": 6,
+    "FAIL": 0
+  },
+  "expectedDispositions": {
+    "Accepted": 4,
+    "AcceptableWithExpectedDispersion": 6,
+    "Rejected": 0
+  },
+  "sampleRates": [44100, 48000],
+  "blockSize": 256,
+  "artifactCount": 10,
+  "runs": [
+    {
+      "runId": "RUN_5D_01",
+      "presetId": "PRESET_CLEAN_REF_01",
+      "presetClass": "CleanReference",
+      "sampleRate": 44100,
+      "verdict": "PASS",
+      "disposition": "Accepted",
+      "reportFile": "runs/RUN_5D_01_acceptance_report.json",
+      "reportHash": "sha256:b13e34305c2a7f0766dd4c58af5d02a2eb1d7cc9ead7a6bbbf7a22cf4620646b"
+    },
+    {
+      "runId": "RUN_5D_02",
+      "presetId": "PRESET_CLEAN_REF_01",
+      "presetClass": "CleanReference",
+      "sampleRate": 48000,
+      "verdict": "PASS",
+      "disposition": "Accepted",
+      "reportFile": "runs/RUN_5D_02_acceptance_report.json",
+      "reportHash": "sha256:92dd1de7f57b1b958cfd5a0034789414c02e11368543c1fadb40b44943912d36"
+    },
+    {
+      "runId": "RUN_5D_03",
+      "presetId": "PRESET_GENTLE_MOD_02",
+      "presetClass": "GentleModulation",
+      "sampleRate": 44100,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_03_acceptance_report.json",
+      "reportHash": "sha256:598712a295cca6eb9e88ba481b62d0265316fd3fbda10b59fb43018bc100b12a"
+    },
+    {
+      "runId": "RUN_5D_04",
+      "presetId": "PRESET_GENTLE_MOD_02",
+      "presetClass": "GentleModulation",
+      "sampleRate": 48000,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_04_acceptance_report.json",
+      "reportHash": "sha256:8ee17a18860a832b75f0c511c33dbaab80ad246c6d4558314813f02f04f4100c"
+    },
+    {
+      "runId": "RUN_5D_05",
+      "presetId": "PRESET_AGGR_NONLIN_03",
+      "presetClass": "AggressiveNonlinear",
+      "sampleRate": 44100,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_05_acceptance_report.json",
+      "reportHash": "sha256:1b160df6d9c9cb2c2031220be506e6824ebfe6466cdbeb4cdbdb6a5b7388041e"
+    },
+    {
+      "runId": "RUN_5D_06",
+      "presetId": "PRESET_AGGR_NONLIN_03",
+      "presetClass": "AggressiveNonlinear",
+      "sampleRate": 48000,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_06_acceptance_report.json",
+      "reportHash": "sha256:424bca3ab427c1d76aa6feacc652bfe292ed81dc04e2b88888526e51f63a7f0b"
+    },
+    {
+      "runId": "RUN_5D_07",
+      "presetId": "PRESET_LOW_LEVEL_04",
+      "presetClass": "LowLevelDynamic",
+      "sampleRate": 44100,
+      "verdict": "PASS",
+      "disposition": "Accepted",
+      "reportFile": "runs/RUN_5D_07_acceptance_report.json",
+      "reportHash": "sha256:5fe024f11f48073cafb1222e863dcf313a9c5c6456606be74aeadc0683a0ce5e"
+    },
+    {
+      "runId": "RUN_5D_08",
+      "presetId": "PRESET_LOW_LEVEL_04",
+      "presetClass": "LowLevelDynamic",
+      "sampleRate": 48000,
+      "verdict": "PASS",
+      "disposition": "Accepted",
+      "reportFile": "runs/RUN_5D_08_acceptance_report.json",
+      "reportHash": "sha256:e361a0998f944159b788612e2f6be796bcae81ee3c812ac21488dd6695c7ff5c"
+    },
+    {
+      "runId": "RUN_5D_09",
+      "presetId": "PRESET_HIGH_DENSITY_05",
+      "presetClass": "HighDensitySpectral",
+      "sampleRate": 44100,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_09_acceptance_report.json",
+      "reportHash": "sha256:715d9f907028868fa87826567e549fc37f2ccb3483f6b7d81adaa9e754a9c962"
+    },
+    {
+      "runId": "RUN_5D_10",
+      "presetId": "PRESET_HIGH_DENSITY_05",
+      "presetClass": "HighDensitySpectral",
+      "sampleRate": 48000,
+      "verdict": "WARN",
+      "disposition": "AcceptableWithExpectedDispersion",
+      "reportFile": "runs/RUN_5D_10_acceptance_report.json",
+      "reportHash": "sha256:3802774e937156a1bab25cd26a10fbda61ad23a48fe6dc327c2b4d8dc5a72bc4"
+    }
+  ],
+  "hardwareRequired": false,
+  "midiRequired": false,
+  "vesIncluded": false,
+  "exportReadiness": "Blocked"
+}

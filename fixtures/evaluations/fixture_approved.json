@@ -1,5 +1,5 @@
 {
-  "canonicalEvaluationHash": "b2d8bcb3cd1749a50989b7b9303b3fd40a381592226a34060d3d92c44a5a564a",
+  "canonicalEvaluationHash": "c365b0dd3f8fb9bee8530631607f6767d2c0e7e460dd8004280392430b45b119",
   "decision": {
     "rationale": "Model passed all out-of-sample fidelity and target criteria",
     "recommendedModelId": "LUT_SIMD_2D",
@@ -9,7 +9,7 @@
     "peakAutocorrelation": 0.0,
     "residualCharacterization": "UnstructuredResidual"
   },
-  "evaluationId": "eval_17906580971900209",
+  "evaluationId": "eval_17906844151061172",
   "evaluationOrigin": "MeasuredFixture",
   "limitations": [],
   "metrics": {

@@ -67,10 +67,10 @@ TEST_CASE("HITO-10E / E5 - 1. Fixture de Ausencia Controlada (Simulacion Hermeti
             copiedProfiles++;
     }
 
-    // 1. Verificación de cardinalidad estricta en la fixture de ausencia
-    CHECK(copiedSchemas == 2);
+    // 1. Verificación de cardinalidad estricta en la fixture de ausencia (32 perfiles + 3 schemas)
+    CHECK(copiedSchemas == 3);
     CHECK(copiedProfiles == 32);
-    CHECK(tempFixtureDir.findChildFiles(juce::File::findFiles, false, "*.json").size() == 34); // 32 perfiles + 2 schemas
+    CHECK(tempFixtureDir.findChildFiles(juce::File::findFiles, false, "*.json").size() == 35); // 32 perfiles + 3 schemas
 
     // 2. Cargar el registro desde la fixture aislada (sin los 3 JSON migrados)
     HardwareContractRegistry registry;

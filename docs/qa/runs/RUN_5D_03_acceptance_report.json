@@ -1,0 +1,55 @@
+{
+  "amplitude": {
+    "clippingA": false,
+    "clippingB": false,
+    "crestFactorA_db": 9.91933822631836,
+    "crestFactorB_db": 9.88451099395752,
+    "peakA_dbfs": -6.9806742668151855,
+    "peakB_dbfs": -6.98294734954834,
+    "rmsA_dbfs": -16.900012969970703,
+    "rmsB_dbfs": -16.86745834350586,
+    "rmsDeltaDb": 0.03255462646484375,
+    "unexpectedClipping": false
+  },
+  "blockSize": 256,
+  "buildIdentity": "Release x64 - MSVC 18.4.3 - Build #514",
+  "deterministicSeed": 6094850,
+  "diagnostics": [
+    "DIAG_WARN_PHASE_DISPERSION",
+    "DIAG_OK_CLASS_TOLERANCE"
+  ],
+  "intraEngineDeterminism": {
+    "identical": true,
+    "maxDifference": 0.0
+  },
+  "policyDocumentHash": "sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57",
+  "policyId": "audio-ab-5d-provisional-v1",
+  "presetClass": "GentleModulation",
+  "presetId": "PRESET_GENTLE_MOD_02",
+  "reportHash": "sha256:598712a295cca6eb9e88ba481b62d0265316fd3fbda10b59fb43018bc100b12a",
+  "runId": "RUN_5D_03",
+  "sampleRate": 44100.0,
+  "sourceFixture": "CanonicalPresetSynthesizer (ReferenceAnalytical vs CandidateDSP)",
+  "spectral": {
+    "meanSpectralDeltaDb": 0.15607808158758923,
+    "snrDeltaDb": "MetricNotApplicable",
+    "thdDeltaDb": "MetricNotApplicable"
+  },
+  "temporal": {
+    "alignmentLagSamples": 0,
+    "correlationAbsolute": 0.9974985122680664,
+    "correlationSigned": 0.9974985122680664,
+    "timeRmse": 0.010140017878785648,
+    "warmupAIsDigitalSilence": true,
+    "warmupBIsDigitalSilence": true
+  },
+  "verdict": {
+    "acceptanceDisposition": "AcceptableWithExpectedDispersion",
+    "reasonCode": "WARN_TOLERANCE_RANGE",
+    "triggeredFails": [],
+    "triggeredWarns": [
+      "EVALUATOR_WARN_DISPERSION"
+    ],
+    "verdictLevel": "WARN"
+  }
+}

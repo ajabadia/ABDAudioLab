@@ -84,14 +84,16 @@ TEST_CASE("HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion G
     REQUIRE(legacyProfileDocumentCount == migratedLegacyProfileCount + unmigratedLegacyProfileCount);
     REQUIRE(legacyFilesystemEntryCount == legacyProfileDocumentCount + legacySchemaDocumentCount);
 
-    CHECK(legacyFilesystemEntryCount == 34);
-    CHECK(legacySchemaDocumentCount == 2);
+    CHECK(legacyFilesystemEntryCount == 35);
+    CHECK(legacySchemaDocumentCount == 3);
     CHECK(legacyProfileDocumentCount == 32);
     CHECK(migratedLegacyProfileCount == 0);
     CHECK(unmigratedLegacyProfileCount == 32);
 
-    // 1. Schema legacy obligatorio
+    // 1. Schemas obligatorios
     CHECK(fileNames.count("hardware_profile.schema.json") == 1);
+    CHECK(fileNames.count("modulation_matrix.schema.json") == 1);
+    CHECK(fileNames.count("fx-effects.schema.json") == 1);
 
     // 2. Los 3 targets homologados retirados físicamente de contracts/hardware/ en E6
     CHECK(fileNames.count("behringer_pro800.json") == 0);

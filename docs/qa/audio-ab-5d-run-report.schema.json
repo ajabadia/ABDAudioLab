@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AudioABRunReport5D",
+  "type": "object",
+  "required": [
+    "runId",
+    "presetId",
+    "presetClass",
+    "sampleRate",
+    "blockSize",
+    "deterministicSeed",
+    "buildIdentity",
+    "policyId",
+    "policyDocumentHash",
+    "sourceFixture",
+    "intraEngineDeterminism",
+    "temporal",
+    "amplitude",
+    "spectral",
+    "diagnostics",
+    "verdict",
+    "reportHash"
+  ],
+  "properties": {
+    "runId": { "type": "string", "pattern": "^RUN_5D_[0-9]{2}$" },
+    "presetId": { "type": "string" },
+    "presetClass": {
+      "type": "string",
+      "enum": [
+        "CleanReference",
+        "GentleModulation",
+        "AggressiveNonlinear",
+        "LowLevelDynamic",
+        "HighDensitySpectral"
+      ]
+    },
+    "sampleRate": { "type": "number", "enum": [44100.0, 48000.0] },
+    "blockSize": { "type": "integer", "const": 256 },
+    "deterministicSeed": { "type": "integer" },
+    "buildIdentity": { "type": "string" },
+    "policyId": { "type": "string", "const": "audio-ab-5d-provisional-v1" },
+    "policyDocumentHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "sourceFixture": { "type": "string" },
+    "intraEngineDeterminism": {
+      "type": "object",
+      "required": ["identical", "maxDifference"],
+      "properties": {
+        "identical": { "type": "boolean", "const": true },
+        "maxDifference": { "type": "number", "const": 0.0 }
+      }
+    },
+    "temporal": {
+      "type": "object",
+      "required": [
+        "alignmentLagSamples",
+        "correlationSigned",
+        "correlationAbsolute",
+        "timeRmse",
+        "warmupAIsDigitalSilence",
+        "warmupBIsDigitalSilence"
+      ],
+      "properties": {
+        "alignmentLagSamples": { "type": "integer", "minimum": -128, "maximum": 128 },
+        "correlationSigned": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+        "correlationAbsolute": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "timeRmse": { "type": "number", "minimum": 0.0 },
+        "warmupAIsDigitalSilence": { "type": "boolean", "const": true },
+        "warmupBIsDigitalSilence": { "type": "boolean", "const": true }
+      }
+    },
+    "amplitude": {
+      "type": "object",
+      "required": [
+        "peakA_dbfs",
+        "peakB_dbfs",
+        "rmsA_dbfs",
+        "rmsB_dbfs",
+        "crestFactorA_db",
+        "crestFactorB_db",
+        "rmsDeltaDb",
+        "clippingA",
+        "clippingB",
+        "unexpectedClipping"
+      ],
+      "properties": {
+        "peakA_dbfs": { "type": "number" },
+        "peakB_dbfs": { "type": "number" },
+        "rmsA_dbfs": { "type": "number" },
+        "rmsB_dbfs": { "type": "number" },
+        "crestFactorA_db": { "type": "number" },
+        "crestFactorB_db": { "type": "number" },
+        "rmsDeltaDb": { "type": "number" },
+        "clippingA": { "type": "boolean", "const": false },
+        "clippingB": { "type": "boolean", "const": false },
+        "unexpectedClipping": { "type": "boolean", "const": false }
+      }
+    },
+    "spectral": {
+      "type": "object",
+      "required": ["meanSpectralDeltaDb"],
+      "properties": {
+        "meanSpectralDeltaDb": { "type": "number" },
+        "thdDeltaDb": { "type": ["number", "string", "null"] },
+        "snrDeltaDb": { "type": ["number", "string", "null"] }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "verdict": {
+      "type": "object",
+      "required": ["verdictLevel", "acceptanceDisposition", "reasonCode", "triggeredFails", "triggeredWarns"],
+      "properties": {
+        "verdictLevel": { "type": "string", "enum": ["PASS", "WARN", "FAIL"] },
+        "acceptanceDisposition": {
+          "type": "string",
+          "enum": ["Accepted", "AcceptableWithExpectedDispersion", "Rejected"]
+        },
+        "reasonCode": { "type": "string" },
+        "triggeredFails": { "type": "array", "items": { "type": "string" } },
+        "triggeredWarns": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "reportHash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

@@ -1034,6 +1034,12 @@ add_executable(ABDAudioLab_Tests
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicyWiring.cpp
     src/hardware/adapter/SharedMidiHardwareAdapter.cpp
     src/tests/test_SharedMidiHardwareIntegrationContract.cpp
+    src/tests/test_AudioABCanonicalPresetRuns5D.cpp
+    src/tests/test_AudioABMetricsAndDiagnostics5D.cpp
+    src/math/AudioABTolerancePolicy5D.cpp
+    src/tests/test_AudioABTolerancePolicy5D.cpp
+    src/tests/test_AudioABComparatorAndVerdict5D.cpp
+    src/tests/test_AudioABBaselineManifestValidation5D.cpp
 )
 
 # ------------------------------------------------------------------------------

@@ -1,0 +1,77 @@
+name: Audio A/B 5D Software QA CI
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/math/AudioAB**'
+      - 'src/synth/CanonicalPresetSynthesizer**'
+      - 'src/tests/test_AudioAB**'
+      - 'docs/qa/**'
+      - '.github/workflows/audio-ab-5d-ci.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/math/AudioAB**'
+      - 'src/synth/CanonicalPresetSynthesizer**'
+      - 'src/tests/test_AudioAB**'
+      - 'docs/qa/**'
+      - '.github/workflows/audio-ab-5d-ci.yml'
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  audio-ab-5d-acceptance:
+    name: Audio A/B 5D Matrix & Baseline Validation
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC Environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Test Executable (ABDAudioLab_Tests)
+        run: |
+          cmake --build build --config Release --target ABDAudioLab_Tests --parallel
+
+      - name: Gate 1 — Contract & Hermetic Fixtures Validation
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][comparator][verdict][fixture][hermetic]" -r console
+
+      - name: Gate 2 — Policy & Cases Boundaries Validation
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][policy]" -r console
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][diagnostics]" -r console
+
+      - name: Gate 3 — Canonical Matrix Execution & Artifact Generation
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][run5d01],[audioab_5d][run5d02],[audioab_5d][run5d03],[audioab_5d][run5d04],[audioab_5d][run5d05],[audioab_5d][run5d06],[audioab_5d][run5d07],[audioab_5d][run5d08],[audioab_5d][run5d09],[audioab_5d][run5d10]" -r console
+
+      - name: Gate 4 — Manifest, Schema & Cryptographic Artifacts Validation
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][manifest][baseline]" -r console
+
+      - name: Gate 5 — Full 5D Test Suite Non-Regression Gate
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d]" -r console
+
+      - name: Upload QA Acceptance Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audio-ab-5d-qa-acceptance-reports
+          path: |
+            docs/qa/runs/*.json
+            docs/qa/audio-ab-5d-baseline-manifest.json
+            docs/qa/audio-ab-5d-artifacts.sha256
+          if-no-files-found: error

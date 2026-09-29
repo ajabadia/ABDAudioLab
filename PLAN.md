@@ -142,6 +142,29 @@ All tests passed (35 assertions in 2 test cases)
 
 ---
 
+## 📌 HITO-AUDIO-AB-5D: Acceptance Matrix and Canonical Preset Validation (Cerrado y Certificado)
+
+**Axioma rector:** *«Una comparación A/B no certifica equivalencia porque dos renders "suenen parecidos"; debe declarar la excitación, congelar el contexto de render, medir diferencias reproducibles y emitir un veredicto trazable con tolerancias apropiadas al comportamiento esperado del preset.»*
+
+**Fronteras de Seguridad:**
+- Entorno: 100% en memoria sobre streams de audio software y artefactos de QA.
+- Hardware físico: ⛔ 0 bytes autorizados.
+- D2.7B y HITO-10V1: ⛔ BLOQUEADOS.
+- ExportReadiness: Blocked (permanente).
+
+### Tareas Atómicas
+- [x] **5D.1:** Contrato de corrida A/B y schema de resultado. *(COMPLETADO — Emitido `docs/qa/audio-ab-5d-acceptance-spec.md`).*
+- [x] **5D.2:** Catálogo de cinco presets acústicos canónicos. *(COMPLETADO — Emitido `docs/qa/audio-ab-5d-canonical-preset-matrix.md`).*
+- [x] **5D.3:** Protocolos de excitación determinista y reset. *(COMPLETADO — Emitido `docs/qa/audio-ab-5d-excitation-protocol.md`).*
+- [x] **5D.4:** Matriz inicial de 10 corridas software. *(COMPLETADO — 10/10 test cases PASS, determinismo intra-motor 10/10 bit-exact, cero clipping, métricas observadas extraídas en `test_AudioABCanonicalPresetRuns5D.cpp`).*
+- [x] **5D.5:** Métricas, alineación acotada y diagnósticos tipados. *(COMPLETADO — Implementado `AudioABMetrics5D.h`, estructuras de métricas, serializador JSON, diagnósticos tipados y 10 tests de casos límite en `test_AudioABMetricsAndDiagnostics5D.cpp` con 39/39 assertions PASS).*
+- [x] **5D.6:** Policy de tolerancias por clase de preset (calibración provisional). *(COMPLETADO — Formalizada especificación en docs/qa/audio-ab-5d-tolerance-policy.md, schema JSON docs/qa/audio-ab-5d-tolerance-policy.schema.json, implementación en AudioABTolerancePolicy5D.{h,cpp} y 12 tests en test_AudioABTolerancePolicy5D.cpp con 29 assertions PASS).*
+- [x] **5D.7:** Fixtures herméticas y pruebas unitarias de comparator/verdict. *(CERTIFICADO — 18/18 test cases PASS, 158/158 assertions PASS en `test_AudioABComparatorAndVerdict5D.cpp`; baseline global no-VES certificada: 893 test cases: 884 PASS, 9 SKIPPED, 0 FAIL; 269.896 assertions PASS).*
+- [x] **5D.8:** Ejecución de matriz QA, revisión de deltas y acta de aceptación. *(CERTIFICADO — 10/10 corridas canónicas evaluadas bajo policy provisional-v1; 4 PASS [Accepted], 6 WARN [AcceptableWithExpectedDispersion], 0 FAIL; 10 reportes JSON persistidos con hash en `docs/qa/runs/`; emitido `ACTA_HITO_AUDIO_AB_5D8_SOFTWARE_ACCEPTANCE.md`).*
+- [x] **5D.9:** CI dedicado, baseline y certificación. *(CERTIFICADO — Configurado `.github/workflows/audio-ab-5d-ci.yml`, `docs/qa/audio-ab-5d-baseline-manifest.json`, `docs/qa/audio-ab-5d-artifacts.sha256`, suite de integridad `test_AudioABBaselineManifestValidation5D.cpp` y emitido `ACTA_HITO_AUDIO_AB_5D.md`).*
+
+---
+
 ## 📌 Documento Rector de Roadmap Persistente
 Para la especificación completa, reglas normativas, delimitación de responsabilidades y contratos de fail-closed y emulación, consultar el documento permanente:
 👉 [`docs/ROADMAP_HARDWARE_AND_EMULATION.md`](docs/ROADMAP_HARDWARE_AND_EMULATION.md)

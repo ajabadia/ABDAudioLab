@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AudioABTolerancePolicy5D",
+  "type": "object",
+  "required": [
+    "policyId",
+    "version",
+    "calibrationStatus",
+    "sourceBuild",
+    "effectiveFrom",
+    "hardLimits",
+    "classTolerances"
+  ],
+  "properties": {
+    "policyId": { "type": "string" },
+    "version": { "type": "string" },
+    "calibrationStatus": { "type": "string", "enum": ["ProvisionalEvidenceBased", "CalibratedCandidate", "CertifiedFinal"] },
+    "sourceBuild": { "type": "string" },
+    "effectiveFrom": { "type": "string" },
+    "reviewRequiredBefore": { "type": "string" },
+    "hardLimits": {
+      "type": "object",
+      "required": [
+        "maxAbsoluteLagSamples",
+        "failOnUnexpectedClipping",
+        "failOnEventOrderViolation",
+        "failOnNondeterministicRender",
+        "failOnEnvelopeCollapse",
+        "requireWarmupDigitalSilence"
+      ],
+      "properties": {
+        "maxAbsoluteLagSamples": { "type": "integer" },
+        "failOnUnexpectedClipping": { "type": "boolean" },
+        "failOnEventOrderViolation": { "type": "boolean" },
+        "failOnNondeterministicRender": { "type": "boolean" },
+        "failOnEnvelopeCollapse": { "type": "boolean" },
+        "requireWarmupDigitalSilence": { "type": "boolean" }
+      }
+    },
+    "classTolerances": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "passMinimumCorrelation",
+          "warnMinimumCorrelation",
+          "passMaximumMeanSpectralDeltaDb",
+          "warnMaximumMeanSpectralDeltaDb",
+          "passMaximumRmsDeltaDb",
+          "warnMaximumRmsDeltaDb",
+          "passMaximumAbsoluteLagSamples",
+          "warnMaximumAbsoluteLagSamples"
+        ],
+        "properties": {
+          "passMinimumCorrelation": { "type": "number" },
+          "warnMinimumCorrelation": { "type": "number" },
+          "passMaximumMeanSpectralDeltaDb": { "type": "number" },
+          "warnMaximumMeanSpectralDeltaDb": { "type": "number" },
+          "passMaximumRmsDeltaDb": { "type": "number" },
+          "warnMaximumRmsDeltaDb": { "type": "number" },
+          "passMaximumAbsoluteLagSamples": { "type": "integer" },
+          "warnMaximumAbsoluteLagSamples": { "type": "integer" },
+          "passMaximumThdDeltaDb": { "type": ["number", "null"] },
+          "warnMaximumThdDeltaDb": { "type": ["number", "null"] },
+          "passMaximumSnrDeltaDb": { "type": ["number", "null"] },
+          "warnMaximumSnrDeltaDb": { "type": ["number", "null"] }
+        }
+      }
+    }
+  }
+}
