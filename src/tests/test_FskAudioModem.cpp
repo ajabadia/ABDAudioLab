@@ -109,9 +109,9 @@ TEST_CASE("Hardware Detection - Pre-Warming Asynchronous Execution", "[hwid][pre
     MidiIdentityDetector detector;
     CHECK(detector.isPreWarmed() == false);
 
-    bool callbackInvoked = false;
-    detector.preWarmAsync([&callbackInvoked](const std::vector<DiscoveredDevice>&) {
-        callbackInvoked = true;
+    auto callbackInvoked = std::make_shared<std::atomic<bool>>(false);
+    detector.preWarmAsync([callbackInvoked](const std::vector<DiscoveredDevice>&) {
+        callbackInvoked->store(true, std::memory_order_release);
     });
 
     // Allow background thread to start and run scan
