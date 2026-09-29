@@ -1,6 +1,6 @@
 HITO-AUDIO-AB-5D Completado y Certificado por Antigravity.
 
-Tareas 5D.1 a 5D.9 cerradas:
+Tareas 5D.1 a 5D.9 y POST-5D.1 cerradas:
 - Contratos, presets canónicos y protocolos (5D.1-5D.3)
 - 10 corridas software herméticas reproducibles (5D.4)
 - Métricas, alineación acotada y diagnósticos tipados (5D.5)
@@ -8,6 +8,7 @@ Tareas 5D.1 a 5D.9 cerradas:
 - Fixtures herméticas y pruebas unitarias de comparator/verdict (5D.7)
 - Matriz QA 44.1k/48k y aceptación software (5D.8)
 - CI dedicado .github/workflows/audio-ab-5d-ci.yml, manifest, artifacts y acta de cierre (5D.9)
+- Saneamiento documental, enlaces relativos y adición de Gate 6 no-VES en CI (POST-5D.1)
 
 Comprobación local:
   build.bat tests
@@ -16,6 +17,6 @@ Comprobación local:
 
 Estado general:
   Hardware físico: 0 bytes.
-  VES: Excluido.
+  VES: Excluido de la baseline QA no-VES (~[ves]).
   D2.7B / HITO-10V1: Bloqueados.
   ExportReadiness: Blocked.

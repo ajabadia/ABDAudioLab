@@ -21,7 +21,7 @@ Esta acta certifica la **primera ejecución formal de Aseguramiento de Calidad (
 > **No constituye metrología física ni autoriza profiling de hardware real:**
 > - Transmisión MIDI físico: ⛔ **0 bytes autorizados**.
 > - Hardware externo / DeepMind 12D: ⛔ **No utilizado / 0 conexiones**.
-> - Vintage Emulator Studio (VES): ⛔ **Excluido permanentemente**.
+> - Vintage Emulator Studio (VES): ⛔ **Excluido explícitamente de la baseline QA no-VES mediante `~[ves]`**. HITO-10V1 permanece bloqueado mientras no se demuestre arranque headless verificable, salida audible reproducible y control semántico del target emulado.
 > - Hitos D2.7B y HITO-10V1: ⛔ **Bloqueados preventivamente**.
 > - ExportReadiness: `Blocked` (permanente e inviolable).
 
@@ -136,7 +136,7 @@ Se adopta la **Conclusión A**:
 
 ---
 
-## 7. Estado del Roadmap ([PLAN.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/PLAN.md))
+## 7. Estado del Roadmap ([PLAN.md](../../PLAN.md))
 
 ```text
 5D.1–5D.7:
@@ -148,8 +148,11 @@ Se adopta la **Conclusión A**:
 5D.9:
   Lista para apertura (CI dedicado, baseline fija y certificación final de 5D).
 
-D2.7B / HITO-10V1:
-  Bloqueados permanentemente.
+D2.7B:
+  Bloqueado (requiere nuevo contrato metrológico, audio y repetibilidad).
+
+HITO-10V1:
+  Bloqueado (requiere investigación VES: boot headless, audio audible y control semántico).
 
 MIDI físico:
   0 bytes emitidos en toda la sesión.

@@ -65,6 +65,10 @@ jobs:
         run: |
           .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d]" -r console
 
+      - name: Gate 6 — Global Non-VES Suite Baseline Verification
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console
+
       - name: Upload QA Acceptance Artifacts
         uses: actions/upload-artifact@v4
         if: always()

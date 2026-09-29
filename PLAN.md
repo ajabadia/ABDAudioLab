@@ -162,6 +162,7 @@ All tests passed (35 assertions in 2 test cases)
 - [x] **5D.7:** Fixtures herméticas y pruebas unitarias de comparator/verdict. *(CERTIFICADO — 18/18 test cases PASS, 158/158 assertions PASS en `test_AudioABComparatorAndVerdict5D.cpp`; baseline global no-VES certificada: 893 test cases: 884 PASS, 9 SKIPPED, 0 FAIL; 269.896 assertions PASS).*
 - [x] **5D.8:** Ejecución de matriz QA, revisión de deltas y acta de aceptación. *(CERTIFICADO — 10/10 corridas canónicas evaluadas bajo policy provisional-v1; 4 PASS [Accepted], 6 WARN [AcceptableWithExpectedDispersion], 0 FAIL; 10 reportes JSON persistidos con hash en `docs/qa/runs/`; emitido `ACTA_HITO_AUDIO_AB_5D8_SOFTWARE_ACCEPTANCE.md`).*
 - [x] **5D.9:** CI dedicado, baseline y certificación. *(CERTIFICADO — Configurado `.github/workflows/audio-ab-5d-ci.yml`, `docs/qa/audio-ab-5d-baseline-manifest.json`, `docs/qa/audio-ab-5d-artifacts.sha256`, suite de integridad `test_AudioABBaselineManifestValidation5D.cpp` y emitido `ACTA_HITO_AUDIO_AB_5D.md`).*
+- [x] **POST-5D.1:** Publicación, CI remoto y saneamiento documental. *(COMPLETADO — Sustitución de enlaces file:/// por enlaces relativos en actas, ajuste de formulación de exclusión VES no permanente, gate 6 no-VES en CI).*
 
 ---
 

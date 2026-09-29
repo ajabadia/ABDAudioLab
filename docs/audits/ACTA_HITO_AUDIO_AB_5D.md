@@ -39,7 +39,8 @@ Se declara formalmente completado y sellado el hito **HITO-AUDIO-AB-5D** tras la
 >
 > 1. **Hardware Físico:** ⛔ **0 bytes transmitidos** en toda la fase.
 > 2. **Sintetizador DeepMind 12D:** Desconectado y no utilizado; suites de banco físico omitidas limpiamente (`SKIP_PHYSICAL_BENCH_NOT_AVAILABLE`).
-> 3. **Vintage Emulator Studio (VES):** ⛔ Excluido permanentemente de la baseline mediante filtro de aislamiento `~[ves]`.
+> 3. **Vintage Emulator Studio (VES):** ⛔ Excluido explícitamente de la baseline QA no-VES de HITO-AUDIO-AB-5D mediante `~[ves]`.
+>    **Estado:** HITO-10V1 permanece bloqueado mientras no se demuestre arranque headless verificable, salida audible reproducible y control semántico del target emulado.
 > 4. **Hitos Bloqueados:** **D2.7B** (Banco Físico Metrológico) y **HITO-10V1** (Formalización VES) permanecen **bloqueados preventivamente**.
 > 5. **ExportReadiness:** `Blocked` permanente (ningún resultado software se exporta como calibración física).
 
@@ -68,25 +69,27 @@ Veredictos Resultantes:
 ## 4. Congelación de Artefactos de Integridad y CI
 
 1. **Manifest Canónico de Baseline:**  
-   Persistido en [`docs/qa/audio-ab-5d-baseline-manifest.json`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/qa/audio-ab-5d-baseline-manifest.json).
+   Persistido en [`docs/qa/audio-ab-5d-baseline-manifest.json`](../qa/audio-ab-5d-baseline-manifest.json).
 2. **Schema Formal de Validación:**  
-   Persistido en [`docs/qa/audio-ab-5d-run-report.schema.json`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/qa/audio-ab-5d-run-report.schema.json).
+   Persistido en [`docs/qa/audio-ab-5d-run-report.schema.json`](../qa/audio-ab-5d-run-report.schema.json).
 3. **Checksums Criptográficos:**  
-   Persistido en [`docs/qa/audio-ab-5d-artifacts.sha256`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/qa/audio-ab-5d-artifacts.sha256).
+   Persistido en [`docs/qa/audio-ab-5d-artifacts.sha256`](../qa/audio-ab-5d-artifacts.sha256).
 4. **Validación Automatizada C++:**  
-   Suite dedicada en [`src/tests/test_AudioABBaselineManifestValidation5D.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_AudioABBaselineManifestValidation5D.cpp) que verifica la integridad SHA-256 de los 10 reportes de corrida, la ausencia de rutas absolutas locales y la conformidad estricta con los veredictos congelados.
+   Suite dedicada en [`src/tests/test_AudioABBaselineManifestValidation5D.cpp`](../../src/tests/test_AudioABBaselineManifestValidation5D.cpp) que verifica la integridad SHA-256 de los 10 reportes de corrida, la ausencia de rutas absolutas locales y la conformidad estricta con los veredictos congelados.
 5. **Workflow de GitHub Actions:**  
-   Configurado en [`.github/workflows/audio-ab-5d-ci.yml`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/.github/workflows/audio-ab-5d-ci.yml) con 5 gates automáticos y publicación de artefactos QA.
+   Configurado en [`.github/workflows/audio-ab-5d-ci.yml`](../../.github/workflows/audio-ab-5d-ci.yml) con validación de matriz, manifest, hashes, baseline no-VES y publicación de artefactos QA.
 
 ---
 
-## 5. Estado Global del Roadmap ([PLAN.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/PLAN.md))
+## 5. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
 
 ```text
 HITO-AUDIO-AB-5D:
   🟢 COMPLETADO Y SELLADO (5D.1 a 5D.9 certificadas).
 
 Próximos Pasos en Roadmap:
-  - D2.7B / HITO-10V1: Bloqueados hasta autorización expresa del operador.
-  - ExportReadiness: Blocked (permanente).
+  - POST-5D.1: Publicación, CI remoto y saneamiento documental.
+  - D2.7B: Bloqueado (requiere nuevo contrato metrológico, audio y repetibilidad).
+  - HITO-10V1: Bloqueado (requiere investigación VES: boot headless, audio audible y control semántico).
+  - ExportReadiness: Blocked (inviolable).
 ```
