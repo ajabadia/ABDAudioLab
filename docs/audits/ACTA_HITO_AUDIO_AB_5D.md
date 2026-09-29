@@ -83,36 +83,65 @@ Veredictos Resultantes:
 
 ## 5. Certificación de CI Remoto — POST-5D.2 / POST-5D.3 / POST-5D.4
 
-**Fecha de cierre CI:** 2026-09-29 18:49 CEST (tag) / corrección 19:16 CEST
+**Fecha tag local:** 2026-09-29 18:49 CEST  
+**Fecha fix Gate 2:** 2026-09-29 19:16 CEST  
+**Estado CI remota:** ⏳ **PENDIENTE** — Run #6 en curso
 
 | Elemento | Valor |
 |---|---|
-| **Commit trigger CI** | `52eb1f5` — `ci(qa): trigger Audio A/B 5D CI validation run (POST-5D.3)` |
-| **Fix Gate 2** | `50900f6` — `ci(qa): fix Gate 2 -- add --allow-running-no-tests (POST-5D.4)` |
+| **Tag cierre local** | `hito-audio-ab-5d-certified` → `23a5d20` |
+| **Fix Gate 2 (POST-5D.4)** | `50900f6` — `ci(qa): fix Gate 2 -- add --allow-running-no-tests` |
+| **Acta incidente** | `b4c3f6e` — `docs(acta): record Gate 2 CI incident` |
 | **SHA ABDSharedCode pinnado** | `a0cdaf1` — `feat(hwid): integrate strict endpoint safety (HITO-SHARED-SYNC)` |
 | **Workflow** | `.github/workflows/audio-ab-5d-ci.yml` — 6 gates configurados |
-| **Tag de certificación** | `hito-audio-ab-5d-certified` → publicado en `origin/main` |
 | **Repositorio** | `https://github.com/ajabadia/ABDAudioLab` |
 
-### Incidencia POST-5D.4 — Gate 2 (clasificada y corregida)
+> [!IMPORTANT]
+> **Desfase tag / CI:** El tag `hito-audio-ab-5d-certified` apunta a `23a5d20`, anterior al fix `50900f6`.  
+> Si Run #6 termina verde, la evidencia CI corresponde al commit `50900f6`, no al commit etiquetado.  
+> Se creará un tag adicional `hito-audio-ab-5d-certified-ci` apuntando al commit exactamente validado por CI.  
+> El tag original **no se mueve** — documenta el cierre local, no el cierre CI.
+
+---
+
+### Historial de runs de CI
+
+| Run | SHA | Resultado | Causa |
+|---|---|---|---|
+| #1 | `d588fca` | ❌ failure | Generator MSVC no detectado |
+| #2 | `dfc2c67` | ❌ failure | WebView2 no instalado |
+| #3 | `8f63869` | ❌ failure | NuGet URL inválida |
+| #4 | `004bc1b` | ❌ failure | Checkout multi-repo fallido |
+| #5 | `657052a` | ❌ failure | Gate 2: `[diagnostics]` → 0 tests → exit code 1 |
+| **#6** | **`50900f6`** | **⏳ in_progress** | Fix aplicado: `--allow-running-no-tests` |
+
+---
+
+### Semántica de Gate 2 — Nota de trazabilidad
 
 > [!NOTE]
-> **Causa raíz:** La invocación `[audioab_5d][diagnostics]` en Gate 2 no coincide con ningún test.
-> Catch2 devuelve exit code 1 cuando no hay tests que coincidan, lo que mata el step en CI.
-> **Fix:** `--allow-running-no-tests` añadido a ambas invocaciones de Gate 2.
-> **No es una regresión de tests** — Gate 1 pasó verde, los tests de policy pasaron los 22 assertions.
+> **POST-5D.4 — Gate 2 con 0 tests en `[audioab_5d][diagnostics]`:**  
+> El filtro `[audioab_5d][diagnostics]` no selecciona ningún test case en la suite actual.  
+> El flag `--allow-running-no-tests` autoriza explícitamente esa ejecución vacía, devolviendo exit code 0.  
+>
+> **Gate 2 verde con 0 tests ≠ diagnósticos ejecutados y aprobados.**  
+> La cobertura de policy (22 assertions en 12 test cases) proviene exclusivamente  
+> del filtro `[audioab_5d][policy]`. El filtro `[diagnostics]` es una reserva de espacio  
+> que no aporta evidencia de cobertura independiente en este hito.
 
-**Estado de la corrección:** `50900f6` empujado. Nuevo run en GitHub Actions disparado (path `.github/workflows/` incluido en trigger).
+---
 
-**Garantías obtenidas:**
+### Condición de cierre remoto
+
+Para declarar **"cerrado y sellado local y remotamente"**:
 
 ```text
-Local:   ABDAudioLab + ABDSharedCode — 886 PASS / 9 SKIP / 0 FAIL ✅
-Remoto:  Checkout multi-repo ✅ | Build MSVC x64 ✅ | Gate 1 ✅
-         Gate 2 fix en curso (POST-5D.4)
+Run #6:     status=completed / conclusion=success
+Gates 1-6:  todos success o skipped-por-diseño (nunca failure)
+Gate 2:     success con ejecución autorizada vacía (documentado arriba)
+Tag CI:     hito-audio-ab-5d-certified-ci → SHA validado por Run #6
+ACTA:       actualizada con SHA, run_id y fecha de Run #6 exitoso
 ```
-
-
 
 ---
 
@@ -120,12 +149,15 @@ Remoto:  Checkout multi-repo ✅ | Build MSVC x64 ✅ | Gate 1 ✅
 
 ```text
 HITO-AUDIO-AB-5D:
-  🟢 COMPLETADO Y SELLADO (5D.1 a 5D.9 certificadas).
-  🏷️  Tag: hito-audio-ab-5d-certified (GitHub, 2026-09-29)
-  ✅  CI Remoto: POST-5D.1 / POST-5D.2 / POST-5D.3 certificados.
+  🟢 CERRADO LOCALMENTE (5D.1 a 5D.9 + 886 PASS / 0 FAIL).
+  🏷️  Tag local: hito-audio-ab-5d-certified → 23a5d20
+  ⏳  CI Remota: Run #6 en curso sobre 50900f6 (POST-5D.4).
+  🔒  Tag CI:    pendiente resultado Run #6.
 
-Próximos Pasos en Roadmap:
-  - D2.7B: Bloqueado (requiere nuevo contrato metrológico, audio y repetibilidad).
-  - HITO-10V1: Bloqueado (requiere investigación VES: boot headless, audio audible y control semántico).
-  - ExportReadiness: Blocked (inviolable).
+Bloqueados (inviolables):
+  - D2.7B: Banco físico metrológico.
+  - HITO-10V1 / VES: Boot headless no demostrado.
+  - MIDI físico: 0 bytes autorizados.
+  - ExportReadiness: Blocked permanente.
 ```
+
