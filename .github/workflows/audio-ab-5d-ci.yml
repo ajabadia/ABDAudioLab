@@ -36,6 +36,12 @@ jobs:
         with:
           arch: x64
 
+      - name: Install WebView2 SDK for JUCE
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -OutFile nuget.exe
+          .\nuget.exe install Microsoft.Web.WebView2 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+
       - name: Configure CMake
         run: |
           cmake -B build -A x64
