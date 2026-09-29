@@ -235,6 +235,8 @@ target_sources(ABDAudioLab
         src/hardware/transport/HardwareDispatchScheduler.cpp
         src/hardware/transport/JuceMidiTransport.h
         src/hardware/transport/JuceMidiTransport.cpp
+        src/hardware/adapter/SharedMidiHardwareAdapter.h
+        src/hardware/adapter/SharedMidiHardwareAdapter.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
@@ -1024,6 +1026,14 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_TargetProfileLegacyControlledAbsence.cpp
     src/tests/test_TargetProfileLegacyConsumerParity.cpp
     src/tests/test_TargetProfileLegacyHotplugParity.cpp
+    src/tests/test_TargetProfilePhysicalPreflightBench.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_JuceMidiHardwareBackendStrictOpen.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_HardwareMidiDetectorIdentityState.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/MidiEndpointSafetyPolicy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicyWiring.cpp
+    src/hardware/adapter/SharedMidiHardwareAdapter.cpp
+    src/tests/test_SharedMidiHardwareIntegrationContract.cpp
 )
 
 # ------------------------------------------------------------------------------

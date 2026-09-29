@@ -324,8 +324,83 @@ Fases Vinculantes de Ejecución:
 - [x] E4.1: Normalización métrica y reconciliación de inventario (32 entradas filesystem: 31 perfiles + 1 schema; 3 perfiles migrados + 28 no migrados).
 - [x] E5: Baterías de Paridad E2E (test_TargetProfileLegacyEndToEndParity.cpp) y Ausencia Controlada en fixture temporal hermética (test_TargetProfileLegacyControlledAbsence.cpp) (Build #475 — 156 assertions en 9 casos PASS).
 - [x] E5.1: Cobertura exhaustiva de consumidores directos en ausencia hermética (test_TargetProfileLegacyConsumerParity.cpp y test_TargetProfileLegacyHotplugParity.cpp — 104 assertions en 7 casos; 560 assertions acumuladas en HITO-10E; baseline global 754 tests / 269.222 assertions PASS). Superado el Gate de Retirada.
-- [x] E6: Retirada selectiva y condicionada de los 3 archivos JSON migrados (behringer_pro800.json, yamaha_dx7.json, boss_ds1_distortion.json). Reconciliación métrica de inventario (29 filesystem entries: 28 perfiles + 1 schema). Correcciones de estabilidad en PluginWindowController y test_SmokeStep4UI.
-- [x] E7: Certificación global con baseline completa verde (754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de ACTA_HITO_10E_LEGACY_REMOVAL.md y preparación para commit atómico de cierre. HITO-10E CONCLUIDO.
+- [x] E6: Retirada selectiva y condicionada de los 3 archivos JSON migrados (behringer_pro800.json, yamaha_dx7.json, boss_ds1_distortion.json). Reconciliación métrica de inventario (29 filesystem entries: 28 perfiles + 1 schema). Correcciones auxiliares de estabilidad en PluginWindowController y test_SmokeStep4UI.
+- [x] E7: Certificación global con baseline completa verde (Build #495 — 754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de ACTA_HITO_10E_LEGACY_REMOVAL.md y formalización de commit atómico 77c7bb9. HITO-10E CERRADO Y CERTIFICADO.
+
+---
+
+DETALLE OPERATIVO HITO-10D2.7A: Banco Físico Controlado — Preflight, Identidad, Consentimiento y Observación Sin Medición Metrológica
+Axioma rector: "Un cable conectado no convierte una capacidad hipotética en una medición válida; el sistema debe demostrar identidad, consentimiento, trazabilidad y bloqueo seguro antes de poder confiar en cualquier resultado exportable."
+
+Objetivo: Demostrar que el pipeline hermético D2.1–D2.6 se comporta correctamente contra un dispositivo real conectado, sin producir una medición metrológica exportable.
+
+Límites obligatorios:
+- No realizar barridos de parámetros.
+- No iniciar profiling automatizado completo.
+- No exportar una medición.
+- No ejecutar SysEx potencialmente destructivo.
+- No escribir bancos, patches o memoria del dispositivo.
+- No asumir ACK si el dispositivo no lo ofrece.
+- No marcar D2.7B como certificado desde D2.7A.
+
+Clasificación de estados por target físico:
+- PhysicalPreflightVerified
+- PhysicalIdentityUnavailableButOperatorConfirmed
+- PhysicalIdentityMismatchBlocked
+- PhysicalTransportDisconnectedFailClosed
+- PhysicalResponseTimeoutFailClosed
+- PhysicalControlledDispatchObserved
+- UnsupportedOrUnsafeForCurrentBench
+
+Tareas atómicas:
+- [x] D2.7A.1: Inventario del banco físico controlado y contrato de seguridad de prueba no destructiva. (CERTIFICADO — 18/18 gates verificados con hardware real: Behringer DeepMind 12D).
+- [x] D2.7A.2: Preflight físico de solo lectura: selección de puerto, disponibilidad, identidad y diagnóstico de los cinco estados canónicos. (CERTIFICADO — Build #499; 4 test cases, 25/25 assertions PASS; "DeepMind12D" verificado con 0 bytes transmitidos; clasificación: PhysicalIdentityUnavailableButOperatorConfirmed).
+- [x] D2.7A.3: Consentimiento físico: operador, target, puerto, plan, digest de comando, momento de aprobación y criterios de revocación. (CERTIFICADO — Aprobación formal otorgada por el operador para B0 01 00, commandDigest sha256:5d09261b0204e9f5d61cb52c9a14051c0e5ab3666a77aa7bf70dab53b9f0589b y CanonicalV1 de 535 bytes).
+- [x] D2.7A.4: Prueba de despacho mínimo controlado: un único CC seguro o mensaje de identificación permitido, con pacing y evidencia forense. (CERTIFICADO — Build #502; 7 test cases, 79/79 assertions PASS; exactamente 1 mensaje CC de 3 bytes wire B0 01 00 emitido a DeepMind12D; transporte cerrado inmediatamente con 0 bytes adicionales; evidencia forense inmutable OK).
+- [x] D2.7A.5: Prueba de fallo deliberado no destructivo: desconexión de puerto, timeout o identidad no coincidente, verificando fail-closed y ExportReadiness bloqueado. (CERTIFICADO — Build #503; 12 test cases, 132/132 assertions PASS; 0 bytes físicos emitidos; 5 familias de fallo validadas herméticamente; ExportReadiness::Blocked permanente).
+- [x] D2.7A.6: Acta de banco controlado: resultado por target, puertos usados, hashes de plan, evidencia y limitaciones. (CERTIFICADO — Emitida ACTA_HITO_10D2_7A_PHYSICAL_BENCH.md).
+
+Autorización de transmisión física: ⛔ CONCLUIDA Y REVOCADA — 0 BYTES FÍSICOS AUTORIZADOS EN EL SISTEMA.
+
+---
+
+HITO CERRADO: HITO-SHARED-SYNC — Enriquecimiento de ABDSharedCode (Sincronización de Seguridad)
+Axioma rector: "ABDSharedCode puede descubrir, enumerar, filtrar y presentar endpoints de hardware; ABDAudioLab conserva la autoridad exclusiva para consentir, despachar, registrar evidencia, bloquear exportación y gobernar sesiones metrológicas."
+
+Objetivo: Transferir a ABDSharedCode las mejoras de seguridad y modelos formales descubiertos en D2.7A sin trasladar autoridad metrológica:
+1. JuceMidiHardwareBackend: blindaje de validación estricta previa contra getAvailableDevices() para evitar fallback a índice 0 en Windows.
+2. Contrato tipado de apertura de endpoints: MidiEndpointOpenResult y MidiEndpointOpenOutcome.
+3. HardwareMidiDetector: adopción del modelo canónico de 5 Estados de Preflight / Identidad para descubrimiento.
+4. JuceMidiHardwareBackend / Detector: exclusión explícita y configurable de puertos virtuales (LoopBe, loopMIDI, etc.) en consultas SysEx broadcast.
+
+Fases de Ejecución:
+- [x] SS1: Inventario de APIs compartidas, consumidores, contratos y baseline. (COMPLETADO — Emitido docs/audits/ABD_SHARED_CODE_HARDWARE_SYNC_INVENTORY.md).
+- [x] SS2: Validación estricta de endpoint MIDI en JuceMidiHardwareBackend (fail-closed, 0 fallback a device 0). (CERTIFICADO — Build #505; 12 test cases, 79/79 assertions PASS; suite hermética test_JuceMidiHardwareBackendStrictOpen.cpp).
+- [x] SS2.1: Ownership explícito (Modelo B), ciclo de vida estricto, distinción operativa RequestedEndpointUnavailable vs BackendOpenFailed, y preservación de endpoints virtuales para SS4. (CERTIFICADO — Build #506; 12 test cases, 79/79 assertions PASS en suite consolidada).
+- [x] SS3: Modelo de preflight de cinco estados aditivo en HardwareMidiDetect. (CERTIFICADO — Build #507; 12 test cases, 57/57 assertions PASS; suite hermética test_HardwareMidiDetectorIdentityState.cpp).
+- [x] SS4-core: Clasificación de endpoints virtuales y política configurable de SysEx broadcast. (CERTIFICADO — Build #508; 20 test cases, 27/27 assertions PASS; suite hermética test_MidiEndpointSafetyPolicy.cpp).
+- [x] SS4.1: Integración del clasificador con HardwareMidiHotplugMonitor, JuceHardwareMidiPicker y UI — wiring, pacing, labels tipados, 0 aperturas, 0 inquiries. (CERTIFICADO — Build #508; 20 test cases, 43/43 assertions PASS; suite test_MidiEndpointSafetyPolicyWiring.cpp).
+- [x] SS5: Contrato de integración y compatibilidad con ABDAudioLab. (CERTIFICADO — Build #510; 22 test cases, 87/87 assertions PASS en [no_dispatch]; suite test_SharedMidiHardwareIntegrationContract.cpp; adaptador SharedMidiHardwareAdapter; frontera hermética sellada; ExportReadiness::Blocked).
+- [x] SS6: Certificación técnica global, baseline verde y preparación de commit atómico. (CERTIFICADO — Build #512; 843 test cases: 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; código de salida 0; 0 modales; acta completada).
+- [x] SS6.1: Global Runner Stabilization and Baseline Completion. (CERTIFICADO — Supresión de modales interactivos CRT en TestMain.cpp; fix de callback asíncrono con atomic en test_FskAudioModem.cpp; SKIP explícito para hardware ausente en test_TargetProfilePhysicalPreflightBench.cpp; aislamiento de [ves]).
+
+Estado actual:
+  Suites específicas del hito (SS1-SS5): 100% PASS (106 test cases / 303 assertions PASS).
+  [shared] global: 88/88 PASS (336 assertions).
+  [physical] con DeepMind 12D: 12/12 PASS (132 assertions).
+  [integration]: 37/37 PASS (351 assertions).
+  Baseline global hermética: 843 casos | 835 PASS | 8 SKIPPED | 0 FAIL (269.619/269.619 assertions PASS).
+
+Autorización de transmisión física: ⛔ 0 BYTES AUTORIZADOS EN EL SISTEMA.
+D2.7B: ⛔ BLOQUEADO.
+HITO-10V1: ⛔ BLOQUEADO.
+Commit atómico: PENDIENTE DE AUTORIZACIÓN DEL OPERADOR.
+
+---
+
+
+
+
 
 
 

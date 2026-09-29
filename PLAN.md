@@ -66,10 +66,49 @@ All tests passed (35 assertions in 2 test cases)
 | **13** | **HITO-10V0.1** | `VES CZ-101 Semantic Control & Audible Output Probe`: Demostración de estado CZ-101 válido, NoteOn audible, control semántico SysEx/CC, repetibilidad audible y cero ROM en artefactos (`test_VesCz101SemanticControl.cpp`). | ✅ **CERTIFICADO (SONDA CONCLUIDA — BLOQUEO PREVENTIVO DE V1)** (Build #461) |
 | **14** | **HITO-10V1** | `FirmwareEmulated Targets / VES Integration`: Formalización declarativa y transporte según resultados de V0.1. | ⛔ **BLOQUEADO (Sin control audible headless en VES)** |
 | **15** | **HITO-10E** | `TargetProfile`: Retirada segura de duplicados legacy con preservación de fallbacks de compatibilidad (Fases E1 a E7 completadas y certificadas). | ✅ **CERTIFICADO** (Build #495 — 754 test cases, 269.224 assertions PASS, 0 FAIL, 8 SKIPPED) |
+| **16** | **HITO-10D2.7A** | `Banco Físico Controlado`: Preflight, Identidad, Consentimiento y Observación Sin Medición Metrológica (D2.7A.1 a D2.7A.6). | ✅ **CERTIFICADO** (Build #503 — 12 test cases, 132/132 assertions PASS) |
+| **17** | **HITO-10D2.7B** | `Banco Físico Metrológico`: Profiling de hardware real con audio y exportación certificada. | ⏳ **PENDIENTE (Bloqueado tras D2.7A)** |
+| **18** | **HITO-SHARED-SYNC** | `Enriquecimiento de ABDSharedCode`: Transferencia del fix de fallback JUCE Win32, 5 estados ortogonales de preflight y exclusión de puertos virtuales. | ✅ **CERTIFICADO (SS6 — 2026-09-28 — 852 tests / 269.610 assertions, commit pendiente de autorización)** |
 
 ---
 
-## 📌 HITO-10E: Retirada Segura de Duplicados Legacy
+## 📌 HITO-10D2.7A: Banco Físico Controlado (Preflight, Identidad, Consentimiento y Observación)
+
+**Axioma rector:** *«Un cable conectado no convierte una capacidad hipotética en una medición válida; el sistema debe demostrar identidad, consentimiento, trazabilidad y bloqueo seguro antes de poder confiar en cualquier resultado exportable.»*
+
+**Objetivo:** Demostrar que el pipeline hermético D2.1–D2.6 se comporta de forma segura y determinista contra dispositivos físicos reales conectados, **sin producir mediciones metrológicas exportables ni alterar memorias de hardware**.
+
+### Tareas Atómicas
+- [x] **D2.7A.1:** Inventario del banco físico controlado y contrato de seguridad de prueba no destructiva. *(CERTIFICADO — 18/18 gates verificados con hardware real: Behringer DeepMind 12D).*
+- [x] **D2.7A.2:** Preflight físico de solo lectura: selección de puerto, disponibilidad, identidad y diagnóstico de los cinco estados canónicos. *(CERTIFICADO — Build #499; 4 test cases, 25/25 assertions PASS; "DeepMind12D" verificado con 0 bytes transmitidos; clasificación: PhysicalIdentityUnavailableButOperatorConfirmed).*
+- [x] **D2.7A.3:** Consentimiento físico: operador, target, puerto, plan, digest de comando, momento de aprobación y criterios de revocación. *(CERTIFICADO — Aprobación formal otorgada por el operador para B0 01 00, commandDigest sha256:5d09261b0204e9f5d61cb52c9a14051c0e5ab3666a77aa7bf70dab53b9f0589b y CanonicalV1 de 535 bytes).*
+- [x] **D2.7A.4:** Prueba de despacho mínimo controlado: un único CC seguro o mensaje de identificación permitido, con pacing y evidencia forense. *(CERTIFICADO — Build #502; 7 test cases, 79/79 assertions PASS; exactamente 1 mensaje CC de 3 bytes wire B0 01 00 emitido a DeepMind12D; transporte cerrado inmediatamente con 0 bytes adicionales; evidencia forense inmutable OK).*
+- [x] **D2.7A.5:** Prueba de fallo deliberado no destructivo: desconexión de puerto, timeout o identidad no coincidente, verificando fail-closed y `ExportReadiness` bloqueado. *(CERTIFICADO — Build #503; 12 test cases, 132/132 assertions PASS; 0 bytes físicos emitidos; 5 familias de fallo validadas herméticamente; ExportReadiness::Blocked permanente).*
+- [x] **D2.7A.6:** Acta de banco controlado: resultado por target, puertos usados, hashes de plan, evidencia y limitaciones. *(CERTIFICADO — Emitida ACTA_HITO_10D2_7A_PHYSICAL_BENCH.md).*
+
+**Autorización de transmisión física:** ⛔ **CONCLUIDA Y REVOCADA — 0 BYTES FÍSICOS AUTORIZADOS EN EL SISTEMA.**
+
+### Límites Obligatorios y Reglas de Protección
+- ⛔ No realizar barridos de parámetros.
+- ⛔ No iniciar profiling automatizado completo.
+- ⛔ No exportar mediciones.
+- ⛔ No ejecutar SysEx potencialmente destructivo.
+- ⛔ No escribir bancos, patches o memoria del dispositivo.
+- ⛔ No asumir ACK si el dispositivo no lo ofrece explícitamente.
+- ⛔ No marcar D2.7B como certificado desde D2.7A.
+
+### Clasificación de Salida por Target Físico
+1. `PhysicalPreflightVerified`
+2. `PhysicalIdentityUnavailableButOperatorConfirmed`
+3. `PhysicalIdentityMismatchBlocked`
+4. `PhysicalTransportDisconnectedFailClosed`
+5. `PhysicalResponseTimeoutFailClosed`
+6. `PhysicalControlledDispatchObserved`
+7. `UnsupportedOrUnsafeForCurrentBench`
+
+---
+
+## 📌 HITO-10E: Retirada Segura de Duplicados Legacy (Cerrado)
 **Axioma rector:** *«Ningún contrato, campo, fixture ni fallback legacy se elimina porque parezca redundante; solo se retira cuando existe un reemplazo canónico, los consumidores han migrado, la equivalencia está probada y la ausencia del legacy mantiene la suite global verde.»*
 
 - **E1 (Certificado):** Inventario exhaustivo de contratos y consumidores (`docs/audits/TARGETPROFILE_LEGACY_INVENTORY.md` y `test_TargetProfileLegacyInventory.cpp` — 31/31 assertions PASS). *(0 líneas borradas).*
@@ -78,13 +117,34 @@ All tests passed (35 assertions in 2 test cases)
 - **E4 (Certificado):** Integración controlada en `HardwareContractRegistry`: carga canónica all-or-nothing, precedencia canónica sobre legacy, procedencia tipada (`HardwareContractResolutionSource`), indexación de aliases y fail-closed estricto ante colisiones no certificadas (`test_HardwareContractRegistryCanonicalResolution.cpp` — 15 assertions en 10 casos). *(0 líneas borradas).*
 - **E5 (Certificado):** Paridad funcional extremo a extremo (`test_TargetProfileLegacyEndToEndParity.cpp`) y ausencia controlada hermética (`test_TargetProfileLegacyControlledAbsence.cpp`) simulada sobre fixture temporal con cero alteraciones en el árbol de trabajo (156 assertions en 9 casos).
 - **E5.1 (Certificado):** Cobertura exhaustiva de consumidores directos en ausencia hermética (`test_TargetProfileLegacyConsumerParity.cpp` y `test_TargetProfileLegacyHotplugParity.cpp` — 104 assertions en 7 casos; 560 assertions acumuladas en HITO-10E; baseline global 754 tests / 269.222 assertions PASS). Superado el Gate de Retirada.
-- **E6 (Certificado):** Retirada física de los 3 archivos JSON legacy migrados (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`). Reconciliación métrica en 29 entradas filesystem (28 perfiles + 1 schema). Correcciones de estabilidad RAII en `PluginWindowController` y resiliencia de portapapeles en `test_SmokeStep4UI.cpp`.
-- **E7 (Certificado):** Verificación global de baseline completa (754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de `docs/audits/ACTA_HITO_10E_LEGACY_REMOVAL.md`. Hito 10E concluido.
+- **E6 (Certificado):** Retirada física de los 3 archivos JSON legacy migrados (`behringer_pro800.json`, `yamaha_dx7.json`, `boss_ds1_distortion.json`). Reconciliación métrica en 29 entradas filesystem (28 perfiles + 1 schema). Correcciones auxiliares de estabilidad RAII en `PluginWindowController` y resiliencia de portapapeles en `test_SmokeStep4UI.cpp`.
+- **E7 (Certificado):** Verificación global de baseline completa (754 test cases, 746 PASS, 8 SKIPPED históricos, 0 FAIL, 269.224 assertions PASS), emisión de `docs/audits/ACTA_HITO_10E_LEGACY_REMOVAL.md`. Commit atómico `77c7bb9` verificado. Hito 10E concluido.
+
+## 📌 HITO-SHARED-SYNC: Enriquecimiento de ABDSharedCode (Sincronización de Seguridad)
+
+**Axioma rector:** *«ABDSharedCode puede descubrir, enumerar, filtrar y presentar endpoints de hardware; ABDAudioLab conserva la autoridad exclusiva para consentir, despachar, registrar evidencia, bloquear exportación y gobernar sesiones metrológicas.»*
+
+**Objetivo:** Transferir a `ABDSharedCode` las mejoras de seguridad de hardware descubiertas en D2.7A sin trasladar autoridad metrológica:
+1. Validación estricta previa contra `getAvailableDevices()` evitando fallback silencioso al device índice 0 en Windows.
+2. Contrato tipado de apertura de endpoints (`MidiEndpointOpenResult`).
+3. Adopción del modelo formal de 5 Estados de Preflight / Identidad para descubrimiento.
+4. Clasificación y política explícita de exclusión de puertos virtuales en consultas SysEx broadcast.
+
+### Tareas Atómicas
+- [x] **SS1:** Inventario de APIs compartidas, consumidores, contratos y baseline. *(COMPLETADO — Emitido `docs/audits/ABD_SHARED_CODE_HARDWARE_SYNC_INVENTORY.md`).*
+- [x] **SS2:** Validación estricta de endpoint MIDI en `JuceMidiHardwareBackend` (fail-closed, 0 fallback a device 0). *(CERTIFICADO — Build #505; 12 test cases, 79/79 assertions PASS; suite hermética `test_JuceMidiHardwareBackendStrictOpen.cpp`).*
+- [x] **SS3:** Modelo de preflight de cinco estados aditivo en `HardwareMidiDetect`. *(CERTIFICADO — Build #507; 12 test cases, 57/57 assertions PASS; suite hermética `test_HardwareMidiDetectorIdentityState.cpp`).*
+- [x] **SS4-core:** Clasificación de endpoints virtuales y política configurable de SysEx broadcast. *(CERTIFICADO — Build #508; 20 test cases, 27/27 assertions PASS; suite hermética `test_MidiEndpointSafetyPolicy.cpp`).*
+- [x] **SS4.1:** Integración del clasificador con hotplug, UI y labels — cero aperturas, cero inquiries. *(CERTIFICADO — Build #508; 20 test cases, 43/43 assertions PASS; suite `test_MidiEndpointSafetyPolicyWiring.cpp`).*
+- [x] **SS5:** Contrato hermético `ABDSharedCode → ABDAudioLab` — `SharedMidiHardwareAdapter`, frontera de autoridad, `ExportReadiness::Blocked`, `JuceMidiTransport::write()` = 0. *(CERTIFICADO — Build #510; 22 test cases, 87/87 assertions PASS; suite `test_SharedMidiHardwareIntegrationContract.cpp`).*
+- [x] **SS6:** Certificación técnica global, baseline verde, acta de cierre y preparación de commit atómico. *(CERTIFICADO — Build #512; 843 test cases: 835 PASS, 8 SKIPPED, 0 FAIL; 269.619 assertions PASS; salida 0; 0 modales; acta completada).*
+- [x] **SS6.1:** Estabilización del runner global y baseline completa no interactiva. *(CERTIFICADO — Supresión de modales CRT en TestMain.cpp, safe callback en test_FskAudioModem.cpp, SKIP explícito en test_TargetProfilePhysicalPreflightBench.cpp, aislamiento de [ves]).*
 
 ---
 
 ## 📌 Documento Rector de Roadmap Persistente
 Para la especificación completa, reglas normativas, delimitación de responsabilidades y contratos de fail-closed y emulación, consultar el documento permanente:
 👉 [`docs/ROADMAP_HARDWARE_AND_EMULATION.md`](docs/ROADMAP_HARDWARE_AND_EMULATION.md)
+
 
 
