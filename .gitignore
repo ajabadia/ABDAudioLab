@@ -24,9 +24,18 @@ Thumbs.db
 .aider*
 
 # Shared assets junctions (linked from ../ABDSharedAssets)
+# NOTE: contracts/ is deliberately NOT ignored — it is a tracked in-repo snapshot
+# required by the hardware contract registry and by the test suite.
 assets/brands/
 assets/models/
-contracts/
 artifacts/
 __pycache__/
 *.png
+
+# MSVC compiler response files and temporaries. MSVC can drop a *.rsp in the
+# source root when a build is interrupted, and those files embed absolute
+# include paths of the machine that compiled them: they are build garbage and
+# must never be committed.
+/*.rsp
+/tmp_*.rsp
+/tmp_*.obj
