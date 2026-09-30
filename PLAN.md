@@ -166,6 +166,76 @@ All tests passed (35 assertions in 2 test cases)
 
 ---
 
+### Microhito POST-5D.5 — Incidente de Reproducibilidad CI: Hermetización de Rutas y Baseline No-VES
+
+> **Naturaleza del microhito:** Incidente de reproducibilidad técnica de CI aislado e independiente del alcance funcional de Audio A/B 5D. No amplía el hito ni altera sus resultados ni evidencia local.  
+> **Diagnóstico del incidente:** El fallo de Gate 6 en CI (Run #6) confirmó que la baseline local no era hermética debido a la deuda técnica de rutas absolutas personales (`D:/desarrollos/ABDSynths/...`) codificadas en tests preexistentes, fixtures y código de soporte. Gates 1–5 certifican de forma inmutable el contenido específico de Audio A/B 5D; Gate 6 impedía certificar la reproducibilidad global no-VES.  
+> **Objetivo:** Eliminar dependencias fijas `D:/desarrollos/ABDSynths/...` de tests, fixtures y soporte que participan en la baseline `~[ves]`, logrando que la suite completa se ejecute limpiamente desde un clon en una ruta arbitraria de Windows.  
+> **Límites inviolables y fuera de alcance:**  
+> - ⛔ Prohibido cambiar tolerancias de Audio A/B 5D.  
+> - ⛔ Prohibido alterar reportes JSON, manifest o hashes canónicos de 5D.  
+> - ⛔ Prohibido marcar Gate 6 como opcional o tolerar fallos (`--allow-running-no-tests`, `|| true`, `continue-on-error`).  
+> - ⛔ Prohibido ejecutar MIDI físico (0 bytes autorizados).  
+> - ⛔ Prohibido desbloquear D2.7B, VES o ExportReadiness.
+
+#### Matriz de Tareas y Criterios de Aceptación (POST-5D.5)
+
+| Tarea | Denominación | Entregable | Criterio de Aceptación |
+|:---:|---|---|---|
+| **POST-5D.5.1** | Inventario de referencias absolutas | `docs/audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md` | ✅ **CERTIFICADO:** 26 referencias activas identificadas, clasificadas y con decisión inequívoca de migración. Cero diffs en `docs/qa/`. |
+| **POST-5D.5.2** | Resolver único de rutas de repositorio | `src/core/LabResourcePaths.{h,cpp}` + `src/tests/test_LabResourcePaths.cpp` | ✅ **COMPLETO CON DESVÍO:** el módulo canónico ya existía y **no** se creó `TestPathResolver.h` (se descartó por duplicar la jerarquía). Añadidas `optionalRepoResource()` y `sharedAssetsDir()` para poder usarlo en producción sin lanzar. |
+| **POST-5D.5.3** | Migración de tests `TargetProfile*` | Suites `test_TargetProfile*.cpp` y presets migrados | ✅ **COMPLETO:** `TransportSafety` (R01–R06), `TransportPolicy` (R07), `DexedHosting` (R14, R15), `DexedBehavior` (R16) y `SynthTargetLifecycleAdapter` (R17) resuelven vía `core::repoResource()`. Cero paths absolutos personales en `src/`. |
+| **POST-5D.5.4** | Migración de assets y contratos compartidos | Suites `test_MidiDeviceHotplugMonitor`, `test_MidiIdentityDetector`, `test_OfficialLutGeneration` | ✅ **COMPLETO:** `contracts/hardware/` versionado en el repo (40 contratos + schemas). `test_ContractsSnapshotDrift` hace SKIP limpio sin `ABDSharedAssets`. |
+| **POST-5D.5.5** | Separación build/runtime para VST3 y assets | `test_SynthTargetLifecycleAdapter.cpp` y fallbacks de GUI/session | ✅ **COMPLETO:** `ReferenceSynth.vst3` pasa a rutas sintéticas (el test solo valida normalización, nunca toca disco). Producción migrada a `optionalRepoResource`/`sharedAssetsDir`. Los VST3 de terceros y el worker **no son migrables**: quedan en allowlist con motivo. |
+| **POST-5D.5.6** | Limpieza y validación de workflow CI | `.github/workflows/audio-ab-5d-ci.yml` | ✅ **COMPLETO:** workflow limitado a checkout, dependencias, build y Gates 1–6. 0 supresores. |
+| **POST-5D.5.7** | Guardrail permanente contra rutas absolutas | `src/tests/test_ResourcePathHygiene.cpp` | ✅ **COMPLETO (6 casos):** dos barridos independientes — `getCurrentWorkingDirectory` y literales `D:/desarrollos` / `C:/Users/` — sobre `src/tests` y `src/` producción, con invariantes anti-vacuidad. *(El nombre de fichero previsto `test_HardcodedPathGuardrail.cpp` nunca existió; el barrido por CWD sin el de absolutos fue un diseño intermedio REFUTADO, ver §10.3 del inventario.)* |
+| **POST-5D.5.8** | Prueba de hermeticidad local en condiciones hostiles | Evidencia de ejecución local | `ABDAudioLab_Tests.exe "~[ves]"` ejecutado desde cwd arbitrario, build limpio, sin variables de entorno locales personales. 100% PASS sin regresión en Gates 1–5 (`[audioab_5d]`). |
+| **POST-5D.5.9** | Regresión CI (Run #7) y evidencia de cierre | GitHub Actions Run #7 exitoso + `ACTA_HITO_AUDIO_AB_5D.md` actualizado | Run #7 verde en Gates 1–6; publicación de artefactos QA; tag `hito-audio-ab-5d-certified-ci` creado sobre el commit certificado; acta sellada local y remotamente. |
+
+#### Diseño Técnico del Resolver (`TestPathResolver`)
+
+> ⚠️ **SUPERADO — no implementado tal cual.** El módulo canónico real es
+> `src/core/LabResourcePaths.{h,cpp}` (`abdaudiolab::core::repoResource`). `TestPathResolver.h`
+> se escribió y se **eliminó** por duplicar esa jerarquía. Contraste completo en
+> `docs/audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md` §10.
+
+**Jerarquía de resolución:**
+1. **Variable de entorno explícita de test:** `ABDAUDIOLAB_REPO_ROOT`.
+2. **Ruta calculada desde el ejecutable de tests:**  
+   `juce::File::getSpecialLocation(juce::File::currentExecutableFile)`  
+   → Subir directorios según estructura de build (`../../`, `../../../`)  
+   → Validar la presencia de marcadores propios del repositorio:
+     - `profiles/targets/`
+     - `fixtures/`
+     - `CMakeLists.txt`
+     - `docs/`
+     *(No se acepta una carpeta únicamente por llamarse `ABDAudioLab`; debe comprobarse la presencia real de sus recursos).*
+3. **Ruta de trabajo actual:** `juce::File::getCurrentWorkingDirectory()` solo como fallback de desarrollo auxiliar si los anteriores no aplican y contiene los marcadores.
+4. **Error determinista:** Lanzar excepción explicativa o emitir aserción fallida descriptiva detallando qué marcador faltó y qué rutas candidatas fueron exploradas (cero fallbacks silenciosos a `D:/`).
+
+**Signatura canónica del Helper:**
+```cpp
+namespace test_support
+{
+    juce::File resolveRepoRootForTests();
+    juce::File resolveRepoResource(const juce::String& relativePath);
+    juce::File resolveSharedAssetsRootForTests();
+}
+```
+
+**Política para dependencias y assets externos:**
+- Para `ABDSharedCode`: se mantiene checkout pinneado como hermano de repositorio (`path: ABDSharedCode`, ref pinneada en CI).
+- Para contratos de hardware (`ABDSharedAssets/contracts`): ABDAudioLab dispone de su propio snapshot versionado en `contracts/hardware/`. Los tests deben consumir este contrato versionado localmente o resolver a través de `resolveSharedAssetsRootForTests()` con fallback documentado a la copia interna del repositorio. Cero creación de carpetas vacías artificiales.
+
+#### Condiciones Estrictas para Lanzamiento de Run #7
+- [ ] Cero rutas personales codificadas en el alcance de Gate 6 y codebase de tests.
+- [ ] Recursos de ABDAudioLab resueltos desde raíz verificable mediante marcadores.
+- [ ] Recursos externos pinneados, inyectados o versionados.
+- [ ] Sin modificaciones en hashes, IDs, tolerancias ni reportes 5D.
+- [ ] Workflow sin hacks de directorios ficticios.
+- [ ] Baseline `~[ves]` 100% verde en local ejecutada desde cwd arbitrario.
+- [ ] Gates 1–5 siguen 100% verdes.
+
 ## 📌 Documento Rector de Roadmap Persistente
 Para la especificación completa, reglas normativas, delimitación de responsabilidades y contratos de fail-closed y emulación, consultar el documento permanente:
 👉 [`docs/ROADMAP_HARDWARE_AND_EMULATION.md`](docs/ROADMAP_HARDWARE_AND_EMULATION.md)

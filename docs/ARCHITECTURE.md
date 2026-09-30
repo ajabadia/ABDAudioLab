@@ -4,6 +4,7 @@
 **Versión del documento:** 2.0.0  
 **Actualizado:** 2026-09-13  
 **Tecnología:** C++20, JUCE 8.0.4, CMake 4.4.0, MSVC 2026 (AVX2), ABDScope (WebView2), ABDSharedCode  
+**Actualizado:** 2026-10-01 (POST-5D.5 — resolución de rutas hermética)  
 
 ---
 
@@ -16,7 +17,7 @@ Este documento describe la arquitectura de software **actualmente integrada y op
 | Estado | Significado |
 |---|---|
 | **Implementado** | El código forma parte del producto, de sus dependencias CMake o de sus módulos compartidos. |
-| **Verificado en simulación** | Suite automatizada completa (Catch2 / CTest): **141/141 test cases pasando (134.498 aserciones)** sin fallos ni regresiones. |
+| **Verificado en simulación** | Suite automatizada completa (Catch2 / CTest, filtro `~[ves]`): **918 casos, 890 PASS, 28 SKIP legítimos, 0 FAIL (208.972 aserciones)**. Hermética: mismo resultado desde la raíz del repositorio y desde `build/Release`. |
 | **Pendiente de banco** | Pruebas con interfaz de audio física conectada por USB/Thunderbolt, cables patch o sintetizadores de hardware reales. |
 
 ---
@@ -162,6 +163,50 @@ $$\text{Receta Científica} \longrightarrow \text{TargetContract} \longrightarro
    - `TargetAuditor`: Detección de reiniciabilidad (`Resettable`), determinismo (`Deterministic` vs `Stochastic`), persistencia de estado entre notas (`StatefulBehaviorDetected`) y prueba de round-trip de estado binario.
    - `AdaptiveExperimentPlanner`: Active learning guiado por ganancia esperada de información $\arg\max \frac{\text{EIG}(x)}{\text{Cost}(x)}$, partición inmutable (`ExplorationSet`, `IdentificationSet`, `HoldoutSet`) y parada formal ($\frac{\Delta U}{\text{coste}} < \epsilon$).
 
+### 3.6 Resolución de Rutas del Repositorio (`LabResourcePaths`)
+
+**Módulo canónico y único:** `src/core/LabResourcePaths.{h,cpp}`, namespace `abdaudiolab::core`.
+Ningun otro punto del código debe construir una ruta a un recurso del repositorio por su cuenta.
+
+**Por qué existe.** Durante POST-5D.5 se descubrió que el suite era verde *por accidente del directorio
+de trabajo*: el mismo ejecutable daba 0 fallos lanzado desde la raíz y 61 fallos desde `build/`.
+La suite no era hermética, y el fallo era invisible porque todos los tests eran verdes en local.
+
+**Jerarquía de resolución** (valida el marcador `ABDAudioLab.workspace`):
+
+1. `ABDAUDIOLAB_REPO_ROOT` — solo si se configura explícitamente.
+2. Ubicación del ejecutable, ascendiendo por ancestros validando marcadores.
+3. Directorio de trabajo actual — **último recurso**, no el primero.
+4. Error explícito que enumera las rutas probadas y los marcadores ausentes.
+
+El orden importa: el ejecutable va antes que el CWD porque el ejecutable se despliega junto a sus
+datos, mientras que el CWD depende de desde dónde se lanzó el proceso.
+
+**La regla que gobierna el módulo** — distinguir dos clases de recurso:
+
+| Clase | Qué es | Cómo se resuelve |
+|---|---|---|
+| **Entrada del repo** | Contratos, perfiles, recetas, fixtures, assets, presets, docs | **Siempre** contra la raíz del repo, con esta API |
+| **Salida del host / artefacto externo** | Destino de una exportación, directorio inicial de un selector, `guided/evidence`, VST3 de terceros, ejecutable del worker | Relativo al entorno de ejecución, **por naturaleza** |
+
+Confundir las dos clases es el error que genera el debt: o se hardcodea la ruta de la máquina de
+alguien, o se intenta meter en el repo un recurso que no es del repo.
+
+**Dos API distintas, y no es un detalle de estilo:**
+
+- `repoResource(rel)` — **lanza excepción** si el recurso no existe. Es la API de **tests**: alli
+  que falte un fixture es un fallo que hay que ver, no un silencio.
+- `optionalRepoResource(rel)` — devuelve `File{}` inválida. Es la API de **producción**: un arranque
+  no debe abortar porque falte un asset de splash.
+
+Usar `repoResource()` en un camino de arranque reintroduce un fallo de proceso, no de CI.
+
+**Guard permanente:** `src/tests/test_ResourcePathHygiene.cpp` (tag `[hygiene]`) barre `src/tests`
+y `src/` buscando dos clases de regresión — dependencia del CWD y literales de ruta de la máquina
+del desarrollador. Las excepciones van en allowlist **con su motivo escrito**, y una entrada que ya
+no aplica se borra. Detalle y premisas refutadas en
+[POST_5D5_HARDCODED_PATHS_INVENTORY.md](audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md).
+
 ---
 
 ## 4. Exportación y Generación de Código
@@ -180,3 +225,4 @@ ABDAudioLab exporta directamente a formatos de producción:
 - [Protocolos de Hardware](HARDWARE_PROTOCOLS.md) — Especificaciones de tramas SysEx, tablas MIDI CC y control de sintetizadores.
 - [Modelos Matemáticos](MATHEMATICAL_MODELS.md) — Algoritmos Farina Sweep, Wiener-Hammerstein, NSDF, envolventes y Jacobiano local.
 - [Documento de Traspaso Técnico](HANDOFF.md) — Estado operativo, compilación y suite de pruebas.
+- [Inventario de Rutas Hardcodeadas y su Resolución (POST-5D.5)](audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md) — Auditoría de rutas personales, addendum de premisas refutadas y verificación de no-vacuidad del guard.

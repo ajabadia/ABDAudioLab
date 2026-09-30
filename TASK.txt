@@ -1,23 +1,73 @@
-HITO-AUDIO-AB-5D Completado y Certificado por Antigravity.
+MICROHITO POST-5D.5 — Incidente de Reproducibilidad CI: Hermetización de Rutas y Baseline No-VES
 
-Tareas 5D.1 a 5D.9 y POST-5D.1 cerradas:
-- Contratos, presets canónicos y protocolos (5D.1-5D.3)
-- 10 corridas software herméticas reproducibles (5D.4)
-- Métricas, alineación acotada y diagnósticos tipados (5D.5)
-- Política de tolerancias audio-ab-5d-provisional-v1 (5D.6)
-- Fixtures herméticas y pruebas unitarias de comparator/verdict (5D.7)
-- Matriz QA 44.1k/48k y aceptación software (5D.8)
-- CI dedicado .github/workflows/audio-ab-5d-ci.yml, manifest, artifacts y acta de cierre (5D.9)
-- Saneamiento documental, enlaces relativos y adición de Gate 6 no-VES en CI (POST-5D.1)
-- Checkout reproducible multi-repo en CI con ref inmutable ABDSharedCode@a0cdaf1 (POST-5D.2)
+OBJETIVO TÉCNICO:
+Resolver de forma hermética y determinista todas las referencias a rutas absolutas personales (D:/desarrollos/ABDSynths/..., C:/Users/...) en tests, fixtures, producción y soporte que participan en la baseline ~[ves], garantizando ejecución reproducible en cualquier clon limpio de Windows.
 
-Comprobación local:
-  build.bat tests
-  ABDAudioLab_Tests.exe "[audioab_5d]" -r console
-  ABDAudioLab_Tests.exe "~[ves]" -r console
+ALCANCE Y LÍMITES INVIOLABLES:
+- Incidente de CI aislado: NO altera resultados, tolerancias, métricas, reports, manifest ni hashes de Audio A/B 5D.
+- Cero hacks en CI: Prohibido marcar Gate 6 como opcional, usar --allow-running-no-tests en Gate 6, || true, o continue-on-error.
+- Cero desbloqueos de D2.7B, VES, ExportReadiness o MIDI físico (0 bytes autorizados).
 
-Estado general:
-  Hardware físico: 0 bytes.
-  VES: Excluido de la baseline QA no-VES (~[ves]).
-  D2.7B / HITO-10V1: Bloqueados.
-  ExportReadiness: Blocked.
+NOTA DE ESTADO (2026-09-30) — LECTURA OBLIGATORIA:
+El diseño original de este microhito apuntaba a un helper nuevo en src/tests/TestPathResolver.h.
+ESA PREMISA ESTÁ REFUTADA. TestPathResolver.h se escribió, se descartó y se eliminó: duplicaba la
+jerarquía de resolución que ya existe en el módulo canónico src/core/LabResourcePaths.{h,cpp}, y
+mantener dos resolutores es exactamente la clase de deuda que este microhito vino a cerrar.
+El módulo canónico y ÚNICO es LabResourcePaths. No reintroducir TestPathResolver.
+
+MÓDULO CANÓNICO: src/core/LabResourcePaths.{h,cpp}   (namespace abdaudiolab::core)
+- requireRepoRoot()          raíz validada por marcador ABDAudioLab.workspace. Lanza si no la halla.
+- repoResource(rel)          recurso del repo. Lanza si no existe. Para TESTS.
+- optionalRepoResource(rel)  como repoResource pero devuelve File{} inválida en vez de lanzar.
+                            Para PRODUCCIÓN: un arranque no debe abortar por un asset ausente.
+- contractsHardwareDir() / canonicalTargetsDir() / fixturesEvaluationsDir() / assetsDir() / ...
+- sharedAssetsDir()          repo hermano ABDSharedAssets, no versionado aquí. No lanza.
+Jerarquía: ABDAUDIOLAB_REPO_ROOT -> ejecutable (ascenso validando marcadores) -> CWD -> error explícito.
+
+ESTADO DE FASES:
+1. [POST-5D.5.1] Inventario de referencias absolutas:
+   ✅ CERTIFICADO — Emitido docs/audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md (26 referencias
+   clasificadas, 20 en scope de Gate 6, 0 diffs en docs/qa/). Ver el Addendum de Resolución
+   (§10) de ese documento: varias decisiones de migración fueron refutadas al ejecutarlas.
+2. [POST-5D.5.2] Resolver único de rutas de repositorio:
+   ✅ COMPLETO CON DESVÍO DOCUMENTADO — No se creó TestPathResolver.h. El resolver ya existía:
+   src/core/LabResourcePaths.{h,cpp}, con test unitario src/tests/test_LabResourcePaths.cpp.
+   Se le añadieron optionalRepoResource() y sharedAssetsDir() para poder usarlo en producción.
+3. [POST-5D.5.3] Migración de tests TargetProfile* y presets:
+   ✅ COMPLETO — test_TargetProfileTransportSafety (R01–R06), TransportPolicy (R07),
+   DexedHosting (R14, R15), DexedBehavior (R16) y SynthTargetLifecycleAdapter (R17) resuelven
+   contra la raíz del repo. Cero literales de ruta personal en src/.
+4. [POST-5D.5.4] Migración de assets y contratos compartidos:
+   ✅ COMPLETO — contracts/hardware/ queda versionado dentro del repo (40 contratos + schemas,
+   staged). test_MidiIdentityDetector y test_MidiDeviceHotplugMonitor resuelven el catalogo local.
+   test_ContractsSnapshotDrift SKIP limpio cuando ABDSharedAssets no esta.
+5. [POST-5D.5.5] Separación build/runtime para VST3 y assets:
+   ✅ COMPLETO — migrados a producción: RecipeCatalogModel, SoundIdSplashScreen, MainContentComponent,
+   AssetLocator, HardwareDeviceDisplayCardComponent, ProfilingSessionController, SessionIoController,
+   LabDataDirectories. Permanecen en allowlist, con motivo, solo los que apuntan a binarios
+   EXTERNOS: OutOfProcessVst3LifecycleAdapter, SynthTargetLifecycleAdapters.
+6. [POST-5D.5.6] Limpieza de workflow CI:
+   ✅ COMPLETO — .github/workflows/audio-ab-5d-ci.yml con 6 gates, 0 supresores, 0 hacks.
+7. [POST-5D.5.7] Guardrail permanente C++:
+   ✅ COMPLETO — src/tests/test_ResourcePathHygiene.cpp, 6 casos [hygiene]. Dos barridos
+   independientes: (a) dependencia de getCurrentWorkingDirectory y (b) rutas absolutas de la
+   maquina del desarrollador. El barrido (b) es el que faltaba: la causa real del Run #6 roto
+   eran literales absolutos que NO mencionan el CWD y escapaban del barrido (a) por completo.
+8. [POST-5D.5.8] Validación local en condiciones hostiles:
+   ✅ COMPLETO — ~[ves] verde desde la raíz del repo y desde build/Release: 907 casos,
+   898 passed, 9 skipped, 270270 aserciones, exit 0. 9 skips legítimos (GUI/COM, hardware
+   DeepMind 12D ausente, bench físico), ninguno por ruta.
+9. [POST-5D.5.9] Regresión CI Run #7 y evidencia de cierre:
+   ⏳ PENDIENTE — requiere push. No depende de trabajo local: el código ya es hermético.
+
+ABIERTO (no bloquea el cierre de 5D.5):
+- 1 de 7 corridas completas murió en silencio (exit 3) tras el render offline de Dexed T2.4, con
+  bit_exact: NO. Las corridas limpias dan YES. No reproduce en aislamiento (6/6) ni aislando
+  [dexed] (4/4). Sin atribuir a un test concreto.
+- contracts/hardware/roland_aira_patch_spec.schema.json reaparece en cada corrida completa (2/2)
+  y no en aislamiento. Descartados: proceso externo, generador en src/, copia desde
+  ABDSharedAssets. Sin atribuir a ningún test concreto.
+
+TAREA INMEDIATA:
+Cerrar la regresión CI Run #7 (POST-5D.5.9) desde un entorno limpio, y pegar los dos hallazgos
+abiertos de arriba antes de certificar el acta.

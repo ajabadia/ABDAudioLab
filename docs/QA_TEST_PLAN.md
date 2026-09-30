@@ -1,8 +1,9 @@
 # Plan de Calidad y Pruebas (QA Test Plan) — ABDAudioLab
 
 **Proyecto:** ABDAudioLab  
-**Versión:** 1.0.0  
+**Versión:** 1.1.0  
 **Fecha:** 2026-09-01  
+**Actualizado:** 2026-10-01 (alta de QA-13 a QA-16, gates de hermeticidad)  
 
 ---
 
@@ -28,6 +29,25 @@ El plan de calidad tiene como objetivo asegurar la precisión acústica, la esta
 | **QA-10** | Zero-Allocation DSP | Ejecución de escaneo continuo de audio. | Cero llamadas a `malloc`/`new` dentro de `processBlock` y protección `ScopedNoDenormals`. | **PASADO** ✓ |
 | **QA-11** | Validador de Ruteo | Conectar cables ilegales en matriz AIRA (`RF-25`, `RF-26`). | Bloqueo previo por `RoutingValidator` e informe de error sin envío de tramas erróneas al hardware. | **PASADO** ✓ |
 | **QA-12** | Pre-Roll de 3 Tonos | Activar estímulo `SyncPulses3` / Calibración de sesión. | Emisión de 3 ráfagas a 1 kHz a -3 dBfs con envolvente Hann para alineación sample-accurate. | **PASADO** ✓ |
+| **QA-13** | Hermeticidad de rutas (guard) | Ejecutar `ABDAudioLab_Tests.exe "[hygiene]"`. | 8 casos y 57 aserciones en verde. Cero dependencia de `getCurrentWorkingDirectory` y cero literales de ruta personal en `src/**`, sin excepciones sin justificar. | **PASADO** ✓ |
+| **QA-14** | Hermeticidad de rutas (ejecución) | Ejecutar `ABDAudioLab_Tests.exe "~[ves]"` **desde la raíz del repo y desde `build/Release`**. | **Ningún fallo de resolución de recursos** en ninguno de los dos directorios: los 918 casos se descubren y resuelven igual desde cualquiera de los dos. | **PARCIAL** ⚠️ |
+| **QA-15** | No-vacuidad del guard | Inyectar una regresión de ruta (CWD o literal absoluto) y ejecutar `[hygiene]`. | El guard **falla** nombrando fichero y línea. Un guard que nunca se ha visto fallar no está verificado. | **PASADO** ✓ |
+| **QA-16** | Inmutabilidad de evidencia 5D | `git diff --name-only -- docs/qa/` antes y después de la suite. | **0 ficheros.** La suite no puede alterar reportes, manifest ni hashes canónicos. | **PASADO** ✓ |
+
+### Nota sobre QA-14 (resultado parcial, 2026-10-01)
+
+La hermeticidad de rutas —el objetivo de POST-5D.5— **se cumple**: cero fallos de resolución de
+recursos desde cualquiera de los dos directorios, y los 918 casos se descubren igual en ambos.
+Desde `build/Release` la suite cerró en verde (890 PASS, 0 FAIL, exit 0).
+
+Lo que impide marcar QA-14 como **PASADO** es un defecto **preexistente y ajeno a las rutas**:
+`test_Integration01GuidedVsClassicAudio` compara con igualdad exacta `pumpedBlocks`,
+`processedSamples` y `midiTrace` entre dos rutas que compiten con un hilo worker real. Esos valores
+dependen del planificador, así que bajo carga de máquina las dos rutas bombean distinto
+(observado: 525 vs 638 bloques). Pasó en aislamiento y falló en dos corridas completas desde la raíz.
+
+**No es una regresión de POST-5D.5** y no se ha modificado: cambiar la semántica de una aserción de
+aceptación es decisión del responsable del hito. Ver `docs/HANDOFF.md` §1, "Abiertos conocidos".
 
 ---
 

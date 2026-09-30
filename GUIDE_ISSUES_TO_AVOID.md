@@ -189,3 +189,96 @@ void audioDeviceIOCallback(...) {
 - Para **esperar pasivamente** a que un hilo worker concluya su trabajo natural sin abortarlo: invocar `waitForThreadToExit(timeoutMs)`.
 - Para **forzar la cancelación y parada segura** (en destructores o abortos explícitos): invocar `requestCancel()`, `signalThreadShouldExit()`, `notify()` y verificar con `stopThread(timeoutMs)`.
 
+---
+
+## 13. La suite verde por accidente del directorio de trabajo
+
+**El problema:** Resolver datos del repositorio a partir de `juce::File::getCurrentWorkingDirectory()`.
+La suite da verde porque el ejecutable se lanza desde la raíz, donde todo existe. En cualquier otro
+directorio — un clon de CI, un `build/` de CMake, un checkout en otra ruta — los ficheros no están
+y el resultado cambia. El defecto no es que falle: es que **pasa en local y falla en CI**, y el
+intervalo entre las dos cosas es invisible hasta que alguien ejecuta desde otro sitio.
+
+**Caso real (POST-5D.5):** 37 helpers duplicados resolvían por CWD con un *fallback* a la ruta
+absoluta de la máquina del autor. El mismo ejecutable daba **0 fallos desde la raíz y 61 fallos desde
+`build/`**. Ocho ficheros de test más el runtime de producción estaban afectados.
+
+**Regla:**
+- Ningún dato del repositorio se resuelve por CWD. Se usa `core::repoResource()` /
+  `core::optionalRepoResource()` de `src/core/LabResourcePaths.h`.
+- La jerarquía es: variable de entorno → **ejecutable** → CWD → error. El ejecutable va **antes**
+  que el CWD porque se despliega junto a sus datos y el CWD depende de desde dónde se lanzó el proceso.
+- Probar la suite desde **dos** directorios distintos. Es la única comprobación que detecta esto, y
+  cuesta cuatro minutos.
+
+---
+
+## 14. Una allowlist que acumula permisos caducados deja de proteger
+
+**El problema:** Una lista de excepciones que se concede al migrar un fichero, pero a la que no se
+le retira la entrada cuando la migración lo hace innecesario. Cada permiso caducado es un punto
+ciego permanente: el guard sigue verde sobre un fichero que ya no vigila.
+
+**Caso real (POST-5D.5):** la allowlist de tests tenía **14 entradas y 11 estaban caducadas**. Los
+ficheros se habían migrado en fases anteriores; nadie quitó sus permisos. Peor: una de esas entradas
+(`SynthTargetLifecycleAdapters.cpp`) estaba autorizada por su uso de CWD mientras conservaba una
+ruta absoluta de máquina. **La allowlist de CWD no prohíbe literales absolutos**, así que el residuo
+sobrevivió a toda la fase de migración y solo apareció al añadir un segundo barrido.
+
+**Regla:**
+- Añadir una excepción es una decisión consciente: se documenta **por qué** el recurso no puede
+  resolverse contra la raíz del repo.
+- **Revisar la allowlist cada vez que se migra un fichero.** Una entrada sin motivo vigente se borra.
+- Mantener las allowlists **separadas y con alcances distintos**: barrido por CWD y barrido por
+  ruta absoluta. Un fichero autorizado en una no está autorizado en la otra.
+
+---
+
+## 15. Un guard que no cubre el fallo real es peor que no tener guard
+
+**El problema:** Escribir el test de regresión contra el síntoma que se recuerda, no contra la causa
+que se investigó. El guard pasa en verde sobre exactamente el código que rompió la CI, y eso da una
+falsa sensación de protección.
+
+**Caso real (POST-5D.5):** el primer guard buscaba `getCurrentWorkingDirectory`. La causa real del
+Run #6 roto eran literales absolutos **sin fallback**, que no mencionan el CWD. El guard era verde
+sobre los seis ficheros que habían tumbado el gate.
+
+Peor aún: al añadir el barrido de rutas absolutas, el needle se escribió con barra simple y
+**detectaba 3 de 5 variantes**. En C++ la misma ruta aparece como `"D:/desarrollos/..."`, como
+`R"(D:\desarrollos\...)"` y como `"D:\\desarrollos\\..."` (literal escapado, con barra doble en el
+fichero). Un needle con barra simple solo encuentra la primera forma.
+
+**Regla:**
+1. Un guard se escribe contra el **modo de fallo**, no contra el síntoma.
+2. **Probarse en los dos sentidos**: verde con el código limpio, y rojo con una regresión inyectada
+   que nombre fichero y línea. Un guard que nunca se ha visto fallar no está verificado.
+3. **Afirmar lo que se leyó, no solo lo que no se encontró**: `REQUIRE(result.scanned > 0)` y
+   `REQUIRE(result.unreadable.empty())`. Un guard que recorre 0 ficheros pasa en verde; sin esas
+   aserciones, cambiar la ruta o la extensión del recorrido lo convierte en un no-op silencioso.
+4. Comparar **normalizando** cuando el patrón aparece en varias formas de escritura. Absorber la
+   varianza en el comparador, no acumular un patrón por cada variante.
+
+---
+
+## 16. Un diseño correcto en el papel puede ser la duplicación que venía a cerrar
+
+**El problema:** Planificar un módulo nuevo sin comprobar si el equivalente ya existe. Se escribe el
+helper nuevo, se documenta, se registra en el build… y ahora hay dos jerarquías de resolución que
+pueden divergir. La deuda no baja: sube, y ahora partida en dos.
+
+**Caso real (POST-5D.5):** `PLAN.md` especificaba crear `src/tests/TestPathResolver.h` con
+`resolveRepoRootForTests()` / `resolveRepoResource()` / `resolveContractsDirectory()`. Al ejecutarlo
+resultó que `src/core/LabResourcePaths.{h,cpp}` ya implementaba exactamente esa jerarquía y ya tenía
+su test unitario. El helper se escribió y **se eliminó**; hubo que registrar y desregistrar en
+CMake, y `LabResourcePaths` necesitó dos API nuevas para poder usarse en producción.
+
+**Regla:**
+- Antes de crear un módulo de resolución, de validación o de cache: **buscar el equivalente** en el
+  árbol y comprobar si tiene test. Si existe, se extiende.
+- Un inventario o un plan de diseño que **no se contrasta con el código** se convierte en deuda
+  documentary: el siguiente que lo lea implementa literalmente un diseño ya desmentido. Documentar
+  las premisas refutadas junto al diagnóstico, no solo el diagnóstico.
+- Cuando un plan se desvía, dejar constancia del desvío **y de su motivo**. Un `PLAN.md` que marca
+  "COMPLETO" sobre un diseño que nunca se construyó es peor que un `PLAN.md` pendiente.
+

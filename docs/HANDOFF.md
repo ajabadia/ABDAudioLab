@@ -3,6 +3,7 @@
 **Proyecto:** ABDAudioLab — Universal Black-Box Musical Hardware & Synth Profiler  
 **Versión Actual:** 2.1.0  
 **Fecha de Emisión:** 2026-09-20  
+**Actualizado:** 2026-10-01 (POST-5D.5 — hermeticidad de rutas)  
 **Autor:** Antigravity Lead Architect / ABDSynths  
 
 ---
@@ -14,13 +15,32 @@
 - **HITO-03**: Certificado ([ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md](audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md)).
 - **HITO-03.1**: Certificado ([ACTA_HITO_03_1_STEPPER_COHERENCE.md](audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md)).
 - **HITO-04 (A/B/C + Smoke UI)**: **Certificado y Cerrado** ([ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md](audits/ACTA_HITO_04_EXPORT_INTEGRATION_PIPELINE.md)).
-- **HITO-05**: Siguiente trabajo (Certificación End-to-End multimodelo en los 4 targets representativos).
-- **Suite global automatizada**: **605/605 casos PASS (100% éxito)**.
-  - 564 casos preexistentes conservados y PASS.
-  - 41 casos nuevos de exportación, I/O transaccional, integración multimodelo y smoke UI (ST-69 a ST-107 + Smoke UI).
-- **Aserciones totales**: **228.536 aserciones superadas sin fallos**.
-- **Compilación**: `Release x64` MSVC / C++20 exitosa (`ABDAudioLab.exe` y `ABDAudioLab_Tests.exe`).
-- **Working Tree**: Confirmado limpio de cambios de producción, respaldado por tests unitarios y actas oficiales.
+- **HITO-05**: Siguiente trabajo (Certificación End-to-end multimodelo en los 4 targets representativos).
+- **HITO-AUDIO-AB-5D**: Cerrado **localmente** (5D.1–5D.9). Cierre remoto pendiente (Run #7 de CI).
+- **POST-5D.5 (hermeticidad de rutas)**: Cerrado. Detalle en
+  [Inventario de rutas](audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md).
+  - **0 rutas absolutas personales** en `src/**` (verificado por grep y por el guard `[hygiene]`).
+  - Módulo canónico único de resolución: `src/core/LabResourcePaths.{h,cpp}`.
+  - Guard permanente: `src/tests/test_ResourcePathHygiene.cpp`, 8 casos `[hygiene]`, verificado en
+    ambos sentidos (verde con el código limpio, rojo con regresión inyectada).
+- **Suite global automatizada** (filtro `~[ves]`): **918 casos — 890 PASS, 28 SKIP, 0 FAIL**.
+  - **208.972 aserciones** superadas sin fallos.
+  - **Hermética**: mismo resultado desde la raíz del repositorio y desde `build/Release`. Ese es el
+    criterio de cierre del microhito, no solo que la suite pase.
+  - Los 28 SKIP son legítimos (VST3 de terceros no instalado, GUI subsystem COM/WASAPI, bench físico
+    ausente). Ninguno por rutas.
+- **Compilación**: `Release x64` MSVC / C++20 (`ABDAudioLab.exe` y `ABDAudioLab_Tests.exe`).
+- **Working Tree**: **con cambios pendientes sin commitear**. Contiene dos workstreams separados —
+  hermeticidad de rutas y cuarentena de contratos de hardware — preparadas para commit pero **no
+  commiteados**. Revisar antes de operar.
+
+### Abiertos conocidos (no bloquean POST-5D.5)
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| 1 | `test_Integration01GuidedVsClassicAudio` compara con igualdad exacta `pumpedBlocks` / `processedSamples` / `midiTrace` entre dos rutas que compiten con un hilo worker real | **Carrera por diseño**: los valores dependen del planificador. Pasa en aislamiento; inestable bajo carga de máquina. No es dependencia de rutas. |
+| 2 | 1 de N corridas completas de `~[ves]` muere en silencio (exit 3, sin resumen) | Reproducido 1 vez esta sesión. No reproduce en aislamiento. |
+| 3 | `contracts/hardware/roland_aira_patch_spec.schema.json` reaparece en corridas completas y no en aislamiento | Sin atribuir a ningún test concreto. |
 
 ---
 
@@ -48,6 +68,9 @@ Queda estrictamente prohibido modificar los siguientes subsistemas sin un nuevo 
 - `ManualAnalogueController` y flujo rítmico de operador manual.
 - `OperatorCardsContainerComponent` para interacción manual.
 - Persistencia base en formato `.abdlabtest`.
+- **`core::LabResourcePaths` como módulo único de resolución de rutas** del repositorio. Un segundo
+  resolutor (el `TestPathResolver` que proposeró `PLAN.md`) se escribió y se eliminó por duplicar la
+  jerarquía existente. No reintroducirlo — ver `GUIDE_ISSUES_TO_AVOID.md` §16.
 
 ---
 

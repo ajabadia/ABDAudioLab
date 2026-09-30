@@ -6,13 +6,36 @@ Generado: 2026-08-31 (actualizado)
 
 ## Resumen
 
-| Severidad | Total | Confirmados | Parciales | Pendientes |
-|-----------|-------|-------------|-----------|------------|
-| CRITICAL  | 15    | 0           | 0         | 15         |
-| HIGH      | 31    | 2           | 0         | 29         |
-| MEDIUM    | 60    | 6           | 0         | 54         |
-| LOW       | 80+   | 1           | 0         | 79+        |
-| **Total** | **186+** | **9**   | **0**     | **177+**   |
+| Severidad | Total | Confirmados | Parciales | Pendientes | Retirados |
+|-----------|-------|-------------|-----------|------------|-----------|
+| CRITICAL  | 15    | 0           | 0         | 15         | 0         |
+| HIGH      | 31    | 3           | 0         | 28         | 1         |
+| MEDIUM    | 60    | 6           | 0         | 54         | 0         |
+| LOW       | 80+   | 1           | 0         | 79+        | 0         |
+| **Total** | **186+** | **10**  | **0**     | **176+**   | **1**     |
+
+> **Nota de vigencia (2026-10-01, POST-5D.5).** Tres correcciones, todas verificadas contra `HEAD`
+> antes de anotarse:
+>
+> 1. **#75** (`SoundIdSplashScreen.h`) — hallazgo **válido y resuelto**. La ruta personal existió y se
+>    sustituyó por `core::optionalRepoResource("assets")`. La línea del informe original (62) era
+>    errónea: estaba en la 110.
+> 2. **#76** (`SlideInDrawer.cpp`) — hallazgo **inválido, retirado**. Ese fichero nunca contuvo la
+>    ruta citada. No se marca como "resuelto" porque no hubo corrección que hacer.
+> 3. **Líneas del resto del informe:** **no revalidadas.** Las migraciones las desplazaron, así que
+>    las referencias `fichero:línea` de las demás entradas no son fiables como localización actual.
+>
+> **Hallazgos añadidos y ya resueltos en POST-5D.5** (misma categoría que #75; se documentan aquí y
+> no como filas numeradas para no chocar con la numeración existente):
+> - `HardwareDeviceDisplayCardComponent.cpp` — **reimplementación de la resolución de rutas**:
+>   ascendía 7 niveles desde el ejecutable probando cada ancestro, con lo que el resultado dependía
+>   de la distancia entre el `.exe` y la raíz. Sustituido por `core::resolveRepoRoot()`.
+> - `AssetLocator.h` — **uso de la API lanzante en producción**: `repoResource()` lanza excepción, y
+>   en un camino de arranque eso aborta el proceso en vez de degradar. Corregido a
+>   `core::optionalRepoResource()`.
+>
+> El guard permanente `test_ResourcePathHygiene.cpp` impide la reaparición de ambas clases.
+> Detalle y premisas refutadas: `docs/audits/POST_5D5_HARDCODED_PATHS_INVENTORY.md` §10.
 
 ### DRY Violations & Dead Code (nuevas secciones: §8, §9, §10)
 
@@ -195,8 +218,8 @@ Generado: 2026-08-31 (actualizado)
 |---|---------------|-----------|-------------|
 | 73 | `StereoVuMeter.h:30-38` | **Thread Safety** | `setLevels()` escribe `currentPeak*`/`currentRms*`, `timerCallback()` los lee — sin sincronización. Data race entre audio thread y message thread. |
 | 74 | `SoundIdMeterStrip.h:39-40` | **Thread Safety** | Mismo patrón: `setLevels()` desde audio thread, `timerCallback()` desde message thread — sin atomic ni lock. |
-| 75 | `SoundIdSplashScreen.h:62` | **Hardcoded Path** | `juce::File("d:/desarrollos/ABDSynths/ABDAudioLab/assets/splash_art.jpg")` — path absoluto de máquina de desarrollador. Falla en cualquier otra máquina. |
-| 76 | `SlideInDrawer.cpp:34` | **Hardcoded Path** | `juce::File sharedAssetsDir("D:/desarrollos/ABDSynths/ABDSharedAssets")` — mismo problema. |
+| 75 | `SoundIdSplashScreen.h:110` | **Hardcoded Path** — ✅ RESUELTO (POST-5D.5) | `juce::File("d:/desarrollos/ABDSynths/ABDAudioLab/assets/splash_art.jpg")` — path absoluto de máquina de desarrollador. **Hallazgo válido, pero la línea citada en el informe original (62) era incorrecta:** la ruta estaba en la 110. **Corregido:** los 5 fallbacks (incluida la ruta `d:/...`) se sustituyeron por `core::optionalRepoResource("assets")`. Verificado contra `HEAD` antes y después. |
+| 76 | `SlideInDrawer.cpp:34` | **Hallazgo INVÁLIDO** — retirado (2026-10-01) | `juce::File sharedAssetsDir("D:/desarrollos/ABDSynths/ABDSharedAssets")` — **este hallazgo nunca fue real.** Verificado contra `HEAD`: `SlideInDrawer.cpp` no contiene ni una sola ocurrencia de `ABDSharedAssets` ni de `desarrollos`, y su línea 34 es un lambda de `onSaveSessionClicked`. El fichero tampoco resuelve rutas hoy. Se retira en lugar de marcarse "resuelto": no hubo nada que corregir, y anotarlo como corregido habría sido mentira. **Origen probable:** confusión con `AssetLocator.h` / `HardwareDeviceDisplayCardComponent.cpp`, que si resuelven `ABDSharedAssets` (y si lo hacen ya via `core::sharedAssetsDir()`). |
 | 77 | `SlideInDrawer.h:62` | **Resource Management** | `~SlideInDrawer() override = default` — Timer no se detiene en destructor. Si el callback del timer se ejecuta después de la destrucción → UB. |
 | 78 | `SlideInDrawer.cpp:582-736` | **Code Smell** | `rebuildTestEditorControls()` es ~150 líneas casi idénticas a `TestConfigModal::rebuildControlRows()`. Duplicación masiva. |
 | 79 | `SlideInDrawer.cpp:738-776` | **Code Smell** | `updateTestEditorEstimatedTime()` es casi idéntica a `TestConfigModal::updateEstimatedTime()`. Código duplicado. |
