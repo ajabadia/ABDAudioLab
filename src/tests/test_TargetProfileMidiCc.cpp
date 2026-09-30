@@ -4,16 +4,15 @@
 #include "profiling/TargetProfileService.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::profiling;
 
 TEST_CASE("HITO-10D1: TargetProfile MIDI CC Validation and Resolution", "[target_profile][hardware][midi_cc]")
 {
     TargetProfileService service;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/behringer_pro800.target.json");
-    if (!profileFile.existsAsFile())
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/behringer_pro800.target.json");
+    juce::File profileFile = abdaudiolab::core::canonicalTargetsDir()
+                                .getChildFile("behringer_pro800.target.json");
 
     REQUIRE(profileFile.existsAsFile());
 
@@ -149,10 +148,8 @@ TEST_CASE("HITO-10D1: TargetProfile MIDI CC Validation and Resolution", "[target
         auto loadRes = service.loadAndValidateProfile(profileFile);
         REQUIRE(loadRes.isSuccess());
 
-        juce::File recipeFile = juce::File::getCurrentWorkingDirectory()
-                                    .getChildFile("presets/profiling/quick_vcf_3pts.json");
-        if (!recipeFile.existsAsFile())
-            recipeFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/presets/profiling/quick_vcf_3pts.json");
+        juce::File recipeFile = abdaudiolab::core::profilingPresetsDir()
+                                    .getChildFile("quick_vcf_3pts.json");
         REQUIRE(recipeFile.existsAsFile());
 
         MeasurementRecipeService recipeService;

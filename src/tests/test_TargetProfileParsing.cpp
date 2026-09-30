@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "core/LabResourcePaths.h"
 #include "profiling/TargetProfile.h"
 #include "profiling/TargetProfileService.h"
 
@@ -16,17 +17,7 @@ using namespace abdaudiolab::profiling;
 namespace
 {
 
-juce::File getProfilesDirectory()
-{
-    juce::File dir = juce::File::getCurrentWorkingDirectory().getChildFile("profiles/targets");
-    if (!dir.isDirectory())
-    {
-        dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                    .getParentDirectory()
-                    .getChildFile("profiles/targets");
-    }
-    return dir;
-}
+inline juce::File getProfilesDirectory() { return abdaudiolab::core::canonicalTargetsDir(); }
 
 } // namespace
 

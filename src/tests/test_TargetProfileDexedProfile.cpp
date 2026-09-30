@@ -4,19 +4,17 @@
 #include "profiling/TargetProfileService.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::profiling;
 
 TEST_CASE("HITO-10C: TargetProfile Dexed Formal Contract Validation", "[target_profile][dexed][contract]")
 {
     TargetProfileService service;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/dexed.target.json");
+    juce::File profileFile = abdaudiolab::core::canonicalTargetsDir()
+                                .getChildFile("dexed.target.json");
 
-    if (!profileFile.existsAsFile())
-    {
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/dexed.target.json");
-    }
+    REQUIRE(profileFile.existsAsFile());
 
     REQUIRE(profileFile.existsAsFile());
 
@@ -121,10 +119,8 @@ TEST_CASE("HITO-10C: TargetProfile Dexed Formal Contract Validation", "[target_p
         auto loadResult = service.loadAndValidateProfile(profileFile);
         REQUIRE(loadResult.isSuccess());
 
-        juce::File recipeFile = juce::File::getCurrentWorkingDirectory()
-                                    .getChildFile("presets/profiling/quick_vcf_3pts.json");
-        if (!recipeFile.existsAsFile())
-            recipeFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/presets/profiling/quick_vcf_3pts.json");
+        juce::File recipeFile = abdaudiolab::core::profilingPresetsDir()
+                                    .getChildFile("quick_vcf_3pts.json");
 
         REQUIRE(recipeFile.existsAsFile());
 

@@ -121,11 +121,8 @@ juce::File resolveVesRomDirectory()
         }
     }
 
-    // Default test machine fallback
-    juce::File defaultDownloads("C:\\Users\\ajaba\\Downloads\\ves-windows\\ROMS");
-    if (defaultDownloads.isDirectory())
-        return defaultDownloads;
-
+    // Sin VES_ROM_DIR ni configuracion en AppData el test se omite limpio: las ROMs
+    // no viven en el repositorio y su ruta es del host, no del proyecto.
     return {};
 }
 

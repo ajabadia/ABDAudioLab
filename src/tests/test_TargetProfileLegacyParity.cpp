@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "core/LabResourcePaths.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/TargetProfileService.h"
 #include "profiling/ExperimentPlanCompiler.h"
@@ -31,29 +32,9 @@ using namespace abdaudiolab::test::support;
 namespace
 {
 
-juce::File getPresetsDirectory()
-{
-    juce::File dir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
-    if (!dir.isDirectory())
-    {
-        dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                    .getParentDirectory()
-                    .getChildFile("presets/profiling");
-    }
-    return dir;
-}
+inline juce::File getPresetsDirectory() { return abdaudiolab::core::profilingPresetsDir(); }
 
-juce::File getProfilesDirectory()
-{
-    juce::File dir = juce::File::getCurrentWorkingDirectory().getChildFile("profiles/targets");
-    if (!dir.isDirectory())
-    {
-        dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                    .getParentDirectory()
-                    .getChildFile("profiles/targets");
-    }
-    return dir;
-}
+inline juce::File getProfilesDirectory() { return abdaudiolab::core::canonicalTargetsDir(); }
 
 ExecutionEnvironment getStandardEnvironment()
 {

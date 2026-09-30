@@ -134,8 +134,11 @@ TEST_CASE("LifecycleAdapter: Resolucion y diagnostico controlado de artefacto VS
 
 TEST_CASE("LifecycleAdapter: Huella normalizada determinista ante variaciones de ruta", "[lifecycle][provenance]")
 {
+    // Rutas sinteticas: este test solo valida la NORMALIZACION de la huella,
+    // nunca toca el disco. Usar la ruta real del arbol de compilacion de mi
+    // maquina convertia una prueba de unidades en una dependencia de entorno.
     TargetFingerprint fp1;
-    fp1.pluginPath = "D:/desarrollos/ABDSynths/ABDAudioLab/build/ReferenceSynth.vst3";
+    fp1.pluginPath = "mock_build/plugins/ReferenceSynth.vst3";
     fp1.pluginFormatVersion = "VST 3.7.x";
     fp1.vendor = "ABDSynths";
     fp1.pluginUid = "RefSynth_UID";
@@ -148,7 +151,7 @@ TEST_CASE("LifecycleAdapter: Huella normalizada determinista ante variaciones de
 
     TargetFingerprint fp2 = fp1;
     // Misma ruta con barras invertidas y variacion de mayusculas/minusculas
-    fp2.pluginPath = "d:\\desarrollos\\abdsynths\\abdaudiolab\\build\\referencesynth.vst3";
+    fp2.pluginPath = "mock_build\\plugins\\referencesynth.vst3";
 
     std::string hash1 = fp1.computeNormalizedFingerprint();
     std::string hash2 = fp2.computeNormalizedFingerprint();

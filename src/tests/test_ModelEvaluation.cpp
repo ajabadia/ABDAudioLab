@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
+#include "core/LabResourcePaths.h"
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/ModelEvaluationBuilder.h"
 
@@ -469,7 +470,7 @@ TEST_CASE("ModelEvaluation: Protocolo incompatible -> UnsupportedProtocol", "[sy
 
 TEST_CASE("ModelEvaluation: Generacion canonica de fixtures de evaluacion para validacion manual UX", "[synth][evaluation][fixtures]")
 {
-    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+    juce::File fixturesDir = abdaudiolab::core::fixturesEvaluationsDir();
     if (!fixturesDir.exists())
         fixturesDir.createDirectory();
 

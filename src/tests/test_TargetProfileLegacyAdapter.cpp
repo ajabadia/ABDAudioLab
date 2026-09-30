@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <juce_core/juce_core.h>
 
+#include "core/LabResourcePaths.h"
 #include "profiling/TargetProfileService.h"
 #include "profiling/TargetProfileLegacyAdapter.h"
 #include "core/HardwareContractRegistry.h"
@@ -15,29 +16,9 @@ using namespace abdaudiolab::profiling;
 namespace
 {
 
-juce::File getCanonicalTargetsDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
+inline juce::File getCanonicalTargetsDir() { return abdaudiolab::core::canonicalTargetsDir(); }
 
-    dir = current.getParentDirectory().getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
-
-    return {};
-}
-
-juce::File getContractsHardwareDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
-
-    dir = current.getParentDirectory().getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
-
-    return {};
-}
+inline juce::File getContractsHardwareDir() { return abdaudiolab::core::contractsHardwareDir(); }
 
 } // namespace
 

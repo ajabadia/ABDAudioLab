@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <juce_core/juce_core.h>
+#include "core/LabResourcePaths.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
 
@@ -11,7 +12,7 @@ TEST_CASE("HITO-09A: Compilacion y resolucion determinista de ExperimentPlan", "
 
     SECTION("Compilacion de las tres recetas de referencia normativas")
     {
-        const auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
+        const auto presetsDir = abdaudiolab::core::profilingPresetsDir();
 
         // 1. quick_vcf_3pts.json
         const auto quickFile = presetsDir.getChildFile("quick_vcf_3pts.json");
@@ -57,7 +58,7 @@ TEST_CASE("HITO-09A: Compilacion y resolucion determinista de ExperimentPlan", "
 
     SECTION("Resolucion frente a entorno fisico compatible")
     {
-        const auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
+        const auto presetsDir = abdaudiolab::core::profilingPresetsDir();
         const auto quickFile = presetsDir.getChildFile("quick_vcf_3pts.json");
         const auto quickLoad = service.loadAndValidate(quickFile);
         REQUIRE(quickLoad.isSuccess());
@@ -83,7 +84,7 @@ TEST_CASE("HITO-09A: Compilacion y resolucion determinista de ExperimentPlan", "
 
     SECTION("Resolucion frente a entorno con sample rate no permitido falla con diagnostico")
     {
-        const auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
+        const auto presetsDir = abdaudiolab::core::profilingPresetsDir();
         const auto quickFile = presetsDir.getChildFile("quick_vcf_3pts.json");
         const auto quickLoad = service.loadAndValidate(quickFile);
         REQUIRE(quickLoad.isSuccess());
@@ -104,7 +105,7 @@ TEST_CASE("HITO-09A: Compilacion y resolucion determinista de ExperimentPlan", "
 
     SECTION("Resolucion frente a entorno con capacidad faltante falla con diagnostico")
     {
-        const auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
+        const auto presetsDir = abdaudiolab::core::profilingPresetsDir();
         const auto quickFile = presetsDir.getChildFile("quick_vcf_3pts.json");
         const auto quickLoad = service.loadAndValidate(quickFile);
         REQUIRE(quickLoad.isSuccess());

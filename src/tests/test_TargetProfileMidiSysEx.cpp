@@ -4,16 +4,15 @@
 #include "profiling/TargetProfileService.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::profiling;
 
 TEST_CASE("HITO-10D1: TargetProfile MIDI SysEx Validation, Security Policy and Formatting", "[target_profile][hardware][sysex]")
 {
     TargetProfileService service;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/yamaha_dx7.target.json");
-    if (!profileFile.existsAsFile())
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/yamaha_dx7.target.json");
+    juce::File profileFile = abdaudiolab::core::canonicalTargetsDir()
+                                .getChildFile("yamaha_dx7.target.json");
 
     REQUIRE(profileFile.existsAsFile());
 

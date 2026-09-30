@@ -5,18 +5,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
+#include "core/LabResourcePaths.h"
 #include "synth/Sha256.h"
 
 using namespace abdaudiolab::synth;
 
 namespace {
 
-juce::File getDocsQaDirectory()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    juce::File rootDir = current.getChildFile("docs").isDirectory() ? current : current.getParentDirectory();
-    return rootDir.getChildFile("docs").getChildFile("qa");
-}
+inline juce::File getDocsQaDirectory() { return abdaudiolab::core::docsQaDir(); }
 
 } // namespace
 

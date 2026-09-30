@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "core/LabResourcePaths.h"
 #include "../gui/SessionExecutionCoordinator.h"
 #include "../core/SessionManager.h"
 #include "../core/plugins/PluginHostManager.h"
@@ -188,14 +189,38 @@ inline size_t ui_snapshot_to_text(const UiSnapshot* s, char* buffer, size_t capa
     return static_cast<size_t>(written);
 }
 
-static std::string read_fixture_file(const std::string& path)
+/**
+ * @brief Lee un fixture de la suite snapshot resolviendo desde la raiz del repositorio.
+ *
+ * Antes abria la ruta relativa tal cual con std::ifstream, lo que hacia que el
+ * test dependiera del directorio de trabajo: desde build/ devolvia cadena vacia
+ * en silencio y el fallo se manifestaba como un REQUIRE_FALSE(expected.empty())
+ * que no indicaba que faltaba el fichero. Ahora la ruta se valida y se resuelve
+ * contra la raiz del repositorio.
+ */
+static std::string read_fixture_file(const std::string& relativePath)
 {
-    std::ifstream f(path, std::ios::binary);
-    if (!f.is_open())
+    const auto relative = juce::String(relativePath);
+
+    if (! abdaudiolab::core::isSafeRepoRelativePath(relative))
+    {
+        juce::Logger::writeToLog("Seam6: ruta de fixture insegura: " + relative);
         return {};
-    std::ostringstream ss;
-    ss << f.rdbuf();
-    std::string s = ss.str();
+    }
+
+    const auto absolute = abdaudiolab::core::repoResource(relative);
+
+    if (! absolute.existsAsFile())
+    {
+        // Diagnostico explicito: la asercion del test sigue siendo la que
+        // reporta el fallo, pero el log deja claro cual era la ruta probeada.
+        juce::Logger::writeToLog("Seam6: fixture no encontrado: "
+                                 + absolute.getFullPathName());
+        return {};
+    }
+
+    auto s = absolute.loadFileAsString().toStdString();
+
     // Normalize CRLF to LF for cross-platform matching
     std::string out;
     for (size_t i = 0; i < s.size(); ++i)

@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include "core/LabResourcePaths.h"
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/ProfilingSessionContracts.h"
 
@@ -553,7 +554,7 @@ TEST_CASE("ProfilingSessionController: Invariantes y proteccion al importar eval
     uint64_t originalGeneration = baselineSnap.controllerGeneration;
     std::string originalTargetId = baselineSnap.target.targetId;
 
-    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+    juce::File fixturesDir = abdaudiolab::core::fixturesEvaluationsDir();
 
     SECTION("1. Importar evaluacion valida no cambia targetId, sessionId ni controllerGeneration")
     {

@@ -15,6 +15,7 @@
 #include <string>
 #include <filesystem>
 
+#include "core/LabResourcePaths.h"
 #include "support/MockAudioEngine.h"
 #include "core/ProfilingSequencer.h"
 #include "hardware/MockHardwareController.h"
@@ -107,7 +108,7 @@ ExecutionRunResult runCompiledRecipe(const core::ProfilingSession& session, cons
 TEST_CASE("HITO-09A: Regresion y ejecucion determinista de receta compilada", "[recipe][regression]")
 {
     MeasurementRecipeService service;
-    const auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
+    const auto presetsDir = abdaudiolab::core::profilingPresetsDir();
     const auto quickFile = presetsDir.getChildFile("quick_vcf_3pts.json");
     REQUIRE(quickFile.existsAsFile());
 

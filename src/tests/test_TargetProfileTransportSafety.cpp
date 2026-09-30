@@ -5,6 +5,7 @@
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
 #include "core/HardwareContractRegistry.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::profiling;
 using namespace abdaudiolab::core;
@@ -15,9 +16,9 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
 
     SECTION("1. Aislamiento total: La carga y resolucion en memoria jamas despacha MIDI ni altera DSP")
     {
-        juce::File pro800File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/behringer_pro800.target.json");
-        juce::File dx7File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/yamaha_dx7.target.json");
-        juce::File ds1File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/boss_ds1_distortion.target.json");
+        const auto pro800File = repoResource("profiles/targets/behringer_pro800.target.json");
+        const auto dx7File = repoResource("profiles/targets/yamaha_dx7.target.json");
+        const auto ds1File = repoResource("profiles/targets/boss_ds1_distortion.target.json");
 
         REQUIRE(pro800File.existsAsFile());
         REQUIRE(dx7File.existsAsFile());
@@ -40,17 +41,20 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
     SECTION("2. Preservacion integra de contratos de hardware post-retirada")
     {
         HardwareContractRegistry registry;
-        juce::File contractsDir("D:/desarrollos/ABDSynths/ABDAudioLab/contracts/hardware");
+        const auto contractsDir = contractsHardwareDir();
         REQUIRE(contractsDir.isDirectory());
 
         bool loaded = registry.loadContractsFromDirectory(contractsDir);
         REQUIRE(loaded);
-        CHECK(registry.getContracts().size() == 31); // Actualizado post-HITO-SHARED-SYNC (D2.7A + SS4/SS5)
+        // 30 = 31 - 1 retenido por cuarentena (roland_aira_submodules, que lleva
+        // `status: "quarantined"` en el propio contrato y por eso no se carga).
+        CHECK(registry.getContracts().size() == 30);
 
-        juce::File targetsDir("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets");
+        const auto targetsDir = canonicalTargetsDir();
         if (targetsDir.isDirectory())
             registry.loadCanonicalTargetProfiles(targetsDir);
-        CHECK(registry.getContracts().size() == 36); // Actualizado post-HITO-SHARED-SYNC
+        // 35 = 30 del catalogo fisico + 5 perfiles canonicos de profiles/targets.
+        CHECK(registry.getContracts().size() == 35);
 
         // Los contratos legacy clave se preservan intactos vía resolución canónica adaptada
         const auto* dx7Legacy = registry.findContractById("yamaha_dx7");
@@ -69,7 +73,7 @@ TEST_CASE("HITO-10D1: TargetProfile Transport Safety and Isolation", "[target_pr
 
     SECTION("3. Incompatibilidad de canal y layout detectada limpiamente en resolucion")
     {
-        juce::File ds1File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/boss_ds1_distortion.target.json");
+        const auto ds1File = repoResource("profiles/targets/boss_ds1_distortion.target.json");
         auto loadRes = service.loadAndValidateProfile(ds1File);
         REQUIRE(loadRes.isSuccess());
 

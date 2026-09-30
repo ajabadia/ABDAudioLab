@@ -1100,6 +1100,7 @@ target_compile_definitions(ABDAudioLab_Tests
         JUCE_PLUGINHOST_VST3=1
         JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
         ABD_TESTING=1
+        JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
 target_link_libraries(ABDAudioLab_Tests

@@ -10,6 +10,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include "core/LabResourcePaths.h"
 #include "core/HardwareContractRegistry.h"
 #include "core/plugins/PluginHardwareContractAdapter.h"
 #include "measurement/MeasurementSessionContracts.h"
@@ -39,17 +40,7 @@ namespace
         return sig;
     }
 
-    juce::File findContractsDirectory()
-    {
-        auto cwd = juce::File::getCurrentWorkingDirectory();
-        auto direct = cwd.getChildFile("contracts").getChildFile("hardware");
-        if (direct.isDirectory()) return direct;
-
-        auto parentDirect = cwd.getParentDirectory().getChildFile("contracts").getChildFile("hardware");
-        if (parentDirect.isDirectory()) return parentDirect;
-
-        return direct;
-    }
+    juce::File findContractsDirectory() { return abdaudiolab::core::contractsHardwareDir(); }
 }
 
 TEST_CASE("Integration Smoke Test: Real Profile -> MeasurementSession -> Re-analysis", "[smoke_test][integration]")

@@ -112,9 +112,17 @@ juce::File resolveVesRomDirectory()
             return dir;
     }
 
-    juce::File downloadsRom(R"(C:\Users\ajaba\Downloads\ves-windows\ROMS)");
-    if (downloadsRom.isDirectory())
-        return downloadsRom;
+    // Configuracion explicita por entorno (mismo nombre que usa
+    // test_VesCz101Feasibility). Sin ella el test se omite limpio: las ROMs no
+    // viven en el repositorio y su ruta es del host, no del proyecto.
+    const auto envRomDir = juce::SystemStats::getEnvironmentVariable("VES_ROM_DIR", "");
+
+    if (envRomDir.isNotEmpty())
+    {
+        const juce::File dir(envRomDir);
+        if (dir.isDirectory())
+            return dir;
+    }
 
     return {};
 }

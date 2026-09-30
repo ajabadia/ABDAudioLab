@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include "core/LabResourcePaths.h"
 #include "profiling/TargetProfileService.h"
 #include <juce_core/juce_core.h>
 
@@ -304,10 +305,7 @@ TEST_CASE("TargetProfile TransportPolicy: Existing Hardware Profiles Compliance"
 {
     TargetProfileService service;
 
-    juce::File targetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("profiles/targets");
-    if (!targetsDir.exists())
-        targetsDir = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets");
-
+    const auto targetsDir = abdaudiolab::core::canonicalTargetsDir();
     REQUIRE(targetsDir.exists());
 
     // 1. Yamaha DX7

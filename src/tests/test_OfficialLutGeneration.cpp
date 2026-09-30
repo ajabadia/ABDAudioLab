@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "export/LutExporter.h"
+#include "core/LabResourcePaths.h"
 #include <juce_core/juce_core.h>
 #include <cmath>
 #include <vector>
@@ -87,17 +88,8 @@ std::vector<exporting::MeasuredPoint> generateFilterGrid(
 
 TEST_CASE("Official LUT Bank Generation in exported_luts", "[export][lut][official_bank]")
 {
-    // Locate exported_luts directory
-    juce::File cwd = juce::File::getCurrentWorkingDirectory();
-    juce::File exportDir = cwd.getChildFile("exported_luts");
-    if (!exportDir.isDirectory())
-    {
-        exportDir = cwd.getParentDirectory().getChildFile("exported_luts");
-    }
-    if (!exportDir.isDirectory())
-    {
-        exportDir = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/exported_luts");
-    }
+    // Localiza exported_luts contra la raiz del repositorio, no contra el CWD.
+    juce::File exportDir = abdaudiolab::core::exportedLutsDir();
     exportDir.createDirectory();
     REQUIRE(exportDir.isDirectory());
 

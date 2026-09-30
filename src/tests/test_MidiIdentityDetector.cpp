@@ -1,41 +1,17 @@
 #include <catch2/catch_test_macros.hpp>
 #include "hardware/MidiIdentityDetector.h"
 #include "core/HardwareContractRegistry.h"
+#include "core/LabResourcePaths.h"
 #include <juce_core/juce_core.h>
 
 static std::vector<abdaudiolab::core::HardwareContract> loadTestContracts()
 {
     abdaudiolab::core::HardwareContractRegistry registry;
 
-    const juce::Array<juce::File> searchRoots {
-        juce::File::getCurrentWorkingDirectory(),
-        juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory(),
-        juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory().getParentDirectory(),
-        juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory().getParentDirectory().getParentDirectory(),
-        juce::File("d:/desarrollos/ABDSynths/ABDAudioLab"),
-        juce::File("D:/desarrollos/ABDSynths/ABDSharedAssets")
-    };
-
-    for (const auto& root : searchRoots)
-    {
-        auto c2 = root.getChildFile("contracts");
-        if (c2.isDirectory() && registry.loadContractsFromDirectory(c2))
-            break;
-
-        auto c1 = root.getChildFile("contracts").getChildFile("hardware");
-        if (c1.isDirectory() && registry.loadContractsFromDirectory(c1))
-            break;
-    }
-
-    for (const auto& root : searchRoots)
-    {
-        auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
-        if (targetsDir.isDirectory())
-        {
-            registry.loadCanonicalTargetProfiles(targetsDir);
-            break;
-        }
-    }
+    // Resolucion canonica: la raiz del repositorio se localiza por el marcador
+    // ABDAudioLab.workspace, nunca por el CWD ni por una ruta absoluta de mi maquina.
+    registry.loadContractsFromDirectory(abdaudiolab::core::contractsHardwareDir());
+    registry.loadCanonicalTargetProfiles(abdaudiolab::core::canonicalTargetsDir());
 
     return registry.getContracts();
 }

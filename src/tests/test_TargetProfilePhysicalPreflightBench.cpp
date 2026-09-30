@@ -16,6 +16,7 @@
 #include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_core/juce_core.h>
 
+#include "core/LabResourcePaths.h"
 #include "hardware/preflight/HardwareTransportPreflightService.h"
 #include "hardware/preflight/HardwareTransportPreflightTypes.h"
 #include "hardware/transport/JuceMidiTransport.h"
@@ -267,7 +268,7 @@ TEST_CASE("HITO-10D2.7A.2 - 4. Contract-Driven Matching Against Native Catalog",
     // Verificamos que el subsistema de contratos legacy de ABDAudioLab reconoce DeepMind12D
     // mediante coincidencia de nombres de puerto declarados en el JSON
     abdaudiolab::core::HardwareContractRegistry registry;
-    const juce::File contractsDir = juce::File::getCurrentWorkingDirectory().getChildFile("contracts/hardware");
+    const juce::File contractsDir = abdaudiolab::core::contractsHardwareDir();
     registry.loadContractsFromDirectory(contractsDir);
 
     auto resolution = registry.resolveContractById("behringer_deepmind12");
@@ -534,7 +535,7 @@ TEST_CASE("HITO-10D2.7A.4 - Single Physical Dispatch Execution (3 Bytes Wire CC)
 
     // Pre-dispatch Validation 3 & 4: Target contract & resolution source
     abdaudiolab::core::HardwareContractRegistry registry;
-    const juce::File contractsDir = juce::File::getCurrentWorkingDirectory().getChildFile("contracts/hardware");
+    const juce::File contractsDir = abdaudiolab::core::contractsHardwareDir();
     registry.loadContractsFromDirectory(contractsDir);
     const auto resolution = registry.resolveContractById("behringer_deepmind12");
     REQUIRE(resolution.contract.has_value());

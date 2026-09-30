@@ -18,6 +18,7 @@
 #include <string>
 #include <filesystem>
 
+#include "core/LabResourcePaths.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
 #include "gui/recipes/RecipeCatalogModel.h"
@@ -32,17 +33,7 @@ using namespace abdaudiolab::gui::session;
 namespace
 {
 
-juce::File getPresetsDirectory()
-{
-    juce::File dir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
-    if (!dir.isDirectory())
-    {
-        dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                    .getParentDirectory()
-                    .getChildFile("presets/profiling");
-    }
-    return dir;
-}
+inline juce::File getPresetsDirectory() { return abdaudiolab::core::profilingPresetsDir(); }
 
 struct TemporaryPresetsDirectory
 {

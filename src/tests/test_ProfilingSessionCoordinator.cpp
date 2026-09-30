@@ -1,10 +1,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include "core/LabResourcePaths.h"
 #include "gui/session/ProfilingSessionCoordinator.h"
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/ProfilingSessionContracts.h"
 #include "synth/ModelEvaluationBuilder.h"
+#include <juce_events/juce_events.h>
 #include <chrono>
 #include <thread>
 
@@ -13,6 +15,36 @@ using namespace abdaudiolab::synth;
 
 namespace
 {
+
+/**
+ * @brief Bompea el message loop de JUCE hasta que se cumple el predicado o agota el timeout.
+ *
+ * ProfilingSessionController difiere las transiciones de estado del coordinator al
+ * hilo de mensajes (MessageManager::callAsync). En un runner Catch2 headless nadie
+ * bombea ese loop, por lo que la instantánea leída justo después de
+ * waitForWorkerToStop() todavía refleja el estado previo. Esta utilidad reproduce lo
+ * que hace el GUI real: despachar mensajes pendientes hasta que el estado se estabilice.
+ */
+template <typename Predicate>
+static bool pumpUntil (Predicate&& predicate, int timeoutMs)
+{
+    auto* mm = juce::MessageManager::getInstanceWithoutCreating();
+
+    if (mm == nullptr)
+        return predicate();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds (timeoutMs);
+
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        // Despacha los mensajes pendientes durante 5 ms y reevalúa el predicado.
+        mm->runDispatchLoopUntil (5);
+
+        if (predicate())
+            return true;
+    }
+
+    return predicate();
+}
 
 TargetSelectionState makeSyntheticTestTarget()
 {
@@ -34,6 +66,7 @@ class TestCoordinatorListener : public ICoordinatorListener
 public:
     std::mutex mtx;
     std::vector<CoordinatorSnapshot> snapshots;
+    std::vector<std::thread::id> pausedPublisherThreads;
     int completedCount { 0 };
     int cancelledCount { 0 };
     int failedCount { 0 };
@@ -45,6 +78,12 @@ public:
     {
         std::lock_guard<std::mutex> lock(mtx);
         snapshots.push_back(snap);
+
+        // Se guarda QUIEN publica cada instantanea Paused. pause() la publica
+        // desde el hilo principal; el worker publica la suya desde dentro del
+        // bucle de pausa. Solo la segunda demuestra que el hilo esta estacionado.
+        if (snap.state == CoordinatorState::Paused)
+            pausedPublisherThreads.push_back(std::this_thread::get_id());
     }
 
     void onCoordinatorCompleted(uint64_t runId, uint64_t, const ModelEvaluation& candidate) override
@@ -339,6 +378,50 @@ TEST_CASE("Coordinator: Despertar cooperativo inmediato del hilo al cancelar mie
     }
 
     coordinator.pause();
+
+    // Sincronizacion previa a medir. Hay DOS motivos por los que el estado
+    // Paused no puede leerse aqui:
+    //
+    // 1. pause() lo publica desde ESTE hilo en cuanto pone el flag, sin esperar
+    //    a que el worker llegue al bucle. El worker solo comprueba isPaused_ al
+    //    inicio de cada trial, asi que todavia puede estar renderizando.
+    // 2. El worker, al terminar ese render, publica su progreso como Running y
+    //    SOBREESCRIBE el Paused que puso pause(). Bajo carga esa ventana se
+    //    abre con facilidad y getState() devuelve Running de forma intermitente.
+    //
+    // Por eso el estado no se comprueba aqui: se comprueba despues de que el
+    // worker se haya estacionado de verdad. Sin esta espera el reloj mediria
+    // el COLA del render en vuelo en lugar del despertar, y ese cola crece
+    // hasta el segundo bajo carga sin que haya regresion de sincronizacion.
+    std::size_t pausedBefore { 0 };
+    {
+        std::lock_guard<std::mutex> lock(listener.mtx);
+        pausedBefore = listener.pausedPublisherThreads.size();
+    }
+
+    const auto parkedBy = std::chrono::steady_clock::now() + std::chrono::seconds (5);
+    bool parkedOnWorkerThread = false;
+
+    while (std::chrono::steady_clock::now() < parkedBy && ! parkedOnWorkerThread)
+    {
+        {
+            std::lock_guard<std::mutex> lock(listener.mtx);
+
+            for (std::size_t i = pausedBefore; i < listener.pausedPublisherThreads.size(); ++i)
+            {
+                if (listener.pausedPublisherThreads[i] != std::this_thread::get_id())
+                    parkedOnWorkerThread = true;
+            }
+        }
+
+        if (! parkedOnWorkerThread)
+            std::this_thread::sleep_for(std::chrono::milliseconds (1));
+    }
+
+    // Si el worker nunca se estaciona, el nombre de este test seria falso.
+    REQUIRE(parkedOnWorkerThread);
+
+    // Ahora si: el estado Paused lo ha publicado el worker, no pause().
     CHECK(coordinator.getSnapshot().state == CoordinatorState::Paused);
 
     auto tStart = std::chrono::steady_clock::now();
@@ -374,7 +457,7 @@ TEST_CASE("Controller + Coordinator: Transaccionalidad (fallo restaura evaluacio
     controller.selectTarget(makeSyntheticTestTarget());
 
     // 1. Cargar una evaluación previa aprobada (compromiso inicial)
-    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+    juce::File fixturesDir = abdaudiolab::core::fixturesEvaluationsDir();
     juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
     REQUIRE(approvedFile.existsAsFile());
     REQUIRE(controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString()));
@@ -392,6 +475,15 @@ TEST_CASE("Controller + Coordinator: Transaccionalidad (fallo restaura evaluacio
     // Esperar a que el worker termine
     controller.getCoordinator()->waitForWorkerToStop(3000);
 
+    // El coordinator notifica el fallo desde su hilo y el controller difiere la
+    // transición de estado al hilo de mensajes; hay que despachar antes de leer.
+    pumpUntil(
+        [&controller]
+        {
+            return controller.getCurrentSnapshot().sessionStatus == ProfilingSessionStatus::Failed;
+        },
+        3000);
+
     auto snapAfterFailure = controller.getCurrentSnapshot();
     CHECK(snapAfterFailure.sessionStatus == ProfilingSessionStatus::Failed);
 
@@ -408,7 +500,7 @@ TEST_CASE("Controller + Coordinator: Cancelacion preserva evaluacion previa sin 
     ProfilingSessionController controller;
     controller.selectTarget(makeSyntheticTestTarget());
 
-    juce::File fixturesDir = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures").getChildFile("evaluations");
+    juce::File fixturesDir = abdaudiolab::core::fixturesEvaluationsDir();
     juce::File approvedFile = fixturesDir.getChildFile("fixture_approved.json");
     REQUIRE(approvedFile.existsAsFile());
     REQUIRE(controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString()));

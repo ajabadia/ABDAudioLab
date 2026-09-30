@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
 
+#include "core/LabResourcePaths.h"
 #include "support/CanonicalPresetRenderFixtures.h"
 #include "../math/AudioABComparator.h"
 #include "../math/AudioABVerdictEngine.h"
@@ -17,15 +18,7 @@ using namespace abdaudiolab::math::qa5d;
 
 namespace {
 
-juce::File getQaRunsDirectory()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    juce::File rootDir = current.getChildFile("docs").isDirectory() ? current : current.getParentDirectory();
-    juce::File runsDir = rootDir.getChildFile("docs").getChildFile("qa").getChildFile("runs");
-    if (!runsDir.exists())
-        runsDir.createDirectory();
-    return runsDir;
-}
+inline juce::File getQaRunsDirectory() { return abdaudiolab::core::docsQaRunsDir(); }
 
 struct CanonicalRunReportRecord
 {

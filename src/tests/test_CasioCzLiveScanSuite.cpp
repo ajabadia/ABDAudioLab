@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../core/ProfilingSession.h"
+#include "core/LabResourcePaths.h"
 #include <juce_core/juce_core.h>
 
 using namespace abdaudiolab;
@@ -146,8 +147,7 @@ TEST_CASE("ProfilingSession: Casio CZ Live Scan Suite Generation", "[core][sessi
 
     SECTION("Assets presets directory initialization (casio_cz101_mame_ves_session.json)")
     {
-        juce::File repoDir = juce::File::getCurrentWorkingDirectory();
-        juce::File presetsDir = repoDir.getChildFile("assets").getChildFile("presets");
+        juce::File presetsDir = abdaudiolab::core::assetsDir().getChildFile("presets");
         presetsDir.createDirectory();
         juce::File czSessionFile = presetsDir.getChildFile("casio_cz101_mame_ves_session.json");
 

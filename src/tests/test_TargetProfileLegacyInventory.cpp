@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <juce_core/juce_core.h>
 
+#include "core/LabResourcePaths.h"
 #include "core/HardwareContractRegistry.h"
 #include "profiling/TargetProfileService.h"
 
@@ -18,30 +19,9 @@ using namespace abdaudiolab::profiling;
 namespace
 {
 
-juce::File getContractsHardwareDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
+inline juce::File getContractsHardwareDir() { return abdaudiolab::core::contractsHardwareDir(); }
 
-    // Fallback hacia raíz si se corre desde build
-    dir = current.getParentDirectory().getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
-
-    return {};
-}
-
-juce::File getCanonicalTargetsDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
-
-    dir = current.getParentDirectory().getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
-
-    return {};
-}
+inline juce::File getCanonicalTargetsDir() { return abdaudiolab::core::canonicalTargetsDir(); }
 
 } // namespace
 
@@ -84,16 +64,43 @@ TEST_CASE("HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion G
     REQUIRE(legacyProfileDocumentCount == migratedLegacyProfileCount + unmigratedLegacyProfileCount);
     REQUIRE(legacyFilesystemEntryCount == legacyProfileDocumentCount + legacySchemaDocumentCount);
 
-    CHECK(legacyFilesystemEntryCount == 35);
-    CHECK(legacySchemaDocumentCount == 3);
-    CHECK(legacyProfileDocumentCount == 32);
+    // Catálogo físico versionado en contracts/hardware/ (40 = 34 perfiles + 6 schemas).
+    //
+    // Los schemas pasaron de 5 a 6 al sincronizar el snapshot con
+    // ABDSharedAssets/contracts, que trae un esquema propio del patch_spec del AIRA
+    // Modular (roland_aira_patch_spec.schema.json). Ese esquema se escribió porque el
+    // patch_spec se leía entero sin mirar: las partes que se inventan sus propias
+    // claves —`devices` y `protocol`— pasaban sin comprobar, y al cerrarlo
+    // aparecieron cuatro campos que el contrato tenía y nadie declaraba.
+    //
+    // Los perfiles se quedan en 34: el nombre único del rango de un control pasó de
+    // `min`/`max`/`default` a `minVal`/`maxVal`/`defaultVal` en seis ficheros, lo que
+    // cambia el CONTENIDO de seis perfiles y no el número. Ese cambio obligó a tocar
+    // los dos parsers de C++ (HardwareContractRegistry y SharedHardwareContractAdapter),
+    // porque leían el nombre corto y con el nuevo caerían al 0.0/1.0/0.5 por defecto
+    // en silencio: 68 controles tienen un defaultVal distinto de 0.5.
+    CHECK(legacyFilesystemEntryCount == 40);
+    CHECK(legacySchemaDocumentCount == 6);
+    CHECK(legacyProfileDocumentCount == 34);
     CHECK(migratedLegacyProfileCount == 0);
-    CHECK(unmigratedLegacyProfileCount == 32);
+    CHECK(unmigratedLegacyProfileCount == 34);
 
     // 1. Schemas obligatorios
+    //
+    // Cada uno se nombra uno a uno, y no se comprueba "hay 6 schemas" a secas: el
+    // recuento de arriba dice CUÁNTOS hay, y esto dice CUÁLES. Un esquema que se
+    // perdiera lo diría el primero; uno que se colara de más, el segundo. Y el
+    // patch_spec del AIRA se nombra aparte porque es el único que C++ no lee: no hay
+    // ningún .cpp que parsee `devices`, `protocol` ni `submodules`, así que su
+    // entrada en el catálogo no la carga nadie todavía. Sigue siendo un contrato que
+    // tiene que estar ahí —es el índice de la máquina— pero que solo lo vigila el
+    // lado de ABDSharedAssets.
     CHECK(fileNames.count("hardware_profile.schema.json") == 1);
     CHECK(fileNames.count("modulation_matrix.schema.json") == 1);
     CHECK(fileNames.count("fx-effects.schema.json") == 1);
+    CHECK(fileNames.count("s950-calibration.schema.json") == 1);
+    CHECK(fileNames.count("s950-patch-fields.schema.json") == 1);
+    CHECK(fileNames.count("roland_aira_patch_spec.schema.json") == 1);
 
     // 2. Los 3 targets homologados retirados físicamente de contracts/hardware/ en E6
     CHECK(fileNames.count("behringer_pro800.json") == 0);
@@ -144,13 +151,22 @@ TEST_CASE("HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate Post-Re
     REQUIRE(loaded);
     REQUIRE(registry.hasContracts());
 
-    // El registry físico contiene los perfiles válidos (los schemas se omiten)
-    CHECK(registry.getContracts().size() == 31);
+    // El registry físico contiene los perfiles válidos (los schemas se omiten).
+    // 30 < 34, y son dos razones distintas, que se suman:
+    //
+    //   - el registry descarta los JSON que no son contratos: las tres matrices
+    //     de modulación, fx-effects, s950_calibration y s950_patch_fields;
+    //   - y RETIENE uno que sí es contrato: `roland_aira_submodules`, que lleva
+    //     `status: "quarantined"` en el propio fichero. Su contenido no es el
+    //     catálogo de 31 módulos que dice su cabecera —solo 7 de 31 coinciden
+    //     con el patch_spec del AIRA— así que no se carga y no aparece en el
+    //     cajón de hardware. Ver `getQuarantinedProfiles()`.
+    CHECK(registry.getContracts().size() == 30);
 
     // Tras cargar el catálogo canónico (5 perfiles), la suite efectiva alcanza 36 contratos
     auto canonicalRes = registry.loadCanonicalTargetProfiles(getCanonicalTargetsDir());
     REQUIRE(canonicalRes.outcome == CanonicalTargetProfileLoadOutcome::Loaded);
-    CHECK(registry.getContracts().size() == 36);
+    CHECK(registry.getContracts().size() == 35);
 
     // Targets retirados de contracts/hardware/ resuelven desde TargetProfile canónico con compatibilidad histórica
     auto resPro = registry.resolveContractById("behringer_pro800");

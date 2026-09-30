@@ -6,6 +6,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "core/LabResourcePaths.h"
 #include "core/HardwareContractRegistry.h"
 #include "core/AutoTestPresetEngine.h"
 #include "hardware/MidiIdentityDetector.h"
@@ -20,25 +21,9 @@ using namespace abdaudiolab::hardware;
 namespace
 {
 
-juce::File getContractsHardwareDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
-    dir = current.getParentDirectory().getChildFile("contracts").getChildFile("hardware");
-    if (dir.isDirectory()) return dir;
-    return {};
-}
+inline juce::File getContractsHardwareDir() { return abdaudiolab::core::contractsHardwareDir(); }
 
-juce::File getCanonicalTargetsDir()
-{
-    juce::File current = juce::File::getCurrentWorkingDirectory();
-    auto dir = current.getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
-    dir = current.getParentDirectory().getChildFile("profiles").getChildFile("targets");
-    if (dir.isDirectory()) return dir;
-    return {};
-}
+inline juce::File getCanonicalTargetsDir() { return abdaudiolab::core::canonicalTargetsDir(); }
 
 /**
  * Fixture de ausencia hermética: copia 28 perfiles legacy no migrados + 1 schema,
@@ -82,7 +67,12 @@ TEST_CASE("HITO-10E / E5.1 - 1. SoundIdHardwareCatalogSelector Under Controlled 
 {
     HermeticAbsenceFixture fixture;
     const auto& contracts = fixture.registry.getContracts();
-    REQUIRE(contracts.size() == 36); // 31 legacy + 5 canonicos adaptados
+    // 35 = 30 legacy + 5 canonicos adaptados. Los 30 son 31 menos el
+    // retenido por cuarentena: `roland_aira_submodules` lleva
+    // `status: "quarantined"` y el registro no lo carga, para que no salga en el
+    // cajon como si fueran los 31 modulos del AIRA. Ver
+    // `HardwareContractRegistry::getQuarantinedProfiles()`.
+    REQUIRE(contracts.size() == 35);
 
     gui::SoundIdHardwareCatalogSelector selector;
     selector.setSize(800, 600);
@@ -137,7 +127,7 @@ TEST_CASE("HITO-10E / E5.1 - 2. DrawerHardwareTab Model Under Controlled Absence
 {
     HermeticAbsenceFixture fixture;
     const auto& contracts = fixture.registry.getContracts();
-    REQUIRE(contracts.size() == 36);
+    REQUIRE(contracts.size() == 35); // 30 legacy (uno retenido) + 5 canonicos adaptados
 
     // Construcción del modelo de lista idéntica a MainContentComponent / DrawerHardwareTab
     std::vector<gui::HardwareItem> hwItems;

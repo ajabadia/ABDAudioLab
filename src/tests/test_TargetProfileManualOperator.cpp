@@ -4,16 +4,15 @@
 #include "profiling/TargetProfileService.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::profiling;
 
 TEST_CASE("HITO-10D1: TargetProfile Manual Operator (BOSS DS-1 Distortion)", "[target_profile][hardware][manual_operator]")
 {
     TargetProfileService service;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/boss_ds1_distortion.target.json");
-    if (!profileFile.existsAsFile())
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/boss_ds1_distortion.target.json");
+    juce::File profileFile = abdaudiolab::core::canonicalTargetsDir()
+                                .getChildFile("boss_ds1_distortion.target.json");
 
     REQUIRE(profileFile.existsAsFile());
 

@@ -9,6 +9,7 @@
 #include "profiling/TargetProfileService.h"
 #include "profiling/MeasurementRecipeService.h"
 #include "profiling/ExperimentPlanCompiler.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::synth;
 using namespace abdaudiolab::profiling;
@@ -51,10 +52,7 @@ TEST_CASE("HITO-10C: TargetProfile Dexed Real Hosting and Verification", "[targe
     }
 
     TargetProfileService profileService;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/dexed.target.json");
-    if (!profileFile.existsAsFile())
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/dexed.target.json");
+    const auto profileFile = abdaudiolab::core::repoResource("profiles/targets/dexed.target.json");
 
     REQUIRE(profileFile.existsAsFile());
     auto profileRes = profileService.loadAndValidateProfile(profileFile);
@@ -113,10 +111,7 @@ TEST_CASE("HITO-10C: TargetProfile Dexed Real Hosting and Verification", "[targe
 
     SECTION("3. Resolucion declarativa de receta formal con el perfil de Dexed")
     {
-        juce::File recipeFile = juce::File::getCurrentWorkingDirectory()
-                                    .getChildFile("presets/profiling/quick_vcf_3pts.json");
-        if (!recipeFile.existsAsFile())
-            recipeFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/presets/profiling/quick_vcf_3pts.json");
+        const auto recipeFile = abdaudiolab::core::repoResource("presets/profiling/quick_vcf_3pts.json");
         REQUIRE(recipeFile.existsAsFile());
 
         MeasurementRecipeService recipeService;

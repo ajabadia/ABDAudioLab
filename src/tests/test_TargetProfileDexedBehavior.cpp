@@ -7,6 +7,7 @@
 
 #include "synth/ExternalPluginFixture.h"
 #include "profiling/TargetProfileService.h"
+#include "core/LabResourcePaths.h"
 
 using namespace abdaudiolab::synth;
 using namespace abdaudiolab::profiling;
@@ -76,10 +77,7 @@ TEST_CASE("HITO-10C: TargetProfile Dexed Observable Acoustic Behavior", "[target
     }
 
     TargetProfileService profileService;
-    juce::File profileFile = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile("profiles/targets/dexed.target.json");
-    if (!profileFile.existsAsFile())
-        profileFile = juce::File("D:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/dexed.target.json");
+    const auto profileFile = abdaudiolab::core::repoResource("profiles/targets/dexed.target.json");
 
     REQUIRE(profileFile.existsAsFile());
     auto profileRes = profileService.loadAndValidateProfile(profileFile);
