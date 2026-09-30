@@ -140,6 +140,8 @@ target_sources(ABDAudioLab
         src/core/ExperimentStorage.cpp
         src/core/LabDataDirectories.h
         src/core/LabDataDirectories.cpp
+        src/core/LabResourcePaths.h
+        src/core/LabResourcePaths.cpp
         src/core/GeneratedAcousticModel.h
         src/core/GeneratedAcousticModel.cpp
         src/core/HoldoutSequence.h
@@ -952,6 +954,8 @@ add_executable(ABDAudioLab_Tests
     src/synth/OutOfProcessVst3LifecycleAdapter.cpp
     src/core/ExperimentStorage.cpp
     src/core/LabDataDirectories.cpp
+    src/core/LabResourcePaths.cpp
+    src/tests/test_LabResourcePaths.cpp
     src/core/GeneratedAcousticModel.cpp
     src/core/HoldoutSequence.cpp
     src/core/ModelHoldoutValidator.cpp
