@@ -8,6 +8,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include "core/LabResourcePaths.h"
 
 namespace abdaudiolab::gui
 {
@@ -38,13 +39,11 @@ inline juce::File locateAssetFile(const juce::String& relPath)
     auto found = findExisting(f);
     if (found.existsAsFile()) return found;
 
-    // 2. Portable shared assets relative search
-    juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    juce::File sharedAssetsDir = exeDir.getChildFile("../ABDSharedAssets");
-    if (!sharedAssetsDir.isDirectory())
-        sharedAssetsDir = exeDir.getChildFile("../../ABDSharedAssets");
-    if (!sharedAssetsDir.isDirectory())
-        sharedAssetsDir = exeDir.getChildFile("../../../ABDSharedAssets");
+    // 2. Assets compartidos (ABDSharedAssets). La busqueda la hace LabResourcePaths:
+    //    antes se repetia aqui con tres niveles fijos desde el ejecutable.
+    const auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                            .getParentDirectory();
+    const auto sharedAssetsDir = abdaudiolab::core::sharedAssetsDir();
 
     if (sharedAssetsDir.isDirectory())
     {
@@ -63,25 +62,20 @@ inline juce::File locateAssetFile(const juce::String& relPath)
         if (found.existsAsFile()) return found;
     }
 
-    // 3. Current Working Directory
-    found = findExisting(juce::File::getCurrentWorkingDirectory().getChildFile(relPath));
-    if (found.existsAsFile()) return found;
+    // 3. Raiz del repositorio. Antes se probaba el directorio de trabajo, lo que
+    //    hacia que el resultado dependiera de donde se hubiera lanzado la app.
+    //    Se usa optionalRepoResource() y NO repoResource(): esta ultima lanza
+    //    excepcion si no encuentra la raiz, y un producto ejecutado fuera del
+    //    arbol del repositorio abortaria en vez de degradar con elegancia.
+    if (abdaudiolab::core::isSafeRepoRelativePath(relPath))
+    {
+        found = findExisting(abdaudiolab::core::optionalRepoResource(relPath));
+        if (found.existsAsFile()) return found;
+    }
 
     // 4. Executable Directory relative path traversal
     found = findExisting(exeDir.getChildFile(relPath));
     if (found.existsAsFile()) return found;
-
-    // 5. Project root and parent shared assets
-    auto projectRoot = exeDir.getParentDirectory().getParentDirectory().getParentDirectory();
-    found = findExisting(projectRoot.getChildFile(relPath));
-    if (found.existsAsFile()) return found;
-
-    auto sharedRel = projectRoot.getParentDirectory().getChildFile("ABDSharedAssets");
-    if (sharedRel.isDirectory())
-    {
-        found = findExisting(sharedRel.getChildFile(relPath));
-        if (found.existsAsFile()) return found;
-    }
 
     return {};
 }

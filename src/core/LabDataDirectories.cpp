@@ -6,6 +6,7 @@
  */
 
 #include "LabDataDirectories.h"
+#include "LabResourcePaths.h"
 #include <mutex>
 #include <iostream>
 
@@ -218,20 +219,17 @@ LabDataDirectories resolveLabDataDirectories(juce::String* outDiagnostic)
     }
 
     // 3. Prioridad 3: Marcador único ABDAudioLab.workspace
-    // Probar primero desde CWD
-    juce::File marker = findWorkspaceMarker(juce::File::getCurrentWorkingDirectory(), 6);
-    if (!marker.existsAsFile())
-    {
-        // Probar desde la ruta del binario ejecutable
-        auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-        marker = findWorkspaceMarker(exeDir, 6);
-    }
+    // La busqueda del marcador vive ya en LabResourcePaths (única autoridad).
+    // Antes se reimplementaba aqui con su propia precedencia (CWD y luego
+    // ejecutable), que es justo como dos copias de una regla divergen.
+    const auto repoRoot = core::resolveRepoRoot();
 
-    if (marker.existsAsFile())
+    if (repoRoot.isResolved)
     {
-        dirs.dataRoot = marker.getParentDirectory();
+        dirs.dataRoot = repoRoot.root;
         dirs.origin = DataRootOrigin::WorkspaceMarker;
-        dirs.resolutionReason = "Marcador " + std::string(kMarkerFileName) + " detectado en " + marker.getFullPathName().toStdString();
+        dirs.resolutionReason = "Marcador " + std::string(kMarkerFileName) + " detectado en "
+                              + repoRoot.root.getChildFile(kMarkerFileName).getFullPathName().toStdString();
 
         if (ensureSubdirectoriesAndWritable(dirs, outDiagnostic))
         {

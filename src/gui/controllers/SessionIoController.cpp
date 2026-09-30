@@ -7,6 +7,7 @@
 
 #include "SessionIoController.h"
 #include "../SoundIdTheme.h"
+#include "core/LabResourcePaths.h"
 
 namespace abdaudiolab::gui
 {
@@ -20,8 +21,13 @@ SessionIoController::SessionIoController(core::SessionManager& sessionMgr,
       exportReportPanel(exportPanel),
       confirmationModal(confirmModal)
 {
-    exportDirectory = juce::File::getCurrentWorkingDirectory().getChildFile("exported_luts");
-    exportDirectory.createDirectory();
+    // exported_luts es un recurso del repo, no una carpeta de trabajo del usuario:
+    // antes se creaba dentro del directorio desde el que se lanzase la app.
+    // Variante no lanzante: sin arbol del repo no se crea nada fuera de el.
+    exportDirectory = abdaudiolab::core::optionalRepoResource("exported_luts");
+
+    if (exportDirectory.getParentDirectory().isDirectory())
+        exportDirectory.createDirectory();
 }
 
 void SessionIoController::handleOpenSession(juce::Component* modalParent)

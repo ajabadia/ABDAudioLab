@@ -2,6 +2,7 @@
 
 #include "SoundIdTheme.h"
 #include "../BuildVersion.h"
+#include "core/LabResourcePaths.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace abdaudiolab::gui
@@ -101,13 +102,12 @@ public:
 
     void loadSplashArtImage()
     {
-        juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-        juce::File f = exeDir.getChildFile("assets/splash_art.jpg");
-        if (!f.existsAsFile()) f = exeDir.getChildFile("../assets/splash_art.jpg");
-        if (!f.existsAsFile()) f = exeDir.getChildFile("../../assets/splash_art.jpg");
-        if (!f.existsAsFile()) f = exeDir.getChildFile("../../../assets/splash_art.jpg");
-        if (!f.existsAsFile()) f = juce::File::getCurrentWorkingDirectory().getChildFile("assets/splash_art.jpg");
-        if (!f.existsAsFile()) f = juce::File("d:/desarrollos/ABDSynths/ABDAudioLab/assets/splash_art.jpg");
+        // El splash es un recurso del repo. Se resolvia recorriendo el arbol desde el
+        // ejecutable y, como ultimo recurso, desde una ruta absoluta valida solo
+        // en la maquina del autor. Ahora se resuelve contra la raiz del repo.
+        // Variante no lanzante: sin arbol del repo no hay splash, pero no hay fallo.
+        const auto assets = abdaudiolab::core::optionalRepoResource("assets");
+        juce::File f = assets.getChildFile("splash_art.jpg");
 
         if (f.existsAsFile())
         {

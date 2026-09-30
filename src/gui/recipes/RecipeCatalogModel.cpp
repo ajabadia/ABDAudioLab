@@ -1,4 +1,5 @@
 #include "RecipeCatalogModel.h"
+#include "core/LabResourcePaths.h"
 #include <algorithm>
 
 namespace abdaudiolab::gui::recipes
@@ -34,14 +35,11 @@ void RecipeCatalogModel::loadFromDirectory(const juce::File& presetsDirectory)
 
 void RecipeCatalogModel::loadDefaultPresets()
 {
-    juce::File presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("presets/profiling");
-    if (!presetsDir.isDirectory())
-    {
-        // Fallback hacia ruta relativa desde la carpeta de ejecución
-        presetsDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                        .getParentDirectory()
-                        .getChildFile("presets/profiling");
-    }
+    // Las recetas son datos del repo: se resuelven contra la raiz del repositorio,
+    // no contra el directorio de trabajo desde el que se haya lanzado la app.
+    // Variante no lanzante: si el arbol del repo no esta presente, el catalogo
+    // queda vacio y la app sigue arrancando, como antes.
+    const auto presetsDir = abdaudiolab::core::optionalRepoResource("presets/profiling");
 
     loadFromDirectory(presetsDir);
 }

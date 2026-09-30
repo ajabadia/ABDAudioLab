@@ -8,6 +8,7 @@
 #include "MainContentComponent.h"
 #include "hardware/AudioMidiInterfaceDetector.h"
 #include "core/LabDataDirectories.h"
+#include "core/LabResourcePaths.h"
 #include "gui/measurement/MeasurementViewerPanel.h"
 #include "gui/measurement/MeasurementComparisonPanel.h"
 #include "core/ProfilingSessionBuilder.h"
@@ -110,12 +111,18 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     report("Escaneando contratos de hardware en ABDSharedAssets...", 0.45f);
 
-    // Load Contract Specifications: Prioritize ABDSharedAssets/contracts as the single source of truth
-    std::vector<juce::File> roots = {
-        juce::File("D:/desarrollos/ABDSynths/ABDSharedAssets/contracts"),
-        juce::File::getCurrentWorkingDirectory(),
-        juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory()
-    };
+    // Load Contract Specifications: ABDSharedAssets/contracts es la fuente de verdad, y
+    // contracts/hardware el catalogo local versionado. Ambas rutas las resuelve
+    // LabResourcePaths: antes la primera era una ruta absoluta que solo existia en la
+    // maquina del autor, y la lista arrancaba por el directorio de trabajo, con lo
+    // que el catalogo encontrado dependia de desde donde se hubiera lanzado la app.
+    std::vector<juce::File> roots;
+
+    if (const auto sharedAssets = core::sharedAssetsDir(); sharedAssets.isDirectory())
+        roots.push_back(sharedAssets.getChildFile("contracts"));
+
+    roots.push_back(core::optionalRepoResource("contracts/hardware").getParentDirectory().getParentDirectory());
+    roots.push_back(juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory());
 
     for (auto root : roots)
     {
@@ -183,13 +190,20 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Auto-generate Casio CZ Automated Live Scan Session Manifest in assets/presets
     {
-        auto presetsDir = juce::File::getCurrentWorkingDirectory().getChildFile("assets").getChildFile("presets");
-        presetsDir.createDirectory();
-        auto czSessionFile = presetsDir.getChildFile("casio_cz101_mame_ves_session.json");
-        if (!czSessionFile.existsAsFile())
+        auto presetsDir = core::optionalRepoResource("assets/presets");
+
+        // Sin arbol del repositorio no hay donde escribir. Antes este bloque creaba
+        // assets/presets dentro del directorio de trabajo, con lo que ejecutar desde
+        // cualquier sitio dejaba directorios sueltos ahi donde se hubiera lanzado.
+        if (presetsDir.getParentDirectory().isDirectory())
         {
-            auto czSuite = core::ProfilingSession::createCasioCzSuite("casio_cz101_mame_ves", "VIRTUAL_LOOPBACK_ASIO", 100, 8);
-            czSuite.exportSessionToJsonFile(czSessionFile.getFullPathName().toStdString());
+            presetsDir.createDirectory();
+            auto czSessionFile = presetsDir.getChildFile("casio_cz101_mame_ves_session.json");
+            if (!czSessionFile.existsAsFile())
+            {
+                auto czSuite = core::ProfilingSession::createCasioCzSuite("casio_cz101_mame_ves", "VIRTUAL_LOOPBACK_ASIO", 100, 8);
+                czSuite.exportSessionToJsonFile(czSessionFile.getFullPathName().toStdString());
+            }
         }
     }
 

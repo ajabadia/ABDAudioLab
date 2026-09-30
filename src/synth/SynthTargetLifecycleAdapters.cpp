@@ -150,9 +150,23 @@ juce::File InProcessVst3LifecycleAdapter::resolveVst3File(const gui::session::Ta
         juce::File demoWin("C:\\Program Files\\Common Files\\VST3\\DemoSynth.vst3");
         if (demoWin.exists())
             return demoWin;
-        juce::File demoBuild("D:\\desarrollos\\ABDSynths\\_RESOURCES\\DemoSynthPlugin-main\\build\\DemoSynth_artefacts\\Release\\VST3\\DemoSynth.vst3");
-        if (demoBuild.exists())
-            return demoBuild;
+
+        // Se elimino la ruta absoluta de la maquina del autor. En cualquier otra
+        // maquina no existia, asi que la rama era codigo muerto que ademas
+        // colaba una dependencia de entorno en produccion. Ahora se resuelve
+        // subiendo desde el ejecutable; para una ubicacion arbitraria esta la
+        // variable de entorno generica ABDAUDIOLAB_VST3_PATH del punto 1.
+        juce::File dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                             .getParentDirectory();
+
+        for (int level = 0; level < 4 && dir.isDirectory(); ++level)
+        {
+            const juce::File demoBuild = dir.getChildFile("DemoSynth_artefacts/Release/VST3/DemoSynth.vst3");
+            if (demoBuild.exists())
+                return demoBuild;
+
+            dir = dir.getParentDirectory();
+        }
     }
 
     // Comprobar si el plugin existe por nombre en C:\Program Files\Common Files\VST3\<name>.vst3

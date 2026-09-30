@@ -1,6 +1,7 @@
 #include "HardwareDeviceDisplayCardComponent.h"
 #include "SoundIdTheme.h"
 #include "AppTheme.h"
+#include "core/LabResourcePaths.h"
 
 namespace abdaudiolab::gui
 {
@@ -63,34 +64,39 @@ static juce::File locateAssetFile(const juce::String& relPath)
         return {};
     };
 
-    // 2. Traversal portable hacia ABDSharedAssets subiendo hasta 7 niveles desde el ejecutable
-    juce::File exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    juce::File curr = exeDir;
-    for (int i = 0; i < 7; ++i)
+    // 2. Assets compartidos: la busqueda de ABDSharedAssets la hace LabResourcePaths.
+    //    Antes se repetia aqui, subiendo 7 niveles desde el ejecutable Y otras
+    //    7 desde el directorio de trabajo, lo que hacia el resultado depender
+    //    de donde se hubiera lanzado la aplicacion.
+    if (const auto shared = abdaudiolab::core::sharedAssetsDir(); shared.isDirectory())
     {
-        auto sharedAssetsDir = curr.getChildFile("ABDSharedAssets");
-        auto res = checkDir(sharedAssetsDir);
+        auto res = checkDir(shared);
         if (res.existsAsFile()) return res;
-
-        res = checkDir(curr);
-        if (res.existsAsFile()) return res;
-
-        curr = curr.getParentDirectory();
     }
 
-    // 3. Traversal portable subiendo desde Current Working Directory
-    curr = juce::File::getCurrentWorkingDirectory();
-    for (int i = 0; i < 7; ++i)
+    // 3. Raiz del repositorio. Antes se ascendia 7 niveles desde el ejecutable
+    //    probando cada ancestro a ciegas. Esa era una REIMPLEMENTACION de la
+    //    resolucion que ya hace LabResourcePaths, y por eso el resultado
+    //    dependia de cuantos niveles separasen el .exe de la raiz: la misma
+    //    consulta encontraba el asset en un checkout y no en otro.
+    if (abdaudiolab::core::isSafeRepoRelativePath(relPath))
     {
-        auto sharedAssetsDir = curr.getChildFile("ABDSharedAssets");
-        auto res = checkDir(sharedAssetsDir);
-        if (res.existsAsFile()) return res;
-
-        res = checkDir(curr);
-        if (res.existsAsFile()) return res;
-
-        curr = curr.getParentDirectory();
+        // resolveRepoRoot() no lanza: si el producto corre fuera del arbol del
+        // repositorio devuelve una File invalida y checkDir la descarta.
+        const auto root = abdaudiolab::core::resolveRepoRoot();
+        if (root.isResolved)
+        {
+            if (auto res = checkDir(root.root); res.existsAsFile())
+                return res;
+        }
     }
+
+    // 4. Directorio del ejecutable: distribucion portable con los assets al
+    //    lado del binario. Es una coincidencia legitima (no es la raiz del repo)
+    //    y por eso se consulta un solo nivel, sin ascenso.
+    if (auto res = checkDir(juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                                .getParentDirectory()); res.existsAsFile())
+        return res;
 
     return {};
 }

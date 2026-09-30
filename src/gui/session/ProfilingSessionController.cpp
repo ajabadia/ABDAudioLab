@@ -6,6 +6,7 @@
 #include "synth/Sha256.h"
 #include "synth/ModelEvaluationBuilder.h"
 #include "../../core/ExperimentStorage.h"
+#include "../../core/LabResourcePaths.h"
 #include "../../core/LabDataDirectories.h"
 #include "../../core/ValidationUiSummary.h"
 #include "../../core/ModelHoldoutValidator.h"
@@ -1285,37 +1286,10 @@ bool ProfilingSessionController::loadEvaluationFromJsonString(const std::string&
 
 juce::File ProfilingSessionController::getEvaluationsDirectory()
 {
-    // 1. Ruta absoluta canónica en el workspace de desarrollo
-    juce::File repoDir("d:/desarrollos/ABDSynths/ABDAudioLab/fixtures/evaluations");
-    if (repoDir.isDirectory())
-        return repoDir;
-
-    // 2. Relativa a la ubicación del ejecutable (ej. build/ABDAudioLab_artefacts/Release/ -> fixtures/evaluations)
-    auto exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    auto cand1 = exeFile.getParentDirectory().getChildFile("../../../fixtures/evaluations");
-    if (cand1.isDirectory())
-        return cand1;
-
-    auto cand2 = exeFile.getParentDirectory().getChildFile("../fixtures/evaluations");
-    if (cand2.isDirectory())
-        return cand2;
-
-    // 3. Relativa al directorio de trabajo actual
-    auto cand3 = juce::File::getCurrentWorkingDirectory().getChildFile("fixtures/evaluations");
-    if (cand3.isDirectory())
-        return cand3;
-
-    // 4. Búsqueda hacia arriba en el árbol de directorios
-    auto search = juce::File::getCurrentWorkingDirectory();
-    for (int i = 0; i < 5; ++i)
-    {
-        auto f = search.getChildFile("fixtures/evaluations");
-        if (f.isDirectory())
-            return f;
-        search = search.getParentDirectory();
-    }
-
-    return repoDir;
+    // fixtures/evaluations es un recurso del repo. Antes se resolvia con cuatro
+    // intentos, el primero una ruta absoluta valida solo en la maquina del autor.
+    // Ahora lo resuelve LabResourcePaths por el marcador ABDAudioLab.workspace.
+    return abdaudiolab::core::optionalRepoResource("fixtures/evaluations");
 }
 
 bool ProfilingSessionController::loadPredefinedFixture(const std::string& fixtureFileName)
