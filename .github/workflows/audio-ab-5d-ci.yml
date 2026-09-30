@@ -70,8 +70,8 @@ jobs:
 
       - name: Gate 2 — Policy & Cases Boundaries Validation
         run: |
-          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][policy]" --allow-running-no-tests -r console
-          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][diagnostics]" --allow-running-no-tests -r console
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][policy]" -r console
+          .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d][metrics]" -r console
 
       - name: Gate 3 — Canonical Matrix Execution & Artifact Generation
         run: |
