@@ -1,4 +1,5 @@
 #include "SharedHardwareContractAdapter.h"
+#include "HardwareContractRegistry.h"
 #include <juce_core/juce_core.h>
 
 namespace abdaudiolab::core
@@ -225,34 +226,13 @@ void SharedHardwareContractAdapter::parseLifecycleFromRawJson(const nlohmann::js
     if (j.contains("lifecycle") && j["lifecycle"].is_object())
     {
         const auto& lc = j["lifecycle"];
-        auto parseActions = [](const nlohmann::json& arrJson, std::vector<HardwareSetupAction>& actions) {
-            if (!arrJson.is_array()) return;
-            for (const auto& aJson : arrJson)
-            {
-                if (!aJson.is_object()) continue;
-                HardwareSetupAction act;
-                act.description = aJson.value("description", "");
-                std::string methodStr = aJson.value("method", "MIDI_CC");
-                if (methodStr == "NRPN") act.method = HardwareMethod::NRPN;
-                else if (methodStr == "SYSEX_RAW") act.method = HardwareMethod::SYSEX_RAW;
-                else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
-                else act.method = HardwareMethod::MIDI_CC;
-
-                act.channel = aJson.value("channel", 1);
-                act.controlNumber = aJson.value("controlNumber", aJson.value("cc", aJson.value("nrpn", -1)));
-                act.normalizedValue = aJson.value("normalizedValue", aJson.value("value", 0.0f));
-                act.sysexHexPayload = aJson.value("sysexHexPayload", aJson.value("sysexHex", ""));
-                act.settlingDelayMs = aJson.value("settlingDelayMs", 50);
-                actions.push_back(act);
-            }
-        };
 
         if (lc.contains("preCalibrationSetup"))
-            parseActions(lc["preCalibrationSetup"], out.lifecycle.preCalibrationSetup);
+            parseSetupActions (lc["preCalibrationSetup"], out.lifecycle.preCalibrationSetup);
         if (lc.contains("preSessionSetup"))
-            parseActions(lc["preSessionSetup"], out.lifecycle.preSessionSetup);
+            parseSetupActions (lc["preSessionSetup"], out.lifecycle.preSessionSetup);
         if (lc.contains("postSessionTeardown"))
-            parseActions(lc["postSessionTeardown"], out.lifecycle.postSessionTeardown);
+            parseSetupActions (lc["postSessionTeardown"], out.lifecycle.postSessionTeardown);
     }
 }
 

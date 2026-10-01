@@ -7,6 +7,55 @@
 namespace abdaudiolab::core
 {
 
+// -----------------------------------------------------------------------------
+// LA LECTURA DE `setupActions`, Y POR QUE NO ESTA DENTRO DE ESTA CLASE.
+//
+// Hay dos puertas al catalogo de contratos y las dos necesitan leer esta parte
+// del formato: el registro local, aqui, y `SharedHardwareContractAdapter`, que
+// entra por el registro compartido de ABDSharedCode. La lectura estaba escrita
+// dos veces, byte a byte, como lambda local en cada una.
+//
+// Dos copias de una regla de parseo es el modo de fallo mas barato que existe:
+// una acepta un alias que la otra ignora y el contrato se comporta distinto
+// segun por donde entre, sin que nada se ponga rojo. Se unifica aqui porque las
+// dosTIENEN que decir lo mismo, no porque haya dado ya un problema.
+//
+// Y no es una API del registro: es la lectura del formato, asi que vive fuera
+// de la clase y al lado de los tipos que devuelve.
+// -----------------------------------------------------------------------------
+void parseSetupActions (const nlohmann::json& arrJson,
+                        std::vector<HardwareSetupAction>& actions)
+{
+    if (! arrJson.is_array())
+        return;
+
+    for (const auto& aJson : arrJson)
+    {
+        if (! aJson.is_object())
+            continue;
+
+        HardwareSetupAction act;
+        act.description = aJson.value ("description", "");
+
+        const auto methodStr = aJson.value ("method", "MIDI_CC");
+
+        if (methodStr == "NRPN")              act.method = HardwareMethod::NRPN;
+        else if (methodStr == "SYSEX_RAW")    act.method = HardwareMethod::SYSEX_RAW;
+        else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
+        else                                  act.method = HardwareMethod::MIDI_CC;
+
+        act.channel = aJson.value ("channel", 1);
+        act.controlNumber = aJson.value ("controlNumber",
+                                         aJson.value ("cc", aJson.value ("nrpn", -1)));
+        act.normalizedValue = aJson.value ("normalizedValue",
+                                           aJson.value ("value", 0.0f));
+        act.sysexHexPayload = aJson.value ("sysexHexPayload",
+                                           aJson.value ("sysexHex", ""));
+        act.settlingDelayMs = aJson.value ("settlingDelayMs", 50);
+        actions.push_back (act);
+    }
+}
+
 namespace
 {
 
@@ -132,36 +181,15 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         }
 
         // Helper lambdas for actions and measurement recipes
-        auto parseActions = [](const nlohmann::json& arrJson, std::vector<HardwareSetupAction>& actions) {
-            if (!arrJson.is_array()) return;
-            for (const auto& aJson : arrJson)
-            {
-                if (!aJson.is_object()) continue;
-                HardwareSetupAction act;
-                act.description = aJson.value("description", "");
-                std::string methodStr = aJson.value("method", "MIDI_CC");
-                if (methodStr == "NRPN") act.method = HardwareMethod::NRPN;
-                else if (methodStr == "SYSEX_RAW") act.method = HardwareMethod::SYSEX_RAW;
-                else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
-                else act.method = HardwareMethod::MIDI_CC;
 
-                act.channel = aJson.value("channel", 1);
-                act.controlNumber = aJson.value("controlNumber", aJson.value("cc", aJson.value("nrpn", -1)));
-                act.normalizedValue = aJson.value("normalizedValue", aJson.value("value", 0.0f));
-                act.sysexHexPayload = aJson.value("sysexHexPayload", aJson.value("sysexHex", ""));
-                act.settlingDelayMs = aJson.value("settlingDelayMs", 50);
-                actions.push_back(act);
-            }
-        };
-
-        auto parseRecipe = [&parseActions](const nlohmann::json& rJson, MeasurementPresetRecipe& recipe) {
+        auto parseRecipe = [&](const nlohmann::json& rJson, MeasurementPresetRecipe& recipe) {
             if (!rJson.is_object()) return;
             recipe.recipeType = rJson.value("recipeType", std::string("DIRECT_AUDIO_IN"));
             recipe.description = rJson.value("description", std::string(""));
             recipe.postSettlingDelayMs = rJson.value("postSettlingDelayMs", 100);
 
             if (rJson.contains("setupActions"))
-                parseActions(rJson["setupActions"], recipe.setupActions);
+                parseSetupActions (rJson["setupActions"], recipe.setupActions);
 
             if (rJson.contains("excitationNotes") && rJson["excitationNotes"].is_array())
             {
@@ -184,11 +212,11 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         {
             const auto& lc = j["lifecycle"];
             if (lc.contains("preCalibrationSetup"))
-                parseActions(lc["preCalibrationSetup"], c.lifecycle.preCalibrationSetup);
+                parseSetupActions (lc["preCalibrationSetup"], c.lifecycle.preCalibrationSetup);
             if (lc.contains("preSessionSetup"))
-                parseActions(lc["preSessionSetup"], c.lifecycle.preSessionSetup);
+                parseSetupActions (lc["preSessionSetup"], c.lifecycle.preSessionSetup);
             if (lc.contains("postSessionTeardown"))
-                parseActions(lc["postSessionTeardown"], c.lifecycle.postSessionTeardown);
+                parseSetupActions (lc["postSessionTeardown"], c.lifecycle.postSessionTeardown);
         }
 
         // Parse Functions (Schema v2)

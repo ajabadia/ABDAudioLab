@@ -56,6 +56,32 @@ struct HardwareSetupAction
     int settlingDelayMs { 50 };  // Physical settling delay for circuits
 };
 
+/**
+ * @brief Lee una lista JSON de `setupActions` en un vector de acciones.
+ *
+ * Vive aqui, y no dentro de ninguno de sus dos consumidores, porque hay DOS
+ * puertas al catalogo y las dos necesitan exactamente la misma lectura: el
+ * registro local y `SharedHardwareContractAdapter`. Estaba escrita dos veces,
+ * byte a byte, como dos lambdas locales. Dos copias de una regla de parseo es
+ * exactamente lo que se desincroniza sin ruido: una acepta un alias que la otra
+ * ignora, y el contrato se comporta distinto segun por donde entre.
+ *
+ * El que la regla sobre `quarantine::evaluar` este compartida y esta no era
+ * una contradiccion que se hubiera dejado a proposito: la primera se separo
+ * porque un retenido decidirlo de dos maneras es un fallo de seguridad, y esta
+ * se dejo porque aun no habia dado ningun problema.
+ *
+ * No es una API: es la lectura del formato, y por eso se declara al lado de los
+ * tipos que devuelve en vez de dentro de la clase del registro.
+ *
+ * Lo que NO hace, a proposito: no reporta. Si el array no es un array o un
+ * elemento no es un objeto, se los salta. Un contrato con un `lifecycle` roto
+ * tiene que llegar a quien carga el contrato, que es donde si hay donde avisar;
+ * aqui un aviso seria una segunda voz diciendo lo mismo con otra redaccion.
+ */
+void parseSetupActions (const nlohmann::json& arrJson,
+                        std::vector<HardwareSetupAction>& actions);
+
 struct NoteSequenceEvent
 {
     int noteNumber { 60 };
