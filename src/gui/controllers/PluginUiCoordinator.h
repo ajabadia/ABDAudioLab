@@ -102,7 +102,7 @@ public:
     void resetTeardownCounters() noexcept { teardownCounters = {}; }
 
     /**
-     * @brief Returns true if an audio plugin is actively hosted.
+     * @brief Indica si hay algun plugin de audio alojado.
      */
     [[nodiscard]] bool hasActivePlugin() const noexcept;
 

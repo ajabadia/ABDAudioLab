@@ -45,7 +45,7 @@ public:
     void stopPolling();
 
     /**
-     * @brief Returns true if periodic timer is actively running.
+     * @brief Indica si el temporizador periodico esta en marcha.
      */
     [[nodiscard]] bool isPolling() const noexcept;
 

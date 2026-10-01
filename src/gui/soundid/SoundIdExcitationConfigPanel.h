@@ -9,7 +9,7 @@ namespace abdaudiolab::gui::soundid
 
 /**
  * @brief Adaptive excitation configuration panel for Step 2 (CalibrateLoopback / Setup).
- * Adapts reactively to target capabilities:
+ * Se adapta en caliente a las capacidades del objetivo:
  * - Pure analog / non-digital targets: Forces ManualOperator (MANUAL_PROMPT) with settling time,
  *   repetition count, operator guidance instructions, and OperatorCards preview.
  * - Digital targets (MIDI/VST3): Allows switching between AutomatedMidi and ManualOperator,

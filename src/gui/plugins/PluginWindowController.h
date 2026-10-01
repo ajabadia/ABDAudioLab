@@ -28,7 +28,7 @@ public:
     void showPluginWindow(juce::AudioPluginInstance* plugin, const juce::String& windowTitle = {});
 
     /**
-     * @brief Displays the GUI editor for the plugin actively hosted by PluginHostManager.
+     * @brief Muestra el editor grafico del plugin alojado por PluginHostManager.
      */
     void showPluginWindow(core::PluginHostManager& hostManager, const juce::String& windowTitle = {});
 
