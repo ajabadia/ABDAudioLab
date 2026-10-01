@@ -989,6 +989,14 @@ add_executable(ABDAudioLab_Tests
     # resolver (LNK2019) mas LNK1120. SoundIdTheme es header-only, asi que no arrastra
     # nada mas.
     src/gui/StartupWarningsPanel.cpp
+    src/tests/test_MeasurementFloatingWindow.cpp
+    # Su implementacion, por el mismo motivo que arriba y con la misma
+    # consecuencia: el test llama a MeasurementFloatingWindow::updateTheme y a
+    # closeButtonPressed. Antes vivia dentro de MainContentComponent.cpp, que este
+    # target no compila, asi que sin esta linea el test no tendria sujeto y el
+    # target.Tests no enlazaria (LNK2019 + LNK1120). Los dos paneles que
+    # updateTheme() distingue ya estan mas arriba en esta misma lista.
+    src/gui/MeasurementFloatingWindow.cpp
     src/tests/test_ContractsSnapshotDrift.cpp
     src/tests/test_ContractsCiContract.cpp
     src/tests/test_GeneratedAcousticModel.cpp
