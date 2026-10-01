@@ -10,6 +10,12 @@
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
 
+// La mitad generada de la regla. Se escribe desde el enum del esquema con
+// `ABDSharedAssets/scripts/generar-cuarentena-cpp.mjs` y no se edita: lo que este
+// header hace es reexponerlo con los nombres que el resto del codigo ya usa, y
+// asi quien llame a la regla no necesita saber que hay dos mitades.
+#include "HardwareContractQuarantine.generado.h"
+
 namespace abdaudiolab::core::quarantine
 {
 
@@ -43,20 +49,31 @@ namespace abdaudiolab::core::quarantine
 // que tiene que pasar es que este ojo lo ignore y el aviso de "estado
 // desconocido" lo ponga quien carga, que es donde si hay donde avisar.
 //
-// Los nombres de los campos y el del valor no son magia de este fichero: estan
-// declarados en el enum del esquema, `ABDSharedAssets/contracts/
-// hardware_profile.schema.json`. Que los dos lados digan lo mismo lo fija un
-// test de cada lenguaje, porque las dos mitades de una regla compartida por
-// dos lenguajes solo se pueden atar con comprobaciones cruzadas.
+// Y los tres nombres que separan el resto de este fichero NO estan escritos aqui, y
+// eso es lo que ha cambiado de verdad.
+//
+// Antes eran literales en este header, atados al esquema por dos tests
+// cruzados. Los tests funcionaban, y aun asi dejaban pasar lo que mas duele:
+// los dos hacen SKIP cuando ABDSharedAssets no esta al lado, que es el clon
+// limpio. Sin el hermano, la mitad de C++ no se puede ni comparar con la otra, y
+// lo que se rompe es una regla de la que C++ es la unica parte que lee el
+// hardware. Un nombre tecleado puede quedarse viejo sin que nadie lo note, y una
+// errata —una `d` de mas— es exactamente el fallo que un test cruzado caza tarde.
+//
+// Ahora vienen de `HardwareContractQuarantine.generado.h`, que se escribe desde
+// el enum del esquema. No hay dos mitades que comparar: hay un fichero
+// generado, y lo unico que puede quedar desfasado es el fichero, que el
+// preflight comprueba con `--check` sin necesitar al hermano. Una errata ya no
+// tiene donde colarse, porque en este repositorio no hay ningun nombre tecleado.
 
-/** El campo del contrato que lleva la marca. */
-inline constexpr const char* campoEstado = "status";
+/** El campo del contrato que lleva la marca. Del esquema, no escrito aqui. */
+inline constexpr auto campoEstado = generado::campoEstado;
 
-/** El unico valor de `campoEstado` que retiene. */
-inline constexpr const char* valorEstado = "quarantined";
+/** El unico valor de `campoEstado` que retiene. Del enum del esquema. */
+inline constexpr auto valorEstado = generado::valorEstado;
 
-/** El campo del contrato que lleva el motivo de la retencion. */
-inline constexpr const char* campoMotivo = "statusReason";
+/** El campo del contrato que lleva el motivo. Del esquema, derivado del anterior. */
+inline constexpr auto campoMotivo = generado::campoMotivo;
 
 /**
  * Lo que se dice de un retenido que no dice por que.

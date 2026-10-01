@@ -419,31 +419,84 @@ TEST_CASE("El adapter carga el contrato SIN marca y retiene el marcado: el caso 
 // Este es el test que cierra el agujero que quedaba despues de mover la regla a
 // `HardwareContractQuarantine`, y es el que mas vale de todo este fichero.
 //
-// Los dos lados de la regla —el `quarantine::evaluar` de aqui y el helper de JS
-// de ABDSharedAssets— nombran el mismo campo y el mismo valor. No se puede
-// compartir el fichero: uno es C++ y el otro es JS, y un preflight de JS no puede
-// llamar a un metodo estatico de C++ ni al reves. Lo que se puede es atarlos por
-// el FICHERO DEL DATO, que es lo que los dos leen, y eso es lo que hace este caso.
+// `quarantine::evaluar` de aqui y el helper de JS de ABDSharedAssets nombran el
+// mismo campo y el mismo valor. Antes eso se ataba con ESTE caso: comparaba el
+// literal de C++ contra el enum del esquema. Y no era suficiente, por dos
+// razones que hacen falta las dos para entender lo de ahora.
 //
-// El fallo que tapa es concreto y es malo. Alguien renombra el enum del esquema —
-// `quarantined` pasa a `quarantine` porque suena mejor— y actualiza los ficheros
-// de contratos. La cuarentena sigue funcionando en JS: el helper y el test de las
-// dos direcciones miran el dato, y el dato es el nuevo. Pero el literal de C++ se
-// queda en el viejo, ya no casa con nada, y `evaluar` devuelve "no retenido" para
-// SIEMPRE. El registro carga el AIRA. El adapter lo carga. Y ningun test de este
-// repositorio se pone rojo: lo que se ha roto es una regla de la que C++ es la
-// unica parte que lee el hardware.
+// La primera es que este caso hace SKIP sin `ABDSharedAssets` al lado, que es el
+// clon limpio y buena parte del CI. Sin el hermano, la mitad de C++ no se puede ni
+// comparar, y lo que se rompe es una regla de la que C++ es la unica parte que
+// lee el hardware. Un guard que se apaga solo es un guard apagado.
 //
-// Y es un fallo que no se ve mirando la aplicacion, porque lo que se ve es un
-// contrato dudoso que aparece en el cajon como si fuera una maquina real.
+// La segunda es que comparar dos literales escritos a mano caza un cambio de
+// NOMBRE, pero no una errata hasta que alguien ejecuta el test. Y una errata —una
+// `d` de mas en `quarantined`— es el fallo que mas cara sale de todos: `evaluar`
+// devuelve "no retenido" para siempre y el registro carga el contrato dudoso sin
+// que se ponga rojo nada.
 //
-// Por eso el SKIP es honesto y no un convenience: sin `ABDSharedAssets` al lado —
-// un clon limpio sin repositorio hermano, el CI— no hay enum con el que
-// comparar, y este caso no puede decir nada. Se dice con SKIP, que en Catch2 es
-// una corrida que NO cuenta como pasada, y no con un verde.
-TEST_CASE("El literal de C++ es el que declara el enum del esquema",
+// POR QUE ESTE CASO SIGUE EXISTIENDO, Y QUE COMPRUEBA AHORA.
+//
+// Los literales ya no estan escritos en `HardwareContractQuarantine.h`. Salen de
+// `HardwareContractQuarantine.generado.h`, que se escribe desde el enum del
+// esquema, y el preflight lo comprueba con `--check` sin necesitar al hermano:
+// esa es la puerta principal, y no la da este fichero.
+//
+// Este caso es la segunda boca, y aporta una cosa que el `--check` no: que el
+// literal NO este escrito en el header. Si alguien lo pone —porque parece mas
+// legible, porque ha tocado el header y lo ha hecho «claro»—, vuelve a haber dos
+// mitades, y el fichero generado pasa a ser una de ellas en vez de la unica.
+// Eso se comprueba leyendo el header, y no necesita ni esquema ni hermano.
+//
+// Y el SKIP sigue siendo honesto por lo que queda: la parte que compara contra
+// el enum necesita el esquema, y sin el no hay contra que comparar. Se dice con
+// SKIP, que en Catch2 NO cuenta como pasada, y no con un verde.
+TEST_CASE("El literal de C++ sale del enum del esquema, y no esta escrito en el header",
           "[contracts][quarantine][schema]")
 {
+    // Lo primero, y lo que no necesita nada de fuera: el literal NO esta escrito
+    // en el header. Es la mitad de la regla que se puede comprobar siempre, en
+    // cualquier clon y sin el repositorio hermano, y es la que impide volver a
+    // tener dos mitades.
+    //
+    // Sin esto, alguien podria "mejorar" el header poniendo el literal a mano
+    // —se lee mejor— y volver exactamente al estado en el que un cambio de
+    // nombre en el esquema dejaba a C++ mirando un valor que ya no existe.
+
+    // Se piden por su ruta y no desde una raiz, porque `repoResource` rechaza la
+    // ruta vacia: la raiz no es un recurso, es el sitio donde estan los recursos,
+    // y empezar por "" seria empezar justo por lo que el helper dice que no vale.
+    const auto header =
+        abdaudiolab::core::repoResource("src/core/HardwareContractQuarantine.h");
+    const auto generado =
+        abdaudiolab::core::repoResource("src/core/HardwareContractQuarantine.generado.h");
+
+    REQUIRE(header.existsAsFile());
+    REQUIRE(generado.existsAsFile());
+
+    const auto textoHeader = header.loadFileAsString();
+    const auto textoGenerado = generado.loadFileAsString();
+
+    INFO("el header tiene el literal a mano. El generado existe, pero entonces hay "
+         "dos mitades y volver a necesitar que alguien se acuerde de compararlas.");
+    for (const auto* literal : { quarantine::campoEstado, quarantine::valorEstado, quarantine::campoMotivo })
+    {
+        const auto conComillas = juce::String("\"") + juce::String(literal) + "\"";
+        CHECK_FALSE(textoHeader.contains(conComillas));
+    }
+
+    // Y la otra mitad: lo que C++ mira sale del fichero generado, y el nombre de
+    // ese fichero esta en el include. Sin el include, el alias compilaria solo
+    // si el generado se incluyera por otra via, que es justo lo que no queremos.
+    INFO("el header no incluye el fichero generado, asi que de donde salen los "
+         "literales no esta escrito en ninguna parte.");
+    CHECK(textoHeader.contains("HardwareContractQuarantine.generado.h"));
+
+    // Y que lo generado este al dia con lo que el esquema declara. Esto ultimo
+    // es lo que hacia este caso antes, y sigue haciendo falta: el `--check` del
+    // preflight es la puerta, y esta es la que se ejecuta sin el repositorio
+    // hermano y sin ejecutar el preflight.
+
     const auto esquemaFichero =
         abdaudiolab::core::sharedAssetsDir().getChildFile("contracts")
             .getChildFile("hardware_profile.schema.json");

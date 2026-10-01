@@ -131,6 +131,12 @@ target_sources(ABDAudioLab
         src/core/ProfilingSequencer.cpp
         src/core/HardwareContractRegistry.h
         src/core/HardwareContractRegistry.cpp
+        # GENERADO desde ABDSharedAssets/contracts/hardware_profile.schema.json.
+        # Se escribe con generate-cuarentena-cpp y lo vigila el --check del
+        # preflight. Esta en la lista por una razon sola: que CMake lo vea para
+        # recompilar lo que lo incluye cuando cambia, sin esperar a que el
+        # error de compilacion lo diga.
+        src/core/HardwareContractQuarantine.generado.h
     src/core/HardwareContractQuarantine.cpp
         src/core/SessionSerializer.h
         src/core/SessionSerializer.cpp
