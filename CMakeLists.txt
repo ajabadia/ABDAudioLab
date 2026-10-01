@@ -957,6 +957,7 @@ add_executable(ABDAudioLab_Tests
     src/core/LabResourcePaths.cpp
     src/tests/test_LabResourcePaths.cpp
     src/tests/test_ResourcePathHygiene.cpp
+    src/tests/support/LabTestScratch.cpp
     src/core/GeneratedAcousticModel.cpp
     src/core/HoldoutSequence.cpp
     src/core/ModelHoldoutValidator.cpp
