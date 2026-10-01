@@ -84,7 +84,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: main
+          ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f
           path: ABDSharedAssets
           fetch-depth: 1
 
@@ -194,7 +194,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: main
+          ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f
           path: ABDSharedAssets
           fetch-depth: 1
 

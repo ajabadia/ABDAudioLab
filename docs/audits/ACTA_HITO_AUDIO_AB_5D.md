@@ -2,7 +2,7 @@
 ## Acceptance Matrix, Canonical Preset Validation and Dedicated CI Baseline
 
 **Fecha de cierre local:** 2026-09-29  
-**Fecha de certificación CI remota:** pendiente — Run #6 falló (ver §6); Run #7 pendiente  
+**Fecha de certificación CI remota:** pendiente — Run #8 en preparación (ver §7)  
 **Hito Global:** HITO-AUDIO-AB-5D (Fases 5D.1 a 5D.9)  
 **Documento Rector:** `docs/audits/ACTA_HITO_AUDIO_AB_5D.md`  
 **Compilador:** MSVC 18.4.3 (Visual Studio 2026 Community) · Release x64  
@@ -10,7 +10,7 @@
 **Policy de Tolerancias:** `audio-ab-5d-provisional-v1` (`sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57`)  
 **Baseline Canónica:** `audio-ab-5d-canonical-v1`  
 **Estado local:** 🟢 **CERRADO Y SELLADO LOCALMENTE (886 PASS / 0 FAIL)**  
-**Estado CI remota:** ⏳ **CERTIFICACIÓN PENDIENTE — Run #6 falló en Gate 6; causa cerrada por POST-5D.5 (§6). Run #7 pendiente.**
+**Estado CI remota:** ⏳ **CERTIFICACIÓN PENDIENTE — Run #8 en preparación con SSOT inmutable (`9a99cbb`)**
 
 ---
 
@@ -118,7 +118,8 @@ Veredictos Resultantes:
 | #4 | `004bc1b` | ❌ failure | Checkout multi-repo fallido |
 | #5 | `657052a` | ❌ failure | Gate 2: `[diagnostics]` → 0 tests → exit code 1 |
 | #6 | `50900f6` | ❌ failure | Gate 6: fallo en baseline `~[ves]` por dependencias de rutas absolutas codificadas (`D:/desarrollos/...`) |
-| #7 | *(en preparación)* | ⏳ pendiente | Incidente POST-5D.5: Hermetización de rutas y baseline no-VES |
+| #7 | `6e8484c` | ❌ failure | Gates 1–5 verdes; Gate 6 falló en contratos/cuarentena por checkout remoto de `ABDSharedAssets` desfasado respecto a la verdad local (resuelto en POST-5D.6) |
+| #8 | *(en preparación)* | ⏳ pendiente | Incidente POST-5D.6: Publicación de SSOT contractual y pin inmutable (`9a99cbb`) |
 
 ---
 
@@ -202,26 +203,45 @@ Registrada aquí para que no se confunda "hermético" con "sin fallos":
 - `test_Integration01GuidedVsClassicAudio` compara con igualdad exacta valores que dependen del
   planificador del sistema. Preexistente, ajeno a las rutas, no modificado.
 - Una de cada varias corridas completas de `~[ves]` muere en silencio (exit 3, sin resumen). No
-  reproduce en aislamiento y sigue sin atribuirse a un test concreto.
-- `contracts/hardware/roland_aira_patch_spec.schema.json` reaparece en corridas completas y no en
-  aislamiento, sin causa identificada.
+  reproduce en aislamiento y sigue sin atribuirse a un test concreto (mitigado con TestTelemetry).
+- `contracts/hardware/roland_aira_patch_spec.schema.json`: Causa aclarada y cerrada en POST-5D.6 (esquema canónico de SSOT que faltaba por publicar en el repositorio remoto).
 
 ---
 
-## 7. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
+## 7. Addendum POST-5D.6 — Sincronización SSOT y Pin Inmutable de Contratos (2026-10-01)
+
+### 7.1 Qué demostró el Run #7
+1. **Hermetización de rutas completada**: Gates 1–5 pasaron en verde al 100%. `LabResourcePaths` y el marcador versionado `ABDAudioLab.workspace` eliminaron la dependencia de CWD y rutas absolutas.
+2. **Causa del fallo en Gate 6**: Gate 6 ejecutó durante 113s y falló en dos tests contractuales:
+   - `HardwareContractQuarantine`: El esquema remoto no declaraba `status` / `statusReason`.
+   - `ContractsSnapshotDrift`: Discrepancia entre los 40 contratos locales y los 39 del checkout remoto.
+3. **Diagnóstico**: La SSOT `ABDSharedAssets` tenía 16 commits locales (cuarentena, `status`, `roland_aira_patch_spec.schema.json` y generador de claves) que aún no se habían enviado a su remoto `origin/main`. El runner de CI descargaba el commit antiguo `7e8e1d1`.
+
+### 7.2 Acciones ejecutadas en POST-5D.6
+- **Auditoría de `ABDSharedAssets`**: 1.720/1.720 tests Vitest aprobados (100%), preflight verde (`check-generated-contracts.mjs`), `git diff --check` limpio.
+- **Publicación remota de SSOT**: Rama `main` de `ABDSharedAssets` publicada con éxito en GitHub (`7e8e1d1..9a99cbb`).
+- **SHA remoto inmutable certificado**: `9a99cbbb5d001321395ab14c1bea94e954e9168f`.
+- **Pinning en CI**: Se fijó `ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f` en los dos pasos de checkout de `ABDSharedAssets` en `.github/workflows/audio-ab-5d-ci.yml`.
+- **Paridad contractual garantizada**: 40/40 contratos idénticos byte a byte entre SSOT y `ABDAudioLab/contracts/hardware`.
+
+---
+
+## 8. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
 
 ```text
 HITO-AUDIO-AB-5D:
   🟢 CERRADO LOCALMENTE (5D.1 a 5D.9 + 886 PASS / 0 FAIL).
   🏷️  Tag local: hito-audio-ab-5d-certified → 23a5d20
-  ❌ CI Remota: Run #6 FALLÓ en Gate 6 — causa: rutas absolutas personales.
-              Esa causa está cerrada por POST-5D.5 (§6 de esta acta).
-  ⏳ CI Remota: Run #7 PENDIENTE — requiere push. Sin bypass de gate.
-  🔒 Tag CI:    pendiente resultado Run #7.
+  ❌ CI Remota: Run #6 FALLÓ en Gate 6 — causa: rutas absolutas (cerrada por POST-5D.5).
+  ❌ CI Remota: Run #7 FALLÓ en Gate 6 — causa: drift con SSOT remota desfasada (cerrada por POST-5D.6).
+  ⏳ CI Remota: Run #8 PENDIENTE — SSOT fijada de forma inmutable a 9a99cbb.
+  🔒 Tag CI:    pendiente resultado Run #8.
 
 POST-5D.5 (hermeticidad de rutas):
-  🟢 CERRADO. 0 rutas personales en src/. Guard [hygiene] verificado en ambos sentidos.
-  ⚠️  VERIFICACIÓN EN CLON LIMPIO PENDIENTE: el cierre remoto lo da Run #7, no este documento.
+  🟢 CERRADO. 0 rutas personales en src/. Guard [hygiene] verificado.
+
+POST-5D.6 (SSOT contractual y pin inmutable):
+  🟢 CERRADO. ABDSharedAssets publicado (9a99cbb); 40/40 contratos; pin en CI.
 
 Bloqueados (inviolables):
   - D2.7B: Banco físico metrológico.
@@ -229,4 +249,5 @@ Bloqueados (inviolables):
   - MIDI físico: 0 bytes autorizados.
   - ExportReadiness: Blocked permanente.
 ```
+
 
