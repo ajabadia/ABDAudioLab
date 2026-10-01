@@ -6,6 +6,12 @@
  */
 
 #include "MeasurementSerialization.h"
+
+// Las claves de JSON que este fichero escribe no estan tecleadas: las declara
+// el catalogo de ABDSharedAssets y de ahi salen. Ver MeasurementExportKeys.h
+// para por que un literal aqui era un fallo silencioso.
+#include "MeasurementExportKeys.h"
+
 #include <nlohmann/json.hpp>
 #include <cmath>
 
@@ -250,53 +256,57 @@ static PluginIdentity jsonToPluginIdentity(const nlohmann::json& j)
 
 static ordered_json analogCalibrationToJson(const AnalogChainCalibrationRecord& c)
 {
+    namespace cal = claves::generado::analogChainCalibration;
+
     ordered_json j;
-    j["calibrationId"] = c.calibrationId.toStdString();
-    j["sampleRateHz"] = c.sampleRateHz;
-    j["blockSize"] = c.blockSize;
-    j["roundTripLatencySamples"] = c.roundTripLatencySamples;
-    j["snrDb"] = c.snrDb;
-    j["peakDbfs"] = c.peakDbfs;
-    j["dcOffsetDb"] = c.dcOffsetDb;
-    j["status"] = c.status.toStdString();
+    j[cal::calibrationId] = c.calibrationId.toStdString();
+    j[cal::sampleRateHz] = c.sampleRateHz;
+    j[cal::blockSize] = c.blockSize;
+    j[cal::roundTripLatencySamples] = c.roundTripLatencySamples;
+    j[cal::snrDb] = c.snrDb;
+    j[cal::peakDbfs] = c.peakDbfs;
+    j[cal::dcOffsetDb] = c.dcOffsetDb;
+    j[cal::status] = c.status.toStdString();
 
     ordered_json th;
-    th["snrDbMin"] = c.snrDbMin;
-    th["peakDbfsMax"] = c.peakDbfsMax;
-    th["dcOffsetDbMax"] = c.dcOffsetDbMax;
-    j["thresholds"] = th;
+    th[cal::thresholds::snrDbMin] = c.snrDbMin;
+    th[cal::thresholds::peakDbfsMax] = c.peakDbfsMax;
+    th[cal::thresholds::dcOffsetDbMax] = c.dcOffsetDbMax;
+    j[cal::thresholds::contenedor] = th;
 
     ordered_json lat;
-    lat["estimatedHostLatencySamples"] = c.estimatedHostLatencySamples;
-    lat["estimatedHardwareLatencySamples"] = c.estimatedHardwareLatencySamples;
-    j["latencyBreakdown"] = lat;
+    lat[cal::latencyBreakdown::estimatedHostLatencySamples] = c.estimatedHostLatencySamples;
+    lat[cal::latencyBreakdown::estimatedHardwareLatencySamples] = c.estimatedHardwareLatencySamples;
+    j[cal::latencyBreakdown::contenedor] = lat;
     return j;
 }
 
 static AnalogChainCalibrationRecord jsonToAnalogCalibration(const nlohmann::json& j)
 {
-    AnalogChainCalibrationRecord c;
-    c.calibrationId = juce::String(j.value("calibrationId", ""));
-    c.sampleRateHz = j.value("sampleRateHz", 0.0);
-    c.blockSize = j.value("blockSize", 0);
-    c.roundTripLatencySamples = j.value("roundTripLatencySamples", 0.0);
-    c.snrDb = j.value("snrDb", 0.0);
-    c.peakDbfs = j.value("peakDbfs", 0.0);
-    c.dcOffsetDb = j.value("dcOffsetDb", 0.0);
-    c.status = juce::String(j.value("status", "not_measured"));
+    namespace cal = claves::generado::analogChainCalibration;
 
-    if (j.contains("thresholds") && j["thresholds"].is_object())
+    AnalogChainCalibrationRecord c;
+    c.calibrationId = juce::String(j.value(cal::calibrationId, std::string()));
+    c.sampleRateHz = j.value(cal::sampleRateHz, 0.0);
+    c.blockSize = j.value(cal::blockSize, 0);
+    c.roundTripLatencySamples = j.value(cal::roundTripLatencySamples, 0.0);
+    c.snrDb = j.value(cal::snrDb, 0.0);
+    c.peakDbfs = j.value(cal::peakDbfs, 0.0);
+    c.dcOffsetDb = j.value(cal::dcOffsetDb, 0.0);
+    c.status = juce::String(j.value(cal::status, std::string(cal::statusPorDefecto)));
+
+    if (j.contains(cal::thresholds::contenedor) && j[cal::thresholds::contenedor].is_object())
     {
-        const auto& th = j["thresholds"];
-        c.snrDbMin = th.value("snrDbMin", 18.0);
-        c.peakDbfsMax = th.value("peakDbfsMax", -0.5);
-        c.dcOffsetDbMax = th.value("dcOffsetDbMax", -60.0);
+        const auto& th = j[cal::thresholds::contenedor];
+        c.snrDbMin = th.value(cal::thresholds::snrDbMin, cal::thresholds::snrDbMinPorDefecto);
+        c.peakDbfsMax = th.value(cal::thresholds::peakDbfsMax, cal::thresholds::peakDbfsMaxPorDefecto);
+        c.dcOffsetDbMax = th.value(cal::thresholds::dcOffsetDbMax, cal::thresholds::dcOffsetDbMaxPorDefecto);
     }
-    if (j.contains("latencyBreakdown") && j["latencyBreakdown"].is_object())
+    if (j.contains(cal::latencyBreakdown::contenedor) && j[cal::latencyBreakdown::contenedor].is_object())
     {
-        const auto& lat = j["latencyBreakdown"];
-        c.estimatedHostLatencySamples = lat.value("estimatedHostLatencySamples", 0.0);
-        c.estimatedHardwareLatencySamples = lat.value("estimatedHardwareLatencySamples", 0.0);
+        const auto& lat = j[cal::latencyBreakdown::contenedor];
+        c.estimatedHostLatencySamples = lat.value(cal::latencyBreakdown::estimatedHostLatencySamples, 0.0);
+        c.estimatedHardwareLatencySamples = lat.value(cal::latencyBreakdown::estimatedHardwareLatencySamples, 0.0);
     }
     return c;
 }
@@ -437,110 +447,121 @@ static DynamicResponseResult jsonToDynamicResult(const nlohmann::json& j)
 
 static ordered_json modulationSidebandToJson(const ModulationSideband& sb)
 {
+    namespace sbk = claves::generado::modulationSideband;
+
     ordered_json j;
-    j["carrierFrequencyHz"] = sb.carrierFrequencyHz;
-    j["sidebandFrequencyHz"] = sb.sidebandFrequencyHz;
-    j["order"] = sb.order;
-    j["levelRelativeToCarrierDb"] = sb.levelRelativeToCarrierDb;
+    j[sbk::carrierFrequencyHz] = sb.carrierFrequencyHz;
+    j[sbk::sidebandFrequencyHz] = sb.sidebandFrequencyHz;
+    j[sbk::order] = sb.order;
+    j[sbk::levelRelativeToCarrierDb] = sb.levelRelativeToCarrierDb;
     return j;
 }
 
 static ModulationSideband jsonToModulationSideband(const nlohmann::json& j)
 {
+    namespace sbk = claves::generado::modulationSideband;
+
     ModulationSideband sb;
-    sb.carrierFrequencyHz = j.value("carrierFrequencyHz", 0.0);
-    sb.sidebandFrequencyHz = j.value("sidebandFrequencyHz", 0.0);
-    sb.order = j.value("order", 1);
-    sb.levelRelativeToCarrierDb = j.value("levelRelativeToCarrierDb", 0.0);
+    sb.carrierFrequencyHz = j.value(sbk::carrierFrequencyHz, 0.0);
+    sb.sidebandFrequencyHz = j.value(sbk::sidebandFrequencyHz, 0.0);
+    sb.order = j.value(sbk::order, sbk::orderPorDefecto);
+    sb.levelRelativeToCarrierDb = j.value(sbk::levelRelativeToCarrierDb, 0.0);
     return sb;
 }
 
 static ordered_json modulationResultToJson(const ModulationResultData& mod)
 {
+    namespace modK = claves::generado::modulationResult;
+
     ordered_json j;
-    j["targetDestination"] = mod.targetDestination;
+    j[modK::targetDestination] = mod.targetDestination;
+
     ordered_json r;
-    r["name"] = mod.rateHz.name.toStdString();
-    r["value"] = mod.rateHz.value;
-    r["unit"] = mod.rateHz.unit.toStdString();
-    r["status"] = mod.rateHz.status.toStdString();
+    r[modK::rateHz::name] = mod.rateHz.name.toStdString();
+    r[modK::rateHz::value] = mod.rateHz.value;
+    r[modK::rateHz::unit] = mod.rateHz.unit.toStdString();
+    r[modK::rateHz::status] = mod.rateHz.status.toStdString();
     if (mod.rateHz.reason.isNotEmpty())
-        r["reason"] = mod.rateHz.reason.toStdString();
-    j["rateHz"] = r;
-    j["rateMethod"] = mod.rateMethod;
+        r[modK::rateHz::reason] = mod.rateHz.reason.toStdString();
+    j[modK::rateHz::contenedor] = r;
+    j[modK::rateMethod] = mod.rateMethod;
 
     ordered_json d;
-    d["name"] = mod.depth.name.toStdString();
-    d["value"] = mod.depth.value;
-    d["unit"] = mod.depth.unit.toStdString();
-    d["status"] = mod.depth.status.toStdString();
+    d[modK::depth::name] = mod.depth.name.toStdString();
+    d[modK::depth::value] = mod.depth.value;
+    d[modK::depth::unit] = mod.depth.unit.toStdString();
+    d[modK::depth::status] = mod.depth.status.toStdString();
     if (mod.depth.reason.isNotEmpty())
-        d["reason"] = mod.depth.reason.toStdString();
-    j["depth"] = d;
+        d[modK::depth::reason] = mod.depth.reason.toStdString();
+    j[modK::depth::contenedor] = d;
 
     ordered_json w;
-    w["waveform"] = mod.waveform.waveform;
-    w["status"] = mod.waveform.status;
-    w["confidence"] = mod.waveform.confidence;
-    j["waveform"] = w;
+    w[modK::waveform::waveform] = mod.waveform.waveform;
+    w[modK::waveform::status] = mod.waveform.status;
+    w[modK::waveform::confidence] = mod.waveform.confidence;
+    j[modK::waveform::contenedor] = w;
 
     ordered_json sbs = ordered_json::array();
     for (const auto& sb : mod.sidebands)
         sbs.push_back(modulationSidebandToJson(sb));
-    j["sidebands"] = sbs;
+    j[modK::sidebands] = sbs;
 
-    j["spectralMetadata"] = spectralAnalysisToJson(mod.spectralMetadata);
-    j["timeCurve"] = curveToJson(mod.timeCurve);
-    j["spectrumCurve"] = curveToJson(mod.spectrumCurve);
+    j[modK::spectralMetadata] = spectralAnalysisToJson(mod.spectralMetadata);
+    j[modK::timeCurve] = curveToJson(mod.timeCurve);
+    j[modK::spectrumCurve] = curveToJson(mod.spectrumCurve);
     return j;
 }
 
 static ModulationResultData jsonToModulationResult(const nlohmann::json& j)
 {
+    namespace modK = claves::generado::modulationResult;
+
     ModulationResultData mod;
-    mod.targetDestination = j.value("targetDestination", "unknown");
-    if (j.contains("rateHz") && j["rateHz"].is_object())
-    {
-        const auto& r = j["rateHz"];
-        mod.rateHz.name = juce::String(r.value("name", "rate"));
-        mod.rateHz.value = r.value("value", 0.0);
-        mod.rateHz.unit = juce::String(r.value("unit", "Hz"));
-        mod.rateHz.status = juce::String(r.value("status", "observed"));
-        mod.rateHz.reason = juce::String(r.value("reason", ""));
-    }
-    mod.rateMethod = j.value("rateMethod", "spectral_peak");
+    mod.targetDestination = j.value(modK::targetDestination, std::string(modK::targetDestinationPorDefecto));
 
-    if (j.contains("depth") && j["depth"].is_object())
+    if (j.contains(modK::rateHz::contenedor) && j[modK::rateHz::contenedor].is_object())
     {
-        const auto& d = j["depth"];
-        mod.depth.name = juce::String(d.value("name", "depth"));
-        mod.depth.value = d.value("value", 0.0);
-        mod.depth.unit = juce::String(d.value("unit", "cents"));
-        mod.depth.status = juce::String(d.value("status", "observed"));
-        mod.depth.reason = juce::String(d.value("reason", ""));
+        const auto& r = j[modK::rateHz::contenedor];
+        mod.rateHz.name = juce::String(r.value(modK::rateHz::name, std::string(modK::rateHz::namePorDefecto)));
+        mod.rateHz.value = r.value(modK::rateHz::value, 0.0);
+        mod.rateHz.unit = juce::String(r.value(modK::rateHz::unit, std::string(modK::rateHz::unitPorDefecto)));
+        mod.rateHz.status = juce::String(r.value(modK::rateHz::status, std::string(modK::rateHz::statusPorDefecto)));
+        mod.rateHz.reason = juce::String(r.value(modK::rateHz::reason, std::string()));
     }
 
-    if (j.contains("waveform") && j["waveform"].is_object())
+    mod.rateMethod = j.value(modK::rateMethod, std::string(modK::rateMethodPorDefecto));
+
+    if (j.contains(modK::depth::contenedor) && j[modK::depth::contenedor].is_object())
     {
-        const auto& w = j["waveform"];
-        mod.waveform.waveform = w.value("waveform", "none");
-        mod.waveform.status = w.value("status", "not_observable");
-        mod.waveform.confidence = w.value("confidence", 0.0);
+        const auto& d = j[modK::depth::contenedor];
+        mod.depth.name = juce::String(d.value(modK::depth::name, std::string(modK::depth::namePorDefecto)));
+        mod.depth.value = d.value(modK::depth::value, 0.0);
+        mod.depth.unit = juce::String(d.value(modK::depth::unit, std::string(modK::depth::unitPorDefecto)));
+        mod.depth.status = juce::String(d.value(modK::depth::status, std::string(modK::depth::statusPorDefecto)));
+        mod.depth.reason = juce::String(d.value(modK::depth::reason, std::string()));
     }
 
-    if (j.contains("spectralMetadata") && j["spectralMetadata"].is_object())
-        mod.spectralMetadata = jsonToSpectralAnalysis(j["spectralMetadata"]);
-
-    if (j.contains("sidebands") && j["sidebands"].is_array())
+    if (j.contains(modK::waveform::contenedor) && j[modK::waveform::contenedor].is_object())
     {
-        for (const auto& sb : j["sidebands"])
+        const auto& w = j[modK::waveform::contenedor];
+        mod.waveform.waveform = w.value(modK::waveform::waveform, std::string(modK::waveform::waveformPorDefecto));
+        mod.waveform.status = w.value(modK::waveform::status, std::string(modK::waveform::statusPorDefecto));
+        mod.waveform.confidence = w.value(modK::waveform::confidence, 0.0);
+    }
+
+    if (j.contains(modK::spectralMetadata) && j[modK::spectralMetadata].is_object())
+        mod.spectralMetadata = jsonToSpectralAnalysis(j[modK::spectralMetadata]);
+
+    if (j.contains(modK::sidebands) && j[modK::sidebands].is_array())
+    {
+        for (const auto& sb : j[modK::sidebands])
             mod.sidebands.push_back(jsonToModulationSideband(sb));
     }
 
-    if (j.contains("timeCurve") && j["timeCurve"].is_object())
-        jsonToCurve(j["timeCurve"], mod.timeCurve);
-    if (j.contains("spectrumCurve") && j["spectrumCurve"].is_object())
-        jsonToCurve(j["spectrumCurve"], mod.spectrumCurve);
+    if (j.contains(modK::timeCurve) && j[modK::timeCurve].is_object())
+        jsonToCurve(j[modK::timeCurve], mod.timeCurve);
+    if (j.contains(modK::spectrumCurve) && j[modK::spectrumCurve].is_object())
+        jsonToCurve(j[modK::spectrumCurve], mod.spectrumCurve);
 
     return mod;
 }

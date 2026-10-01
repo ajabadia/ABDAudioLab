@@ -13,6 +13,11 @@
 #include "../../audio/LabAudioEngine.h"
 #include "../../synth/Sha256.h"
 
+#if JUCE_WINDOWS
+#include <windows.h>
+#include <mmsystem.h>
+#endif
+
 namespace abdaudiolab::test::support
 {
 
@@ -97,6 +102,7 @@ public:
                 activeVelocity_ = msg.getFloatVelocity();
                 frequencyHz_ = 440.0 * std::pow(2.0, (static_cast<double>(activeNote_) - 69.0) / 12.0);
                 phaseDelta_ = (2.0 * 3.14159265358979323846 * frequencyHz_) / sampleRate_;
+                currentPhase_ = 0.0;
                 isPlaying_ = true;
             }
             else if (msg.isNoteOff() || (msg.isNoteOn() && msg.getFloatVelocity() == 0.0f))
@@ -217,6 +223,7 @@ public:
         blockSize_ = blockSize;
         channels_ = std::clamp(channels, 1, 2);
         currentBlock_ = 0;
+        engine_.setSampleRate(sampleRate_);
 
         inputBufferL_.assign(static_cast<size_t>(blockSize_), 0.0f);
         inputBufferR_.assign(static_cast<size_t>(blockSize_), 0.0f);
@@ -264,8 +271,13 @@ public:
      */
     PumpResult pumpUntil(std::function<bool()> completedPredicate,
                          int maxBlocks = 5000,
-                         std::function<std::string()> statusDiagnostics = nullptr)
+                         std::function<std::string()> statusDiagnostics = nullptr,
+                         int pacingMs = 0)
     {
+#if JUCE_WINDOWS
+        timeBeginPeriod(1);
+        struct ScopedPeriod { ~ScopedPeriod() { timeEndPeriod(1); } } scopedPeriod;
+#endif
         PumpResult res;
         int pumpedBlocks = 0;
         int idleYieldCycles = 0;
@@ -289,6 +301,8 @@ public:
                 pumpOneBlock();
                 pumpedBlocks++;
                 idleYieldCycles = 0;
+                if (pacingMs > 0)
+                    juce::Thread::sleep(pacingMs);
             }
             else
             {

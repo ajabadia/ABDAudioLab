@@ -195,6 +195,16 @@ public:
      */
     [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate; }
     [[nodiscard]] double getCurrentSampleRate() const noexcept { return getSampleRate(); }
+    void setSampleRate(double newSampleRate) noexcept
+    {
+        if (newSampleRate > 1000.0)
+        {
+            currentSampleRate = newSampleRate;
+            generator.prepare(currentSampleRate);
+            receiver.prepare(currentSampleRate);
+            liveMidiCollector.reset(currentSampleRate);
+        }
+    }
 
     // Telemetry Multi-Tap Collector & Serializer for ABDScope
     [[nodiscard]] abd::scope::ScopeTap& getScopeTap() noexcept { return *tapHardwareIn; }

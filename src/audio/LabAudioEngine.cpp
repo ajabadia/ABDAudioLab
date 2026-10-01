@@ -81,7 +81,10 @@ void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, 
 
     if (plugin != nullptr)
     {
-        double sr = sampleRate > 0.0 ? sampleRate : currentSampleRate;
+        if (sampleRate > 0.0)
+            setSampleRate(sampleRate);
+
+        double sr = currentSampleRate;
         if (sr <= 0.0) sr = 44100.0;
         int bs = blockSize > 0 ? blockSize : static_cast<int>(tempProcessBufferL.size());
         if (bs <= 0) bs = 512;

@@ -558,13 +558,19 @@ void ProfilingSequencer::run()
             bool noteOffSent = !isMidiTriggered;
             double noteStartTime = juce::Time::getMillisecondCounterHiRes();
             double gateMs = static_cast<double>(gateDurationSec) * 1000.0;
+            int gateSamples = static_cast<int>(std::lround(gateDurationSec * sampleRate));
             double captureStartTime = juce::Time::getMillisecondCounterHiRes();
             double timeoutMs = (maxRecSec + 3.5) * 1000.0;
 
             while (!receiver.isFinished() && !threadShouldExit())
             {
                 double elapsedMs = juce::Time::getMillisecondCounterHiRes() - noteStartTime;
-                if (!noteOffSent && elapsedMs >= gateMs)
+                int recordedSamples = receiver.getRecordedSampleCount();
+                bool audioAdvancing = (recordedSamples > 0 && receiver.getState() == audio::ReceiverState::Recording);
+                bool sampleGateReached = (audioAdvancing && gateSamples > 0 && recordedSamples >= gateSamples);
+                bool gateReached = audioAdvancing ? sampleGateReached : (elapsedMs >= gateMs);
+
+                if (!noteOffSent && gateReached)
                 {
                     if (hardwareDispatcher != nullptr)
                         hardwareDispatcher->sendNoteOff(tc.midiChannel, tc.midiNoteNumber, 0.0f);
@@ -586,7 +592,7 @@ void ProfilingSequencer::run()
                     receiver.forceFinish();
                     break;
                 }
-                juce::Thread::sleep(10);
+                juce::Thread::sleep(1);
             }
 
             if (receiver.isOverloadTriggered())

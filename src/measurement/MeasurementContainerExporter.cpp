@@ -7,6 +7,11 @@
 
 #include "MeasurementContainerExporter.h"
 #include "MeasurementSerialization.h"
+
+// El manifiesto escribe CUATRO claves del grupo de calibracion, no las catorce:
+// son las marcadas con `vaAlManifiesto` en el catalogo. Los nombres salen de
+// ahi, que es lo que evita que este segundo sitio se quede viejo en silencio.
+#include "MeasurementExportKeys.h"
 #include "MeasurementSvgGenerator.h"
 #include "MeasurementReportGenerator.h"
 #include "../synth/Sha256.h"
@@ -193,12 +198,14 @@ void writeManifestJson(const juce::File& containerDir,
     }
     if (spec.analogCalibration.has_value())
     {
+        namespace cal = claves::generado::analogChainCalibration;
+
         ordered_json c;
-        c["calibrationId"] = spec.analogCalibration->calibrationId.toStdString();
-        c["status"] = spec.analogCalibration->status.toStdString();
-        c["roundTripLatencySamples"] = spec.analogCalibration->roundTripLatencySamples;
-        c["snrDb"] = spec.analogCalibration->snrDb;
-        manifestJson["analogCalibration"] = c;
+        c[cal::calibrationId] = spec.analogCalibration->calibrationId.toStdString();
+        c[cal::status] = spec.analogCalibration->status.toStdString();
+        c[cal::roundTripLatencySamples] = spec.analogCalibration->roundTripLatencySamples;
+        c[cal::snrDb] = spec.analogCalibration->snrDb;
+        manifestJson[cal::contenedor] = c;
     }
 
     ordered_json artsArray = ordered_json::array();

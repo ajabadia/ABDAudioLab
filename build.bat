@@ -7,6 +7,8 @@ echo ===========================================================================
 
 :: Terminate running instance if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
+taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
+timeout /t 1 /nobreak >nul 2>nul
 
 :: 1. Detect Visual Studio Environment using vswhere
 where cl.exe >nul 2>nul
@@ -15,13 +17,14 @@ if %errorlevel% neq 0 (
     set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
     
     if exist "!VSWHERE!" (
-        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -property installationPath`) do (
+        for /f "usebackq tokens=*" %%i in (`"!VSWHERE!" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
             set "VS_PATH=%%i"
         )
     )
 
     if defined VS_PATH (
         echo [Info] Found Visual Studio at: !VS_PATH!
+        set "CMAKE_GENERATOR_INSTANCE=!VS_PATH!"
         if exist "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat" (
             call "!VS_PATH!\VC\Auxiliary\Build\vcvars64.bat"
         ) else if exist "!VS_PATH!\VC\Auxiliary\Build\vcvarsall.bat" (
@@ -58,8 +61,8 @@ if /i "%1"=="clean" (
 :: asking it once for the section would forbid the two legitimate links.
 ::
 :: What the blind version did: it asked `if not exist` and nothing else. On a
-:: machine where that directory was missing —fresh clone, a stale working
-:: copy, someone who deleted it to see what would happen— it created a link
+:: machine where that directory was missing ?fresh clone, a stale working
+:: copy, someone who deleted it to see what would happen? it created a link
 :: with no message. Git still listed 40 files, the preflight compared the
 :: source with itself through the link and reported them all identical, and the
 :: test did the same. Green everywhere, nothing checked. Both of those are
@@ -80,10 +83,18 @@ if exist "!SHARED_ASSETS!" (
 :: 3. Configure with CMake (only when cache is missing or CMakeLists changed)
 if not exist "build\CMakeCache.txt" (
     echo [Info] Configuring project with CMake...
-    cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    if defined VS_PATH (
+        cmake -B build -G "Visual Studio 18 2026" -A x64 "-DCMAKE_GENERATOR_INSTANCE=!VS_PATH!" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    ) else (
+        cmake -B build -G "Visual Studio 18 2026" -A x64 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    )
     if %errorlevel% neq 0 (
         echo [Info] Trying fallback CMake configuration...
-        cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        if defined VS_PATH (
+            cmake -B build "-DCMAKE_GENERATOR_INSTANCE=!VS_PATH!" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        ) else (
+            cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        )
         if %errorlevel% neq 0 (
             echo [Error] CMake configuration failed.
             exit /b 1
