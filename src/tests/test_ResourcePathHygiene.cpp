@@ -22,6 +22,21 @@
  * del repo para ESCRITURA es abdaudiolab::test::artifactDir(), que por defecto
  * devuelve un temporal y solo devuelve el repo con ABD_REGENERATE_ARTIFACTS=1.
  *
+ * POST-5D.5 amplitudes el alcance a lo que no es codigo. Un enlace markdown
+ * `file:///d:/desarrollos/...` no rompe la ejecucion: rompe la lectura. No resuelve
+ * en el navegador de nadie mas y, en GitHub, aparece como texto plano, asi que el
+ * documento que lo contiene parece actualizado mientras su unica referencia viva
+ * acaba de romperse en silencio. Hay dos barridos mas, sobre docs/ y sobre los 43
+ * PLAN_*.md / MATRIX_*.md / ACTA_*.md sueltos de la raiz, que concentran mas rutas
+ * personales que docs/ entero.
+ *
+ * contracts/ y fixtures/ NO se barren, y no por descuido. contracts/ es copia byte a
+ * byte de ABDSharedAssets/contracts y ya tiene su propio guard de identidad
+ * (test_ContractsSnapshotDrift.cpp). Anadirle una segunda autoridad crearia un
+ * conflicto: si upstream escribiera una ruta personal en un campo de ejemplo, la CI
+ * de aqui se pondria roja y el unico arreglo que cumpliria este guard, editar la
+ * copia, romperia la identidad byte a byte. fixtures/ no tiene ningun campo de ruta.
+ *
  * La excepcion declarada son los recursos que NO viven en el repositorio y por
  * tanto no pueden resolverse con LabResourcePaths: binarios de terceros (Dexed),
  * ROMs de VES y el directorio de trabajo del plugin worker. Cada uno debe
@@ -54,7 +69,7 @@ namespace
  *
  * INVARIANTE: una entrada que ya no usa getCurrentWorkingDirectory es una entrada
  * que hay que BORRAR. Una allowlist que acumula permisos caducados deja de proteger:
- * el fichero vuelve a estar libre de污泥 y el guard ya no lo vigila. No se puede
+ * el fichero vuelve a estar libre de lodo y el guard ya no lo vigila. No se puede
  * comprobar solo con este test (que ignora las entradas por construccion); se
  * revisa al migrar, y este listado es la prueba de que se hizo.
  */
@@ -260,6 +275,30 @@ const std::vector<std::string>& machinePathNeedles()
 }
 
 /**
+ * @brief Como interpreta el recorrido la sintaxis de comentarios del fichero.
+ *
+ * Existe porque el stripper de comentarios es un LECTOR DE C++, y aplicado a
+ * markdown se traga el resto del fichero. docs/ROADMAP.md contiene el glob
+ * `raw_audio/*.wav`: la secuencia barra-asterisco abre, en la mente del
+ * stripper, un comentario de bloque que ningun asterisco-barra posterior cierra.
+ * Todas las lineas siguientes quedan invisibles para el barrido. Medido sobre el
+ * mismo conjunto de ficheros: 22 infracciones con el stripper, 73 sin el.
+ *
+ * En .cpp/.h no se nota porque ahi los comentarios cierran. Eso lo hace una
+ * hipotesis latente y no una garantia, y un guard que depende de una hipotesis
+ * no protege.
+ *
+ * NOTA al editar: este comentario NO puede contener la secuencia literal
+ * asterisco-barra, porque cerraria el propio comentario de bloque. Es la misma
+ * trampa que el guard evita en los .cpp, y por eso se dice aqui.
+ */
+enum class CommentSyntax
+{
+    cxx,    ///< sintaxis de C++: comentarios de bloque y de linea se ignoran
+    none    ///< el formato no tiene comentarios: no se ignora ninguna linea
+};
+
+/**
  * @brief Recorre un arbol buscando en el codigo los patrones prohibidos dados.
  *
  * @param root        Directorio raiz del recorrido.
@@ -270,7 +309,8 @@ const std::vector<std::string>& machinePathNeedles()
  * @param needles     Patrones prohibidos; basta con que aparezcan en la linea.
  * @param ignoreCase  Comparar sin sensibilidad a caja.
  * @param pathMode    Normalizar la linea antes de comparar (barras y escapes).
- * @param skipDir     Nombre de un subdirectorio a excluir (src/tests cuando se escanea src).
+ * @param skipDirs    Nombres de subdirectorios a excluir. Es un conjunto y no un
+ * @param commentSyntax  Como tratar comentarios: none para markdown, JSON y YAML.
  */
 ScanResult scanForForbiddenPatterns (const juce::File& root,
                                      bool recursive,
@@ -280,7 +320,8 @@ ScanResult scanForForbiddenPatterns (const juce::File& root,
                                      const std::vector<std::string>& needles,
                                      bool ignoreCase,
                                      bool pathMode,
-                                     const std::string& skipDir = {})
+                                     const std::set<std::string>& skipDirs = {},
+                                     CommentSyntax commentSyntax = CommentSyntax::cxx)
 {
     ScanResult result;
 
@@ -298,7 +339,12 @@ ScanResult scanForForbiddenPatterns (const juce::File& root,
     {
         const auto name = fileNameOf (entry.getFileName().toStdString());
 
-        if (! skipDir.empty() && entry.getParentDirectory().getFileName().toStdString() == skipDir)
+        // Se compara por NOMBRE de directorio, no por ruta: asi el mismo conjunto
+        // sirve para excluir src/tests de un recorrido sobre src y para excluir dos
+        // arboles vendorizados de docs/ que cuelgan en distintas profundidades.
+        const auto parentName = entry.getParentDirectory().getFileName().toStdString();
+
+        if (skipDirs.count (parentName) > 0)
             continue;
 
         if (allowed.count (name) > 0)
@@ -355,12 +401,15 @@ ScanResult scanForForbiddenPatterns (const juce::File& root,
 
             if (! hit)
             {
-                const auto open = line.find ("/*");
-
-                if (open != std::string::npos
-                     && line.find ("*/", open + 2) == std::string::npos)
+                if (commentSyntax == CommentSyntax::cxx)
                 {
-                    insideBlockComment = true;
+                    const auto open = line.find ("/*");
+
+                    if (open != std::string::npos
+                         && line.find ("*/", open + 2) == std::string::npos)
+                    {
+                        insideBlockComment = true;
+                    }
                 }
 
                 continue;
@@ -368,7 +417,8 @@ ScanResult scanForForbiddenPatterns (const juce::File& root,
 
             const auto firstNonSpace = line.find_first_not_of (" \t");
 
-            if (firstNonSpace != std::string::npos
+            if (commentSyntax == CommentSyntax::cxx
+                 && firstNonSpace != std::string::npos
                  && line.compare (firstNonSpace, 2, "//") == 0)
             {
                 continue;
@@ -420,6 +470,11 @@ const std::set<std::string>& allowedRepoPathReaders()
         // estado inicial del controlador, y de ahi evolves.
         { "test_ProfilingSessionController.cpp" },
         { "test_ProfilingSessionCoordinator.cpp" },
+
+        // Lee entero el workflow de CI para verificar por texto los contratos que
+        // exige (filtro de rutas, nombre del checkout). repoResource() es la
+        // lectura, no la escritura: la escritura sigue siendo artifactDir().
+        { "test_ContractsCiContract.cpp" },
 
         // Workstream de cuarentena de hardware: leen el catalogo compartido de
         // assets. Aun sin migrar al scratch, y siguen siendo solo lectura.
@@ -499,6 +554,69 @@ const std::vector<std::string>& rawTempDirNeedles()
 
     return needles;
 }
+/**
+ * @brief Documentos autorizados a CITAR las rutas que el resto del repo prohibe.
+ *
+ * No es lo mismo que un consumidor: estos ficheros no resuelven nada contra la
+ * maquina de nadie. Su asunto ES la ruta, asi que tienen que escribirla para poder
+ * auditarla, registrarla o prohibirla. Un enlace file:/// a d:/desarrollos/...
+ * dentro de uno de ellos es la evidencia, no el defecto.
+ *
+ * INVARIANTE distinta de las otras allowlists: una entrada puede quedarse aqui
+ * para siempre sin que sea deuda, porque el fichero sigue siendo un documento
+ * sobre el problema. Lo que no puede es crecer sin motivo nuevo.
+ */
+const std::set<std::string>& allowedPathCitationDocuments()
+{
+    static const std::set<std::string> allowed
+    {
+        // El inventario: su contenido ES la tabla de rutas que encuentra.
+        { "POST_5D5_HARDCODED_PATHS_INVENTORY.md" },
+
+        // Actas que registran el incidente que las produjo (Gate 6) y el informe
+        // de calidad con el literal de cada hallazgo.
+        { "ACTA_HITO_AUDIO_AB_5D.md" },
+        { "CODE_QUALITY_REPORT.md" },
+
+        // Documentos que ENSEÑAN el patron para que no se repita.
+        { "GUIDE_ISSUES_TO_AVOID.md" },
+        { "PLAN.md" },
+
+        // El contrato que las prohibe cita una como ejemplo de lo no permitido.
+        { "MEASUREMENT_RECIPE_CONTRACT.md" },
+
+        // Transcripcion de una herramienta, no un documento del repo: escribe la
+        // linea de comandos con la ruta del ejecutable. Esta en .gitignore y no
+        // existe en la CI, pero el recorrido es sobre el ARBOL DE TRABAJO, no
+        // sobre el indice de git, asi que aqui se ve. Entrada que desaparece
+        // sola el dia que se borre el fichero.
+        { ".aider.chat.history.md" },
+    };
+
+    return allowed;
+}
+
+/**
+ * @brief Arboles de docs/ que son COPIAS DE TERCEROS y que este repo no mantiene.
+ *
+ * docs/google ia research/ y docs/take 5 to lab/ traen su propio .gitmodules y su
+ * propio .gitignore: son arboles upstream, no codigo nuestro. Medido hoy: aportan
+ * cero infracciones. Se excluyen igual porque un barrido que depende de que la
+ * dependencia vendorizada se porte bien no es un barrido, y porque nadie aqui
+ * puede arreglar lo que salga.
+ *
+ * Se comparan por NOMBRE de directorio, que es como funciona skipDirs.
+ */
+const std::set<std::string>& vendoredDocumentationTrees()
+{
+    static const std::set<std::string> trees
+    {
+        { "google ia research" },
+        { "take 5 to lab" },
+    };
+
+    return trees;
+}
 
 } // namespace
 
@@ -543,7 +661,7 @@ TEST_CASE("Hygiene de rutas: produccion no resuelve datos del repo por getCurren
     // Se excluye src/tests: lo cubre el caso anterior con su propia allowlist.
     const auto result = scanForForbiddenPatterns (srcDir, true, "*.cpp;*.h",
                                                   allowedProductionCwdConsumers(), kGuardFileName,
-                                                  cwdNeedles(), true, false, "tests");
+                                                  cwdNeedles(), true, false, { "tests" });
 
     INFO("Ficheros de produccion escaneados: " << result.scanned);
     INFO("Ficheros de produccion que sondean el CWD sin estar justificados: " << result.offenders.size());
@@ -599,7 +717,7 @@ TEST_CASE("Hygiene de rutas: produccion no codifica una ruta absoluta de mi maqu
     // contienen ni la unidad de desarrollo ni el perfil de usuario.
     const auto result = scanForForbiddenPatterns (srcDir, true, "*.cpp;*.h",
                                                   {}, kGuardFileName,
-                                                  machinePathNeedles(), true, true, "tests");
+                                                  machinePathNeedles(), true, true, { "tests" });
 
     INFO("Ficheros de produccion escaneados: " << result.scanned);
     INFO("Rutas absolutas personales encontradas: " << result.offenders.size());
@@ -627,7 +745,7 @@ TEST_CASE("Hygiene de rutas: produccion no reimplementa la resolucion desde el e
 
     const auto result = scanForForbiddenPatterns (srcDir, true, "*.cpp;*.h",
                                                   allowedProductionExeProbes(), kGuardFileName,
-                                                  exeProbeNeedles(), false, false, "tests");
+                                                  exeProbeNeedles(), false, false, { "tests" });
 
     INFO("Ficheros de produccion escaneados: " << result.scanned);
     INFO("Ficheros de produccion que consultan el ejecutable sin justificacion: "
@@ -839,4 +957,71 @@ TEST_CASE("LabTestScratch: el scratch de un test existe, se vacia y nunca cae en
 
     clearScratchDir ("hygiene_self_check");
     clearScratchDir ("hygiene_self_check_docs_qa_runs");
+}
+TEST_CASE("Hygiene de rutas: ningun documento de docs/ enlaza a la maquina del autor",
+          "[hygiene][resourcepaths][docs]")
+{
+    // Lo que este guard caza es distinto de lo que cazan los de codigo: un
+    // enlace markdown `file:///d:/desarrollos/...` no rompe la ejecucion, rompe
+    // la lectura. El enlace no resuelve en la maquina de nadie mas y el documento
+    // que lo contiene parece actualizado cuando su unica referencia viva acaba
+    // de romperse en silencio.
+    const auto repoRoot = abdaudiolab::core::requireRepoRoot();
+    const juce::File docsDir = repoRoot.getChildFile("docs");
+
+    REQUIRE(repoRoot.isDirectory());
+    REQUIRE(docsDir.isDirectory());
+
+    // CommentSyntax::none, no cxx. Markdown no tiene comentarios, y el stripper
+    // de C++ aplicado a un glob como `raw_audio/*.wav` entra en modo comentario y
+    // no vuelve a salir: las 253 lineas siguientes de docs/ROADMAP.md quedaban
+    // invisibles. Medido: 22 infracciones con el stripper, 73 sin el.
+    const auto result = scanForForbiddenPatterns (docsDir, true, "*.md;*.json;*.txt;*.yml",
+                                                  allowedPathCitationDocuments(), kGuardFileName,
+                                                  machinePathNeedles(), true, true,
+                                                  vendoredDocumentationTrees(),
+                                                  CommentSyntax::none);
+
+    INFO("Documentos de docs/ escaneados: " << result.scanned);
+    INFO("Documentos de docs/ que enlazan a una ruta personal: " << result.offenders.size());
+
+    for (const auto& offender : result.offenders)
+        FAIL_CHECK(offender);
+
+    for (const auto& missing : result.unreadable)
+        FAIL_CHECK("No se pudo leer: " + missing);
+
+    REQUIRE(result.unreadable.empty());
+    REQUIRE(result.scanned > 0);
+}
+
+TEST_CASE("Hygiene de rutas: ningun documento de la raiz del repo cita la maquina del autor",
+          "[hygiene][resourcepaths][docs]")
+{
+    // Los 43 PLAN_*.md, MATRIX_*.md y ACTA_*.md sueltos en la raiz quedan fuera
+    // de cualquier barrido que se fije en docs/. Y concentran mas rutas
+    // personales que docs/ entero, asi que dejarlos fuera haria que el guard
+    // protegiera la mitad pequena del problema.
+    const auto repoRoot = abdaudiolab::core::requireRepoRoot();
+
+    REQUIRE(repoRoot.isDirectory());
+
+    // No recursivo a proposito: en la raiz solo interesan los documentos, y
+    // bajar entraria en src/, docs/ y el arbol vendorizado.
+    const auto result = scanForForbiddenPatterns (repoRoot, false, "*.md",
+                                                  allowedPathCitationDocuments(), kGuardFileName,
+                                                  machinePathNeedles(), true, true, {},
+                                                  CommentSyntax::none);
+
+    INFO("Documentos de la raiz escaneados: " << result.scanned);
+    INFO("Documentos de la raiz que citan una ruta personal: " << result.offenders.size());
+
+    for (const auto& offender : result.offenders)
+        FAIL_CHECK(offender);
+
+    for (const auto& missing : result.unreadable)
+        FAIL_CHECK("No se pudo leer: " + missing);
+
+    REQUIRE(result.unreadable.empty());
+    REQUIRE(result.scanned > 0);
 }
