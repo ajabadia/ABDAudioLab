@@ -29,7 +29,10 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <Catch2TestRun name="ABDAudioLab_Tests.exe">
@@ -60,6 +63,16 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
     </Section>
   </TestCase>
 </Catch2TestRun>`;
+
+// Un fichero de referencia con la version de formato equivocada. Se escribe de
+// verdad en un temporal, porque una base incompatible tiene que READINGSE de un
+// fichero: si se probara con un objeto en memoria no se comprobaria que el
+// `JSON.parse` de un fichero roto no revienta el analisis.
+const dirTEMP = mkdtempSync(join(tmpdir(), 'dur-base-'));
+const rutaIncompatible = join(dirTEMP, 'base.json');
+writeFileSync(rutaIncompatible, JSON.stringify({ version: 99, casos_: { A: { s: 1, f: 'a' } } }), 'utf8');
+
+const NO_EXISTE_O_INCOMPATIBLE = rutaIncompatible;
 
 const fallos = [];
 let total = 0;
@@ -126,6 +139,31 @@ comprobar('se guarda el nombre aunque venga escapado',
 comprobar('se guarda el fichero de origen',
   d.find((x) => x.nombre === 'Corto')?.fichero?.includes('uno.cpp'));
 
+console.log('\nun nombre con > NO se parte por la mitad, que es donde se perdian 11 casos');
+
+// Un nombre puede llevar `>` dentro —«(>= 3 controls)»—, y el reporter lo
+// escribe como `&gt;`. Un parser que busca el cierre de la etiqueta con
+// `[^>]*` corta por ahi, se queda con los atributos a medias, y el `name="` ya
+// no cierra nunca: el caso se descarta o sale como «(sin nombre)». Once casos de
+// 927, y no se notaba porque el nombre inventado se repetia once y parecia uno.
+const CON_GT = `<?xml version="1.0" encoding="UTF-8"?>
+<Catch2TestRun>
+  <TestCase name="OperatorCards (>= 3 controls) and Selection" filename="D:\\a\\x.cpp" line="1" tags="[t]">
+    <OverallResult success="true" skips="0" durationInSeconds="1.25"/>
+  </TestCase>
+</Catch2TestRun>`;
+
+const conGt = leerDuraciones(CON_GT);
+
+comprobar('se lee el caso cuyo nombre lleva &gt; escapado',
+  conGt.length === 1);
+
+comprobar('el nombre sale COMPLETO, con el >= dentro',
+  conGt[0]?.nombre === 'OperatorCards (>= 3 controls) and Selection');
+
+comprobar('y sale su duracion, no un cero',
+  conGt[0]?.segundos === 1.25);
+
 console.log('\nel umbral ordena y avisa de lo que lo pasa');
 
 const lineas = resumen(d, 8).join('\n');
@@ -153,9 +191,88 @@ const truncado = resumen(leerDuraciones('<Catch2TestRun><TestCase name="x">'),
 comprobar('con XML truncado dice que no se puede saber',
   truncado.includes('truncado'));
 
+console.log('\nla referencia se guarda y se compara');
+
+// La base se construye aqui, con tres casos, en vez de medir la suite entera:
+// una medicion real tarda cinco minutos por asercion. Lo que se prueba es la
+// COMPARACION, que no necesita que los tiempos sean reales sino que esten en la
+// relacion correcta entre ellos.
+const base = construirBase([
+  { nombre: 'A', fichero: 'x.cpp', segundos: 0.3 },
+  { nombre: 'B', fichero: 'y.cpp', segundos: 0.4 },
+  { nombre: 'C', fichero: 'z.cpp', segundos: 0.5 },
+]);
+
+comprobar('la base guarda los casos que se le pasan',
+  Object.keys(base.casos_).length === 3);
+
+comprobar('la base lleva su version de formato, que es lo que se recusa si cambia',
+  base.version === 1);
+
+comprobar('la base guarda los filtros con los que se midio',
+  Array.isArray(base.filtros));
+
+const cmp = compararConBase([
+  { nombre: 'A', fichero: 'x.cpp', segundos: 0.9 },
+  { nombre: 'B renombrado', fichero: 'y.cpp', segundos: 1.2 },
+  { nombre: 'NUEVO', fichero: 'n.cpp', segundos: 2.0 },
+], base);
+
+comprobar('un caso que se triplica sale como regresion', cmp.regresiones.length === 2);
+
+comprobar('dice cuanto se ha multiplicado, no solo que ha cambiado',
+  cmp.regresiones.every((r) => r.factor === 3));
+
+comprobar('un RENOMBRADO se reconoce por su fichero, no se toma por caso nuevo',
+  cmp.regresiones.some((r) => r.renombrado === true));
+
+comprobar('y sale marcado como renombrado, para que no se lea como una regresion nueva',
+  resumenBase(cmp).join('\n').includes('(renombrado)'));
+
+comprobar('un caso que no estaba en la base cuenta como nuevo',
+  cmp.nuevos.length === 1);
+
+comprobar('un caso que ha desaparecido se cuenta como ausente',
+  cmp.ausentes === 1);
+
+console.log('\ny el ruido de los tests de microsegundos no se confunde con una regresion');
+
+// El piso existe por esto: sin el, duplicar el tiempo de un test de 0.1 ms
+// avisaria en cada vuelta, y un informe que avisa siempre deja de leerse.
+const baseMicro = construirBase([
+  { nombre: 'micro', fichero: 'm.cpp', segundos: PISO_DE_INTERES / 10 },
+  { nombre: 'normal', fichero: 'n.cpp', segundos: 0.5 },
+]);
+
+const cmpMicro = compararConBase([
+  { nombre: 'micro', fichero: 'm.cpp', segundos: PISO_DE_INTERES / 5 },
+  { nombre: 'normal', fichero: 'n.cpp', segundos: 1.5 },
+], baseMicro);
+
+comprobar('el que estaba por debajo del piso NO se avisa, aunque se haya duplicado',
+  !cmpMicro.regresiones.some((r) => r.nombre === 'micro'));
+
+comprobar('el que estaba por encima del piso SI se avisa',
+  cmpMicro.regresiones.some((r) => r.nombre === 'normal'));
+
+console.log('\nuna referencia que no se puede leer no rompe el analisis');
+
+comprobar('sin fichero de referencia, la comparacion no dice que hay regresiones',
+  compararConBase([{ nombre: 'A', fichero: 'x.cpp', segundos: 9 }], null).regresiones.length === 0);
+
+comprobar('sin referencia, el resumen sale vacio en vez de mentir',
+  resumenBase(compararConBase([], null)).length === 0);
+
+console.log('\nuna referencia de otra version de formato se recusa, no se compara');
+
+comprobar('una base con version distinta no se usa',
+  leerBase(NO_EXISTE_O_INCOMPATIBLE) === null);
+
 console.log('\nel umbral por defecto sale de la medicion, no de un ojo');
 
 comprobar('el umbral por defecto son 8 s', UMBRAL === 8);
+
+comprobar('el factor por defecto es 2', FACTOR === 2);
 
 console.log('\n' + '='.repeat(64));
 console.log(fallos.length === 0

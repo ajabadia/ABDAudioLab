@@ -105,6 +105,7 @@ if not exist "build\CMakeCache.txt" (
 :: 4. Target Selection and Build Configuration
 set "BUILD_TARGET="
 set "IS_TEST_ONLY=0"
+set "RUN_PERF=0"
 if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
     set "IS_TEST_ONLY=1"
@@ -116,6 +117,14 @@ if /i "%1"=="tests" (
 ) else if /i "%1"=="app" (
     set "BUILD_TARGET=--target ABDAudioLab"
     echo [Info] Compiling ABDAudioLab app only.
+) else if /i "%1"=="perf" (
+    rem Compila los tests y cronometra la suite. `perf` y no `tests` porque es
+    rem OTRO trabajo: medirla cuesta minutos, y quien compila para iterar no los
+    rem quiere gastar. Se deja aparte a proposito.
+    set "BUILD_TARGET=--target ABDAudioLab_Tests"
+    set "IS_TEST_ONLY=1"
+    set "RUN_PERF=1"
+    echo [Info] Performance mode: compiling ABDAudioLab_Tests and timing the suite.
 )
 
 :: 5. Auto-increment build number in src/BuildVersion.h (only for full app builds)
@@ -157,6 +166,39 @@ echo ===========================================================================
 if /i "%1"=="run" (
     echo [Info] Launching ABDAudioLab...
     start "" "build\ABDAudioLab_artefacts\Release\ABDAudioLab.exe"
+)
+
+:: ------------------------------------------------------------------ cronometro
+::
+:: El tiempo de la suite se mide DESPUES de compilar, y solo si el binario esta:
+:: cronometrar una compilacion fallida no dice nada del rendimiento, dice del
+:: error, y el error ya se ha visto justo encima.
+::
+:: Se busca `node` porque el cronometro es el que es. Si no esta, se avisa y se
+:: sigue: medir el tiempo es una comprobacion MAS, no la unica, y un pipeline
+:: que se para porque no hay node se queda sin las comprobaciones de verdad.
+if "!RUN_PERF!"=="1" (
+    if not exist "build\Release\ABDAudioLab_Tests.exe" (
+        echo [Warn] No hay binario de tests que cronometrar.
+    ) else (
+        where node >nul 2>nul
+        if errorlevel 1 (
+            echo [Warn] No hay node en el PATH: se salta el cronometro.
+            echo [Warn] Se mide con:  node tools\duraciones-suite.mjs
+        ) else (
+            echo ==============================================================================
+            echo  Timing the suite. It takes minutes; that is not a hang.
+            echo ==============================================================================
+            node tools\duraciones-suite.mjs
+            set "PERF_EXIT=!errorlevel!"
+            if "!PERF_EXIT!"=="0" (
+                echo [Info] Suite timings: no slow test, no regression vs reference.
+            ) else (
+                echo [Warn] Suite timings reported something. See the table above.
+                echo [Warn] Exit code !PERF_EXIT! - 1 = slow test or a regression.
+            )
+        )
+    )
 )
 
 :: ------------------------------------------------------------------ junctions
