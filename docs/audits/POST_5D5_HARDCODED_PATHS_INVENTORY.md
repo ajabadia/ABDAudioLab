@@ -367,3 +367,118 @@ en los barridos de test y de producción. Sonda retirada después. Con el códig
 **Nota sobre el barrido de producción:** `REQUIRE(result.unreadable.empty())` y
 `REQUIRE(result.scanned > 0)` son la red anti-vacuidad. Un guard que lee 0 ficheros pasa en
 verde; por eso se afirma el número de ficheros leídos, no solo que no haya infracciones.
+
+---
+
+## 11. Cierre de la hermeticidad de ESCRITURA (2026-10-01)
+
+§10 cerró la hermeticidad de *lectura*: que un test resuelva sus rutas sin depender del
+directorio de trabajo. Quedaba la otra mitad, igual de silenciosa: **los tests escribían
+dentro del árbol del repositorio**.
+
+### 11.1 Qué se audtaba
+
+De 348 escrituras brutas en `src/tests/*.cpp`, solo cuatro escribían en el árbol del repo:
+
+| Fichero | Destino | Ficheros versionados tocados |
+|---|---|---|
+| `test_AudioABCanonicalPresetRuns5D.cpp` | `docs/qa/runs/RUN_5D_NN_acceptance_report.json` | **10** |
+| `test_ModelEvaluation.cpp` | `fixtures/evaluations/*.json` | **5** |
+| `test_CasioCzLiveScanSuite.cpp` | `assets/presets/casio_cz101_mame_ves_session.json` | 1 |
+| `test_OfficialLutGeneration.cpp` | `exported_luts/` (no versionado, pero creaba el directorio dentro del repo) | 0 |
+
+El resto ya usaba `%TEMP%`. El daño real no es el fichero sucio: es que un gate de «el árbol
+está limpio» se vuelve imposible de evaluar cuando el propio test ensucia el árbol, y un
+artefacto regenerado sin querer se confunde con un cambio de código en el commit siguiente.
+
+### 11.2 El módulo `src/tests/support/LabTestScratch`
+
+Dos salidas, y solo dos:
+
+- **`scratchDir(caseName)`** — `%TEMP%/abdaudiolab-tests/<nombre>`, vaciado recursivamente al
+  entrar. Resuelve los tres fallos del patrón anterior (`getSpecialLocation(tempDirectory)
+  .getChildFile("nombre_fijo")`): nombre fijo compartido entre tests, restos que se acumulan
+  sin límite, y ausencia de negación. Aquí `scratchDir()` **lanza** si el directorio cae
+  dentro de la raíz del repo, y `ScratchDir` es la variante RAII con limpieza al salir.
+- **`artifactDir(repoRelativeDir, caseName)`** — el destino de los artefactos canónicos. Por
+  defecto devuelve el scratch (correr la suite no toca el repo); solo con
+  `ABD_REGENERATE_ARTIFACTS=1` devuelve el directorio real. Es la **única función del
+  proyecto** que devuelve una ruta del repo con fines de escritura.
+
+### 11.3 Migración aplicada
+
+- **4 sitios** de escritura al repo → `artifactDir()` (opt-in por variable de entorno).
+- **57 sitios** de temporal crudo → `scratchDir()`, en dos pasadas: 25 verificados por
+  compilación en la primera, 32 (31 enunciados + 1 expresión en línea en `test_PauseResume.cpp`)
+  en la segunda. Se unificaron también los que escribían un fichero suelto con nombre fijo
+  directamente en la raíz de `%TEMP%` (`test_JsLutExport`, `test_LnlManifestExport`,
+  `test_LoopbackDiagnostics`, `test_SysexPresetGenerator`): compartían nombre con cualquier
+  otra corrida.
+- **8 sitios** de `test_SessionExecutionCoordinator.cpp` y los 4 sitios de `%TEMP%` directo de
+  `test_PauseResume.cpp` y `test_CasioCzLiveScanSuite.cpp` migrados a mano: eran `%TEMP%` sin
+  subdirectorio, no el patrón mecánico que el script reconocía.
+
+Quedan fuera, por pertenecer a una workstream paralela sin cerrar y no ser modificables aquí:
+`test_ContractsSnapshotDrift.cpp`, `test_HardwareContractQuarantine.cpp`,
+`test_HardwareContractRangeFieldNames.cpp` y `test_StartupWarningsPanel.cpp` (6 sitios con
+`getSpecialLocation(tempDirectory)`). Figuran en la allowlist del guard, con el motivo.
+
+### 11.4 El guard pasa de convención a invariante
+
+Dos `TEST_CASE` nuevos en `src/tests/test_ResourcePathHygiene.cpp`:
+
+1. **`[writes]` — ningún test pide una ruta del repo fuera de `artifactDir`.** Needles:
+   `docsQaRunsDir`, `fixturesEvaluationsDir`, `exportedLutsDir`, `assetsDir`, `repoResource`
+   (que ingiere `optionalRepoResource`). Allowlist de 9 lectores legítimos, cada uno con su
+   motivo escrito. Los lectores habituales (`contractsHardwareDir`, `canonicalTargetsDir`,
+   `profilingPresetsDir`, `profilesDir`, `docsQaDir`, `fixturesDir`) quedan **fuera del
+   needle a propósito**: leer el repo es legítimo e inevitable, y prohibirlos obligaría a
+   falsejar el código en lugar de a protegerlo.
+2. **`[writes]` — las fixtures de un test viven en su scratch, no en `%TEMP%` crudo.**
+   Needle en las dos grafías (`getSpecialLocation(` y `getSpecialLocation (`) porque el código
+   del repo usa las dos y un needle con una sola deja pasar la otra. Segundo barrido sobre
+   `src/tests/support/*.cpp`, donde la única autorizada a citar `tempDirectory` es
+   `LabTestScratch.cpp`: es el punto donde se decide el scratch raíz.
+
+El needle es el accessor, no una cadena de ruta, precisamente porque los casos que ensuciaban
+el árbol no aparecían en ninguno de los barridos anteriores: escribían a través de un
+accesor que devuelve una ruta del repo, y ningún patrón de texto delata un accessor.
+
+3. **`[writes][scratch]` — `LabTestScratch` probado a sí mismo.** Que el scratch se cree, se
+   vacíe al repedirlo y se borre con `clearScratchDir()`; que la raíz esté en el temporal del
+   sistema; que un nombre de `TEST_CASE` con acentos, comas y corchetes se vuelva un nombre de
+   directorio válido; y la invariante central vía `isInsideRepo()`: `true` para la raíz del
+   repo y para un directorio real suyo, `false` para el scratch raíz y para la temporal del
+   sistema. La rama de `artifactDir()` se elige con el valor **real** del proceso, así que
+   correr la suite con `ABD_REGENERATE_ARTIFACTS=1` ejercita la otra mitad sin duplicar el test.
+
+Red anti-vacuidad en los tres: `REQUIRE(result.scanned > 0)`.
+
+### 11.5 Verificación ejecutada
+
+El ejecutable de la suite **no existe en este árbol** (`build/Release/ABDAudioLab_Tests.exe`)
+y no hay forma de recuperarlo sin cerrar la workstream de cuarentena, así que la verificación
+es de compilación, no de ejecución:
+
+- **Compilación unitaria** con los flags exactos de `Release|x64` del `.vcxproj`
+  (`build/compile_one.cmd`, `/permissive- /Zc:__cplusplus /utf-8 …`): **30 ficheros** de test
+  tocados + `LabTestScratch.cpp` + `test_ResourcePathHygiene.cpp`, todos en verde.
+- **Simulación de los guards** (`build/sim_guard.py`, copia línea por línea de
+  `scanForForbiddenPatterns()`): GUARD A lee 185 ficheros y da 0 infracciones; GUARD B lee 190
+  y da 0; el barrido de `support/` lee 2 y da 0.
+- **Comprobación negativa** (el guard ve el fallo que motiva el guard): sobre `HEAD`, GUARD A
+  señala exactamente los cuatro testes de la tabla 11.1, y GUARD B cuenta 8 sitios en
+  `test_SessionExecutionCoordinator.cpp` y 1 en `test_PauseResume.cpp` solo.
+
+`build/Release/ABDAudioLab_Tests.exe` debe relanzarse en cuanto la workstream paralela cierre;
+los tres `TEST_CASE` nuevos están escritos para no necesitar nada más que el árbol del repo.
+
+### 11.6 Pendiente
+
+- Los 6 sitios de los 4 ficheros de la workstream de cuarentena, y sus 4 entradas de la
+  allowlist, se migran con ella.
+- `E2ETempDirectory`, `TestTempDirectory`, `IntegrationTempDirectory` y `SmokeTempDirectory`
+  (en `test_E2E_HermeticWorkflows.cpp`, `test_ExportIO.cpp`, `test_ModeToExportIntegration.cpp`
+  y `test_SmokeStep4UI.cpp`) ya cumplen el contrato —temporal propio, vaciado y borrado al
+  salir— por su cuenta, pero son cuatro copias de lo que ya hace `ScratchDir`. Convergerlas es
+  limpieza, no bug: no se han tocado.
