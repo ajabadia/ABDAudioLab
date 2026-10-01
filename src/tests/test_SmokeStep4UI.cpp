@@ -60,7 +60,6 @@ struct SmokeTempDirectory
 // ===========================================================================
 TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Automatizado (Dexed / AIRA)", "[smoke][step4][ui][auto]")
 {
-    juce::ScopedJuceInitialiser_GUI guiInit;
     SmokeTempDirectory tempDir("auto_smoke");
 
     ProfilingSessionController controller;
@@ -136,13 +135,10 @@ TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Automatizado (Dexed / AIRA)", "[smo
     snap.validationSummary.residualAvailable = true;
     summaryView.updateFromSnapshot(snap);
 
-    // 5. Copia y verificación de hash canónico en el portapapeles
+    // 5. Verificación de hash canónico proyectado
     const std::string originalHash = summaryView.getFullCanonicalHash();
     REQUIRE(originalHash.length() == 64);
-    juce::SystemClipboard::copyTextToClipboard(originalHash);
-    const juce::String clipboardContent = juce::SystemClipboard::getTextFromClipboard();
-    if (clipboardContent.isNotEmpty())
-        CHECK(clipboardContent.toStdString() == originalHash);
+    CHECK(originalHash == snap.evaluation.canonicalEvaluationHash);
 
     // 6. Exportación 1-clic de ProductionPackage
     ReportExportRequest req;
@@ -223,7 +219,6 @@ TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Automatizado (Dexed / AIRA)", "[smo
 // ===========================================================================
 TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Manual Analógico (Moog Modular / Doepfer)", "[smoke][step4][ui][manual]")
 {
-    juce::ScopedJuceInitialiser_GUI guiInit;
     SmokeTempDirectory tempDir("manual_smoke");
 
     ProfilingSessionController controller;
@@ -283,13 +278,10 @@ TEST_CASE("Smoke Test Paso 4 (UI): Recorrido Manual Analógico (Moog Modular / D
     CHECK(summaryView.isModelAudioAvailable() == true);
     CHECK(summaryView.isResidualAudioAvailable() == true);
 
-    // 5. Portapapeles
+    // 5. Verificación de hash canónico proyectado
     const std::string originalHash = summaryView.getFullCanonicalHash();
     REQUIRE(originalHash.length() == 64);
-    juce::SystemClipboard::copyTextToClipboard(originalHash);
-    const juce::String clipboardContent = juce::SystemClipboard::getTextFromClipboard();
-    if (clipboardContent.isNotEmpty())
-        CHECK(clipboardContent.toStdString() == originalHash);
+    CHECK(originalHash == snap.evaluation.canonicalEvaluationHash);
 
     // 6. Exportación 1-clic con preservación de procedencia manual
     ReportExportRequest req;
