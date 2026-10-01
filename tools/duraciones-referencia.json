@@ -1,0 +1,3720 @@
+{
+  "version": 1,
+  "medidoEn": "2026-10-01T16:42:00.682Z",
+  "casos": 927,
+  "totalSegundos": 301.516,
+  "filtros": [
+    "~[integration-01]",
+    "~*PluginHost*"
+  ],
+  "casos_": {
+    "FarinaDeconvolver Log Sweep Generation": {
+      "s": 0.0047,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FarinaDeconvolver.cpp"
+    },
+    "FarinaDeconvolver Impulse Response Extraction": {
+      "s": 0.0504,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FarinaDeconvolver.cpp"
+    },
+    "SplineInterpolator2D Grid Evaluation": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SplineInterpolator2D.cpp"
+    },
+    "SplineInterpolator2D Boundary Clamping": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SplineInterpolator2D.cpp"
+    },
+    "SessionSerializer Serialization Roundtrip": {
+      "s": 0.0691,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionSerializer.cpp"
+    },
+    "LabAnalyticEngine ADSR Envelope Analysis": {
+      "s": 0.0023,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabAnalyticEngine.cpp"
+    },
+    "LabAnalyticEngine WaveShaper THD Calculation": {
+      "s": 0.0303,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabAnalyticEngine.cpp"
+    },
+    "LabAnalyticEngine LFO Cyclic Modulator Analysis": {
+      "s": 0.2524,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabAnalyticEngine.cpp"
+    },
+    "CertificationReportExporter HTML &amp; SVG Generation": {
+      "s": 0.062,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CertificationReportExporter.cpp"
+    },
+    "WienerHammersteinFitter LNL System Identification": {
+      "s": 0.0569,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_WienerHammerstein.cpp"
+    },
+    "MidiIdentityDetector Request Generation": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiIdentityDetector.cpp"
+    },
+    "MidiIdentityDetector Contract-Driven Identity Reply Parsing": {
+      "s": 0.3155,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiIdentityDetector.cpp"
+    },
+    "MidiIdentityDetector Contract-Driven Port Name Heuristics": {
+      "s": 0.4516,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiIdentityDetector.cpp"
+    },
+    "NAM Calibration Stimulus Generation": {
+      "s": 0.0209,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_NamDatasetExporter.cpp"
+    },
+    "NAM Dataset Cross-Correlation Latency Alignment": {
+      "s": 0.0977,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_NamDatasetExporter.cpp"
+    },
+    "NAM Dataset Export Files and Manifest": {
+      "s": 0.2251,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_NamDatasetExporter.cpp"
+    },
+    "LabStimulusGenerator Buffer Boundary Safety": {
+      "s": 0.0067,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "QueueItem Status and Progression State Transitions": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAudioEngine Dual-Buffer Safety &amp; Stereo Trim Under Stress": {
+      "s": 0.0824,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAudioEngine ABDScope End-to-End Contract &amp; JSON Wire Protocol Verification": {
+      "s": 0.0143,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAudioReceiver Spectral Cross-Correlation Sample-Accurate Alignment": {
+      "s": 0.0095,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAudioReceiver Overload Guard and Auto-Abort": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAudioReceiver Dynamic Early Stopping by Silence": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LabAnalyticEngine Single-Take Multi-Analysis": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioEngineBounds.cpp"
+    },
+    "LutEvaluatorSimd Precision and Scalar Identity": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LutEvaluatorSimd.cpp"
+    },
+    "LutEvaluatorSimd Boundary Clamping and Out-of-Range Handling": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LutEvaluatorSimd.cpp"
+    },
+    "LutEvaluatorSimd Multi-Metric Evaluation": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LutEvaluatorSimd.cpp"
+    },
+    "LutEvaluator1DSimd Casio CZ DCW 100-Point Curve Evaluation": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LutEvaluatorSimd.cpp"
+    },
+    "LutEvaluator1DSimd Block Audio &amp; Stereo Processing": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LutEvaluatorSimd.cpp"
+    },
+    "AnalogLutFilterModule Ballistic Exponential Smoothing Convergence": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AnalogLutFilterModule.cpp"
+    },
+    "AnalogLutFilterModule 8-Voice Simultaneous Modulation Accuracy": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AnalogLutFilterModule.cpp"
+    },
+    "AnalogLutFilterModule Nullptr and Bounds Safety": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AnalogLutFilterModule.cpp"
+    },
+    "OfficialLutModels Canonical Shared Tables Verification": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AnalogLutFilterModule.cpp"
+    },
+    "HardwareLifecycleContract JSON Parsing": {
+      "s": 0.1047,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareLifecycle.cpp"
+    },
+    "ProfilingSequencer executeLifecycleActions Dispatch": {
+      "s": 0.0019,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareLifecycle.cpp"
+    },
+    "HardwareContractRegistry Resilient Profile Loading": {
+      "s": 0.0528,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareProfileValidation.cpp"
+    },
+    "LabAnalyticEngine Plateau Collapse Filter Validation": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PlateauCollapseFilter.cpp"
+    },
+    "LabStimulusGenerator Metronome Tick Synthesis Validation": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PlateauCollapseFilter.cpp"
+    },
+    "MidiDeviceHotplugMonitor Plug and Unplug Events": {
+      "s": 0.0313,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiDeviceHotplugMonitor.cpp"
+    },
+    "MidiSynthAutomation - Controller Note Dispatch &amp; Tracking": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiSynthAutomation.cpp"
+    },
+    "MidiSynthAutomation - HardwareManager Autonomous Synth Heuristics": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiSynthAutomation.cpp"
+    },
+    "MidiSynthAutomation - ProfilingSequencer Autonomous Note Excitation": {
+      "s": 6.1421,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiSynthAutomation.cpp"
+    },
+    "HITO-02 / REQ-MIDI-HASH: Determinismo estricto de sequenceHash RFC 8785": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / ST-11: Excitación MIDI Interna Automatizada y Flujo de Audio": {
+      "s": 6.1201,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / ST-12: Temporización Precisa de Compuerta gateMs y Silenciamiento": {
+      "s": 6.1771,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / ST-13: Matriz Factorial de Velocidades y Respuesta Dinámica": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / REQ-MIDI-PANIC: Parada de Emergencia y Silenciamiento Global (16 Canales)": {
+      "s": 0.0124,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / REQ-SAFETY-OVERLOAD: Aborto Inmediato por Sobrecarga Acústica": {
+      "s": 2.2531,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "HITO-02 / ROBUSTNESS: Manejo de Casos Límite y Datos Extremos": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAutomatedExcitation_ST11_ST13.cpp"
+    },
+    "[OfflineReanalysis] Recompute Filter response from in-memory and disk audio": {
+      "s": 0.0984,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OfflineReanalysis.cpp"
+    },
+    "[OfflineReanalysis] Recompute TimeDynamic ADSR Envelope": {
+      "s": 0.0112,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OfflineReanalysis.cpp"
+    },
+    "[OfflineReanalysis] Empty session safety": {
+      "s": 0.0091,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OfflineReanalysis.cpp"
+    },
+    "SessionManager in-place point patching": {
+      "s": 0.0147,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PointRangePatching.cpp"
+    },
+    "Multi-point selection logic and range selection": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PointRangePatching.cpp"
+    },
+    "ProfilingSession patch metadata and TestCase tracking": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PointRangePatching.cpp"
+    },
+    "SoundIdCurvePlotter patchPoint updates point in-place": {
+      "s": 0.0151,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PointRangePatching.cpp"
+    },
+    "Measurement Preset Recipe - JSON Parsing and Model Population": {
+      "s": 0.093,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementPresetRecipes.cpp"
+    },
+    "Measurement Preset Recipe - ProfilingSequencer Dispatch Execution": {
+      "s": 0.1132,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementPresetRecipes.cpp"
+    },
+    "FskAudioModem - Goertzel Spectral Power Discriminator": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FskAudioModem.cpp"
+    },
+    "FskAudioModem - Carrier Detection and Noise Rejection": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FskAudioModem.cpp"
+    },
+    "FskAudioModem - Continuous Phase Modulation &amp; Demodulation Roundtrip": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FskAudioModem.cpp"
+    },
+    "AiraSysExController - Audio In FSK Export and Detection": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FskAudioModem.cpp"
+    },
+    "Hardware Detection - Pre-Warming Asynchronous Execution": {
+      "s": 1.0482,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FskAudioModem.cpp"
+    },
+    "SysExCodec - 7-to-8 and 8-to-7 Bit Universal Packing": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareProtocols.cpp"
+    },
+    "NRPNParser - 14-Bit State Machine and Telemetry": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareProtocols.cpp"
+    },
+    "CasioNibbleCodec - 4-Bit Packing, Unpacking and Checksum": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareProtocols.cpp"
+    },
+    "JunoTapeModem - CPFSK 1.3/2.6 kHz Audio Modulation and Demodulation": {
+      "s": 0.0019,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareProtocols.cpp"
+    },
+    "AudioABComparator - Exact Signal Match &amp; Verdict Pass": {
+      "s": 1.2794,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparator.cpp"
+    },
+    "AudioABComparator - Sample Rate Mismatch Rejection": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparator.cpp"
+    },
+    "AudioABComparator - Latency Alignment by Cross-Correlation": {
+      "s": 0.1262,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparator.cpp"
+    },
+    "AudioABVerificationModal - GUI Lifecycle and Signal Loading": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparator.cpp"
+    },
+    "Official LUT Bank Generation in exported_luts": {
+      "s": 0.0231,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OfficialLutGeneration.cpp"
+    },
+    "Shared Official LUT Models Validation": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OfficialLutGeneration.cpp"
+    },
+    "JunoBBD - Stereo Bucket Brigade Device Emulation": {
+      "s": 0.0049,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VoiceDispersionAndBBD.cpp"
+    },
+    "VoiceDispersionModel - Reproducible Analog Component Variance": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VoiceDispersionAndBBD.cpp"
+    },
+    "VoiceAllocator - Poly1, Poly2 and Unison Stealing Logic": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VoiceDispersionAndBBD.cpp"
+    },
+    "FarinaDeconvolver Phase and Group Delay Computation on Pure Delay": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhaseGroupDelay.cpp"
+    },
+    "FarinaDeconvolver Phase Response Linear Slope for Known Latency": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhaseGroupDelay.cpp"
+    },
+    "LoopbackCalibrator Clipping Detection": {
+      "s": 0.0038,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackDiagnostics.cpp"
+    },
+    "LoopbackCalibrator DC Offset Measurement": {
+      "s": 0.0098,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackDiagnostics.cpp"
+    },
+    "LoopbackCalibrator Phase Inversion Diagnostic Flag": {
+      "s": 0.0377,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackDiagnostics.cpp"
+    },
+    "LutExporter Manifest Serialization of Wiener-Hammerstein Model": {
+      "s": 0.0369,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LnlManifestExport.cpp"
+    },
+    "SessionSerializer Roundtrip of Wiener-Hammerstein Model Parameters": {
+      "s": 0.0544,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LnlManifestExport.cpp"
+    },
+    "LoopbackCalibrator De-Coloring Active Inverse Compensation": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DeColoringCompensation.cpp"
+    },
+    "AudioMidiInterfaceDetector - Structural &amp; Matching Logic": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioMidiInterfaceDetector.cpp"
+    },
+    "SysexPresetGenerator Vendor Header and Byte Structure": {
+      "s": 0.0033,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SysexPresetGenerator.cpp"
+    },
+    "LutExporter JavaScript ES6 Module Export": {
+      "s": 0.0298,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_JsLutExport.cpp"
+    },
+    "ThermalDriftAnalyzer Cutoff and Gain Drift Calculation": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ThermalDriftAnalyzer.cpp"
+    },
+    "AutoTestPresetEngine - Repository and Taxonomy Coverage": {
+      "s": 0.0039,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AutoTestPresetEngine.cpp"
+    },
+    "PreScanSpectrumAnalyzer Noise Sweep Peak Detection": {
+      "s": 0.0177,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PreScanSpectrumAnalyzer.cpp"
+    },
+    "PreScanSpectrumAnalyzer Saturation Tone Sweep THD Detection": {
+      "s": 0.0223,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PreScanSpectrumAnalyzer.cpp"
+    },
+    "ModulationEstimator: Pure linear response with 4 probe points": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationEstimator.cpp"
+    },
+    "ModulationEstimator: Dead-zone response drops R-squared": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationEstimator.cpp"
+    },
+    "ModulationEstimator: Edge cases with degenerate data": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationEstimator.cpp"
+    },
+    "ModulationMatrixProfile: Sparse storage and JSON serialization": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationEstimator.cpp"
+    },
+    "ModulationPresetExporter: Exports and roundtrips JSON manifest cleanly": {
+      "s": 0.0186,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationPresetExporter.cpp"
+    },
+    "ProfilingSequencer: runUniversalModulationProbe executes 4 bursts and populates profile": {
+      "s": 6.1009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSequencerModulation.cpp"
+    },
+    "SoundIdCurvePlotter: ViewMode and ModulationMatrix features": {
+      "s": 0.3731,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdCurvePlotterModulation.cpp"
+    },
+    "ProfilingArchitectureRefactor: ProfilingHardwareDispatcher protocol injection": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingArchitectureRefactor.cpp"
+    },
+    "ProfilingArchitectureRefactor: ProfilingSequencer integration with modular sub-components": {
+      "s": 6.0264,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingArchitectureRefactor.cpp"
+    },
+    "PresetEngineDecomposition: Sub-catalogs match master aggregated taxonomy": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PresetEngineDecomposition.cpp"
+    },
+    "SessionReportManager: Report export and directory handling": {
+      "s": 0.0864,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionReportManager.cpp"
+    },
+    "SessionIoController: Session Persistence and Lifecycle Characterization": {
+      "s": 0.1848,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionIoController.cpp"
+    },
+    "MainHeaderController: Autonomous top bar orchestration": {
+      "s": 0.0045,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MainHeaderController.cpp"
+    },
+    "Measurement UI Panels: Safe construction and lifecycle draining": {
+      "s": 0.0196,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MainHeaderController.cpp"
+    },
+    "SessionExecutionCoordinator - Initialization &amp; Callback Wiring": {
+      "s": 0.0078,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Modulation &amp; Point Dispatching": {
+      "s": 0.0054,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Start, Pause, Resume, Stop Lifecycle Characterization": {
+      "s": 0.3267,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Pause &amp; Resume Idempotency Characterization": {
+      "s": 0.1615,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Disconnected Callbacks Safety Characterization": {
+      "s": 0.1607,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Guards &amp; Mode Switching Characterization": {
+      "s": 0.0098,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Free Capture Characterization": {
+      "s": 0.0027,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Real-Time Audio Callback Zero Allocation Verification": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Strict State Machine &amp; Duplicate Operation Guards": {
+      "s": 0.4797,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - ExecutionToken &amp; Stale Callback Discarding": {
+      "s": 0.4747,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Point Deduplication &amp; Single Persistence": {
+      "s": 0.1608,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "SessionExecutionCoordinator - Destructor Safety with Active Session": {
+      "s": 0.1631,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionExecutionCoordinator.cpp"
+    },
+    "Seam 6 Characterization: Idle state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Starting state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Running state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Paused state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Capturing state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: CancelRequested state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Aborted state snapshot": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Completed state snapshot": {
+      "s": 0.0018,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Characterization: Failed state snapshot &amp; Fallbacks": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Golden Master: Textual Snapshot Fixture Verification": {
+      "s": 0.0043,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "Seam 6 Architectural Invariants: Ownership, Audio, and Sovereignty": {
+      "s": 0.0042,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "SessionStatusPresenter: Pure Presentation Mapping": {
+      "s": 0.0025,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCompositionSeam6.cpp"
+    },
+    "ProfilingSessionBuilder: Input Validation &amp; Error Handling": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionBuilder.cpp"
+    },
+    "ProfilingSessionBuilder: Pure Determinism and Immutability": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionBuilder.cpp"
+    },
+    "ProfilingSessionBuilder: Test Cases and Cartesian Generation": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionBuilder.cpp"
+    },
+    "ProfilingSessionBuilder: Patch Profiling Precision": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionBuilder.cpp"
+    },
+    "SessionPersistenceService: Round-Trip Integrity &amp; Canonical Equivalence": {
+      "s": 0.0375,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionPersistenceService.cpp"
+    },
+    "SessionPersistenceService: Edge Cases and Atomic Integrity": {
+      "s": 0.0822,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SessionPersistenceService.cpp"
+    },
+    "ST-69: ExportReadiness blocked when session is Idle": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-70: ExportReadiness blocked when session is Auditing": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-71: ExportReadiness blocks on InvalidMeasurement selectionStatus": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-72: ExportReadiness blocks when hash is not verified": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-73: ExportReadiness blocks on Inconclusive selectionStatus": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-74: ExportReadiness is Ready for clean approved fixture": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-75: ExportReadiness is ReadyWithWarnings for dexed_warnings fixture": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-76: canProceed is true for Ready and ReadyWithWarnings only": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-77: Default-constructed ExportReadiness is Blocked": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-78: requestExportProductionPackage returns false for Idle session": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-79: requestExportCertificationReport returns false for Idle session": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-80: requestExportProductionPackage blocked for tampered hash": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-81: requestExportCertificationReport blocked for rejected fixture": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-82: blockReason is populated when decision is Blocked": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-83: evaluateExportReadiness does not mutate session status": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-84: CalibrationStatus not ready when Required calibration is incomplete": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-85: CalibrationStatus ready when Required calibration is completed": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportReadiness.cpp"
+    },
+    "ST-86: ProductionPackage export to temporary directory": {
+      "s": 0.0395,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-87: Empty measuredPoints returns MissingSessionData": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-88: No export format selected returns InvalidRequest": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-89: Reported SHA-256 matches on-disk file hashes": {
+      "s": 0.0346,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-90: Post-export byte alteration produces hash divergence": {
+      "s": 0.0716,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-91: Staging write failure produces explicit error and clean state": {
+      "s": 0.003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-92: Promote/publish failure triggers rollback and cleans destination": {
+      "s": 0.0357,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-93: Rollback preserves pre-existing files intact on publish failure": {
+      "s": 0.0657,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-94: Failure modes guarantee no partial package exists": {
+      "s": 0.0862,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-95: Paths with spaces, special characters, and relative segments": {
+      "s": 0.0452,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-96: Consecutive idempotent exports cleanly overwrite without backup leaks": {
+      "s": 0.0624,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-97: Inaccessible or file-blocked destination fails gracefully": {
+      "s": 0.0035,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-98: Staging isolation and clean teardown across consecutive runs": {
+      "s": 0.1079,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExportIO.cpp"
+    },
+    "ST-99: AutomatedMidi campaign produces exportable session and valid ProductionPackage": {
+      "s": 6.0716,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-100: ManualOperator campaign produces exportable session and valid ProductionPackage": {
+      "s": 6.3231,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-101: ManualOperator campaign without operator confirmation is blocked from export": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-102: AutomatedMidi campaign with incomplete session is blocked from export": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-103: Manifest preserves provenance and hardware identity for both modes": {
+      "s": 0.3297,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-104: ManualOperator manifest contains operatorNotes and no MIDI sequenceHash": {
+      "s": 0.1192,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-105: AutomatedSysEx manifest contains correct totalPointsMeasured and hardware identity": {
+      "s": 0.1701,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-106: Both modes produce identical required production package artifacts": {
+      "s": 0.2797,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "ST-107: Main Architectural Invariant - Single exporter, common schema, preserved provenance": {
+      "s": 0.4028,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModeToExportIntegration.cpp"
+    },
+    "Smoke Test Paso 4 (UI): Recorrido Automatizado (Dexed / AIRA)": {
+      "s": 0.259,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SmokeStep4UI.cpp"
+    },
+    "Smoke Test Paso 4 (UI): Recorrido Manual Analógico (Moog Modular / Doepfer)": {
+      "s": 0.4174,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SmokeStep4UI.cpp"
+    },
+    "E2E-01: Recorrido Hermetico VST3 Digital Offline (Paso 0..4)": {
+      "s": 0.3647,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "E2E-02: Recorrido Hermetico Hardware MIDI Automatizado (Paso 0..4)": {
+      "s": 0.2885,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "E2E-03: Recorrido Hermetico Hardware Analogico Manual (Paso 0..4)": {
+      "s": 0.2705,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "E2E-04: Recorrido Hermetico Target Hibrido MIDI + Panel Manual (Paso 0..4)": {
+      "s": 0.3163,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "PRODUCT-SMOKE-01: Basic Oscillator VST3 E2E (ReferenceSynth Paso 0..4)": {
+      "s": 0.0074,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "3RD-PARTY-SMOKE-01: DemoSynth VST3 Third-Party Plugin E2E": {
+      "s": 0.0545,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_E2E_HermeticWorkflows.cpp"
+    },
+    "LoadedSessionApplier: Target Order and Data Projection": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoadedSessionApplier.cpp"
+    },
+    "LoadedSessionApplier: Contract Completeness": {
+      "s": 0.0397,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoadedSessionApplier.cpp"
+    },
+    "LoadedSessionApplier: computeWorkflowState Regression": {
+      "s": 0.0072,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoadedSessionApplier.cpp"
+    },
+    "LoadedSessionApplier: Stop-at-First Policy Contract": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoadedSessionApplier.cpp"
+    },
+    "ReportExportService: Pure Metrics and Audition Grid": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: Request Validation": {
+      "s": 0.0118,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: Windows Reserved Names and Sanitization": {
+      "s": 0.4034,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: Atomic Publication and Fixity": {
+      "s": 0.4391,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: Individual Artifact Parity": {
+      "s": 0.209,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: ProductionPackage Staging, Fixity &amp; Publication Protocol": {
+      "s": 0.7753,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportService: Paridad Semantica con Legacy ProductionPackage": {
+      "s": 0.2511,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportService.cpp"
+    },
+    "ReportExportUiController: Characterization &amp; Lifetime Contracts": {
+      "s": 22.1945,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ReportExportUiController.cpp"
+    },
+    "PluginUiCoordinator: Lifecycle, Routing &amp; Identity Contracts": {
+      "s": 0.2525,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PluginUiCoordinator.cpp"
+    },
+    "DiagnosticsTelemetryPoller Characterization Suite": {
+      "s": 0.0153,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DiagnosticsTelemetryPoller.cpp"
+    },
+    "Audio A/B Validation - AB-01: Seno Limpio (3 Corridas)": {
+      "s": 5.6443,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABValidationRuns.cpp"
+    },
+    "Audio A/B Validation - AB-03: Pad Sostenido (3 Corridas)": {
+      "s": 4.3694,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABValidationRuns.cpp"
+    },
+    "Audio A/B Validation - AB-02: Sierra Brillante (3 Corridas)": {
+      "s": 4.2643,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABValidationRuns.cpp"
+    },
+    "Audio A/B Validation - AB-04: Bajo con Filtro (3 Corridas)": {
+      "s": 4.4513,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABValidationRuns.cpp"
+    },
+    "Audio A/B Validation - AB-05: Envolvente Rápida (3 Corridas)": {
+      "s": 3.9257,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABValidationRuns.cpp"
+    },
+    "Waterfall3DComponent: Autonomous isometric mountain visualizer": {
+      "s": 0.5443,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Waterfall3DComponent.cpp"
+    },
+    "PlotterModulationTableRenderer: Autonomous modulation table renderer": {
+      "s": 2.6206,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PlotterModulationTableRenderer.cpp"
+    },
+    "PlotterRenderers: Autonomous Heatmap and Frequency Curve widgets": {
+      "s": 1.1425,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PlotterRenderers.cpp"
+    },
+    "OperatorCardsContainerComponent - Initial state and empty steps": {
+      "s": 0.543,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OperatorCardsContainerComponent.cpp"
+    },
+    "OperatorCardsContainerComponent - Dual/Single card view (1 and 2 controls)": {
+      "s": 0.6035,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OperatorCardsContainerComponent.cpp"
+    },
+    "OperatorCardsContainerComponent - Multi-control grid view (>= 3 controls) and Selection": {
+      "s": 0.7268,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OperatorCardsContainerComponent.cpp"
+    },
+    "MatrixResolutionTableComponent - Row and Step Management": {
+      "s": 0.7926,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MatrixResolutionTableComponent.cpp"
+    },
+    "TestPlanEstimationCardComponent - Estimation and Formatting": {
+      "s": 0.5778,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MatrixResolutionTableComponent.cpp"
+    },
+    "ProfilingTimeEstimate - Physical Transition &amp; Multi-factor Calculations": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MatrixResolutionTableComponent.cpp"
+    },
+    "HardwareWiringDiagramComponent - State &amp; text updates": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareRoutingComponents.cpp"
+    },
+    "HardwareDeviceDisplayCardComponent - Contract configuration": {
+      "s": 0.7659,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareRoutingComponents.cpp"
+    },
+    "CasioCzVirtualController - Initialization &amp; Port Discovery Safety": {
+      "s": 0.9099,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzVirtualController.cpp"
+    },
+    "CasioCzVirtualController - SysEx 4-Bit Nibble Packing": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzVirtualController.cpp"
+    },
+    "CasioCzVirtualController - Multi-Step Envelope Automation": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzVirtualController.cpp"
+    },
+    "CasioCzVirtualController - Dynamic JSON Opcode Mapping": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzVirtualController.cpp"
+    },
+    "CasioCzProfilingRecipes - Taxonomy, Timing and SysEx Coverage": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzProfilingRecipes.cpp"
+    },
+    "ProfilingSession: Casio CZ Live Scan Suite Generation": {
+      "s": 0.0913,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CasioCzLiveScanSuite.cpp"
+    },
+    "SuiteQueueModelManager - Pinned Baseline and Queue Operations": {
+      "s": 0.0032,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdSuiteListRefactor.cpp"
+    },
+    "SoundIdSuiteList - Orchestration with Modular Components": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdSuiteListRefactor.cpp"
+    },
+    "SoundIdSidebarStepper - State navigation &amp; collapse behavior": {
+      "s": 0.0017,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdSidebarStepper.cpp"
+    },
+    "SoundIdHardwareCatalogSelector - Cascading Filter Logic": {
+      "s": 0.5736,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdHardwareCatalogSelector.cpp"
+    },
+    "SoundIdTheme - Light and Dark Mode Switching": {
+      "s": 0.0017,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdThemeMode.cpp"
+    },
+    "ProfilingSequencer - Pause/Resume state API": {
+      "s": 0.1785,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PauseResume.cpp"
+    },
+    "ProfilingSequencer - scheduleRerunPoint stores the index": {
+      "s": 0.0017,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PauseResume.cpp"
+    },
+    "SessionExecutionCoordinator - togglePauseSession delegates to sequencer": {
+      "s": 0.0163,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PauseResume.cpp"
+    },
+    "SessionExecutionCoordinator - rerunSelectedPoint delegates to sequencer": {
+      "s": 0.0036,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PauseResume.cpp"
+    },
+    "FarinaDeconvolver - H2..H5 Harmonic Extraction and THD": {
+      "s": 0.2155,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HarmonicAndImdAnalysis.cpp"
+    },
+    "IntermodulationAnalyzer - SMPTE Analysis": {
+      "s": 0.0038,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HarmonicAndImdAnalysis.cpp"
+    },
+    "IntermodulationAnalyzer - CCIF Twin-Tone Analysis": {
+      "s": 0.0032,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HarmonicAndImdAnalysis.cpp"
+    },
+    "LabAudioReceiver - Plugin Lookahead and Latency Compensation": {
+      "s": 0.0029,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PluginCalibrationSafety.cpp"
+    },
+    "LabAudioEngine - Dynamic Plugin Latency Inspection &amp; Propagation": {
+      "s": 0.0024,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PluginCalibrationSafety.cpp"
+    },
+    "LabAudioEngine - Virtual Plugin Auto-Trim Digital to -3 dBFS": {
+      "s": 0.0078,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PluginCalibrationSafety.cpp"
+    },
+    "ProfilingAudioCapture - Latency Passthrough Accessors": {
+      "s": 0.002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PluginCalibrationSafety.cpp"
+    },
+    "DigitalSynthMvpProfiler - Deterministic Nominal Benchmark": {
+      "s": 14.6697,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "DigitalSynthMvpProfiler - ISynthTarget Polymorphism (Direct RAM Plugin)": {
+      "s": 1.1016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "DigitalSynthMvpProfiler - Gate Duration Observability Constraints": {
+      "s": 1.9088,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "DigitalSynthMvpProfiler - Velocity Insensitive Anchor Handling": {
+      "s": 1.7353,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "DigitalSynthMvpProfiler - Negative Cases &amp; Fault Injection": {
+      "s": 6.5975,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "DigitalSynthMvpProfiler - ProfilingSequencer Regression Test for Autonomous Synth": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DigitalSynthMvpProfiler.cpp"
+    },
+    "TargetAuditor: Nominal Deterministic Target": {
+      "s": 0.2861,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: Free-Running Phase with Effective Reset": {
+      "s": 0.2569,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: Unseeded Stochastic Noise Target": {
+      "s": 0.3615,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: Inter-Note Residual Effect Tail": {
+      "s": 0.356,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: State Round-Trip Behavioral Discrepancy": {
+      "s": 0.3511,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: Silent Plugin / Pure Effect Unsupported": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "TargetAuditor: Audio Present But Not Note Responsive": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetAuditor.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: Gatekeeper de Auditoria": {
+      "s": 0.2372,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: Trazabilidad de 4 Estados y Subestados de Evidencia": {
+      "s": 0.4831,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: ParameterStepRecipe Monotonicidad": {
+      "s": 0.6549,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: ParameterRampRecipe Resolucion y Suavizado": {
+      "s": 0.1863,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: LocalPerturbationRecipe Jacobiano y Varianza": {
+      "s": 0.2727,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: PairwiseDifferentialRecipe Cancelacion y Fiabilidad": {
+      "s": 0.1695,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3 - ParameterExcitationEngine: PRBSExcitationRecipe APRBS Multinivel": {
+      "s": 0.2418,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ParameterExcitationEngine.cpp"
+    },
+    "Fase 20.3.B - VST3 Discovery: Introspeccion Agnostica y Preservacion de Evidencia": {
+      "s": 0.0181,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Fase 20.3.B - VST3 Hosting: Aislamiento entre Instancias y Round-Trip de Estado": {
+      "s": 0.0108,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Fase 20.3.B - VST3 Timing: Precision Temporal de Eventos MIDI Sub-Bloque": {
+      "s": 0.0279,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Fase 20.3.B - VST3 Excitation: Trazabilidad de 4 Estados y Politica de Monotonicidad": {
+      "s": 2.5863,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Fase 20.3.B - VST3 Oracle: Canal de Verificacion Independiente de Ground Truth": {
+      "s": 0.004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Fase 20.3.B - VST3 Robustness: Multiples Bloques, Sample Rates y Caso Cero Eventos": {
+      "s": 0.0115,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3Validation.cpp"
+    },
+    "Dexed bundle identity": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Dexed contract discovery": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Dexed target audit": {
+      "s": 0.0092,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Dexed state round trip": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Dexed controlled parameter excitation": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Dexed artifact manifest": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedValidation.cpp"
+    },
+    "Fase 20.8.7 - Prueba 1: Comprobacion funcional de carga de Dexed": {
+      "s": 0.0584,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.7 - Prueba 2: Modificacion de parametro Cutoff y verificacion de audio en Dexed": {
+      "s": 0.0101,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.7 - Prueba 4: Auditoria de reapertura y persistencia del estado actual de Dexed": {
+      "s": 0.1101,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.8: Unificacion de Evidencia Guiada, Importacion FAIR y Verificacion Criptografica": {
+      "s": 1.8672,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.9 - T1: Resolucion y prueba diferencial piloto de ALGORITHM en Dexed": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.9 - T1: Inspeccion guiada completa de los 5 parametros FM en Dexed": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.9 - T2: Generacion de informe HTML multiparametro, metrologia honesta y persistencia FAIR": {
+      "s": 4.6375,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.8.9 - T3: QA Integral, Verificacion de Reproductores, Tamper Audit de WAV/JSON y Cierre de Fase": {
+      "s": 6.854,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GuidedPluginLoad_Dexed.cpp"
+    },
+    "Fase 20.11 T1 - Enumeración y strings de MeasurementExecutionDomain": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T1 - Validación estricta de coherencia de dominios (isDomainConsistent)": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T1 - Serialización canónica de dominio, PluginIdentity y AnalogCalibration": {
+      "s": 0.0172,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T2 - Introspeccion y catálogo reproducible de Dexed.vst3": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T2.3 - Estado Binario y Fixture Mínimo de Preset Controlado en Dexed": {
+      "s": 0.0179,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T2.4 - Procesamiento Offline y Captura Acústica (Determinismo Bit a Bit)": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Vst3DexedRealHosting_T2.cpp"
+    },
+    "Fase 20.11 T3.1 - MidiExcitationSequence: Round-trip canónico y estabilidad de hash": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAndSysExContracts_T3.cpp"
+    },
+    "Fase 20.11 T3.1 - MidiExcitationSequence: Sensibilidad a un solo byte o muestra": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAndSysExContracts_T3.cpp"
+    },
+    "Fase 20.11 T3.1 - Dx7SysExValidator: Validación de Banco de 32 Voces (4104 B)": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAndSysExContracts_T3.cpp"
+    },
+    "Fase 20.11 T3.1 - Dx7SysExValidator: Validación de Single Voice Dump (163 B)": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAndSysExContracts_T3.cpp"
+    },
+    "Fase 20.11 T3.1 - SysExArtifact: Fixity SHA-256 e integridad": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiAndSysExContracts_T3.cpp"
+    },
+    "Fase 20.11 T3.2 - Strict execution lifecycle order in MeasurementCaptureCoordinator": {
+      "s": 0.0304,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CaptureAutomationAndFair_T3.cpp"
+    },
+    "Fase 20.11 T3.2/T3.3 - SysEx injection and FAIR telemetry metadata": {
+      "s": 0.0229,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CaptureAutomationAndFair_T3.cpp"
+    },
+    "Fase 20.11 T3.4 - Bit-exact reproducibility pipeline": {
+      "s": 0.0203,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CaptureAutomationAndFair_T3.cpp"
+    },
+    "Fase 20.11 T4.1 - Calibration stimulus synthesis": {
+      "s": 0.1658,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackCalibration_T4.cpp"
+    },
+    "Fase 20.11 T4.1 - Loopback calibration analysis on pure reference loopback": {
+      "s": 0.0316,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackCalibration_T4.cpp"
+    },
+    "Fase 20.11 T4.1 - Metrological failure isolation in loopback validation": {
+      "s": 0.0421,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackCalibration_T4.cpp"
+    },
+    "Fase 20.11 T4.1 - Segregación estricta de artefactos en 3 capas": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LoopbackCalibration_T4.cpp"
+    },
+    "T4.2: Especificacion de Loopback y Serializacion Round-Trip": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhysicalLoopback_T4_2.cpp"
+    },
+    "T4.2: Validaciones de Entrada y Errores Metrologicos": {
+      "s": 3.468,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhysicalLoopback_T4_2.cpp"
+    },
+    "T4.2: Evaluacion de Criterios de Aceptacion Metrologica": {
+      "s": 0.0897,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhysicalLoopback_T4_2.cpp"
+    },
+    "T4.2: Calibracion Exitosa y Prueba de Repetibilidad Virtual": {
+      "s": 0.0999,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhysicalLoopback_T4_2.cpp"
+    },
+    "T4.2: Exportacion de Contenedor FAIR y Verificacion de Manifiesto": {
+      "s": 0.4822,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_PhysicalLoopback_T4_2.cpp"
+    },
+    "MeasurementContracts - StimulusSpec round-trip": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementContracts.cpp"
+    },
+    "MeasurementContracts - MeasurementSpec round-trip and schema validation": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementContracts.cpp"
+    },
+    "MeasurementContracts - MeasurementResult round-trip with typed metrics and curve": {
+      "s": 0.0212,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementContracts.cpp"
+    },
+    "MeasurementContracts - Curve integrity and validation rules": {
+      "s": 0.0248,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementContracts.cpp"
+    },
+    "MeasurementContracts - Deterministic serialization for hashing": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementContracts.cpp"
+    },
+    "DynamicsContracts - DynamicPoint serialization with v=0 special case": {
+      "s": 0.0197,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "DynamicsContracts - Ajuste 1: Curve fit models decouple R^2 from assumed linearity": {
+      "s": 0.0241,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "DynamicsContracts - Ajuste 2: Discontinuity observation separates empirical fact from layer interpretation": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "ModulationContracts - ModulationResultData round-trip with carrier sidebands and waveform inference": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "DynamicsAndModulationContracts - Spec reproducibility fields round-trip": {
+      "s": 0.014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "DynamicsAndModulationContracts - MeasurementResult with embedded dynamic payload round-trip": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "DynamicsAndModulationContracts - MeasurementResult with embedded modulation payload round-trip": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationContracts.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Normal observable signal": {
+      "s": 0.0136,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Note too short to measure decay": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Silent or flat signal": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Rejection of NaN or Infinite samples": {
+      "s": 0.0094,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Empty buffer guard": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "EnvelopeMeasurementAdapter - Absence of onset within gate": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_EnvelopeMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - 2-Pole Butterworth LowPass Filter": {
+      "s": 0.4433,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - 4-Pole Resonant LowPass Filter": {
+      "s": 0.4722,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - Flat Pass-Through does not invent false cutoff": {
+      "s": 0.1415,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - HighPass and BandPass topology handling": {
+      "s": 0.2069,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - Synthesized Spectral Response Domain honest labeling": {
+      "s": 0.4723,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "FilterMeasurementAdapter - Error and edge case rejection": {
+      "s": 0.0172,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementAdapter.cpp"
+    },
+    "DynamicsMeasurementAdapter - Default velocity grid adheres to approved campaign": {
+      "s": 0.0038,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsMeasurementAdapter.cpp"
+    },
+    "DynamicsMeasurementAdapter - Single point analysis": {
+      "s": 0.0241,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsMeasurementAdapter.cpp"
+    },
+    "DynamicsMeasurementAdapter - Fit curve model decouples R^2 from assumed linearity": {
+      "s": 0.0169,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsMeasurementAdapter.cpp"
+    },
+    "DynamicsMeasurementAdapter - Discontinuity observation detects jumps without assuming layers": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsMeasurementAdapter.cpp"
+    },
+    "DynamicsMeasurementAdapter - Full campaign analysis across velocity takes": {
+      "s": 0.0324,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsMeasurementAdapter.cpp"
+    },
+    "ModulationMeasurementAdapter - Guards against empty and silent buffers": {
+      "s": 0.0044,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationMeasurementAdapter.cpp"
+    },
+    "ModulationMeasurementAdapter - Amplitude demodulation and LFO rate estimation": {
+      "s": 0.1027,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationMeasurementAdapter.cpp"
+    },
+    "ModulationMeasurementAdapter - Waveform shape classification": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModulationMeasurementAdapter.cpp"
+    },
+    "MeasurementContainerExporter - Dynamics FAIR Export, Report, and ViewModel loading": {
+      "s": 0.8184,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationExport.cpp"
+    },
+    "MeasurementContainerExporter - Modulation FAIR Export, Report, and ViewModel loading": {
+      "s": 1.8473,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DynamicsAndModulationExport.cpp"
+    },
+    "MeasurementStimulusCoordinator - Audio stimulus determinism": {
+      "s": 0.044,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementStimulusCapture.cpp"
+    },
+    "MeasurementStimulusCoordinator - MIDI stimulus determinism": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementStimulusCapture.cpp"
+    },
+    "MeasurementCaptureCoordinator - Synchronous capture execution and failure isolation": {
+      "s": 0.023,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementStimulusCapture.cpp"
+    },
+    "MeasurementCaptureCoordinator - Audio-Through Known IIR LowPass Filter": {
+      "s": 0.5115,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementAudioThroughCapture.cpp"
+    },
+    "MeasurementCaptureCoordinator - Variable and Partial Block Sizes": {
+      "s": 0.0147,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementAudioThroughCapture.cpp"
+    },
+    "MeasurementCaptureCoordinator - Latency Registration": {
+      "s": 0.0154,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementAudioThroughCapture.cpp"
+    },
+    "MeasurementCaptureCoordinator - Error Isolation and Fault Rejection": {
+      "s": 0.0263,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementAudioThroughCapture.cpp"
+    },
+    "MeasurementContainerExporter - FAIR persistence and reopening": {
+      "s": 0.7546,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementPersistenceAndReport.cpp"
+    },
+    "MeasurementContainerExporter - Anti-tampering detection": {
+      "s": 1.9858,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementPersistenceAndReport.cpp"
+    },
+    "MeasurementContainerExporter - HTML Report presentation rules": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementPersistenceAndReport.cpp"
+    },
+    "Filter Measurement - FAIR persistence, manifest export, and full reopening": {
+      "s": 0.8796,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementPersistenceAndReport.cpp"
+    },
+    "Filter Measurement - Anti-Tampering: sweep, capture, IR, deletion, and path traversal": {
+      "s": 2.546,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementPersistenceAndReport.cpp"
+    },
+    "Filter Measurement - HTML Report presentation rules and domain distinction": {
+      "s": 0.002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterMeasurementPersistenceAndReport.cpp"
+    },
+    "Fase 20.10.0 - T5: Medicion vertical completa de envolvente sobre Dexed VST3": {
+      "s": 0.0109,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DexedEnvelopeMeasurement_T5.cpp"
+    },
+    "Fase 20.11 T5: Campaña Vertical Dexed Real y Exportacion FAIR/LNL": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_VerticalDexedAndFair_T5.cpp"
+    },
+    "Fase 20.11.1: Multi-Container Comparison Session &amp; Integrity": {
+      "s": 4.4042,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_1_InteractiveViewerComparison.cpp"
+    },
+    "Fase 20.11.2: Session Robustness, Quotas &amp; A11y Navigation": {
+      "s": 3.916,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_2_SessionRobustnessAndA11y.cpp"
+    },
+    "Fase 20.11.3 T1: Contratos de Campana y Registro de Valores Efectivos": {
+      "s": 0.0051,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_3_DigitalExpansion.cpp"
+    },
+    "Fase 20.11.3 T2: DRY y Paridad Visual del Motor SVG Declarativo": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_3_DigitalExpansion.cpp"
+    },
+    "Fase 20.11.3 T3: Comparacion Timbre/Nivel Segregada y Metrologica": {
+      "s": 0.155,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_3_DigitalExpansion.cpp"
+    },
+    "Fase 20.11.4 T1: Separacion de Proxy de Nivel vs Indice Fisico Beta": {
+      "s": 0.0042,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_4_AdvancedDigitalCampaigns.cpp"
+    },
+    "Fase 20.11.4 T2: Distincion entre Ratio Nominal y Efectivo": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_4_AdvancedDigitalCampaigns.cpp"
+    },
+    "Fase 20.11.4 T3: Trayectoria Temporal C(t) y Segregacion Metrologica": {
+      "s": 0.1285,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_4_AdvancedDigitalCampaigns.cpp"
+    },
+    "Fase 20.11.4 T4: Integridad de Campana OFAT y Schemas Retrocompatibles": {
+      "s": 0.0086,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_4_AdvancedDigitalCampaigns.cpp"
+    },
+    "Phase 20.11.5: Carrier Null Bessel J0 physical beta estimator": {
+      "s": 0.0056,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp"
+    },
+    "Phase 20.11.5: Segregacion de Keyboard Level Scaling vs Rate Scaling": {
+      "s": 0.0013,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp"
+    },
+    "Phase 20.11.5: Batch Manifest determinista y hashes de variante": {
+      "s": 0.0118,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp"
+    },
+    "Phase 20.11.5: Agnostic DUT Identity y Parameter Bindings": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_5_PhysicalEstimatorsAndRelease.cpp"
+    },
+    "Phase 20.11.7-T1: Strict domain and unit compatibility matrix": {
+      "s": 0.0124,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T1.cpp"
+    },
+    "Phase 20.11.7-T1: Envelope trajectory validation and constraints": {
+      "s": 0.0121,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T1.cpp"
+    },
+    "Phase 20.11.7-T1: Envelope stage descriptors (8-stage Casio CZ model)": {
+      "s": 0.0151,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T1.cpp"
+    },
+    "Phase 20.11.7-T1: MultiDomainEnvelopeCaptureRecord and RFC 8785 fixity determinism": {
+      "s": 0.0304,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T1.cpp"
+    },
+    "Phase 20.11.7-T2: Single lockstep TemporalGrid and silence frame preservation": {
+      "s": 0.1912,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7-T2: Acoustic observability segregation (Pitch ambiguity vs Timbre &amp; Amplitude)": {
+      "s": 0.0711,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7-T2: Unguided mode autonomous onset, decay and release timing": {
+      "s": 0.2123,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7-T2: Metrological honesty and proxy declarations": {
+      "s": 0.1083,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7-T2: Sample rate mismatch handling and channel downmix policy": {
+      "s": 0.1212,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7-T2: Synthetic ground truth vs observed trajectory validation": {
+      "s": 0.0879,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T2.cpp"
+    },
+    "Phase 20.11.7 T3: SysEx Frame Validator - Profile Selection and Channel Handling": {
+      "s": 0.014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: SysEx Frame Validator - Integrity and Error Trapping": {
+      "s": 0.0047,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: Patch Decoder - Decode-Only Extraction of Envelopes and Tone Parameters": {
+      "s": 0.0018,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: Patch Encoder &amp; Deterministic Round-Trip": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: DCW to TimbreObservable Mapping and Honest Metrology": {
+      "s": 0.0119,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: Native Binding Association and Acoustic Comparison": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T3: Architectural Asepsis - Measurement Core Independence": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T3.cpp"
+    },
+    "Phase 20.11.7 T4: Immutable Raw Audio Capture and Latency Compensation": {
+      "s": 0.0185,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T4.cpp"
+    },
+    "Phase 20.11.7 T4: Timing Reference Resolver - Multi-Mode Alignment &amp; Ambiguity": {
+      "s": 0.0183,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T4.cpp"
+    },
+    "Phase 20.11.7 T4: Observable Comparison Engine - Common-Space Honest Metrics": {
+      "s": 0.0132,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T4.cpp"
+    },
+    "Phase 20.11.7 T4: Central ComplexEnvelopeOrchestrator - End-to-End Execution": {
+      "s": 0.617,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T4.cpp"
+    },
+    "Phase 20.11.7 T4: Architectural Asepsis - Pure Core Independence": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T4.cpp"
+    },
+    "Phase 20.11.7 T5: Safe &amp; Deterministic Multi-Series SVG Renderer": {
+      "s": 0.0343,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T5.cpp"
+    },
+    "Phase 20.11.7 T5: Offline-Safe Interactive HTML Report Generator": {
+      "s": 0.0385,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T5.cpp"
+    },
+    "Phase 20.11.7 T5: Transactional FAIR/LNL Container Export &amp; Rollback": {
+      "s": 3.052,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T5.cpp"
+    },
+    "Phase 20.11.7 T6: Unified End-to-End Pipeline Audit (T1 -> T5)": {
+      "s": 0.6929,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T6.cpp"
+    },
+    "Phase 20.11.7 T6: Strict Bit-Exact Repeatability Across Independent Runs": {
+      "s": 0.7741,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T6.cpp"
+    },
+    "Phase 20.11.7 T6: Architectural Asepsis Across Entire Pipeline": {
+      "s": 0.009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_11_7_ComplexEnvelopes_T6.cpp"
+    },
+    "FineLatency: 3-Point Parabolic Sub-sample Refinement with Bounded Uncertainty": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "FineLatency: Sub-sample Latency Retrieval with Synthetic Known Offsets": {
+      "s": 1.8406,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "FineLatency: Clock Drift Modeling and Topology Discrimination": {
+      "s": 8.4598,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "FineLatency: Multichannel Inter-channel Skew and Phase Alignment": {
+      "s": 0.1989,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "FineLatency: Non-Destructive Compensation Views and Immutability": {
+      "s": 0.0027,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "FineLatency: Pathological Cases and Deterministic RFC 8785 JSON": {
+      "s": 0.034,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_FineLatency_T1.cpp"
+    },
+    "AnalogDut: Farina Frequency Response Adapter": {
+      "s": 0.0497,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_AnalogDutCharacterization_T2.cpp"
+    },
+    "AnalogDut: Parametric THD (IEEE vs IEC Denominator Resolution)": {
+      "s": 0.0133,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_AnalogDutCharacterization_T2.cpp"
+    },
+    "AnalogDut: Two-Tone IMD (SMPTE vs CCIF/ITU-R Strategy)": {
+      "s": 0.0121,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_AnalogDutCharacterization_T2.cpp"
+    },
+    "AnalogDut: Level Sweep and Clipping Thresholds": {
+      "s": 0.0096,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_AnalogDutCharacterization_T2.cpp"
+    },
+    "AnalogDut: Deterministic Canonical RFC 8785 JSON Serialization": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_AnalogDutCharacterization_T2.cpp"
+    },
+    "ChainCompensation: Tier 1 Loopback Calibration Acceptance and Rejection": {
+      "s": 0.0121,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_ReversibleCompensation_T3.cpp"
+    },
+    "ChainCompensation: Tier 2 Physical Saturation Diagnosis": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_ReversibleCompensation_T3.cpp"
+    },
+    "ChainCompensation: Tier 3 Regularized Reversible Spectral Compensation": {
+      "s": 0.0114,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_ReversibleCompensation_T3.cpp"
+    },
+    "ChainCompensation: Hardware Provenance, Impedance Knowledge and RFC 8785": {
+      "s": 0.011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Phase20_12_ReversibleCompensation_T3.cpp"
+    },
+    "Integration Smoke Test: Real Profile -> MeasurementSession -> Re-analysis": {
+      "s": 0.0311,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Integration_SmokeTest_SessionWorkflow.cpp"
+    },
+    "Integration Smoke Test - VST3 Dexed / Mock DSP Workflow": {
+      "s": 0.0112,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Integration_SmokeTest_SessionWorkflow.cpp"
+    },
+    "Integration Smoke Test - Boss DS-1 Manual Analogue Pedal Workflow": {
+      "s": 0.2999,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Integration_SmokeTest_SessionWorkflow.cpp"
+    },
+    "CoordinatorStateMachine - Complete Guided Workflow": {
+      "s": 0.0089,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CoordinatorStateMachine.cpp"
+    },
+    "CoordinatorStateMachine - Automation Flow and Failure Handling": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CoordinatorStateMachine.cpp"
+    },
+    "CoordinatorStateMachine - Free Mode Direct Capture": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CoordinatorStateMachine.cpp"
+    },
+    "CoordinatorStateMachine - Transactional Cancellation and Idempotency": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CoordinatorStateMachine.cpp"
+    },
+    "MeasurementDspUtils: RMS and dBFS Precision": {
+      "s": 0.0101,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementDspUtils.cpp"
+    },
+    "MeasurementDspUtils: Window Functions and Coherent Gain": {
+      "s": 0.0092,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementDspUtils.cpp"
+    },
+    "MeasurementDspUtils: FFT Magnitude Normalization and Peak Amplitude Preservation": {
+      "s": 0.0179,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementDspUtils.cpp"
+    },
+    "MeasurementDspUtils: Sub-bin Peak Refinement": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementDspUtils.cpp"
+    },
+    "MeasurementDspUtils: Band Energy Integration": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementDspUtils.cpp"
+    },
+    "MeasurementViewModelLoader - Load and Confinement": {
+      "s": 1.7539,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementViewModelAndUI.cpp"
+    },
+    "MeasurementAudioPlayerComponent - On-demand Integrity Defense": {
+      "s": 4.2973,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementViewModelAndUI.cpp"
+    },
+    "MeasurementViewerPanel - Composition and Status presentation": {
+      "s": 1.5288,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementViewModelAndUI.cpp"
+    },
+    "MeasurementFrequencyCurveComponent - Vector Rendering and Cutoff Rules": {
+      "s": 0.0166,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterViewerPanelAndUI.cpp"
+    },
+    "MeasurementViewerPanel - Filter UI Presentation and Domain Rules": {
+      "s": 5.1816,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterViewerPanelAndUI.cpp"
+    },
+    "MeasurementViewerPanel - End-to-End Container Load, Audio Tracks, and On-Demand Tamper Defense": {
+      "s": 0.9007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FilterViewerPanelAndUI.cpp"
+    },
+    "ModelEvaluation: Procedencia inmutable de hashes y artefactos": {
+      "s": 0.0081,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Rechazo ante componentes obligatorios ausentes": {
+      "s": 0.0054,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Propagacion estricta de rechazo del target": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Propagacion obligatoria de advertencias (ApprovedWithWarnings)": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Holdout ausente fuerza estado Inconclusive": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Proteccion, inmutabilidad y deteccion de colision en HoldoutDataset": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Serializacion JSON canonica": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Deserializacion y verificacion criptografica (LoadedAndVerified)": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Deteccion de manipulacion de datos -> HashMismatch": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Deteccion de hash manipulado -> HashMismatch": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: SchemaMismatch ante campo obligatorio ausente": {
+      "s": 0.0032,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Protocolo incompatible -> UnsupportedProtocol": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "ModelEvaluation: Generacion canonica de fixtures de evaluacion para validacion manual UX": {
+      "s": 0.0409,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelEvaluation.cpp"
+    },
+    "AdaptiveExperimentPlanner: Determinismo y Reproducibilidad con la misma semilla": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Aislamiento estructural y exclusión de puntos de Holdout": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Validación de límites de contrato y rechazo explícito": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Rechazo inmediato si el target fue rechazado en auditoría": {
+      "s": 0.0051,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Adaptación operativa del coste K(x) según auditoría": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Diversidad dentro del lote (Batch Diversity Penalty)": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Distinción entre Converged y BudgetExhausted": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "AdaptiveExperimentPlanner: Desglose completo de adquisición U, D, C, K y trazabilidad": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AdaptiveExperimentPlanner.cpp"
+    },
+    "ProfilingSessionController: Ciclo de vida completo y transiciones válidas": {
+      "s": 3.0197,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Protección contra snapshots antiguos desordenados": {
+      "s": 0.0034,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Target incompatible o no auditado bloquea startProfiling": {
+      "s": 0.0111,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Cancelación de sesión durante auditoría y perfilado": {
+      "s": 0.0285,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Cambio de target invalida resultados anteriores": {
+      "s": 0.0174,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Bloqueo de exportación si la medición es inválida": {
+      "s": 0.0308,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Alertas UX estructuradas con los cuatro campos obligatorios": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: ClassicGuidedClassicPreservesSession": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: OldGenerationSnapshotIsIgnored": {
+      "s": 0.0114,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: OldSequenceSnapshotIsIgnored": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: ChangingTargetInvalidatesEvaluation": {
+      "s": 0.0182,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: DestroyedViewReceivesNoCallbacks": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: RejectedTargetCannotStart": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: InvalidMeasurementCannotExport": {
+      "s": 0.0346,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: UserOverridesAndCognitiveMetrics": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: ControllerDestroyedWithPendingCallbacksSafelyIgnored": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "ProfilingSessionController: Invariantes y proteccion al importar evaluacion desde archivo": {
+      "s": 3.0506,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionController.cpp"
+    },
+    "Coordinator: Transicion Preparing -> Running -> Completed": {
+      "s": 0.1293,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: runId distinto y estrictamente creciente en ejecuciones consecutivas": {
+      "s": 0.2954,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Progreso no retrocede dentro del mismo runId (monotonicidad estricta)": {
+      "s": 0.1371,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Pausa congela el progreso y no avanza ensayos mientras esta pausado": {
+      "s": 0.2392,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Reanudacion continua sin duplicar ni omitir ensayos": {
+      "s": 0.2756,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Cancelacion durante Preparing termina limpiamente en Cancelled": {
+      "s": 0.0154,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Cancelacion durante Running termina limpiamente en Cancelled": {
+      "s": 0.0845,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Cancelacion idempotente (multiples requestCancel disparan un solo evento)": {
+      "s": 0.0512,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Despertar cooperativo inmediato del hilo al cancelar mientras esta pausado": {
+      "s": 0.1886,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Coordinator: Destructor seguro espera al worker sin fugas ni dangling pointers": {
+      "s": 0.0446,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller + Coordinator: Transaccionalidad (fallo restaura evaluacion previa)": {
+      "s": 1.1752,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller + Coordinator: Cancelacion preserva evaluacion previa sin sobrescribirla": {
+      "s": 0.0836,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller + Coordinator: Exito publica nuevo ModelEvaluation verificado con RFC 8785": {
+      "s": 1.6626,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller + Coordinator: Descarte de callback tardio con generacion o runId obsoleto": {
+      "s": 0.0056,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller: Rechazo de segundo startProfiling() concurrente (proteccion single-worker)": {
+      "s": 0.0262,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "Controller: Destruccion de listener/vista durante medicion no causa acceso invalido": {
+      "s": 1.0952,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ProfilingSessionCoordinator.cpp"
+    },
+    "LifecycleAdapter: SyntheticTargetLifecycleAdapter contrato completo": {
+      "s": 0.0035,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: Resolucion y diagnostico controlado de artefacto VST3": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: Huella normalizada determinista ante variaciones de ruta": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: Integridad de hash binario ante modificacion de archivo": {
+      "s": 0.0215,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: ReleaseTarget invalida el target de forma irreversible": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: Excepcion o corrupcion marca el adaptador no reutilizable": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "LifecycleAdapter: Watchdog de timeout por bloque aborta de forma segura": {
+      "s": 0.0024,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "Exportador: Rechazo de MeasuredExternalPlugin si falta procedencia binaria": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "Coordinator: Medicion in-process end-to-end con ReferenceSynth.vst3": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SynthTargetLifecycleAdapter.cpp"
+    },
+    "SoundIdTopHeaderStrip: ActualizaciÃ³n de contexto operativo y badges": {
+      "s": 0.0036,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdTargetView: Reflejo del estado de conexiÃ³n y avance": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdProfilingRunView: Monitor de progreso en vivo y salud acÃºstica": {
+      "s": 0.0151,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: MÃ©tricas interpretables objetivas y botÃ³n de exportaciÃ³n": {
+      "s": 0.0135,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Advertencias crÃ­ticas visibles con AcceptedWithWarnings": {
+      "s": 0.0186,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: DeshabilitaciÃ³n estricta de exportaciÃ³n ante InvalidMeasurement": {
+      "s": 0.016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Holdout validation, metrology metrics and audition controls (Phase 20.8.6 T2)": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Presentacion de ModelEvaluation real de SyntheticSynthFixture": {
+      "s": 0.9397,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Presentacion de ModelEvaluation de Dexed (AcceptedWithWarnings + reset + settling visible)": {
+      "s": 1.096,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Bloqueo estricto ante Inconclusive y Rejected (UI disabled + Controller exportModel devuelve false)": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Bloqueo estricto ante HashMismatch (Integridad no verificada -> Export deshabilitado)": {
+      "s": 0.0564,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "SoundIdResultsSummaryView: Copia de hash canonico y consistencia exacta con exportacion": {
+      "s": 0.037,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "Step 1 Integration: SoundIdTargetView Snapshot and Feature Flag Contracts": {
+      "s": 0.0137,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "PERF-02: SoundIdProfilingRunView dirty check omite snapshot identico": {
+      "s": 0.0915,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "PERF-03: SoundIdProfilingRunView dirty check actualiza en cambio semantico real": {
+      "s": 0.1196,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "PERF-04: SoundIdMeterStrip dirty check omite repaint en silencio u omision de cambio": {
+      "s": 0.0093,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "PERF-05: SoundIdMeterStrip dirty check responde a cambios de audio y estado": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SoundIdViews.cpp"
+    },
+    "ST-21: Deteccion de modo de control de target (Digital vs No Digital)": {
+      "s": 0.0024,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-22: Conmutacion de modo de excitacion y proteccion de target no digital": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-23: Validacion de receta de excitacion MIDI": {
+      "s": 0.0176,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-24: Validacion de receta de operador manual": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-25: Mapeo unico y documentado de SequencerState a TrialLifecycleStage": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-26: Publicacion de snapshot con receta de excitacion activa": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-27: Dos niveles de silenciamiento de emergencia": {
+      "s": 0.0028,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-28: Guarda de sobrecarga durante rafagas de medicion": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-29 y ST-30: Persistencia de receta de excitacion y confirmaciones en .abdlabtest": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-31: Seleccion de target no digital bloquea en ManualOperator": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-32: Tipos explicitos de ManualInteractionKind": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-33: SoundIdExcitationConfigPanel reactivo a snapshot": {
+      "s": 0.0092,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-34: Tiempo de estabilizacion (settlingMs) en receta manual": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-35: Multiples repeticiones por punto en receta manual": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-36: Target manual emite CERO eventos MIDI": {
+      "s": 0.0046,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-37: Registro de auditoria de confirmaciones del operador": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-38: Flujo manual sin segundo motor: coordinacion existente": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-39: MANUAL_PROMPT produce WaitingForOperator": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-40: confirmManualStep libera exactamente un trial": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-41: Doble confirmacion no duplica el trial": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-42: Cancelar durante WaitingForOperator sale limpiamente": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-43: repeatRequested repite el mismo punto": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-44: stepBackRequested conserva el orden correcto": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-45: OperatorCardsContainer muestra el ajuste del contrato": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-46: Target manual no emite MIDI durante boton Listo": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiStepperIntegration_ST21_ST46.cpp"
+    },
+    "ST-47: Solo catalogSelector puede cambiar el target activo": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-48 &amp; ST-66: TargetView es ficha pasiva y no ofrece selección independiente": {
+      "s": 0.0028,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-49 &amp; ST-67: HardwareSelectorPill es indicador y solo navega a HardwareRouting": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-50: Cambiar target refresca ficha, contrato y receta": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-51 &amp; ST-61: VST3 no exige loopback físico pero requiere verificación digital explícita": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-52: Target analógico exige loopback físico": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-53: Target MIDI físico exige audio + latencia MIDI": {
+      "s": 0.0041,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-54: Target híbrido presenta ambos bloques de calibración": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-55 &amp; ST-63: Cambiar de target invalida inmediatamente calibración incompatible": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-56: Target manual conserva OperatorCardsContainer y receta manual": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-57: Target digital con MIDI conserva receta MIDI con parámetros": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-58: Rollback restaura layout anterior sin duplicaciones": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-59: VST3 sin MIDI no ofrece AutomatedMidi": {
+      "s": 0.0023,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-60: VST3 con automatización de parámetros ofrece AutomatedVstParameter": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-62: Target cambiado durante sesión ejecuta cancelación previa": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-64: Sesión antigua conserva el significado numérico de sus pasos de Step": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-65: Target cambiado marca la receta anterior como IncompatibleWithTarget": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "ST-68: No se generan dos eventos al seleccionar un plugin": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "Fase 4A: Paridad y resolucion canonica de Target cuando drawer esta vacio": {
+      "s": 1.1689,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StepperCoherence_ST47_ST68.cpp"
+    },
+    "IPC Protocol: Encoding, Decoding y Seguridad de Framing Little-Endian": {
+      "s": 0.0044,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_WorkerProcessHost.cpp"
+    },
+    "WorkerProcessHost: Resiliencia ante worker inexistente o timeout": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_WorkerProcessHost.cpp"
+    },
+    "WorkerProcessHost: Spawn, Handshake, Ping/Pong y Cierre Ordenado": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_WorkerProcessHost.cpp"
+    },
+    "WorkerProcessHost: Detección de Crash del Worker sin Afectar al Host": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_WorkerProcessHost.cpp"
+    },
+    "IPC Protocol Slice 2: Serialización y Deserialización Little-Endian": {
+      "s": 0.002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "OutOfProcessVst3: Carga Nominal de ReferenceSynth en Worker Aislado": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "OutOfProcessVst3: Rechazo de Hash Divergente (BinaryChanged)": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "OutOfProcessVst3: Ruta Inexistente y Llamadas Fuera de Secuencia": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "OutOfProcessVst3 Slice 3: Render de Bloque Remoto en ReferenceSynth": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "OutOfProcessVst3 Slice 3: Validación Defensiva de Render (Precondiciones y Tamaños)": {
+      "s": 0.007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "Modo Guiado End-to-End: Orquestación completa con ReferenceSynth en Worker Aislado": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "No Regresión: Target con useIsolatedProcess=false preserva InProcessVST3": {
+      "s": 0.0059,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_OutOfProcessVst3LifecycleAdapter.cpp"
+    },
+    "ModelExportNaming: Sanitizacion estricta y nombres reservados de Windows": {
+      "s": 0.0032,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelExportNaming.cpp"
+    },
+    "ModelExportNaming: Formato UTC Timestamp y Hash Prefix": {
+      "s": 0.0072,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelExportNaming.cpp"
+    },
+    "ModelExportNaming: Construccion del nombre canonico completo": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelExportNaming.cpp"
+    },
+    "ModelExportNaming: Resolucion unica contra sobrescritura de archivos": {
+      "s": 0.0241,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelExportNaming.cpp"
+    },
+    "ExperimentStorage: Guardado y lectura transaccional (Roundtrip)": {
+      "s": 0.3206,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "ExperimentStorage: Regla de inmutabilidad y versiones (Revisiones)": {
+      "s": 0.4363,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "ExperimentStorage: Detección de corrupción por alteración de datos": {
+      "s": 1.1028,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "ExperimentStorage: Seguridad estricta anti-traversal en rutas relativas": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "ExperimentStorage: Validación de schemaVersion": {
+      "s": 0.2311,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "ExperimentStorage: Archivo desconocido en el directorio es ignorado de forma segura": {
+      "s": 0.2282,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentStorage.cpp"
+    },
+    "LabDataDirectories: Prioridad estricta de resolución": {
+      "s": 0.3258,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabDataDirectories.cpp"
+    },
+    "LabDataDirectories: Paquete autocontenido e igualdad de hashes embedded/export": {
+      "s": 0.2773,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabDataDirectories.cpp"
+    },
+    "LabDataDirectories: Fallo transaccional limpia archivos temporales y aborta commit": {
+      "s": 0.0561,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabDataDirectories.cpp"
+    },
+    "LabDataDirectories: Higiene de sondas de escritura y limpieza absoluta": {
+      "s": 0.0309,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabDataDirectories.cpp"
+    },
+    "LabResourcePaths: la raiz del repositorio se resuelve sin depender del CWD": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: requireRepoRoot() agrees with resolveRepoRoot()": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: el catalogo de contratos esta versionado en el repositorio": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: los accesores con nombre resuelven dentro de la raiz": {
+      "s": 0.0059,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: preset de perfilado versionado disponible": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: se rechazan rutas relativas inseguras": {
+      "s": 0.004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "LabResourcePaths: la resolucion es estable entre llamadas": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_LabResourcePaths.cpp"
+    },
+    "Hygiene de rutas: ningun test resuelve datos del repo por getCurrentWorkingDirectory": {
+      "s": 0.3302,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: produccion no resuelve datos del repo por getCurrentWorkingDirectory": {
+      "s": 0.7114,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: ningun test codifica una ruta absoluta de mi maquina": {
+      "s": 0.3932,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: produccion no codifica una ruta absoluta de mi maquina": {
+      "s": 0.8598,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: produccion no reimplementa la resolucion desde el ejecutable": {
+      "s": 0.7631,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: el catalogo de contratos permanece versionado": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: la raiz se resuelve igual desde cualquier directorio": {
+      "s": 0.0082,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de escritura: ningun test pide una ruta del repo fuera de artifactDir": {
+      "s": 0.7186,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de escritura: las fixtures de un test viven en su scratch, no en %TEMP% crudo": {
+      "s": 0.3852,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "LabTestScratch: el scratch de un test existe, se vacia y nunca cae en el repo": {
+      "s": 0.0069,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: ningun documento de docs/ enlaza a la maquina del autor": {
+      "s": 0.1656,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "Hygiene de rutas: ningun documento de la raiz del repo cita la maquina del autor": {
+      "s": 0.1315,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ResourcePathHygiene.cpp"
+    },
+    "El registro lee el rango del mando del nombre que dice el contrato": {
+      "s": 0.0292,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRangeFieldNames.cpp"
+    },
+    "Un contrato con el nombre viejo sigue leyendose, y sin caer al default": {
+      "s": 0.0182,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRangeFieldNames.cpp"
+    },
+    "Un contrato marcado como en cuarentena no llega al catalogo effective": {
+      "s": 0.062,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "Un contrato SIN la marca se carga, y con la marca no: el caso negativo": {
+      "s": 0.0304,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "Un `status` desconocido NO retiene, pero avisa: retener es lo que hace dano": {
+      "s": 0.2008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "Un JSON ilegible o sin `status` no se retiene, se reporta como roto": {
+      "s": 0.3023,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "El adapter tampoco deja pasar un contrato en cuarentena": {
+      "s": 0.0181,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "El adapter carga el contrato SIN marca y retiene el marcado: el caso negativo": {
+      "s": 0.0242,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "El literal de C++ sale del enum del esquema, y no esta escrito en el header": {
+      "s": 0.0178,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractQuarantine.cpp"
+    },
+    "Seccion de cuarentena - alto cero si no hay retenidos": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DrawerHardwareQuarantineSection.cpp"
+    },
+    "Ficha del retenido - sin fila abierta no hay ficha": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_DrawerHardwareQuarantineSection.cpp"
+    },
+    "El panel de avisos acumula y no se borra solo": {
+      "s": 0.0024,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StartupWarningsPanel.cpp"
+    },
+    "Una retencion se dice IGUAL en el panel, en el aviso y en el log": {
+      "s": 0.0956,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_StartupWarningsPanel.cpp"
+    },
+    "La ventana flotante se monta y se re-tematiza sin conocer su contenido": {
+      "s": 33.2126,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementFloatingWindow.cpp"
+    },
+    "El snapshot de contratos es un directorio de verdad, no una junction": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsSnapshotDrift.cpp"
+    },
+    "El snapshot de contratos coincide con ABDSharedAssets byte a byte": {
+      "s": 0.2983,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsSnapshotDrift.cpp"
+    },
+    "La comparacion del snapshot detecta los tres fallos, sin necesitar el hermano": {
+      "s": 0.0611,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsSnapshotDrift.cpp"
+    },
+    "El CI baja ABDSharedAssets, o el test de drift hace SKIP": {
+      "s": 0.0042,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsCiContract.cpp"
+    },
+    "El CI corre el snapshot y la cuarentena con etiqueta propia": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsCiContract.cpp"
+    },
+    "Un PR que solo toca contratos dispara el workflow": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsCiContract.cpp"
+    },
+    "El preflight de ABDSharedAssets corre en el CI del laboratorio": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ContractsCiContract.cpp"
+    },
+    "GeneratedAcousticModel - Lifecycle, Prepare and Invariants": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GeneratedAcousticModel.cpp"
+    },
+    "GeneratedAcousticModel - Processing with Empirical LUT": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GeneratedAcousticModel.cpp"
+    },
+    "GeneratedAcousticModel - In-Place Processing Safety": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GeneratedAcousticModel.cpp"
+    },
+    "GeneratedAcousticModel - Nullptr and Boundary Resilience": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GeneratedAcousticModel.cpp"
+    },
+    "GeneratedAcousticModel - RT Zero Allocation Verification Loop": {
+      "s": 0.01,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_GeneratedAcousticModel.cpp"
+    },
+    "HoldoutSequence - Canonical Creation and Cryptographic Hashes": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HoldoutSequence.cpp"
+    },
+    "HoldoutSequence - Anti-Leakage Audit": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HoldoutSequence.cpp"
+    },
+    "HoldoutSequence - Trajectory Parameter Interpolation": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HoldoutSequence.cpp"
+    },
+    "HoldoutSequence - Deterministic Stimulus Rendering": {
+      "s": 0.0114,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HoldoutSequence.cpp"
+    },
+    "HoldoutSequence - JSON Serialization Round-Trip": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HoldoutSequence.cpp"
+    },
+    "ModelHoldoutValidator - Nominal Validation and FAIR Artifact Persistence": {
+      "s": 1.8038,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelHoldoutValidation.cpp"
+    },
+    "ModelHoldoutValidator - Latency Recovery and Offset Alignment": {
+      "s": 1.8307,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelHoldoutValidation.cpp"
+    },
+    "ModelHoldoutValidator - Rejection Policy for Mismatched Target": {
+      "s": 1.8684,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelHoldoutValidation.cpp"
+    },
+    "ModelHoldoutValidator - Generate Persistent Experiment For Manual Audio A/B Inspection": {
+      "s": 1.6303,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelHoldoutValidation.cpp"
+    },
+    "ModelHoldoutValidator - Tamper Detection and Rejection on Corrupted Artifacts": {
+      "s": 0.0836,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ModelHoldoutValidation.cpp"
+    },
+    "CertificationReportExporter: Holdout validation HTML and status badges": {
+      "s": 0.1196,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CertificationReportExport.cpp"
+    },
+    "ValidationUiSummary and Staging Transactionality: FAIR integrity and Tampering": {
+      "s": 0.1001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_CertificationReportExport.cpp"
+    },
+    "UI Governance: Interaction Mode Switching &amp; Execution Guards": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Blocked Action Explanations &amp; Tooltip Text": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Free Mode Rigorous Unknown Control Semantics": {
+      "s": 0.0034,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Keyboard Handshake &amp; Modal Focus Guards": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: VST3 Dynamic Contract to MeasurementSession Initialization": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Step-Based Action Invariants (Calibrate vs RunSession vs Export)": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Plugin Instrument ExcitationMode &amp; MIDI Delivery": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Pause and Cancel Silence Active Notes": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Export Report UTF-8 String Integrity (No â□¢ mojibake)": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: SuiteList Resized Never Shows Run Button When Hidden": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Session Cancelled Rearms Back to SessionReady": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "UI Governance: Mode Change Between Guided and Lab Blocked During Capture": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UiCoordinatorGovernance.cpp"
+    },
+    "PARITY-01A: Guiado y Libre comparten identico motor ProfilingSequencer (contrato estructural)": {
+      "s": 0.0025,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Parity01GuidedVsClassic.cpp"
+    },
+    "PARITY-01B: Toma Libre queda clasificada como exploracion no certificable": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Parity01GuidedVsClassic.cpp"
+    },
+    "HITO-CONVERGENCIA-01: Clasificacion Metrologica y Convergencia Semantica": {
+      "s": 0.0052,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_Convergence01ExperimentClassification.cpp"
+    },
+    "HITO-09A: Ingestion y Parsing estricto de MeasurementRecipe": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementRecipeParsing.cpp"
+    },
+    "HITO-09A: Validacion estricta y rechazo de campos desconocidos": {
+      "s": 0.0013,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementRecipeValidation.cpp"
+    },
+    "HITO-09A: Compilacion y resolucion determinista de ExperimentPlan": {
+      "s": 0.0058,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_ExperimentPlanCompilation.cpp"
+    },
+    "HITO-09A: Separacion y reproducibilidad de la cadena de 4 Hashes Canonicos": {
+      "s": 0.0019,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementRecipeCanonicalHash.cpp"
+    },
+    "HITO-09A: Regresion y ejecucion determinista de receta compilada": {
+      "s": 0.4596,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MeasurementRecipeRegression.cpp"
+    },
+    "Workbench Recipe Adapter: Paridad de Carga": {
+      "s": 0.0021,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Paridad de Compilación": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Paridad de Resolución de Entorno": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Diagnóstico de Incompatibilidad sin Bloqueo": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Resiliencia ante Recetas Corruptas": {
+      "s": 0.0081,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Invarianza de Selección": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Workbench Recipe Adapter: Preparación Confirmada": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_UnifiedWorkbenchRecipeAdapter.cpp"
+    },
+    "Assistance Levels: Paridad Multinivel de Esquema": {
+      "s": 0.0025,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Determinismo de Mutación en Configurable": {
+      "s": 0.0017,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Control de Límites en Configurable": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Mutación Avanzada de Políticas Metrológicas": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Invarianza de Edición": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Preparación Confirmada de Receta Mutada": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: RecipeBase Permanece Idéntica": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Restablecer Preset": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Cambio de Receta Descarta Mutaciones": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Assistance Levels: Separación Estricta entre Vista y Receta": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AssistanceLevelsRecipeViews.cpp"
+    },
+    "Promotion: Extracción Válida de Parámetros Observados": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Trazabilidad Criptográfica de Procedencia": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Resiliencia ante Controles No Declarados (Sin Invención)": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Carga en RecipeExecutionController": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Invarianza de Estado (Sin Ejecución Prematura)": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Edición Posterior de la Receta Promovida": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Preparación Confirmada en el Stepper": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Blindaje e Inmutabilidad de la Exploración Original": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Promoción con Control Declarado": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Promoción Incompleta Bloquea Preparación": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "Promotion: Navegación a Revisión de Recipe en el Stepper": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_FreeCaptureRecipePromotion.cpp"
+    },
+    "TargetProfile: Carga y Parsing de Perfil Piloto ReferenceSynth": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileParsing.cpp"
+    },
+    "TargetProfile: Round-Trip de Serialización y Determinismo de Hash": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileParsing.cpp"
+    },
+    "TargetProfile Validation: Rechazo de JSON Inválido": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Rechazo Estricto de Campos Desconocidos": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Rechazo de schemaVersion Incompatible": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Detección de semanticId Duplicado": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Detección de normalizedRange Inválido": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Detección de midiNoteRange Invertido": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Validation: Determinismo RFC 8785 de Hash Canónico": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileValidation.cpp"
+    },
+    "TargetProfile Resolution: Resolución Exitosa de Recipe + Profile + Environment": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileResolution.cpp"
+    },
+    "TargetProfile Resolution: Diagnóstico ante semanticId No Mapeado": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileResolution.cpp"
+    },
+    "TargetProfile Resolution: Diagnóstico ante Frecuencia de Muestreo Incompatible": {
+      "s": 0.0013,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileResolution.cpp"
+    },
+    "TargetProfile Resolution: Diagnóstico ante Canales Incompatibles": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileResolution.cpp"
+    },
+    "TargetProfile No-Bypass: Carga e Ingestión son Estrictamente Pasivas": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileNoBypass.cpp"
+    },
+    "TargetProfile No-Bypass: Resolución Declarativa es Pura y Headless": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileNoBypass.cpp"
+    },
+    "TargetProfile No-Bypass: Perfil No Válido Bloquea Construcción de Plan": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileNoBypass.cpp"
+    },
+    "TargetProfile Legacy Characterization: quick_vcf_3pts (9 ventanas, 27 eventos)": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyCharacterization.cpp"
+    },
+    "TargetProfile Legacy Characterization: standard_vcf_11pts (22 ventanas, 66 eventos)": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyCharacterization.cpp"
+    },
+    "TargetProfile Legacy Characterization: exhaustive_synth_full (72 ventanas, 216 eventos)": {
+      "s": 0.0017,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyCharacterization.cpp"
+    },
+    "TargetProfile Parity: quick_vcf_3pts (Legacy == Declarative)": {
+      "s": 0.0014,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyParity.cpp"
+    },
+    "TargetProfile Parity: standard_vcf_11pts (Legacy == Declarative)": {
+      "s": 0.0018,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyParity.cpp"
+    },
+    "TargetProfile Parity: exhaustive_synth_full (Legacy == Declarative)": {
+      "s": 0.003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyParity.cpp"
+    },
+    "TargetProfile Parity: Legacy Fallback Remains Available": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyParity.cpp"
+    },
+    "HITO-10C: TargetProfile Dexed Formal Contract Validation": {
+      "s": 0.0042,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileDexedProfile.cpp"
+    },
+    "HITO-10C: TargetProfileDraft Generation and Promotion": {
+      "s": 0.0016,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileDraftGeneration.cpp"
+    },
+    "HITO-10C: TargetProfile Binary Fixity Audit": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileBinaryFixity.cpp"
+    },
+    "HITO-10C: TargetProfile Dexed Real Hosting and Verification": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileDexedHosting.cpp"
+    },
+    "HITO-10C: TargetProfile Dexed Observable Acoustic Behavior": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileDexedBehavior.cpp"
+    },
+    "HITO-10D1: TargetProfile MIDI CC Validation and Resolution": {
+      "s": 0.0035,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileMidiCc.cpp"
+    },
+    "HITO-10D1: TargetProfile MIDI SysEx Validation, Security Policy and Formatting": {
+      "s": 0.0022,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileMidiSysEx.cpp"
+    },
+    "HITO-10D1: TargetProfile Manual Operator (BOSS DS-1 Distortion)": {
+      "s": 0.0027,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileManualOperator.cpp"
+    },
+    "HITO-10D1: TargetProfile Transport Safety and Isolation": {
+      "s": 0.0264,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportSafety.cpp"
+    },
+    "TargetProfile TransportPolicy: Defaults When Omitted": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Valid Policy Loading and Deterministic Hash": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Unknown Field Rejection": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Range Validation": {
+      "s": 0.0012,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Cross-Field Consistency and Semantic Rules": {
+      "s": 0.001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Canonical Hash Sensitivity": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "TargetProfile TransportPolicy: Existing Hardware Profiles Compliance": {
+      "s": 0.0013,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportPolicy.cpp"
+    },
+    "MidiTransport: Initial state is closed and empty": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Open with valid selection succeeds": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Open with empty device ID fails": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Injected open failure returns OpenFailed and leaves closed": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send without opening returns NotOpen": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send valid CC records message, sequence number and preserves order": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send invalid CC returns InvalidMessage": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send valid SysEx preserves exact bytes and metadata": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send invalid SysEx frame returns InvalidMessage": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Send failure injection returns WriteFailed and does not record": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "MidiTransport: Disconnect simulation returns Disconnected and close resets state": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_MidiTransportContracts.cpp"
+    },
+    "HardwarePreflight - Port Opening Failures": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwarePreflight.cpp"
+    },
+    "HardwarePreflight - Identity Probe Not Available (Unprobed Target)": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwarePreflight.cpp"
+    },
+    "HardwarePreflight - Active Identity Probe Verification": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwarePreflight.cpp"
+    },
+    "HardwarePreflight - Probe Timeout and Fallbacks": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwarePreflight.cpp"
+    },
+    "HardwarePreflight - Boundary Invariants: No Auto-Confirmation and Zero Traffic": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwarePreflight.cpp"
+    },
+    "OperatorConsent - SysEx Mandates Explicit Consent": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - Untrusted Imported Profile Mandates Explicit Consent": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - BuiltIn CC With Verified Identity Policy": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - Operator Denial Guarantees Zero Dispatch": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - Identity Transition for Unverified Target": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - Identity Mismatch Is Strictly Blocked": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "OperatorConsent - Anti-TOCTOU Invalidation Gate": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileOperatorConsent.cpp"
+    },
+    "HardwareScheduler - Anti-TOCTOU and Consent Guard": {
+      "s": 0.0013,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwareScheduler.cpp"
+    },
+    "HardwareScheduler - Inter-Message Delay Pacing": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwareScheduler.cpp"
+    },
+    "HardwareScheduler - Rate Limiting Per Second": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwareScheduler.cpp"
+    },
+    "HardwareScheduler - Transport Failures Propagation": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileHardwareScheduler.cpp"
+    },
+    "D2.6: TargetProfile Physical Dispatch - PRO-800 Quantization and CC Exactness": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalDispatch.cpp"
+    },
+    "D2.6: TargetProfile Physical Dispatch - DX7 SysEx, Checksum and 20ms Pacing": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalDispatch.cpp"
+    },
+    "D2.6: TargetProfile Physical Dispatch - Zero Messages on Guard Violations": {
+      "s": 0.0011,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalDispatch.cpp"
+    },
+    "D2.6: Transport Failure Recovery - WriteFailed Fail-Closed and Evidence Preservation": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportFailureRecovery.cpp"
+    },
+    "D2.6: Transport Failure Recovery - ACK Response Awaiter Policy": {
+      "s": 0.0007,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportFailureRecovery.cpp"
+    },
+    "D2.6: Transport Failure Recovery - Preflight Identity Mismatch and TOCTOU Invalidation": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileTransportFailureRecovery.cpp"
+    },
+    "HITO-10V0 - 1. VES VST3 Binary Discovery and Inspection": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101Feasibility.cpp"
+    },
+    "HITO-10V0 - 2. Casio CZ-101 ROM Discovery and Legal Fixity": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101Feasibility.cpp"
+    },
+    "HITO-10V0 - 3. VES Parameter Catalog and Machine Selection Interface": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101Feasibility.cpp"
+    },
+    "HITO-10V0 - 4. Control Transport Feasibility: Note, CC, SysEx and Audio Production": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101Feasibility.cpp"
+    },
+    "HITO-10V0 - 5. Determinism and Repeatability Classification": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101Feasibility.cpp"
+    },
+    "HITO-10V0.1 - 1. State Snapshot Inspection and ROM-Free Artifact Verification": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101SemanticControl.cpp"
+    },
+    "HITO-10V0.1 - 2. CPU Boot Warmup and NoteOn Audible Output Probe": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101SemanticControl.cpp"
+    },
+    "HITO-10V0.1 - 3. SysEx and CC Semantic Control Probe": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101SemanticControl.cpp"
+    },
+    "HITO-10V0.1 - 4. State Restoration and Audio Repeatability Classification": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_VesCz101SemanticControl.cpp"
+    },
+    "HITO-10E - 1. Legacy Contracts Directory Inventory and Non-Deletion Guard": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyInventory.cpp"
+    },
+    "HITO-10E - 2. Canonical TargetProfile Directory Inventory": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyInventory.cpp"
+    },
+    "HITO-10E - 3. Legacy Registry Coexistence and Resolution Gate Post-Retirement": {
+      "s": 0.019,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyInventory.cpp"
+    },
+    "HITO-10E - 4. TargetProfile to Legacy HardwareContract Projection (E3)": {
+      "s": 0.0015,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyAdapter.cpp"
+    },
+    "HITO-10E - Parity and Invariant Preservation for Certified Profiles (E3)": {
+      "s": 0.0179,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyAdapter.cpp"
+    },
+    "HITO-10E / E4 - 1. Resolucion de PRO-800 por ID canonico y alias": {
+      "s": 0.0176,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E4 - 2. Resolucion de DX7 y DS-1 por ID canonico": {
+      "s": 0.0164,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E4 - 3. Perfiles no migrados resuelven como NativeLegacyContract": {
+      "s": 0.0232,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E4 - 4. Colision no certificada bloquea resolucion (Fail-Closed)": {
+      "s": 0.0246,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E4 - 5. Carga atomica rechaza alias duplicado o perfil invalido": {
+      "s": 0.0311,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E4 - 6. Idempotencia y preservacion de invariantes de transporte": {
+      "s": 0.0201,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_HardwareContractRegistryCanonicalResolution.cpp"
+    },
+    "HITO-10E / E5 - 1. E2E Parity: Route A (Legacy) vs Route B (Canonical Adapted)": {
+      "s": 0.0648,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyEndToEndParity.cpp"
+    },
+    "HITO-10E / E5 - 2. Direct Consumers Behavioral Equivalence": {
+      "s": 0.0215,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyEndToEndParity.cpp"
+    },
+    "HITO-10E / E5 - 1. Fixture de Ausencia Controlada (Simulacion Hermetica)": {
+      "s": 0.1966,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyControlledAbsence.cpp"
+    },
+    "HITO-10E / E5.1 - 1. SoundIdHardwareCatalogSelector Under Controlled Absence": {
+      "s": 1.4666,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyConsumerParity.cpp"
+    },
+    "HITO-10E / E5.1 - 2. DrawerHardwareTab Model Under Controlled Absence": {
+      "s": 0.1936,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyConsumerParity.cpp"
+    },
+    "HITO-10E / E5.1 - 3. AutoTestPresetEngine Under Controlled Absence": {
+      "s": 0.1912,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyConsumerParity.cpp"
+    },
+    "HITO-10E / E5.1 - 4. MidiIdentityDetector Under Controlled Absence": {
+      "s": 0.2156,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyConsumerParity.cpp"
+    },
+    "HITO-10E / E5.1 - 5. Consolidated Gate &amp; Per-File Retirement Readiness": {
+      "s": 0.1964,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyConsumerParity.cpp"
+    },
+    "HITO-10E / E5.1 - 5. MidiDeviceHotplugMonitor Under Controlled Absence": {
+      "s": 0.1912,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyHotplugParity.cpp"
+    },
+    "HITO-10E / E5.1 - 6. HardwareManager Under Controlled Absence": {
+      "s": 0.1939,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfileLegacyHotplugParity.cpp"
+    },
+    "HITO-10D2.7A.2 - 1. Host MIDI Port Enumeration and Virtual Port Exclusion": {
+      "s": 0.0033,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.2 - 2. Read-Only Physical Preflight on Observed Endpoint": {
+      "s": 0.0008,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.2 - 3. Fail-Closed Boundaries on Invalid Port and Strict Identity": {
+      "s": 0.0009,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.2 - 4. Contract-Driven Matching Against Native Catalog": {
+      "s": 0.0199,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.3 - Cryptographic Separation, Canonical Digest &amp; Anti-TOCTOU Verification": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.3 - 6. Literal Canonical String, Byte Count and Digest Fixture Verification": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.4 - Single Physical Dispatch Execution (3 Bytes Wire CC) and Forensics": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.5 - 8. Nonexistent Port Reject and No Fallback to Index 0": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.5 - 9. Revoked Consent Prior to Dispatch Prevents Transmission": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.5 - 10. Anti-TOCTOU Tampering Invalidation (Payload, Port, Bench Session)": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.5 - 11. Identity Mismatch Blocks Dispatch Hermetically": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-10D2.7A.5 - 12. Transport Failure (WriteFailed / Disconnected) Fail-Closed and Evidence Preservation": {
+      "s": 0.0006,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_TargetProfilePhysicalPreflightBench.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Positive: Exact StableDeviceId Match Opens Solely Requested Endpoint": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Positive: Exact DisplayName Match without StableId": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Nonexistent StableDeviceId Never Opens Index 0": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Nonexistent DisplayName Never Opens Index 0": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Empty Selection is Rejected": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Ambiguous Display Name Rejects Opening": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Contradictory Name Rejects Opening": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2 - Critical Negative: Backend Failure Has No Fallback": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2.1 - Caso 9: Successful Open Owns Exactly Resolved Endpoint": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2.1 - Caso 10: RequestedEndpointUnavailable Differentiated from BackendOpenFailed": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2.1 - Caso 11: Re-opening Closes Previous Endpoint and Failures Leave Handle Closed": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS2.1 - Caso 12: Virtual Endpoint Allowed in SS2 without Safety Policy (Reserved for SS4)": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_JuceMidiHardwareBackendStrictOpen.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 1: Endpoint Enumerated without Inquiry is PortAvailable": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 2: Inquiry Not Requested is IdentityUnavailable": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 3: Inquiry Sent with No Response is IdentityUnavailable": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 4: Inquiry Unsupported or Truncated Message is IdentityUnavailable": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 5: Identity Reply Matching Contract is IdentityVerified": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 6: Identity Reply Contradicting Contract is IdentityMismatch": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 7: Shared Discovery Cannot Emit UserConfirmedUnverified": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 8: Factory Strongly Prevents UserConfirmedUnverified": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 9: Zero New MIDI Output Calls Introduced by Taxonomy": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 10: buildDetectionQueries Produces Identical Query Set": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 11: Legacy Consumer Reading isSysExVerified Preserves Semantics": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS3 - Caso 12: Modern Consumer Distinguishes IdentityUnavailable from IdentityMismatch": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_HardwareMidiDetectorIdentityState.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 1: LoopBe1 classified as VirtualLoopback": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 2: loopMIDI Port 001 classified as VirtualDriver": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 3: teVirtualMIDI endpoint classified as VirtualDriver": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 4: Known USB device classified as PhysicalUsb": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 5: Known DIN interface classified as PhysicalDinInterface": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 6: Non-classifiable endpoint classified as Unknown": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 7: Virtual endpoint allowed for manual routing by default": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 8: Virtual endpoint rejected for manual routing if explicitly disallowed": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 9: Manual routing check does not trigger Device Inquiry": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 10: Default policy excludes LoopBe1 from auto-discovery": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 11: Default policy excludes loopMIDI from auto-discovery": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 12: Default policy excludes Unknown from broadcast inquiry": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 13: PhysicalUsb discovery candidate receives no inquiry when Disabled": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 14: PhysicalUsb with opt-in and confirmed topology is Allowed": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 15: allowBroadcastSysEx=false makes all endpoints ineligible": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 16: Missing caller opt-in yields CallerOptInMissing": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 17: Unconfirmed topology yields SingleTargetTopologyUnconfirmed": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 18: Virtual endpoint yields VirtualEndpointExcluded even with opt-in": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 19: Unknown endpoint yields UnknownEndpointExcluded": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4 - Caso 20: Policy evaluation performs zero I/O and zero allocations": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicy.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 1: Default config enumerates without building inquiries": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 2: LoopBe1 kind=VirtualLoopback, auto-discovery=false, inquiries=0": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 3: loopMIDI kind=VirtualDriver, auto-discovery=false, inquiries=0": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 4: Unknown endpoint kind=Unknown, auto-discovery=false, inquiries=0": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 5: PhysicalUsb discovery candidate inquiry count=0 when Disabled": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 6: PhysicalUsb with opt-in and confirmed topology produces Allowed without transmitting": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 7: Virtual hotplug publishes classified endpoint with zero inquiries": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 8: Physical hotplug publishes classified endpoint without auto-inquiry": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 9: Policy change recalculates eligibility without opening ports": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 10: Virtual endpoint displayed with [Virtual] label": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 11: Physical USB endpoint displayed with [USB] label": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 12: DIN Interface endpoint displayed with [DIN] label": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 13: Unclassifiable endpoint displayed with [Unknown] label": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 14: Manual selection of loopMIDI does not trigger inquiry": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 15: allowVirtualEndpointsForManualRouting=false explicitly rejects without redirection": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 16: openStrictOutput calls = 0 across all SS4.1 pure paths": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 17: sendMessageNow calls = 0 across all SS4.1 pure paths": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 18: buildDetectionQueries does not generate inquiry without explicit policy authorization": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 19: Zero fallback to index 0": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "HITO-SHARED-SYNC / SS4.1 - Caso 20: D2.7A and D2.7B remain strictly isolated and locked": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDSharedCode\\tests\\test_MidiEndpointSafetyPolicyWiring.cpp"
+    },
+    "SS5-01: Classification mapping for PhysicalUsb and PhysicalDinInterface": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-02: Classification mapping for VirtualLoopback and VirtualDriver": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-03: Unknown endpoint visible with warning and excluded from auto preflight": {
+      "s": 0.0004,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-04: Parity for IdentityVerified &lt;-> isSysExVerified == true": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-05: Non-verified identity states map isSysExVerified == false": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-06: IdentityMismatch blocks local execution fail-closed": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-07: IdentityUnavailable is not auto-promoted": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-08: UserConfirmedUnverified exclusively originates in ABDAudioLab with operator": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-09: Operator confirmation rejected if operatorId is empty": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-10: Operator confirmation rejected if targetContractId is empty": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-11: Operator confirmation rejected if selectedPortStableDeviceId is empty": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-12: Operator confirmation rejected if priorIdentityState != IdentityUnavailable": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-13: Operator confirmation rejected if explicitConfirmationRecorded == false": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-14: Shared eligibility NEVER confers dispatch authority": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-15: Virtual endpoints rejected for physical bench preflight": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-16: Unknown endpoint rejected for automatic physical bench preflight": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-17: Transport mock verifies ZERO write calls and ZERO bytes": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-18: ExportReadiness remains strictly Blocked": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-19: Invariant: UniversalInquiryRequest absent when not Allowed": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-20: Invariant: UniversalInquiryRequest exists ONLY when Allowed with exact payload": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-21: Invariant: SharedMidiEndpointSnapshot is immutable": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "SS5-22: Invariant: Authority escalation strictly blocked": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_SharedMidiHardwareIntegrationContract.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_01: CleanReference @ 44.1 kHz": {
+      "s": 1.5123,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_02: CleanReference @ 48.0 kHz": {
+      "s": 1.7104,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_03: GentleModulation @ 44.1 kHz": {
+      "s": 1.4597,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_04: GentleModulation @ 48.0 kHz": {
+      "s": 1.642,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_05: AggressiveNonlinear @ 44.1 kHz": {
+      "s": 1.661,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_06: AggressiveNonlinear @ 48.0 kHz": {
+      "s": 1.8824,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_07: LowLevelDynamic @ 44.1 kHz": {
+      "s": 1.5914,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_08: LowLevelDynamic @ 48.0 kHz": {
+      "s": 1.7671,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_09: HighDensitySpectral @ 44.1 kHz": {
+      "s": 1.7273,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "HITO-AUDIO-AB-5D - RUN_5D_10: HighDensitySpectral @ 48.0 kHz": {
+      "s": 1.7746,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABCanonicalPresetRuns5D.cpp"
+    },
+    "5D.5 - 1. Exact Lag 0 and Identity Diagnostic": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 2. Lag Within Allowed Window (&lt;= 128 samples)": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 3. Lag Beyond Window (> 128 samples) Triggers Temporal Desync": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 4. Digital Silence is Never Serialized as 0 dBFS": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 5. Unexpected Clipping in B Triggers DIAG_FAIL_UNEXPECTED_CLIPPING": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 6. Non-Deterministic Render (A1 != A2) Aborts Comparison": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 7. Event Order Violation (NoteOff Before NoteOn)": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 8. Inapplicable Metrics Serialize as MetricNotApplicable": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 9. Envelope Collapse in B Triggers DIAG_FAIL_ENVELOPE_COLLAPSE": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.5 - 10. High Density Dispersion Yields Phase and Harmonic Warnings Without Premature Failure": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABMetricsAndDiagnostics5D.cpp"
+    },
+    "5D.6 - 1. CleanReference Observed Baseline Yields PASS": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 2. CleanReference with Correlation 0.9980 Yields Class FAIL": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 3. GentleModulation with Moderate Dispersion Yields PASS": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 4. GentleModulation in WARN Zone (Corr 0.9920) Yields WARN": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 5. AggressiveNonlinear with Lag -3 and Spectral 0.39 dB Yields PASS": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 6. AggressiveNonlinear with Lag > 16 Samples Yields Class FAIL": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 7. LowLevelDynamic Envelope Collapse Triggers Hard FAIL": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 8. HighDensitySpectral Observed Baseline Yields PASS": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 9. HighDensitySpectral with Correlation &lt; 0.75 Yields Class FAIL": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 10. Hard Limits Precedence: Unexpected Clipping Overrides High Correlation": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 11. Hard Limits Precedence: Non-Deterministic Render (A1 != A2) Overrides All": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.6 - 12. Inapplicable Metrics Excluded from Evaluation Gates": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABTolerancePolicy5D.cpp"
+    },
+    "5D.7 Fixture1 - FixtureBitExactIdentity: PASS + DIAG_OK_IDENTITY": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture2 - FixtureKnownLag: WARN + DIAG_OK_CLASS_TOLERANCE (lag -3 visible)": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture3 - FixtureLagOutOfBounds: Hard FAIL / DIAG_FAIL_TEMPORAL_DESYNC": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture4 - FixtureInvertedPolarity: FAIL / DIAG_FAIL_POLARITY_INVERSION": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture5 - FixtureUnexpectedClipping: Hard FAIL / DIAG_FAIL_UNEXPECTED_CLIPPING": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture6 - FixtureEnvelopeCollapse: Hard FAIL / DIAG_FAIL_ENVELOPE_COLLAPSE": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture7a - FixtureEventOrderViolation (NoteOff &lt; NoteOn): FAIL / DIAG_FAIL_TEMPORAL_DESYNC": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture7b - FixtureEventOrderViolation (NoteOff == NoteOn): FAIL / DIAG_FAIL_TEMPORAL_DESYNC": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture8 - FixtureNonDeterministicRender: Hard FAIL / DIAG_FAIL_NONDETERMINISTIC_RENDER": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture9 - FixtureMetricNotApplicable: sin falso FAIL, JSON correcto": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Fixture10 - FixtureHighDensityDispersion: WARN + AcceptableWithExpectedDispersion": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Cross - HighDensitySpectral con clipping inesperado: FAIL, no WARN": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Cross - GentleModulation con NoteOff antes de NoteOn: FAIL, no WARN": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Cross - CleanReference con B = -A: FAIL por polaridad aunque correlationAbsolute = 1.0": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Cross - A1 != A2: FAIL aunque A contra B parezca equivalente": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Cross - MetricNotApplicable no influye en policy y se conserva en JSON": {
+      "s": 0.0002,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 NonMutation - Los buffers A y B no se modifican durante evaluate()": {
+      "s": 0.0003,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.7 Invariant - correlationAbsolute == |correlationSigned| en todos los casos": {
+      "s": 0.0001,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABComparatorAndVerdict5D.cpp"
+    },
+    "5D.9 - 1. Baseline Manifest Integrity and Strict Schema Validation": {
+      "s": 0.0005,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABBaselineManifestValidation5D.cpp"
+    },
+    "5D.9 - 2. Canonical Runs Reports Integrity, Hashes and Non-Local Sanitization": {
+      "s": 0.0019,
+      "f": "D:\\desarrollos\\ABDSynths\\ABDAudioLab\\src\\tests\\test_AudioABBaselineManifestValidation5D.cpp"
+    }
+  }
+}
