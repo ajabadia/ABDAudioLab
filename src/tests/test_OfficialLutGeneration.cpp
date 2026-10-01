@@ -2,6 +2,7 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "export/LutExporter.h"
 #include "core/LabResourcePaths.h"
+#include "support/LabTestScratch.h"
 #include <juce_core/juce_core.h>
 #include <cmath>
 #include <vector>
@@ -89,8 +90,11 @@ std::vector<exporting::MeasuredPoint> generateFilterGrid(
 TEST_CASE("Official LUT Bank Generation in exported_luts", "[export][lut][official_bank]")
 {
     // Localiza exported_luts contra la raiz del repositorio, no contra el CWD.
-    juce::File exportDir = abdaudiolab::core::exportedLutsDir();
-    exportDir.createDirectory();
+    // Lo hace a traves de artifactDir(): el banco de LUT es un artefacto
+    // canonico del repo, pero GENERARLO no debe ensuciar el arbol en cada
+    // corrida. Por defecto sale a un scratch temporal; con
+    // ABD_REGENERATE_ARTIFACTS=1 se emite a exported_luts/ de verdad.
+    juce::File exportDir = abdaudiolab::test::artifactDir("exported_luts", "official_lut_bank");
     REQUIRE(exportDir.isDirectory());
 
     struct OfficialModelSpec
@@ -198,7 +202,9 @@ TEST_CASE("Official LUT Bank Generation in exported_luts", "[export][lut][offici
         REQUIRE(okJson);
         REQUIRE(jsonFile.existsAsFile());
 
-        // Cleanup test files so exported_luts remains clean and unpolluted
+        // El destino es un scratch por defecto, asi que no hay nada que limpiar en el
+        // arbol del repo. En modo regeneracion, en cambio, el banco emitido
+        // tiene que retirarse para no dejar ficheros a medias.
         headerFile.deleteFile();
         jsonFile.deleteFile();
     }

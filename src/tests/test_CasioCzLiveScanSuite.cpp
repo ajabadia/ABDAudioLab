@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "../core/ProfilingSession.h"
 #include "core/LabResourcePaths.h"
+#include "support/LabTestScratch.h"
 #include <juce_core/juce_core.h>
 
 using namespace abdaudiolab;
@@ -128,7 +129,7 @@ TEST_CASE("ProfilingSession: Casio CZ Live Scan Suite Generation", "[core][sessi
         CHECK(loadedSession.getTestCases().size() == 24);
 
         // Test exporting to temporary session file
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        juce::File tempDir = abdaudiolab::test::scratchDir ("CasioCzLiveScanSuite");
         juce::File tempJson = tempDir.getChildFile("casio_cz101_mame_ves_session_test.json");
         if (tempJson.existsAsFile())
             tempJson.deleteFile();
@@ -147,8 +148,13 @@ TEST_CASE("ProfilingSession: Casio CZ Live Scan Suite Generation", "[core][sessi
 
     SECTION("Assets presets directory initialization (casio_cz101_mame_ves_session.json)")
     {
-        juce::File presetsDir = abdaudiolab::core::assetsDir().getChildFile("presets");
-        presetsDir.createDirectory();
+        // El asset assets/presets/casio_cz101_mame_ves_session.json ESTA
+        // versionado, asi que regenerarlo era escribir en el arbol del repo en
+        // cada corrida. Se va por artifactDir(): por defecto el test genera la
+        // sesion en un scratch y la verifica ahi; con ABD_REGENERATE_ARTIFACTS=1
+        // se emite de vuelta al assets versionado, que es lo que corresponde
+        // cuando cambia ProfilingSession::createCasioCzSuite().
+        juce::File presetsDir = abdaudiolab::test::artifactDir("assets/presets", "casio_cz_presets");
         juce::File czSessionFile = presetsDir.getChildFile("casio_cz101_mame_ves_session.json");
 
         if (!czSessionFile.existsAsFile())

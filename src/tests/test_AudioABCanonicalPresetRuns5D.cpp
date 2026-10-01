@@ -3,6 +3,7 @@
 
 #include "core/LabResourcePaths.h"
 #include "support/CanonicalPresetRenderFixtures.h"
+#include "support/LabTestScratch.h"
 #include "../math/AudioABComparator.h"
 #include "../math/AudioABVerdictEngine.h"
 #include "../math/AudioABMetrics5D.h"
@@ -18,7 +19,20 @@ using namespace abdaudiolab::math::qa5d;
 
 namespace {
 
-inline juce::File getQaRunsDirectory() { return abdaudiolab::core::docsQaRunsDir(); }
+/**
+ * @brief Destino del reporte de aceptacion de una corrida.
+ *
+ * Este test SOLO puede escribir artefactos del repositorio a traves de
+ * artifactDir(): es la unica via que el guard [hygiene] acepta. Por defecto
+ * devuelve un scratch temporal, de modo que correr la suite deja
+ * docs/qa/runs/ intacto; con ABD_REGENERATE_ARTIFACTS=1 vuelve a escribir los
+ * diez reportes canonicos, que es lo que se quiere cuando se ha cambiado el
+ * motor y hay que reemitir la evidencia.
+ */
+inline juce::File getQaRunsDirectory (const juce::String& runId)
+{
+    return abdaudiolab::test::artifactDir ("docs/qa/runs", runId);
+}
 
 struct CanonicalRunReportRecord
 {
@@ -271,9 +285,18 @@ void executeAndVerifyCanonicalRun(const CanonicalRunConfig& config)
     std::string reportSha256 = abdaudiolab::synth::Sha256::computeHex(canonicalDump);
     runJson["reportHash"] = "sha256:" + reportSha256;
 
-    juce::File runsDir = getQaRunsDirectory();
+    juce::File runsDir = getQaRunsDirectory(juce::String(config.runId));
     juce::File reportFile = runsDir.getChildFile(juce::String(config.runId) + "_acceptance_report.json");
     reportFile.replaceWithText(runJson.dump(2));
+
+    // El reporte se relee desde disco en ambos modos, para que el destino no
+    // sea la parte no comprobada de la prueba: si la escritura fallara, o si
+    // el destino no fuese el esperado, el hash recalculado no coincidiria.
+    {
+        const auto written = nlohmann::json::parse(reportFile.loadFileAsString().toStdString());
+        REQUIRE(written.contains("reportHash"));
+        REQUIRE(written["reportHash"].get<std::string>() == "sha256:" + reportSha256);
+    }
 
     // 10. Aserciones formales de aceptación software (5D.8)
     CHECK(record.intraEngineBitIdentical == true);

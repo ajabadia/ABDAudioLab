@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
 #include "core/LabResourcePaths.h"
+#include "support/LabTestScratch.h"
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/ModelEvaluationBuilder.h"
 
@@ -470,9 +471,12 @@ TEST_CASE("ModelEvaluation: Protocolo incompatible -> UnsupportedProtocol", "[sy
 
 TEST_CASE("ModelEvaluation: Generacion canonica de fixtures de evaluacion para validacion manual UX", "[synth][evaluation][fixtures]")
 {
-    juce::File fixturesDir = abdaudiolab::core::fixturesEvaluationsDir();
-    if (!fixturesDir.exists())
-        fixturesDir.createDirectory();
+    // El destino de las fixtures es un ARTEFACTO del repositorio: este test no
+    // solo las genera, las deja disponibles para la validacion manual de UX.
+    // Por eso va por artifactDir(): por defecto las escribe en un scratch y la
+    // suite no toca el arbol versionado; con ABD_REGENERATE_ARTIFACTS=1 se
+    // emiten a fixtures/evaluations/ de verdad.
+    juce::File fixturesDir = abdaudiolab::test::artifactDir("fixtures/evaluations", "model_evaluation_fixtures");
 
     auto audit = makeValidAuditReport();
     auto exp = makeValidExcitationReport();
