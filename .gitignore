@@ -7,6 +7,13 @@ out/
 *.suo
 CMakeSettings.json
 
+# Capturas de Catch2 para medir la suite: `node tools/duraciones-suite.mjs
+# --xml salida.xml` analiza un XML ya capturado sin tener que esperar otra
+# vuelta de seis minutos. Son salida de una corrida, no entrada del repo, y
+# pesan 600 KB cada una. Sin barra delante a proposito: si alguna vez hace
+# falta un XML como fixture dentro del repo, esta regla no lo tapa.
+/*.xml
+
 # Exported LUTs and raw measurement datasets (RNF-10)
 exported_luts/
 captures/
