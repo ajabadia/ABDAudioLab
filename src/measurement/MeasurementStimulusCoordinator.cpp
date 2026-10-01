@@ -6,6 +6,7 @@
  */
 
 #include "MeasurementStimulusCoordinator.h"
+#include "../audio/PinkNoise.h"
 #include "../math/FarinaDeconvolver.h"
 #include "../synth/Sha256.h"
 #include <cmath>
@@ -61,39 +62,26 @@ std::vector<float> MeasurementStimulusCoordinator::generateAudioStimulus(const S
         case StimulusType::whiteNoise:
         {
             std::vector<float> buffer(totalSamples);
-            uint32_t state = spec.seed;
+            audio::PinkNoiseGenerator noise { spec.seed };
 
             for (size_t i = 0; i < totalSamples; ++i)
-            {
-                state = state * 1664525u + 1013904223u;
-                float white = (static_cast<float>(state) / 2147483648.0f) - 1.0f;
-                buffer[i] = white * gainLinear;
-            }
+                buffer[i] = noise.nextWhite() * gainLinear;
+
             return buffer;
         }
 
         case StimulusType::pinkNoise:
         {
             std::vector<float> buffer(totalSamples);
-            uint32_t state = spec.seed;
-            float b0 = 0.0f, b1 = 0.0f, b2 = 0.0f, b3 = 0.0f, b4 = 0.0f, b5 = 0.0f, b6 = 0.0f;
+            audio::PinkNoiseGenerator noise { spec.seed };
 
+            // `nextPink()` ya devuelve la suma por 0.11, asi que aqui solo
+            // falta la ganancia del nivel pedido. La orden de las dos
+            // multiplicaciones es la misma que antes de que esto se unificara,
+            // y por eso el hash de la serie no cambia.
             for (size_t i = 0; i < totalSamples; ++i)
-            {
-                state = state * 1664525u + 1013904223u;
-                float white = (static_cast<float>(state) / 2147483648.0f) - 1.0f;
+                buffer[i] = noise.nextPink() * gainLinear;
 
-                b0 = 0.99886f * b0 + white * 0.0555179f;
-                b1 = 0.99332f * b1 + white * 0.0750759f;
-                b2 = 0.96900f * b2 + white * 0.1538520f;
-                b3 = 0.86650f * b3 + white * 0.3104856f;
-                b4 = 0.55000f * b4 + white * 0.5329522f;
-                b5 = -0.7616f * b5 - white * 0.0168980f;
-                float pink = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362f) * 0.11f;
-                b6 = white * 0.115926f;
-
-                buffer[i] = pink * gainLinear;
-            }
             return buffer;
         }
 

@@ -295,8 +295,9 @@ void LabAudioEngine::renderAuditionPreview(float* const* outputChannelData, int 
         }
         else // White Noise
         {
-            auditionNoiseSeed = auditionNoiseSeed * 1664525u + 1013904223u;
-            s = (static_cast<float>(auditionNoiseSeed) / 2147483648.0f - 1.0f) * 0.4f;
+            // El `* 0.4f` se queda aqui y no dentro del generador: es la ganancia de la
+            // preview, no parte de la definicion de ruido blanco.
+            s = auditionNoise.nextWhite() * 0.4f;
         }
         tempProcessBufferL[static_cast<size_t>(i)] = s;
     }

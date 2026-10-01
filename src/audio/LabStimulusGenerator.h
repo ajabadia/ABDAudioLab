@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include "PinkNoise.h"
 #include <vector>
 #include <cstdint>
 #include <atomic>
@@ -91,31 +92,13 @@ private:
     float endFreq { 20000.0f };
     double sweepDurationSec { 2.0 };
 
-    // Deterministic random seed for White/Pink noise (entropy safety)
-    uint32_t randomSeed { 0x48271983 };
-
-    // Pink noise Voss-McCartney filter state
-    float b0 { 0.0f }, b1 { 0.0f }, b2 { 0.0f }, b3 { 0.0f }, b4 { 0.0f }, b5 { 0.0f }, b6 { 0.0f };
-
-    inline float getNextWhiteNoise() noexcept
-    {
-        randomSeed = randomSeed * 1664525u + 1013904223u;
-        return (static_cast<float>(randomSeed) / 2147483648.0f) - 1.0f;
-    }
-
-    inline float getNextPinkNoise() noexcept
-    {
-        float white = getNextWhiteNoise();
-        b0 = 0.99886f * b0 + white * 0.0555179f;
-        b1 = 0.99332f * b1 + white * 0.0750759f;
-        b2 = 0.96900f * b2 + white * 0.1538520f;
-        b3 = 0.86650f * b3 + white * 0.3104856f;
-        b4 = 0.55000f * b4 + white * 0.5329522f;
-        b5 = -0.7616f * b5 - white * 0.0168980f;
-        float pink = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362f;
-        b6 = white * 0.115926f;
-        return pink * 0.11f;
-    }
+    // Los coeficientes del ruido rosa viven en `PinkNoiseGenerator`, no aqui.
+    // La matematica estaba duplicada byte a byte con el coordinador de
+    // estimulacion de medicion, y dos copias de la misma regla numerica
+    // divergen sin ruido: el dia que una se toca y la otra no, los dos caminos
+    // dan series distintas y el fallo aparece en un hash, a kilometros del sitio
+    // del cambio. Ver el comentario de ese header para el resto del porque.
+    PinkNoiseGenerator pinkNoise;
 };
 
 } // namespace abdaudiolab::audio

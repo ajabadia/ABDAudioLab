@@ -22,8 +22,7 @@ void LabStimulusGenerator::reset()
     finished.store(false, std::memory_order_relaxed);
     currentSampleIndex.store(0, std::memory_order_relaxed);
     totalSamples.store(0, std::memory_order_relaxed);
-    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0f;
-    randomSeed = 0x48271983;
+    pinkNoise.reseed (PinkNoiseGenerator::defaultSeed);
 }
 
 void LabStimulusGenerator::setStimulus(StimulusType type, double durationSeconds, float startFreqHz, float endFreqHz)
@@ -37,7 +36,13 @@ void LabStimulusGenerator::setStimulus(StimulusType type, double durationSeconds
     currentSampleIndex.store(0, std::memory_order_relaxed);
     finished.store(false, std::memory_order_relaxed);
     playing.store(true, std::memory_order_release);
-    b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0f;
+
+    // Aqui solo se limpia el filtro y NO la semilla, a proposito: cambiar de
+    // estimulo corta el Voss-McCartney para que no arrastre el color del
+    // anterior, pero la serie de azar sigue donde estaba. Si tambien se
+    // reiniciase la semilla, dos estimulos seguidos de la misma sesion
+    // empezarian con el mismo patron de ruido.
+    pinkNoise.clearFilterState();
 }
 
 void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noexcept
@@ -153,13 +158,13 @@ void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noe
 
             case StimulusType::WhiteNoise:
             {
-                sampleVal = getNextWhiteNoise() * 0.707f; // -3dB headroom
+                sampleVal = pinkNoise.nextWhite() * 0.707f; // -3dB headroom
                 break;
             }
 
             case StimulusType::PinkNoise:
             {
-                sampleVal = getNextPinkNoise();
+                sampleVal = pinkNoise.nextPink();
                 break;
             }
 
@@ -214,7 +219,7 @@ void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noe
                     double noiseElapsed = t - 3.0;
                     int step = static_cast<int>(noiseElapsed / 0.625);
                     float amp = (step == 0) ? 0.125f : ((step == 1) ? 0.25f : ((step == 2) ? 0.5f : 0.85f));
-                    sampleVal = (step % 2 == 0 ? getNextPinkNoise() : (getNextWhiteNoise() * 0.707f)) * amp;
+                    sampleVal = (step % 2 == 0 ? pinkNoise.nextPink() : (pinkNoise.nextWhite() * 0.707f)) * amp;
                 }
                 else if (t < 8.0)
                 {

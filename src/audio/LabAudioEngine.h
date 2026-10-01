@@ -11,6 +11,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "PinkNoise.h"
 #include <atomic>
 #include <array>
 #include <memory>
@@ -332,7 +333,13 @@ private:
     std::vector<dsp::AbdBatchedPoint> auditionLutStorage;
     dsp::AnalogLutFilterModule auditionFilter;
     double auditionOscPhase { 0.0 };
-    uint32_t auditionNoiseSeed { 0x12345678 };
+
+    // Misma semilla que siempre, pero a traves del generador comun: la
+    // preview de audition y los estimulos de medicion tienen que sonar
+    // identicos cuando eligen ruido, y con el LCG escrito a mano en cada
+    // sitio basta con que uno de los dos cambie un dia para que dejen de
+    // coincidir sin que se note hasta que se comparan.
+    PinkNoiseGenerator auditionNoise { 0x12345678u };
 
     // Internal real-time safe audio subroutines (P2 Callback Modularization)
     void renderDiagnosticTone(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept;
