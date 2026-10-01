@@ -2,42 +2,50 @@
 // ABDAudioLab - GENERADO. NO EDITAR ESTE FICHERO A MANO.
 // ==============================================================================
 //
-// La mitad de C++ de la regla de cuarentena, escrita desde el enum del esquema
-// `ABDSharedAssets/contracts/hardware_profile.schema.json`. Los tres nombres de
-// abajo no estan tecleados en ningun sitio de este repositorio: salen de ahi.
-//
-// ESTE FICHERO NO SE ESCRIBE A MANO, Y ESO ES JUSTO LO QUE LO HACE FIABLE. Con
-// los literales en la cabecera, cambiar el enum del esquema dejaba a C++ mirando
-// un nombre viejo: `evaluar` devolvia "no retenido" para siempre, el registro
-// cargaba el contrato dudoso, y no habia ningun rojo en ningun lado. Los dos
-// tests que ataban las dos mitades hacian SKIP sin el repositorio hermano, que
-// es el clon limpio. Aqui no hay mitad que comparar: hay un fichero generado, y
-// lo unico que puede quedar viejo es el fichero, que se comprueba sin ejecutarlo.
+// La mitad de C++ de la regla de cuarentena. Las reglas las DECLARA el
+// esquema, en x-cuarentena.reglas, y los valores salen de los enums de esos
+// campos. Ninguno de estos nombres esta tecleado en ningun sitio de este
+// repositorio: salen de ahi.
 //
 //   Se escribe con:  node scripts/generar-cuarentena-cpp.mjs        (ABDSharedAssets)
 //   Se comprueba con: node scripts/generar-cuarentena-cpp.mjs --check
 //
-// El preflight corre el `--check`, y eso es lo que lo ata: no necesita el hermano
+// El preflight corre el --check, y eso es lo que lo ata: no necesita el hermano
 // para decidir, solo necesita el esquema.
 // ==============================================================================
 
 #pragma once
 
+#include <array>
+#include <cstddef>
+
 namespace abdaudiolab::core::quarantine::generado
 {
 
-/** El campo del contrato que lleva la marca. Del esquema: `status`. */
-inline constexpr const char* campoEstado = "status";
+/** Una regla: el campo que lleva la marca, el valor que retiene y su motivo. */
+struct Regla
+{
+    const char* campoEstado;
+    const char* valorEstado;
+    const char* campoMotivo;
+};
 
-/**
- * El unico valor de `campoEstado` que retiene.
- *
- * Del enum del esquema, y el enum tiene un solo valor. Si algum dia declara mas,
- * el generador se para y esa decision se escribe en los dos lados a proposito.
- */
-inline constexpr const char* valorEstado = "quarantined";
+/** Cuantas reglas declara el esquema. */
+inline constexpr std::size_t numeroReglas = 1;
 
-/** El campo del motivo. Derivado del anterior: `statusReason`. */
-inline constexpr const char* campoMotivo = "statusReason";
+/** Todas las reglas, en el orden que las declara el esquema. */
+inline constexpr std::array<Regla, numeroReglas> reglas = {{
+    {"status", "quarantined", "statusReason"},
+}};
+
+// --- La primera, con los nombres de siempre ---
+//
+// El consumidor de C++ usa estos tres. Son la PRIMERA regla del mapa, y el
+// static_assert de HardwareContractQuarantine.h dice cuantas reglas sabe
+// atender: cuando aparezca una segunda, el laboratorio deja de compilar en
+// vez de mirar la primera y olvidar la otra.
+inline constexpr const char* campoEstado = reglas[0].campoEstado;
+inline constexpr const char* valorEstado = reglas[0].valorEstado;
+inline constexpr const char* campoMotivo = reglas[0].campoMotivo;
 
 } // namespace abdaudiolab::core::quarantine::generado

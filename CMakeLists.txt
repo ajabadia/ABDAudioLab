@@ -981,6 +981,12 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_HardwareContractQuarantine.cpp
     src/tests/test_DrawerHardwareQuarantineSection.cpp
     src/tests/test_StartupWarningsPanel.cpp
+    # Su implementacion. Sin esta linea el target.Tests no enlaza: el test llama a
+    # StartupWarningsPanel::addNotice / getNoticeText / clearNotices, y un test sin
+    # su sujeto no es un test que se pueda dejar de enlazar. Son 7 externos sin
+    # resolver (LNK2019) mas LNK1120. SoundIdTheme es header-only, asi que no arrastra
+    # nada mas.
+    src/gui/StartupWarningsPanel.cpp
     src/tests/test_ContractsSnapshotDrift.cpp
     src/tests/test_ContractsCiContract.cpp
     src/tests/test_GeneratedAcousticModel.cpp

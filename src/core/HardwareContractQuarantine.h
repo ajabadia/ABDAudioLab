@@ -76,6 +76,22 @@ inline constexpr auto valorEstado = generado::valorEstado;
 inline constexpr auto campoMotivo = generado::campoMotivo;
 
 /**
+ * Cuantas reglas sabe atender ESTE codigo, que es uno solo.
+ *
+ * Los tres alias de arriba son la PRIMERA regla del mapa del esquema. Si el
+ * esquema declara una segunda, `reglas` la tendra y estos alias seguiran
+ * mirando la primera: el laboratorio seguiria compilando, y un contrato
+ * retenido por la segunda regla pasaria por el cajon como si fuera sano. Un
+ * rojo de este sitio es mas barato que ese fallo.
+ *
+ * O sea: una segunda regla no es un cambio que se propague solo. Es un cambio
+ * que obliga a este fichero a decir cual de las dos aplica, y esa es una
+ * decision editorial.
+ */
+static_assert(generado::numeroReglas == 1,
+  "el esquema declara mas de una regla de cuarentena y el evaluador de C++ solo sabe aplicar una. Aplicar la segunda, o decidir que no aplica, se escribe aqui a proposito: mientras no se escriba, este es el sitio donde se decide.");
+
+/**
  * Lo que se dice de un retenido que no dice por que.
  *
  * Va escrito y no se deja en blanco porque un retenido sin explicacion es
