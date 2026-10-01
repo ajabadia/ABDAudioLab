@@ -69,6 +69,9 @@ SlideInDrawer::SlideInDrawer()
     tabHardware.onNewFlowRequested = [this] {
         if (onNewFlowRequested) onNewFlowRequested();
     };
+    tabHardware.onContractsReloadRequested = [this] {
+        if (onContractsReloadRequested) onContractsReloadRequested();
+    };
 
     contentComp.addChildComponent(testEditorPanel);
     testEditorPanel.onConfigChanged = [this] {
@@ -276,6 +279,16 @@ void SlideInDrawer::setHardwareList(const std::vector<HardwareItem>& list)
 void SlideInDrawer::setContracts(std::vector<core::HardwareContract> contractsList)
 {
     tabHardware.setContracts(std::move(contractsList));
+}
+
+void SlideInDrawer::setQuarantinedProfiles(const std::vector<core::quarantine::Retenido>& profiles)
+{
+    tabHardware.setQuarantinedProfiles(profiles);
+}
+
+void SlideInDrawer::setQuarantineStatus(const juce::String& texto)
+{
+    tabHardware.setQuarantineStatus(texto);
 }
 
 void SlideInDrawer::setSelectedHardwareId(const juce::String& id)

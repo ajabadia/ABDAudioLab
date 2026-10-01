@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abdaudiolab.org/schemas/v1/target-profile.schema.json",
+  "title": "ABDAudioLab Target Profile",
+  "description": "Especificación declarativa y versionada de las capacidades, parámetros y políticas de un target (plugin o hardware) en ABDAudioLab.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "targetProfileId",
+    "displayName",
+    "vendor",
+    "targetKind",
+    "revision",
+    "identity",
+    "capabilities",
+    "parameters",
+    "measurementPolicies"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Versión del esquema normativo. Versiones desconocidas son rechazadas."
+    },
+    "kind": {
+      "type": "string",
+      "const": "abd.target-profile",
+      "description": "Identificador único del tipo de documento."
+    },
+    "targetProfileId": {
+      "type": "string",
+      "pattern": "^[a-z0-9\\-_]+(\\.[a-z0-9\\-_]+)*$",
+      "description": "Identificador canónico del perfil (ej: org.abd.reference-synth.v1 o vst3-dexed-canonical)."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Nombre legible del target."
+    },
+    "vendor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Fabricante o desarrollador del target."
+    },
+    "targetKind": {
+      "type": "string",
+      "enum": ["SyntheticFixture", "PluginVST3", "HardwareDigital", "HardwareAnalogue"],
+      "description": "Naturaleza física o virtual del dispositivo/target."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Número secuencial entero de revisión del documento."
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalTargetId", "acceptedUniqueIds", "binaryIdentityPolicy"],
+      "properties": {
+        "canonicalTargetId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID canónico del target en la plataforma."
+        },
+        "acceptedUniqueIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Lista de identificadores únicos aceptados para matching (ej. VST3 UID o alias)."
+        },
+        "binaryIdentityPolicy": {
+          "type": "string",
+          "enum": ["not-applicable", "warn-on-mismatch", "require-audit-on-change", "strict-bit-exact"],
+          "description": "Política de control de integridad del binario del target."
+        },
+        "expectedBinarySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Hash SHA-256 esperado del binario para verificación de integridad."
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "midiInput",
+        "supportsParameterAutomation",
+        "controlTransports",
+        "audioOutput",
+        "sampleRatesHz",
+        "blockSizes",
+        "supportsPolyphony",
+        "midiChannels",
+        "midiNoteRange"
+      ],
+      "properties": {
+        "midiInput": { "type": "boolean" },
+        "supportsParameterAutomation": { "type": "boolean" },
+        "controlTransports": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["InternalParameter", "VST3Parameter", "MidiContinuousController", "MidiSysEx", "ManualOperator"]
+          },
+          "minItems": 1
+        },
+        "audioOutput": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["supportedChannelCounts", "requiredChannelCount", "channelLayout", "supportedObservationLayouts"],
+          "properties": {
+            "supportedChannelCounts": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 1 },
+              "minItems": 1
+            },
+            "requiredChannelCount": { "type": "integer", "minimum": 1 },
+            "channelLayout": {
+              "type": "string",
+              "enum": ["mono", "stereo", "multichannel"]
+            },
+            "supportedObservationLayouts": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["mono", "stereo"] },
+              "minItems": 1
+            }
+          }
+        },
+        "sampleRatesHz": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 8000, "maximum": 384000 },
+          "minItems": 1
+        },
+        "blockSizes": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 16, "maximum": 8192 },
+          "minItems": 1
+        },
+        "supportsPolyphony": { "type": "boolean" },
+        "midiChannels": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1, "maximum": 16 },
+          "minItems": 1
+        },
+        "midiNoteRange": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0, "maximum": 127 },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "semanticId",
+          "displayName",
+          "technicalIdentifier",
+          "valueType",
+          "normalizedRange",
+          "mappingCurve",
+          "confirmationStatus"
+        ],
+        "properties": {
+          "semanticId": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "Identificador semántico unificado (ej: filter_cutoff)."
+          },
+          "displayName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "technicalIdentifier": {
+            "type": "object",
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "parameterKey"],
+                "properties": {
+                  "kind": { "type": "string", "const": "InternalParameter" },
+                  "parameterKey": { "type": "string", "minLength": 1 }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "parameterIndex"],
+                "properties": {
+                  "kind": { "type": "string", "const": "VST3Parameter" },
+                  "parameterIndex": { "type": "integer", "minimum": 0 },
+                  "parameterId": { "type": "string" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "channel", "controllerNumber"],
+                "properties": {
+                  "kind": { "type": "string", "const": "MidiContinuousController" },
+                  "channel": { "type": "integer", "minimum": 1, "maximum": 16 },
+                  "controllerNumber": { "type": "integer", "minimum": 0, "maximum": 127 }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "messageTemplate"],
+                "properties": {
+                  "kind": { "type": "string", "const": "MidiSysEx" },
+                  "messageTemplate": { "type": "string", "minLength": 1 },
+                  "manufacturerId": { "type": "string" },
+                  "deviceIdPolicy": { "type": "string", "enum": ["user-configured", "fixed", "omni"] },
+                  "valueEncoding": { "type": "string", "enum": ["7bit", "nibble-msb-first", "nibble-lsb-first"] },
+                  "checksumPolicy": { "type": "string", "enum": ["none", "yamaha-dx7", "roland"] },
+                  "requiresExplicitConfirmation": { "type": "boolean" }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind", "instructionId"],
+                "properties": {
+                  "kind": { "type": "string", "const": "ManualOperator" },
+                  "instructionId": { "type": "string", "minLength": 1 },
+                  "confirmationPrompt": { "type": "string" },
+                  "controlWidget": { "type": "string", "enum": ["Knob", "Slider", "Switch", "Footswitch"] }
+                }
+              }
+            ]
+          },
+          "valueType": {
+            "type": "string",
+            "enum": ["continuous", "discrete", "toggle"]
+          },
+          "normalizedRange": {
+            "type": "array",
+            "items": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "mappingCurve": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "type": "string", "enum": ["linear", "logarithmic", "exponential", "segmented"] }
+            }
+          },
+          "confirmationStatus": {
+            "type": "string",
+            "enum": ["Declared", "Audited", "Experimental", "UserConfirmed"]
+          }
+        }
+      }
+    },
+    "measurementPolicies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmupTimeMs", "defaultSettlingTimeMs", "recommendedCalibrationPolicy", "requiresResetBetweenTrials"],
+      "properties": {
+        "warmupTimeMs": { "type": "integer", "minimum": 0 },
+        "defaultSettlingTimeMs": { "type": "integer", "minimum": 0 },
+        "recommendedCalibrationPolicy": {
+          "type": "string",
+          "enum": ["Required", "Optional", "None"]
+        },
+        "requiresResetBetweenTrials": { "type": "boolean" }
+      }
+    },
+    "transportPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimumInterMessageDelayMs": { "type": "integer", "minimum": 0, "maximum": 60000 },
+        "maximumMessagesPerSecond": { "type": "integer", "minimum": 0 },
+        "requiresResponseAck": { "type": "boolean" },
+        "responseTimeoutMs": { "type": "integer", "minimum": 0 },
+        "retryPolicy": { "type": "string", "enum": ["none", "linear", "exponential"] },
+        "maxRetries": { "type": "integer", "minimum": 0 },
+        "requiresExplicitConfirmation": { "type": "boolean" },
+        "allowsBulkDump": { "type": "boolean" },
+        "requiresVerifiedIdentity": { "type": "boolean" },
+        "allowsUserConfirmedUnverifiedIdentity": { "type": "boolean" }
+      }
+    }
+  }
+}

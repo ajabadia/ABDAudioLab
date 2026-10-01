@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abdaudiolab.org/schemas/v1/measurement-recipe.schema.json",
+  "title": "ABDAudioLab Measurement Recipe",
+  "description": "Especificación declarativa y versionada de un experimento científico de medición acústica/metrológica en ABDAudioLab.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "recipeId",
+    "displayName",
+    "assistanceLevel",
+    "revision",
+    "targetConstraints",
+    "excitation",
+    "measurement",
+    "evaluationPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Versión del esquema normativo. Versiones desconocidas son rechazadas."
+    },
+    "kind": {
+      "type": "string",
+      "const": "abd.measurement-recipe",
+      "description": "Identificador único de tipo de documento."
+    },
+    "recipeId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9\\-_]+)+$",
+      "description": "Identificador canónico de la receta (ej: org.abd.profiling.vcf.quick-3pts)."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Nombre legible para operadores humanos e interfaces."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Descripción científica u operativa del propósito de la receta."
+    },
+    "assistanceLevel": {
+      "type": "string",
+      "enum": ["Quick", "Configurable", "Advanced"],
+      "description": "Nivel de asistencia de disclosure progresivo."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Número entero secuencial de revisión del documento."
+    },
+    "targetConstraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetKinds", "requiredCapabilities", "allowedSampleRatesHz", "channels"],
+      "properties": {
+        "targetKinds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["Plugin", "InternalSynth", "HardwareMidiOutboard", "ModularDut", "SyntheticFixture"]
+          }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["MidiInput", "AudioInput", "StereoAudioOutput", "MonoAudioOutput", "ParameterAutomation", "DirectDigitalLoopback"]
+          }
+        },
+        "allowedSampleRatesHz": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "enum": [44100, 48000, 88200, 96000, 192000]
+          }
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        }
+      }
+    },
+    "excitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["notes", "repetitions"],
+      "properties": {
+        "notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["midiNote", "velocity", "gateMs", "settlingMs"],
+            "properties": {
+              "midiNote": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "velocity": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              },
+              "gateMs": {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              "settlingMs": {
+                "type": "number",
+                "minimum": 0.0
+              }
+            }
+          }
+        },
+        "repetitions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "seed": {
+          "type": "integer",
+          "description": "Semilla para repeticiones pseudoaleatorias deterministas si aplica."
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "calibrationPolicy", "analysisPolicy"],
+      "properties": {
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parameter", "normalizedValue"],
+            "properties": {
+              "parameter": {
+                "type": "string",
+                "minLength": 1
+              },
+              "normalizedValue": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0
+              }
+            }
+          }
+        },
+        "calibrationPolicy": {
+          "type": "string",
+          "enum": ["Required", "Optional", "None"]
+        },
+        "analysisPolicy": {
+          "type": "string",
+          "enum": ["CanonicalV1", "HarmonicFull", "LinearTransferOnly"]
+        }
+      }
+    },
+    "evaluationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimumSnrDb", "maximumThdPercent", "f0ToleranceCents"],
+      "properties": {
+        "minimumSnrDb": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "maximumThdPercent": {
+          "type": "number",
+          "minimum": 0.0
+        },
+        "f0ToleranceCents": {
+          "type": "number",
+          "minimum": 0.0
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authoringSource": {
+          "type": "string",
+          "enum": ["builtin", "operator_manual", "llm_generated", "migrated", "promoted_from_exploration"]
+        },
+        "documentationRef": {
+          "type": "string"
+        },
+        "migratedFromSchemaVersion": {
+          "type": "string"
+        },
+        "migrationToolVersion": {
+          "type": "string"
+        },
+        "sourceRecipeDocumentHash": {
+          "type": "string"
+        },
+        "sourceKind": {
+          "type": "string",
+          "enum": ["recipe", "exploration", "execution_record"]
+        },
+        "sourceExplorationId": {
+          "type": "string"
+        },
+        "sourceExplorationHash": {
+          "type": "string"
+        },
+        "promotionToolVersion": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

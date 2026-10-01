@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -8,6 +9,7 @@
 #include <unordered_set>
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
+#include "HardwareContractQuarantine.h"
 
 namespace abdaudiolab::core
 {
@@ -131,6 +133,20 @@ struct HardwareContract
     std::string modelIdHex;
     std::string autoDetectSysEx;
     std::string theme { "audiolab-light" };
+
+    /**
+     * Estado editorial del contrato, leido del propio JSON.
+     *
+     * `quarantined` significa que se sabe dudoso y por eso el registro no lo
+     * carga. Va DENTRO de la estructura, y no solo en una lista del registro,
+     * para que un contrato retenido siga siendo identificable como tal en
+     * cualquier consumidor que lo reciba por otra via: el adaptador compartido,
+     * un snapshot de la sesion, un informe. Si el estado viviera solo en la
+     * lista, cualquier copia del contrato pareceria un contrato normal.
+     */
+    std::string status;
+    std::string statusReason;
+
     MidiIdentityContract midiIdentity;
 
     HardwareLifecycleContract lifecycle;
@@ -191,6 +207,23 @@ public:
     [[nodiscard]] bool hasContracts() const noexcept { return !effectiveContracts.empty(); }
     [[nodiscard]] const std::vector<juce::String>& getWarnings() const noexcept { return warnings; }
 
+    /**
+     * @brief Los contratos RETENIDOS por cuarentena, con su motivo.
+     *
+     * Deliberadamente aparte de `invalidLegacyProfiles`. Los dos son ficheros
+     * que no se han cargado, pero no son lo mismo: uno esta roto y uno esta
+     * withheld a proposito. Juntarlos seria esconder una decision editorial
+     * dentro de un contador de errores, que es justo la confusion que hace
+     * que alguien lo "arregle" reescribiendo el contrato.
+     *
+     * Cada uno lleva su `fichero`, que es lo que permite que el cajon abra el
+     * JSON a editar. Un retenido sin path del que hablar, solo se puede nombrar.
+     */
+    [[nodiscard]] const std::vector<quarantine::Retenido>& getQuarantinedProfiles() const noexcept
+    {
+        return quarantinedProfiles;
+    }
+
     [[nodiscard]] HardwareContractResolution resolveContractById(const std::string& id) const;
     [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
 
@@ -236,6 +269,7 @@ private:
     std::unordered_map<std::string, std::string> aliasToCanonicalId;
     std::unordered_map<std::string, std::string> invalidCanonicalProfiles;
     std::unordered_set<std::string> invalidLegacyProfiles;
+    std::vector<quarantine::Retenido> quarantinedProfiles;
     std::vector<juce::String> warnings;
     std::string lastErrorMessage;
 };

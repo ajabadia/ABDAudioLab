@@ -14,8 +14,48 @@ const HardwareContract* SharedHardwareContractAdapter::findContractById(const st
 void SharedHardwareContractAdapter::rebuildLocalCache()
 {
     localCache_.clear();
+    quarantined_.clear();
+
     for (const auto& sharedC : sharedRegistry_.getContracts())
     {
+        // LA MISMA CUARENTENA, Y POR QUE hace falta aqui.
+        //
+        // El registro compartido de ABDSharedCode no conoce la marca: no es de este
+        // repositorio y no se toca. Carga el contrato retenido y lo sirve. Sin este
+        // filtro el laboratorio tendria DOS puertas al catalogo —el registro local,
+        // que si filtra, y este adapter, que no— y el retenido llegaria igual por la
+        // segunda. Un contrato en cuarentena que se cuela por la otra puerta es
+        // justo el fallo que la cuarentena existe para tapar.
+        //
+        // Y se apoya en `quarantine::evaluar` en vez de comprobar `status` por su
+        // cuenta: la regla vive en `HardwareContractQuarantine`, que es el unico
+        // sitio donde vive, y las dos puertas dicen lo mismo por construccion.
+        const auto rawJson = sharedRegistry_.getRawContractJson(sharedC.id);
+
+        // Se evalua una vez y el veredicto se usa entero. Preguntar dos veces por
+        // lo mismo no es un coste apreciable aqui, pero es la forma de escribir
+        // codigo que luego se copia y se queda con la mitad de las comprobaciones.
+        const auto veredicto = rawJson.has_value() ? quarantine::evaluar(*rawJson)
+                                                   : quarantine::Resultado {};
+
+        if (veredicto.retenido)
+        {
+            quarantined_.emplace_back(sharedC.id, veredicto.motivo);
+
+            // El MISMO prefijo y el MISMO texto que el registro, y no una
+            // variante propia. Antes esta linea decía `[SharedHardwareContract
+            // Adapter] retenido en cuarentena` y la del registro decía otra
+            // cosa con otro prefijo: dos etiquetas para el mismo hecho, y
+            // quien grepara una creeria que el otro camino no retenia nada.
+            //
+            // No lleva fichero porque este registro compartido no lo da: su
+            // clave es el `id`, y el `id` esta dentro del texto.
+            juce::Logger::writeToLog(juce::String(quarantine::prefijoLog) + " "
+                                     + quarantine::descripcionDeRetencion(
+                                         juce::String(sharedC.id.c_str()), veredicto.motivo));
+            continue;
+        }
+
         HardwareContract localC;
 
         // Copy base identity fields 1:1
@@ -40,8 +80,9 @@ void SharedHardwareContractAdapter::rebuildLocalCache()
         localC.midiIdentity.sysexHeaderHex = sharedC.midiIdentity.sysexHeaderHex;
         localC.midiIdentity.portNameMatches = sharedC.midiIdentity.portNameMatches;
 
-        // Domain-specific: read from raw JSON
-        if (auto rawJson = sharedRegistry_.getRawContractJson(sharedC.id))
+        // El dominio se lee del mismo JSON que acaba de decir si el contrato
+        // estaba retenido: una sola lectura, y el que se lee es el que se filtro.
+        if (rawJson.has_value())
         {
             parseFunctionsFromRawJson(*rawJson, localC);
             parseLifecycleFromRawJson(*rawJson, localC);
@@ -132,9 +173,15 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
                     ctrl.ccNumber = cJson.value("cc", cJson.value("midiCC", -1));
                     ctrl.nrpnNumber = cJson.value("nrpn", -1);
                     ctrl.sysexAddress = cJson.value("sysexAddress", std::string(""));
-                    ctrl.minVal = cJson.value("min", 0.0f);
-                    ctrl.maxVal = cJson.value("max", 1.0f);
-                    ctrl.defaultVal = cJson.value("default", 0.5f);
+                    // Mismo contrato que el registro: `minVal`/`maxVal`/`defaultVal`
+                    // es el nombre unico, y el corto se tolera como fallback para que
+                    // un contrato con el nombre viejo no caiga al 0.0/1.0/0.5 en
+                    // silencio. Este adaptador es el que cruza el contrato con
+                    // HardwareContract de ABDSharedCode, asi que si se queda corto el
+                    // rango cae en los DOS lados a la vez y no se ve por compararlos.
+                    ctrl.minVal = cJson.value("minVal", cJson.value("min", 0.0f));
+                    ctrl.maxVal = cJson.value("maxVal", cJson.value("max", 1.0f));
+                    ctrl.defaultVal = cJson.value("defaultVal", cJson.value("default", 0.5f));
                     ctrl.unit = cJson.value("unit", std::string(""));
 
                     if (cJson.contains("options") && cJson["options"].is_array())

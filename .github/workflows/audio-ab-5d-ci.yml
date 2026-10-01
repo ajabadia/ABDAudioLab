@@ -8,6 +8,16 @@ on:
       - 'src/synth/CanonicalPresetSynthesizer**'
       - 'src/tests/test_AudioAB**'
       - 'docs/qa/**'
+      # La puerta de contratos esta en este MISMO workflow, asi que sin
+      # estas lineas un PR que solo toque un contrato —un snapshot
+      # desfasado, un retenido nuevo— no dispararia nada y pasaria en
+      # verde sin que nadie mirase. No es un detalle: es el motivo por el
+      # que estos ficheros estan aqui y no solo los de audio 5D.
+      - 'contracts/**'
+      - 'src/tests/test_ContractsSnapshotDrift.cpp'
+      - 'src/tests/test_HardwareContractQuarantine.cpp'
+      - 'src/core/HardwareContractQuarantine.*'
+      - 'src/core/LabResourcePaths.cpp'
       - '.github/workflows/audio-ab-5d-ci.yml'
   pull_request:
     branches: [ main, master ]
@@ -16,6 +26,16 @@ on:
       - 'src/synth/CanonicalPresetSynthesizer**'
       - 'src/tests/test_AudioAB**'
       - 'docs/qa/**'
+      # La puerta de contratos esta en este MISMO workflow, asi que sin
+      # estas lineas un PR que solo toque un contrato —un snapshot
+      # desfasado, un retenido nuevo— no dispararia nada y pasaria en
+      # verde sin que nadie mirase. No es un detalle: es el motivo por el
+      # que estos ficheros estan aqui y no solo los de audio 5D.
+      - 'contracts/**'
+      - 'src/tests/test_ContractsSnapshotDrift.cpp'
+      - 'src/tests/test_HardwareContractQuarantine.cpp'
+      - 'src/core/HardwareContractQuarantine.*'
+      - 'src/core/LabResourcePaths.cpp'
       - '.github/workflows/audio-ab-5d-ci.yml'
   workflow_dispatch:
 
@@ -43,6 +63,29 @@ jobs:
           repository: ajabadia/ABDSharedCode
           ref: a0cdaf12aa117d0ce9eece7f63013193c39ed159
           path: ABDSharedCode
+          fetch-depth: 1
+
+      # ESTE HERMANO ES LO QUE HACE QUE EL GATE 7 EXISTA.
+      #
+      # `LabResourcePaths::sharedAssetsDir()` devuelve un File invalido cuando no
+      # encuentra ABDSharedAssets, y el test de drift responde con SKIP a eso, no
+      # con verde. Un SKIP no es una pasada, pero tampoco es un fallo: el job
+      # estaba en verde sin haber comparado un solo contrato. Sin este checkout el
+      # gate de abajo se ejecuta y no comprueba nada.
+      #
+      # `ref: main` y no un SHA, y aqui la regla es la INVERSA que en los
+      # generadores. Alli lo que importa es la cabecera de la que sale el json, y
+      # esa se fija para que el fallo sea siempre el mismo. Aqui lo que importa es
+      # el ORIGEN del snapshot, y el origen es `main` por definicion: si `main` se
+      # mueve y el snapshot no le sigue, el snapshot esta desfasado de verdad, y
+      # un rojo por eso es un rojo que se ha ganado. Fijarlo aqui haria que este
+      # check solo dijese lo que ya decia el CI de ABDSharedAssets.
+      - name: Checkout ABDSharedAssets (contract origin)
+        uses: actions/checkout@v4
+        with:
+          repository: ajabadia/ABDSharedAssets
+          ref: main
+          path: ABDSharedAssets
           fetch-depth: 1
 
       - name: Setup MSVC Environment
@@ -89,6 +132,35 @@ jobs:
         run: |
           .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console
 
+      # El snapshot y la cuarentena, con etiqueta propia y NO dentro de la suite
+      # grande. `[contracts]` habria sido mas corto y habria arrastrado trece
+      # ficheros de test, dos de ellos de hosting real: un fallo de contrato tiene
+      # que leerse como un fallo de contrato.
+      - name: Gate 7 — Contract Snapshot & Quarantine Gate
+        run: |
+          .\build\Release\ABDAudioLab_Tests.exe "[snapshot]" -r console
+          .\build\Release\ABDAudioLab_Tests.exe "[quarantine]" -r console
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # EL PREFLIGHT DE ABDSharedAssets, CORRIENDO AQUI.
+  #
+  # Por que otro job y no un paso mas arriba: este corre en Ubuntu y sin
+  # compilar nada. Meterlo en el job de Windows lo ataria a un build de varios
+  # minutos, y una puerta que solo se puede comprobar despues de una
+  # compilacion completa se acaba no comprobando cuando la compilacion falla.
+  #
+  # QUE COMPRA, CONCRETO. Este preflight es el que mira
+  # `ABDAudioLab/contracts/hardware` como COPIA, y es la unica puerta que dice si
+  # esa copia esta desfasada o si, siendo una junction, no se esta comprobando
+  # nada. El CI de ABDSharedAssets la vigila desde alli, pero alli se compara
+  # `main` de ABDSharedAssets contra `main` de ABDSharedAssets: si alguien toca el
+  # snapshot del laboratorio y NO toca ABDSharedAssets, alli no se entera nadie.
+  # Aqui se ve, porque aqui esta el repo que tiene el snapshot.
+  #
+  # Sin `paths:` a proposito, igual que el job entero y por el mismo motivo que
+  # en el otro repo: un check que no llega a ejecutarse no vigila nada, y en un
+  # PR que solo toca un JSON de contrato es justo lo que pasaria.
+
       - name: Upload QA Acceptance Artifacts
         uses: actions/upload-artifact@v4
         if: always()
@@ -99,3 +171,71 @@ jobs:
             ABDAudioLab/docs/qa/audio-ab-5d-baseline-manifest.json
             ABDAudioLab/docs/qa/audio-ab-5d-artifacts.sha256
           if-no-files-found: error
+
+  contracts-preflight:
+    name: Contract Preflight (origin vs lab snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: ABDSharedAssets
+
+    steps:
+      # El repo que se quiere vigilar, primero y con su PR entero: es el que
+      # lleva los 40 contratos del snapshot.
+      - name: Checkout ABDAudioLab
+        uses: actions/checkout@v4
+        with:
+          path: ABDAudioLab
+          fetch-depth: 1
+
+      - name: Checkout ABDSharedAssets (contract origin)
+        uses: actions/checkout@v4
+        with:
+          repository: ajabadia/ABDSharedAssets
+          ref: main
+          path: ABDSharedAssets
+          fetch-depth: 1
+
+      # Los generadores de `contracts/` son Python y el runner de Ubuntu no lo
+      # trae. Sin este paso el preflight no se puede ni ejecutar, y un preflight
+      # que no corre y sale en verde es PEOR que no tenerlo: aparenta que hay
+      # puerta. Este comentario, casi literal, esta en el workflow de
+      # ABDSharedAssets porque el mismo error ya se cometio una vez alli.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # pnpm ANTES de node, no al reves. `pnpm/action-setup` se apoya en el node
+      # que deja el paso siguiente en el PATH; con el orden dado del reves, el
+      # node instalado se lleva por delante la shim y `pnpm install` deja de ser la
+      # version fijada.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.25.0'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+
+      # Los generadores de contratos leen codigo de ABDSharedCode, ABDEep,
+      # ABDNeural y ABDMS2000. Este script baja los que falten a su SHA fijado, y
+      # lleva `if: always()` en el workflow de al lado por una razon que aqui se
+      # repite: si un checkout falla y el preflight corre igual, el fallo se ve
+      # como «no he podido comprobar» y sale con 2, culpando al contrato de un
+      # problema del montaje.
+      - name: Fetch missing contract sources (pinned SHA)
+        run: node scripts/fetch-missing-siblings.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Y por fin la puerta. Sale con 1 si algo esta desfasado, con 2 si no se ha
+      # podido comprobar, y 2 tampoco es verde: es «nadie sabe», que no es lo
+      # mismo que «todo bien».
+      - name: "Preflight: contracts match ABDAudioLab snapshot, quarantine declared"
+        run: pnpm run preflight

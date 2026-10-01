@@ -41,6 +41,7 @@
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
+#include "gui/StartupWarningsPanel.h"
 #include "gui/MeasurementHealthPanel.h"
 #include "gui/OperatorStepModalDialog.h"
 #include "gui/ConfirmationModalDialog.h"
@@ -195,6 +196,26 @@ public:
     float balancedBottomH { 220.0f };
 
 private:
+    /** Recorre la cadena de busqueda de contratos y llena el registro. */
+    [[nodiscard]] bool cargarCatalogoDeContratos();
+
+    /** Pasa lo que hay en el registro al cajon y al selector. */
+    void volcarCatalogoEnLaInterfaz(bool conservarSeleccion);
+
+    /** El boton de la ficha de cuarentena: relee el catalogo y lo dice. */
+    void reescargarCatalogoDeContratos();
+
+    /**
+     * Coloca el panel de avisos y devuelve cuanto alto le ha dejado.
+     *
+     * Es un metodo y no un trozo de `resized()` porque los avisos llegan por
+     * `onProfileWarning` desde un `callAsync`: cuando eso ocurre no hay ningun
+     * cambio de tamano que vaya a disparar un `resized()`, y un panel que se
+     * hace visible sin colocar no se ve. Ver la nota sobre el metodo en el
+     * `.cpp`, que explica el tope de la mitad de pantalla.
+     */
+    int colocarPanelDeAvisos(juce::Rectangle<int>& bounds);
+
     // Engine & Controllers
     audio::LabAudioEngine audioEngine;
     core::HardwareManager hardwareManager;
@@ -260,6 +281,18 @@ private:
     gui::DiagnosticsTelemetryPoller diagnosticsTelemetryPoller { telemetrySource, *this };
 
     void animateSplitter();
+
+    /**
+     * Los avisos que NO se autodestruyen.
+     *
+     * `manualPromptLabel` de abajo es para lo de paso: un target verificado,
+     * un audio reconectado. Eso se lee en su momento y se pasa. Una retencion
+     * no es de paso: el hardware sigue sin aparecer dentro de tres semanas, y
+     * dentro de tres semanas nadie recuerda un texto que se borro en 1999.
+     *
+     * Este vive arriba del todo y se queda hasta que alguien pulse "Entendido".
+     */
+    gui::StartupWarningsPanel startupWarningsPanel;
 
     juce::Label manualPromptLabel;
     juce::TextButton btnStepBack;

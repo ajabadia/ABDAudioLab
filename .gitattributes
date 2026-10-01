@@ -1,0 +1,20 @@
+# Blancos de linea del catalogo de contratos versionado.
+#
+# POR QUE ESTE FICHERO, Y POR QUE SOLO ESTOS PATRONES.
+#
+# `contracts/hardware/` es una COPIA de `ABDSharedAssets/contracts/`, y para que
+# sea una copia y no una aproximacion tiene que ser identica byte a byte. Sin
+# esto, git en Windows convierte los LF a CRLF al volver a escribir el fichero,
+# y el snapshot deja de coincidir con su origen sin que nadie haya tocado un
+# solo contrato: el unico cambio seria el fin de linea, y es exactamente el
+# cambio que un diff no enseña.
+#
+# El repo de origen ya lo declara (`*.json text eol=lf` en su .gitattributes),
+# asi que esto no inventa una convencion: la copia de la convencion. Sin
+# .gitattributes aqui, el unico `text=auto` de la raiz tampoco ayuda, porque este
+# repositorio no tiene ninguno.
+#
+# Solo JSON a proposito. El resto del arbol —cpp, h, bat— no se toca: los finales
+# de linea de codigo no son el problema que estamos resolviendo, y cambiarlos
+# todos seria un diff enorme en plena refactorizacion.
+*.json text eol=lf

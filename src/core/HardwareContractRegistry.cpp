@@ -93,6 +93,12 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         c.displayName = j["displayName"].get<std::string>();
         c.description = j.value("description", std::string(""));
         c.deviceType = j.value("deviceType", j.value("category", std::string("MANUAL_EURORACK")));
+        // El estado editorial viaja con el contrato. Se copia para que un
+        // contrato YA retenido sea visible como tal en cualquier consumidor que
+        // lo reciba por otra via —el adaptador, un snapshot—, y no solo como una
+        // ausencia en esta lista.
+        c.status = j.value("status", std::string());
+        c.statusReason = j.value("statusReason", std::string());
         c.brand = j.value("brand", std::string(""));
         c.brandLogo = j.value("brandLogo", std::string(""));
         c.modelImage = j.value("modelImage", std::string(""));
@@ -227,9 +233,18 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
                         ctrl.ccNumber = cJson.value("cc", cJson.value("midiCC", -1));
                         ctrl.nrpnNumber = cJson.value("nrpn", -1);
                         ctrl.sysexAddress = cJson.value("sysexAddress", std::string(""));
-                        ctrl.minVal = cJson.value("min", 0.0f);
-                        ctrl.maxVal = cJson.value("max", 1.0f);
-                        ctrl.defaultVal = cJson.value("default", 0.5f);
+                        // El nombre unico del rango es `minVal`/`maxVal`/`defaultVal`
+                        // (ABDSharedAssets/contracts/hardware/hardware_profile.schema.json
+                        // lo declara, y 68 controles de este catalogo lo usan). El corto
+                        // se tolera como segundo nombre a proposito: aqui no se valida
+                        // nada, y un contrato que venga con el nombre viejo caeria al
+                        // 0.0/1.0/0.5 de abajo SIN AVISAR, que es un rango plausible y
+                        // por tanto invisible. Con el nombre viejo como fallback el
+                        // valor equivocado solo puede venir de un contrato que no
+                        // declare ninguno de los dos, y ese si es un defecto de datos.
+                        ctrl.minVal = cJson.value("minVal", cJson.value("min", 0.0f));
+                        ctrl.maxVal = cJson.value("maxVal", cJson.value("max", 1.0f));
+                        ctrl.defaultVal = cJson.value("defaultVal", cJson.value("default", 0.5f));
                         ctrl.unit = cJson.value("unit", std::string(""));
 
                         if (cJson.contains("options") && cJson["options"].is_array())
@@ -304,10 +319,84 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
 
     for (const auto& file : files)
     {
+        // ── LA CUARENTENA SE MIRA ANTES DE PARSEAR ──
+        //
+        // Y antes, y no despues de cargar, por una razon que no es de
+        // rendimiento. Un contrato retenido que se parsesa y luego se tira es un
+        // contrato que ha pasado por todo el codigo de construccion: ha creado
+        // sus 31 funciones, sus controles y sus recetas de medicion, y eso ya
+        // es trabajo hecho para algo que no se va a mostrar. Y si manana se
+        // decide levantarla, ese trabajo ya esta probado.
+        //
+        // El aviso sale por el MISMO camino que los demas —`warnings`, el log y
+        // `onProfileWarning`— porque un camino nuevo es un camino que nadie
+        // mira. Se diferencia del resto en que aqui no es un fallo: es una
+        // decision, y por eso va con su motivo.
+
+        // La regla no se decide aqui. Se pide a `quarantine::evaluar`, que es el
+        // unico sitio donde vive, para que el `SharedHardwareContractAdapter` no
+        // pueda aplicar otra distinta sin que se note.
+        const auto veredicto = quarantine::evaluar(file);
+
+        if (veredicto.retenido)
+        {
+            // El `file` se guarda entero, no solo su nombre. Sin el path, quien
+            // lee este aviso no puede ni abrir el JSON ni decir donde esta, y
+            // levantar la retencion se convierte en cazar un fichero por un
+            // arbol de repositorios a ojo.
+            quarantine::Retenido retenido {
+                file,
+                file.getFileNameWithoutExtension(),
+                veredicto.motivo,
+            };
+
+            quarantinedProfiles.push_back(retenido);
+
+            // El aviso y la linea de log son COSA DISTINTA a proposito, y no
+            // porque se hayan escrito con descuido.
+            //
+            // El aviso va al canal de avisos, que es donde se lee sin saber que
+            // se va a leer: por eso lleva el texto entero y la frase que
+            // distingue una decision de un fallo. Y el log lleva el PREFIJO
+            // `[CUARENTENA]`, para que un grep por el distinga de las lineas
+            // de error de verdad de un vistazo. Con el prefijo de siempre --
+            // `[HardwareContractRegistry]`-- las dos cosas salian con la misma
+            // etiqueta, y en un log de arranque eso es indistinguible.
+            const juce::String aviso = quarantine::descripcionDeRetenido(retenido);
+
+            warnings.push_back(aviso);
+            juce::Logger::writeToLog(quarantine::lineaDeLogDeRetencion(retenido));
+
+            if (onProfileWarning)
+                onProfileWarning(aviso);
+
+            continue;
+        }
+
         HardwareContract contract;
         juce::String warning;
         if (loadProfileResilient(file, contract, warning))
         {
+            // Un `status` que no sea `quarantined` se carga, pero se dice. La
+            // regla es "retiene solo el literal conocido", y un valor
+            // desconocido tiene que dejar rastro: si manana el esquema admite
+            // `deprecated` y alguien lo escribe, el contrato aparecera en el
+            // cajon sin que nadie haya decidido que eso es lo correcto.
+            const auto estado = contract.status;
+
+            if (!estado.empty() && estado != "quarantined")
+            {
+                const juce::String aviso = "Contrato '" + juce::String(contract.id)
+                                           + "' lleva status '" + estado
+                                           + "', que este registro no conoce: se carga igual.";
+
+                warnings.push_back(aviso);
+                juce::Logger::writeToLog("[HardwareContractRegistry] " + aviso);
+
+                if (onProfileWarning)
+                    onProfileWarning(aviso);
+            }
+
             loadedContracts.push_back(std::move(contract));
         }
         else
@@ -325,11 +414,38 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
         }
     }
 
-    if (!loadedContracts.empty())
+    // ── UN DIRECTORIO SOLO CON CONTRATOS RETENIDOS ES UNA CARGA CORRECTA ──
+    //
+    // Y esto lo fijo un test, no una opinion. Con la condicion de antes, un
+    // directorio con un solo contrato retenido devolvia FALLO, y eso es mentira
+    // en dos sitios: no se ha fallado al parsear nada, y `loadedContracts` vacio
+    // no distingue "aqui no hay nada" de "aqui no he podido leer nada".
+    //
+    // La diferencia se nota en el consumidor: `MainContentComponent` usa este
+    // retorno para decidir si sigue buscando en el directorio padre. Con un
+    // directorio retenido dando fallo, la busqueda seguiria subiendo creyendo
+    // que aqui no habia nada que leer, y acabaria cargando el catalogo de otro
+    // sitio. Un withholding declarado no debe cambiar de directorio.
+    //
+    // Y `lastErrorMessage` NO se limpia en ese caso, porque si no no queda nada
+    // que diga por que hay cero contratos. `hasContracts()` contesta false, que
+    // es la respuesta honesta, y el motivo esta en `warnings`.
+    if (!loadedContracts.empty() || !quarantinedProfiles.empty())
     {
         contracts = std::move(loadedContracts);
-        lastErrorMessage.clear();
         rebuildEffectiveContracts();
+
+        if (contracts.empty())
+        {
+            lastErrorMessage = "No contracts loaded: "
+                               + std::to_string(quarantinedProfiles.size())
+                               + " withheld by quarantine";
+        }
+        else
+        {
+            lastErrorMessage.clear();
+        }
+
         return true;
     }
 

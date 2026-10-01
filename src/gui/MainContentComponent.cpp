@@ -103,71 +103,55 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     hardwareManager.getContractRegistry().onProfileWarning = [this](const juce::String& warning) {
         juce::MessageManager::callAsync([this, warning]() {
+            // El aviso que se autodestruye se queda. Ver `StartupWarningsPanel`.
+            // Un retenido que solo vive seis segundos es un retenido que no esta
+            // avisado: el hardware sigue faltando y nadie se ha enterado de por
+            // que.
+            startupWarningsPanel.addNotice(warning);
+
+            // Y se coloca aqui, no en un `resized()` posterior que no va a
+            // llegar: ver `colocarPanelDeAvisos`.
+            auto area = getLocalBounds().reduced(20, 8);
+            area.removeFromTop(36);
+            colocarPanelDeAvisos(area);
+            repaint();
+
+            // Y ademas se dice de paso, para quien este mirando el prompt en
+            // ese momento y no el panel. Son los dos canales del mismo hecho,
+            // y por eso el texto es identico: lo pone el modulo de cuarentena,
+            // no cada uno el suyo.
             manualPromptLabel.setText(warning, juce::dontSendNotification);
             manualPromptLabel.setVisible(true);
             hidePromptAfterDelay(6000);
         });
     };
 
+    // Abrir el JSON desde el panel de avisos. Va al mismo sitio que el boton de
+    // la ficha del cajon --el editor del sistema-- porque es la misma accion
+    // sobre el mismo fichero. Dos acciones que hacen lo mismo de dos maneras
+    // son dos que se quedan sin arreglar una de las dos.
+    startupWarningsPanel.onOpenQuarantineJson = [](const core::quarantine::Retenido& retenido) {
+        if (retenido.fichero.existsAsFile())
+            retenido.fichero.startAsProcess();
+    };
+
+    // El reescaneo vacia el panel antes de volver a llenarlo. Sin esto los
+    // retenidos de antes se quedan mezclados con los de ahora, y quien mire
+    // la lista creera que hay mas de los que hay.
+    drawer.onContractsReloadRequested = [this] {
+        startupWarningsPanel.clearNotices();
+        startupWarningsPanel.setVisible(false);
+        reescargarCatalogoDeContratos();
+    };
+
     report("Escaneando contratos de hardware en ABDSharedAssets...", 0.45f);
 
-    // Load Contract Specifications: ABDSharedAssets/contracts es la fuente de verdad, y
-    // contracts/hardware el catalogo local versionado. Ambas rutas las resuelve
-    // LabResourcePaths: antes la primera era una ruta absoluta que solo existia en la
-    // maquina del autor, y la lista arrancaba por el directorio de trabajo, con lo
-    // que el catalogo encontrado dependia de desde donde se hubiera lanzado la app.
-    std::vector<juce::File> roots;
-
-    if (const auto sharedAssets = core::sharedAssetsDir(); sharedAssets.isDirectory())
-        roots.push_back(sharedAssets.getChildFile("contracts"));
-
-    roots.push_back(core::optionalRepoResource("contracts/hardware").getParentDirectory().getParentDirectory());
-    roots.push_back(juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory());
-
-    for (auto root : roots)
-    {
-        // Direct ABDSharedAssets/contracts directory
-        if (root.isDirectory() && root.getFileName() == "contracts" && hardwareManager.getContractRegistry().loadContractsFromDirectory(root))
-            break;
-
-        for (int i = 0; i < 6; ++i)
-        {
-            // 1. Check ABDSharedAssets/contracts (sibling or child)
-            auto shared = root.getChildFile("ABDSharedAssets").getChildFile("contracts");
-            if (shared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(shared))
-                break;
-
-            auto siblingShared = root.getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
-            if (siblingShared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(siblingShared))
-                break;
-
-            // 2. Fallback to local contracts/hardware
-            auto direct = root.getChildFile("contracts").getChildFile("hardware");
-            if (direct.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(direct))
-                break;
-
-            root = root.getParentDirectory();
-        }
-        if (hardwareManager.getContractRegistry().hasContracts())
-            break;
-    }
-
-    // 3. Cargar perfiles canónicos adaptados (profiles/targets)
-    for (auto root : roots)
-    {
-        for (int i = 0; i < 6; ++i)
-        {
-            auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
-            if (targetsDir.isDirectory())
-            {
-                hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(targetsDir);
-                break;
-            }
-            root = root.getParentDirectory();
-        }
-        if (!hardwareManager.getContractRegistry().getCanonicalAdaptedContracts().empty())
-            break;
-    }
+    // Load Contract Specifications: ABDSharedAssets/contracts es la fuente de verdad,
+    // y contracts/hardware el catalogo local versionado. Ambas rutas las resuelve
+    // LabResourcePaths; antes la primera era una ruta absoluta valida solo en la
+    // maquina del autor y la lista arrancaba por el directorio de trabajo.
+    const bool hayContratos = cargarCatalogoDeContratos();
+    juce::ignoreUnused(hayContratos);
 
     if (!hardwareManager.getContractRegistry().hasContracts())
     {
@@ -192,9 +176,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     {
         auto presetsDir = core::optionalRepoResource("assets/presets");
 
-        // Sin arbol del repositorio no hay donde escribir. Antes este bloque creaba
-        // assets/presets dentro del directorio de trabajo, con lo que ejecutar desde
-        // cualquier sitio dejaba directorios sueltos ahi donde se hubiera lanzado.
+        // Sin arbol del repositorio no hay donde escribir. Antes este bloque
+        // creaba assets/presets dentro del directorio de trabajo; ahora no se
+        // escribe nada fuera del repo.
         if (presetsDir.getParentDirectory().isDirectory())
         {
             presetsDir.createDirectory();
@@ -220,44 +204,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         });
     });
 
-    // Populate Hardware Selector from Contract Registry
-    std::vector<gui::HardwareItem> hwItems;
-    for (const auto& c : hardwareManager.getContractRegistry().getContracts())
-    {
-        gui::HardwareItem item;
-        item.id = juce::String(c.id);
-        item.displayName = juce::String(c.displayName);
-        item.description = juce::String(c.description);
-        item.category = juce::String(c.deviceType);
-        item.brand = juce::String(c.brand);
-        item.brandLogo = juce::String(c.brandLogo);
-        item.modelImage = juce::String(c.modelImage);
+    volcarCatalogoEnLaInterfaz(false);
 
-        for (const auto& f : c.functions)
-        {
-            gui::FunctionItem fItem;
-            fItem.id = juce::String(f.id);
-            fItem.name = juce::String(f.name);
-            fItem.blockType = juce::String(f.blockType);
-            fItem.stimulusOutput = juce::String(f.routingGuide.stimulusOutput);
-            fItem.responseInput = juce::String(f.routingGuide.responseInput);
-            fItem.notes = juce::String(f.routingGuide.notes);
-            fItem.captureMode = juce::String(f.captureMode);
-            fItem.defaultBurstDurationSec = f.defaultBurstDurationSec;
-            for (const auto& ctrl : f.controls)
-            {
-                gui::ControlItem cItem;
-                cItem.name = juce::String(ctrl.name);
-                cItem.type = juce::String(ctrl.type);
-                fItem.controls.push_back(cItem);
-            }
-            item.functions.push_back(fItem);
-        }
-        hwItems.push_back(item);
-    }
-    drawer.setHardwareList(hwItems);
-    drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
-    drawer.setHardwareLocked(false);
 
     // Wire SessionIoController Callbacks
     sessionIoController.setExportDirectory(exportDirectory);
@@ -398,6 +346,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         healthPanel.repaint();
         meterStrip.repaint();
         curvePlotter.updateTheme();
+        startupWarningsPanel.repaint();
         suiteList.updateTheme();
 
         if (scopeWebWindow != nullptr)
@@ -428,6 +377,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         repaint();
     };
     addAndMakeVisible(mainHeader);
+    addAndMakeVisible(startupWarningsPanel);
+    startupWarningsPanel.setVisible(false);
+
 
     // Step 0: Setup & Telemetry Info Tab (Paso 0: Información)
     setupInfoTab.onOpenAudioSettingsClicked = [this] {
@@ -1398,6 +1350,10 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     drawer.onCheckUpdatesClicked = [this] {
         checkForAppUpdates(true);
     };
+    // El boton de reescanear de la ficha de cuarentena. Es lo que hace que
+    // levantar una retencion termine en un clic y no en un reinicio: se edita
+    // el JSON, se vuelve, y el cajon relee el catalogo entero.
+
     drawer.onNewFlowRequested = [this] {
         if (sessionManager.isDirty() && sessionManager.hasPoints())
         {
@@ -1929,6 +1885,19 @@ void MainContentComponent::resized()
     // 1. Top Header Area (Single Coordinated Component)
     auto headerRow = bounds.removeFromTop(36);
     mainHeader.setBounds(headerRow);
+
+    // El panel de avisos va POR ENCIMA de la cabecera, y no debajo de ella ni
+    // superpuesto. Encima porque lo que dice no es informacion del flujo que se
+    // esta siguiendo: es que falta hardware y por que. Y en una barra propia
+    // porque su alto depende de cuantos avisos hay, y metido en el mismo
+    // troceado que la cabecera haria que al crecer uno empujase el resto de la
+    // pantalla sin que se note por donde.
+    //
+    // Sin avisos no ocupa nada. `getPreferredHeight` devuelve cero y el panel se
+    // esconde solo, para no dejar un hueco arriba de todo en cada arranque
+    // limpio, que son los que mas se miran.
+    const int avisosAlto = colocarPanelDeAvisos(bounds);
+    bounds.removeFromTop(avisosAlto + (avisosAlto > 0 ? 8 : 0));
 
     bounds.removeFromTop(10);
 
@@ -3560,6 +3529,10 @@ void MainContentComponent::updatePluginIdentity(const gui::PluginIdentityPresent
                                                 const juce::PluginDescription& description)
 {
     drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
+
+    // Los retenidos van con los contratos: si se refresca uno, se refrescan
+    // los dos, o el cajon se queda con una lista y un recuento que no coinciden.
+    drawer.setQuarantinedProfiles(hardwareManager.getContractRegistry().getQuarantinedProfiles());
     drawer.setSelectedHardwareId(identity.legalTargetId);
 
 
@@ -3773,6 +3746,215 @@ std::optional<gui::session::TargetSelectionState> MainContentComponent::resolveC
     }
 
     return std::nullopt;
+}
+
+bool MainContentComponent::cargarCatalogoDeContratos()
+{
+    // ──────────────────────────────────────────────────────────────────────────
+    // POR QUE ESTO ES UN METODO Y NO UN BLOQUE DEL CONSTRUCTOR.
+    //
+    // Porque la cadena de busqueda tiene que poder VOLVER a correr. La accion de
+    // levantar una retencion termina en editar un JSON fuera de la aplicacion, y
+    // cuando se vuelve el catalogo esta en memoria de antes: el cajon sigue
+    // diciendo que el contrato esta retenido aunque el fichero ya no lo diga, y lo
+    // unico que queda es reiniciar. Un "reinicia la app" en un boton es una
+    // forma de decir "no puedes", y quien lo lee se rinde y deja el contrato
+    // retenido para siempre.
+    //
+    // Devuelve si hay contratos, y NO toca la interfaz. Volcar a la interfaz es
+    // otro metodo, porque son dos pasos que se pueden fallar por separado: leer el
+    // catalogo es de `core`, y llenarlo de `gui`.
+    //
+    // ──────────────────────────────────────────────────────────────────────────
+    std::vector<juce::File> roots;
+
+    if (const auto sharedAssets = core::sharedAssetsDir(); sharedAssets.isDirectory())
+        roots.push_back(sharedAssets.getChildFile("contracts"));
+
+    roots.push_back(core::optionalRepoResource("contracts/hardware").getParentDirectory().getParentDirectory());
+
+    for (auto root : roots)
+    {
+        // Direct ABDSharedAssets/contracts directory
+        if (root.isDirectory() && root.getFileName() == "contracts" && hardwareManager.getContractRegistry().loadContractsFromDirectory(root))
+            break;
+
+        for (int i = 0; i < 6; ++i)
+        {
+            // 1. Check ABDSharedAssets/contracts (sibling or child)
+            auto shared = root.getChildFile("ABDSharedAssets").getChildFile("contracts");
+            if (shared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(shared))
+                break;
+
+            auto siblingShared = root.getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
+            if (siblingShared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(siblingShared))
+                break;
+
+            // 2. Fallback to local contracts/hardware
+            auto direct = root.getChildFile("contracts").getChildFile("hardware");
+            if (direct.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(direct))
+                break;
+
+            root = root.getParentDirectory();
+        }
+        if (hardwareManager.getContractRegistry().hasContracts())
+            break;
+    }
+
+    // 3. Cargar perfiles canónicos adaptados (profiles/targets)
+    for (auto root : roots)
+    {
+        for (int i = 0; i < 6; ++i)
+        {
+            auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
+            if (targetsDir.isDirectory())
+            {
+                hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(targetsDir);
+                break;
+            }
+            root = root.getParentDirectory();
+        }
+        if (!hardwareManager.getContractRegistry().getCanonicalAdaptedContracts().empty())
+            break;
+    }
+
+    return hardwareManager.getContractRegistry().hasContracts();
+}
+
+void MainContentComponent::volcarCatalogoEnLaInterfaz(bool conservarSeleccion)
+{
+    // Llenar el cajon y el selector con lo que hay AHORA en el registro.
+    //
+    // `conservarSeleccion` es para el reescaneo: recargar todo devuelve el
+    // catalogo al estado inicial, con el combo en "no selection", asi que sin
+    // esto un reescaneo dejaria al usuario sin el Aparato que tenia abierto
+    // justo despues de haber arreglado un JSON. Perder el contexto al pulsar un
+    // boton es la forma mas rapida de que no se pulse dos veces.
+    const juce::String seleccionada = conservarSeleccion
+                                              ? drawer.getSelectedHardwareId()
+                                              : juce::String();
+
+    // Populate Hardware Selector from Contract Registry
+    std::vector<gui::HardwareItem> hwItems;
+    for (const auto& c : hardwareManager.getContractRegistry().getContracts())
+    {
+        gui::HardwareItem item;
+        item.id = juce::String(c.id);
+        item.displayName = juce::String(c.displayName);
+        item.description = juce::String(c.description);
+        item.category = juce::String(c.deviceType);
+        item.brand = juce::String(c.brand);
+        item.brandLogo = juce::String(c.brandLogo);
+        item.modelImage = juce::String(c.modelImage);
+
+        for (const auto& f : c.functions)
+        {
+            gui::FunctionItem fItem;
+            fItem.id = juce::String(f.id);
+            fItem.name = juce::String(f.name);
+            fItem.blockType = juce::String(f.blockType);
+            fItem.stimulusOutput = juce::String(f.routingGuide.stimulusOutput);
+            fItem.responseInput = juce::String(f.routingGuide.responseInput);
+            fItem.notes = juce::String(f.routingGuide.notes);
+            fItem.captureMode = juce::String(f.captureMode);
+            fItem.defaultBurstDurationSec = f.defaultBurstDurationSec;
+            for (const auto& ctrl : f.controls)
+            {
+                gui::ControlItem cItem;
+                cItem.name = juce::String(ctrl.name);
+                cItem.type = juce::String(ctrl.type);
+                fItem.controls.push_back(cItem);
+            }
+            item.functions.push_back(fItem);
+        }
+        hwItems.push_back(item);
+    }
+    drawer.setHardwareList(hwItems);
+    drawer.setContracts(hardwareManager.getContractRegistry().getContracts());
+
+    // Los retenidos tambien se pasan. Antes se callaban y no aparecian por
+    // ningun lado de la interfaz, que es la forma mas rapida de que alguien
+    // pregunte dentro de tres semanas por donde se fue un Aparato.
+    drawer.setQuarantinedProfiles(hardwareManager.getContractRegistry().getQuarantinedProfiles());
+
+    if (!seleccionada.isEmpty())
+        drawer.setSelectedHardwareId(seleccionada);
+
+    catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
+}
+
+// ==============================================================================
+// EL PANEL DE AVISOS, Y POR QUE TIENE UN METODO PROPIO.
+//
+// Porque `resized()` no es el unico sitio que lo coloca. Los avisos llegan
+// por `onProfileWarning`, que se dispara desde un `callAsync` del arranque,
+// y en ese momento no hay ningun cambio de tamano que dispare un `resized()`:
+// el panel se haria visible con alto cero, y un aviso invisible es peor que
+// uno que no esta, porque el registro ya ha avisado y alguien lo ha creido.
+//
+// Y el tope de la mitad de la pantalla es a proposito. El alto sale del numero
+// de avisos, y un catalogo con cien contratos retenidos no puede comerse la
+// aplicacion entera. Un aviso que empuja la medicion fuera de la pantalla se
+// resuelve con un scroll; uno que empuja el boton de INICIAR fuera de la
+// pantalla no se resuelve con nada.
+// ==============================================================================
+int MainContentComponent::colocarPanelDeAvisos(juce::Rectangle<int>& bounds)
+{
+    if (!startupWarningsPanel.hasNotices())
+    {
+        startupWarningsPanel.setVisible(false);
+        return 0;
+    }
+
+    const int alto = juce::jmin(startupWarningsPanel.getPreferredHeight(),
+                                bounds.getHeight() / 2);
+
+    startupWarningsPanel.setVisible(true);
+    startupWarningsPanel.setBounds(bounds.removeFromTop(alto));
+
+    return alto;
+}
+
+void MainContentComponent::reescargarCatalogoDeContratos()
+{
+    // El boton de la ficha de cuarentena. Recorre la MISMA cadena de busqueda
+    // que el arranque, y no una ruta fija: la ruta fija seria el
+    // `contracts/hardware` del laboratorio, que no es el origen. Recargar solo ese
+    // no arregla nada: volveria a resolver justo el problema que la cadena de
+    // busqueda existe para evitar.
+    const int retenidosAntes =
+        static_cast<int>(hardwareManager.getContractRegistry().getQuarantinedProfiles().size());
+
+    if (!cargarCatalogoDeContratos())
+        juce::Logger::writeToLog("[MainContentComponent] el reescaneo no ha encontrado contratos cargables.");
+    volcarCatalogoEnLaInterfaz(true);
+
+    const int retenidosDespues =
+        static_cast<int>(hardwareManager.getContractRegistry().getQuarantinedProfiles().size());
+
+    juce::Logger::writeToLog("[MainContentComponent] catalogo reescanado: "
+                             + juce::String(retenidosAntes) + " -> "
+                             + juce::String(retenidosDespues) + " retenido(s)");
+
+    // Y se DICE, que es lo que el usuario ha ido a comprobar. Sin esto el boton
+    // recarga en silencio y quien lo ha pulsado se queda mirando el cajon para
+    // ver si ha pasado algo.
+    //
+    // Va al pie de la seccion de cuarentena, y no a la barra de progreso del
+    // arranque: ese `report` es un lambda local del constructor, y a los treinta
+    // segundos de arranque no hay a quien enseñarle un 0.62.
+    juce::String aviso;
+
+    if (retenidosDespues < retenidosAntes)
+        aviso = juce::String("Reescaneado: ") + juce::String(retenidosAntes - retenidosDespues)
+                + juce::String(" contrato(s) ya no retenidos.");
+    else if (retenidosDespues > retenidosAntes)
+        aviso = juce::String("Reescaneado: ") + juce::String(retenidosDespues - retenidosAntes)
+                + juce::String(" contrato(s) nuevo(s) retenidos.");
+    else
+        aviso = "Reescaneado: el catalogo no ha cambiado.";
+
+    drawer.setQuarantineStatus(aviso);
 }
 
 } // namespace abdaudiolab

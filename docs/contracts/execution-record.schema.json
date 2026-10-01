@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abdaudiolab.org/schemas/v1/execution-record.schema.json",
+  "title": "ABDAudioLab Execution Record",
+  "description": "Registro inmutable y verificable de la ejecución de una receta metrológica con su evidencia acústica y científica.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "recordId",
+    "request",
+    "environment",
+    "hashes",
+    "summary",
+    "measuredPoints",
+    "verdict"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "kind": {
+      "type": "string",
+      "const": "abd.execution-record"
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^rec_[a-zA-Z0-9_\\-]+$"
+    },
+    "request": {
+      "type": "object",
+      "description": "Copia inmutable de la ExecutionRequest original ejecutada."
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audioDriver", "sampleRateHz", "blockSize", "channels", "buildVersion"],
+      "properties": {
+        "audioDriver": {
+          "type": "string",
+          "enum": ["WASAPI", "ASIO", "DirectSound", "CoreAudio", "ALSA", "MockAudioEngine"]
+        },
+        "sampleRateHz": {
+          "type": "integer"
+        },
+        "blockSize": {
+          "type": "integer"
+        },
+        "channels": {
+          "type": "integer"
+        },
+        "deviceDisplayName": {
+          "type": "string"
+        },
+        "pluginVersion": {
+          "type": "string"
+        },
+        "reportedLatencySamples": {
+          "type": "integer"
+        },
+        "buildVersion": {
+          "type": "string"
+        },
+        "operatingSystem": {
+          "type": "string"
+        }
+      }
+    },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recipeDocumentHash",
+        "experimentPlanHash",
+        "resolvedExecutionPlanHash",
+        "audioEvidenceHash"
+      ],
+      "properties": {
+        "recipeDocumentHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "RFC 8785 SHA-256 de la receta original archivada."
+        },
+        "experimentPlanHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 canónico del plan lógico puro compilado."
+        },
+        "resolvedExecutionPlanHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 de la realización concreta ejecutada con este entorno."
+        },
+        "audioEvidenceHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 canónico Float32 LE de las muestras de audio capturadas."
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalBlocksPumped", "totalSamplesProcessed", "totalTrialsExecuted", "startTimestampIso", "completionTimestampIso"],
+      "properties": {
+        "totalBlocksPumped": {
+          "type": "integer"
+        },
+        "totalSamplesProcessed": {
+          "type": "integer"
+        },
+        "totalTrialsExecuted": {
+          "type": "integer"
+        },
+        "startTimestampIso": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "completionTimestampIso": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "measuredPoints": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "properties": {
+        "selectionStatus": {
+          "type": "string"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isApprovedForProduction": {
+          "type": "boolean"
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["Success", "SafetyAborted", "Timeout", "ValidationFailed"]
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abdaudiolab.org/schemas/v1/execution-request.schema.json",
+  "title": "ABDAudioLab Execution Request",
+  "description": "Solicitud operativa de ejecución de una receta metrológica vinculándola a un target y políticas de sesión.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "requestId",
+    "recipeReference",
+    "executionMode",
+    "targetBinding",
+    "timeoutPolicy"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "kind": {
+      "type": "string",
+      "const": "abd.execution-request"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^req_[a-zA-Z0-9_\\-]+$"
+    },
+    "recipeReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipeId", "recipeDocumentHash"],
+      "properties": {
+        "recipeId": {
+          "type": "string"
+        },
+        "recipeDocumentHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "revision": {
+          "type": "integer"
+        }
+      }
+    },
+    "executionMode": {
+      "type": "string",
+      "enum": ["Manual", "Automatic", "Headless"]
+    },
+    "targetBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "targetKind"],
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "targetKind": {
+          "type": "string",
+          "enum": ["Plugin", "InternalSynth", "HardwareMidiOutboard", "ModularDut", "SyntheticFixture"]
+        },
+        "targetDisplayName": {
+          "type": "string"
+        },
+        "pluginIdentifier": {
+          "type": "string"
+        }
+      }
+    },
+    "timeoutPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxBlocksPerTrial"],
+      "properties": {
+        "maxBlocksPerTrial": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 50000
+        },
+        "abortOnOverload": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operatorId": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "destinationDirectory": {
+      "type": "string"
+    },
+    "auditableOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "settlingMultiplier": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 4.0
+        },
+        "customRepetitions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        }
+      }
+    }
+  }
+}

@@ -179,6 +179,44 @@ DrawerHardwareTab::DrawerHardwareTab()
 
     addAndMakeVisible(cardWiring);
 
+    // La seccion de cuarentena nace oculta. Anadarla siempre y taparla cuando
+    // este vacia haria que el alto del cajoniese dependiera de si hay algo que
+    // esconder, que es justo lo contrario de lo que se quiere.
+    cardQuarantine.setVisible(false);
+    addAndMakeVisible(cardQuarantine);
+
+    // La ficha de un retenido. Tambien oculta, y por el mismo motivo: sin una
+    // fila abierta no hay retenido que mirar.
+    cardQuarantineDetail.setVisible(false);
+    addAndMakeVisible(cardQuarantineDetail);
+    cardQuarantineDetail.addAndMakeVisible(cardQuarantineDetail.btnAbrir);
+    cardQuarantineDetail.addAndMakeVisible(cardQuarantineDetail.btnReescanear);
+
+    // Abrir el boton abre el fichero. `startAsProcess` es el "abrir con el
+    // programa por defecto" de esta JUCE: en un `.json` eso es el editor que
+    // tenga el sistema asociando a un `.json`, que es justo el que puede arreglarlo.
+    cardQuarantineDetail.btnAbrir.onClick = [this] { abrirJsonDelRetenidoSeleccionado(); };
+    cardQuarantineDetail.btnAbrir.setTooltip(
+        "Abre el contrato en el editor del sistema. Para levantarle la retencion, "
+        "borra su \"status\" y su \"statusReason\" y vuelve a escanear.");
+    cardQuarantineDetail.btnAbrir.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    cardQuarantineDetail.btnAbrir.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+
+    // Y el segundo cierra el ciclo. Editar el JSON fuera de la aplicacion y
+    // volver a entrar es el camino largo; sin esto, levantar una retencion
+    // acaba en "reinicia", que es una forma de decir "no puedes".
+    cardQuarantineDetail.btnReescanear.onClick = [this] {
+        if (onContractsReloadRequested != nullptr)
+            onContractsReloadRequested();
+    };
+    cardQuarantineDetail.btnReescanear.setTooltip(
+        "Vuelve a leer el catalogo de contratos. Si quitaste la marca de cuarentena "
+        "del JSON, el contrato aparece aqui mismo.");
+    cardQuarantineDetail.btnReescanear.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    cardQuarantineDetail.btnReescanear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+
+    cardQuarantine.onRowClicked = [this] (int fila) { abrirFichaDeCuarentena(fila); };
+
     lblAutoDetectSection.setText("AUTOMATED HARDWARE DETECTION", juce::dontSendNotification);
     lblAutoDetectSection.setFont(juce::FontOptions(10.0f, juce::Font::bold));
     lblAutoDetectSection.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
@@ -348,6 +386,111 @@ void DrawerHardwareTab::setHardwareList(const std::vector<HardwareItem>& list)
 void DrawerHardwareTab::setContracts(std::vector<core::HardwareContract> contractsList)
 {
     availableContracts = std::move(contractsList);
+}
+
+void DrawerHardwareTab::setQuarantinedProfiles(const std::vector<core::quarantine::Retenido>& profiles)
+{
+    // La tarjeta ES el sitio donde vive la lista. Un member paralelo en el tab
+    // solo serviria para tener dos copias que pueden quedar desincronizadas.
+    cardQuarantine.profiles = profiles;
+
+    const int alto = cardQuarantine.computePreferredHeight();
+    cardQuarantine.setVisible(alto > 0);
+    cardQuarantine.repaint();
+
+    // Si el retenido que estaba abierto sigue en la lista, se conserva abierto:
+    // un reescaneo que no ha cambiado nada no debe cerrar lo que estabas
+    // leyendo. Y si ya no esta —porque acabas de quitarle la marca—, la ficha se
+    // cierra sola, que es la senal de que la retencion se levanto.
+    if (cardQuarantine.selectedRow() >= static_cast<int>(cardQuarantine.profiles.size()))
+        cardQuarantine.deselectRow();
+
+    actualizarFichaDeCuarentena();
+
+    // Sin esto la seccion se solaparia con lo de abajo: `resized()` es quien
+    // decide el alto del cajon, y `getPreferredHeight()` lo lee.
+    resized();
+    repaint();
+}
+
+int DrawerHardwareTab::getSelectedQuarantinedProfileIndex() const noexcept
+{
+    return cardQuarantine.selectedRow();
+}
+
+const core::quarantine::Retenido* DrawerHardwareTab::getSelectedQuarantinedProfile() const noexcept
+{
+    return cardQuarantineDetail.target();
+}
+
+void DrawerHardwareTab::setQuarantineStatus(const juce::String& texto)
+{
+    cardQuarantine.statusText = texto;
+    cardQuarantine.repaint();
+}
+
+void DrawerHardwareTab::abrirFichaDeCuarentena(int fila)
+{
+    // Volver a clicar la fila abierta la cierra. Sin esto no hay forma de
+    // volver a la lista sin esperar a un reescaneo, que es mucho para cerrar
+    // algo que acabas de abrir.
+    cardQuarantine.selectRow(fila == cardQuarantine.selectedRow() ? -1 : fila);
+    cardQuarantine.statusText.clear();
+    actualizarFichaDeCuarentena();
+    resized();
+    repaint();
+}
+
+void DrawerHardwareTab::actualizarFichaDeCuarentena()
+{
+    const int fila = cardQuarantine.selectedRow();
+    const bool hay = fila >= 0 && fila < static_cast<int>(cardQuarantine.profiles.size());
+
+    cardQuarantineDetail.setTarget(hay ? &cardQuarantine.profiles[static_cast<size_t>(fila)]
+                                       : nullptr);
+
+    // El boton se deshabilita, y se DICE por que, cuando el JSON ya no esta.
+    // Un boton que no hace nada sin explicación es peor que un boton que no
+    // esta: parece un fallo de la aplicación y no del contrato.
+    const auto* retenido = cardQuarantineDetail.target();
+    const bool existe = retenido != nullptr && retenido->fichero.existsAsFile();
+
+    cardQuarantineDetail.btnAbrir.setEnabled(existe);
+
+    if (retenido != nullptr && !existe)
+        cardQuarantineDetail.btnAbrir.setButtonText("El JSON ya no esta en disco");
+    else
+        cardQuarantineDetail.btnAbrir.setButtonText("Abrir el JSON para editar");
+
+    cardQuarantineDetail.setVisible(hay);
+    cardQuarantineDetail.repaint();
+}
+
+void DrawerHardwareTab::abrirJsonDelRetenidoSeleccionado()
+{
+    const auto* retenido = cardQuarantineDetail.target();
+
+    if (retenido == nullptr)
+        return;
+
+    if (!retenido->fichero.existsAsFile())
+    {
+        juce::Logger::writeToLog("[DrawerHardwareTab] no se puede abrir "
+                                 + retenido->fichero.getFullPathName()
+                                 + ": el fichero ya no esta");
+        return;
+    }
+
+    // `startAsProcess` devuelve false si el sistema no ha podido lanzarlo, y
+    // eso NO se avisa en voz alta a nadie: se escribe en el log. Un boton que
+    // "no hace nada" cuando el sistema no tiene editor para `.json` no es un
+    // fallo de la aplicacion, y tratarlo como si lo fuera hace que se mire el
+    // sitio equivocado.
+    const bool abierto = retenido->fichero.startAsProcess();
+
+    juce::Logger::writeToLog("[DrawerHardwareTab] "
+                             + juce::String(abierto ? "abierto" : "NO se pudo abrir")
+                             + ": " + retenido->fichero.getFullPathName());
 }
 
 void DrawerHardwareTab::setSelectedHardwareId(const juce::String& id)
@@ -616,13 +759,32 @@ void DrawerHardwareTab::updateTheme()
     lblHardwareLockedBanner.setColour(juce::Label::backgroundColourId, SoundIdTheme::surfaceSubtle);
     lblHardwareLockedBanner.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
 
+    // El color lo saca de `SoundIdTheme` en cada `paint`, pero un componente
+    // visible no se vuelve a pintar solo al cambiar de tema.
+    cardQuarantine.repaint();
+    cardQuarantineDetail.updateTheme();
+
     updateBrandAndModelGraphics();
     repaint();
 }
 
 int DrawerHardwareTab::getPreferredHeight() const noexcept
 {
-    return isHardwareLocked ? 540 : 490;
+    int alto = isHardwareLocked ? 540 : 490;
+
+    // La seccion de cuarentena crece el cajon, pero solo si hay algo que
+    // enseñar. Con la lista vacia el alto es el de siempre.
+    const int cuarentena = cardQuarantine.computePreferredHeight();
+
+    if (cuarentena > 0)
+        alto += cuarentena + 6;
+
+    // Y la ficha, que solo existe con una fila abierta. Las dos heights salen
+    // de funciones sueltas porque las dos son contrato: 0 significa "no se
+    // dibuja", y un alto minimo cuando no hay nada abriria un hueco vacio.
+    alto += quarantineDetailHeight(cardQuarantineDetail.target() != nullptr);
+
+    return alto;
 }
 
 void DrawerHardwareTab::paint(juce::Graphics& g)
@@ -672,6 +834,25 @@ void DrawerHardwareTab::resized()
     y += 34;
 
     cardWiring.setBounds(0, y, w, 72);
+    y += 76;
+
+    // Debajo de todo lo demas y sin tocar los combos. Un contrato retenido no es
+    // seleccionable, y por eso no entra en `hardwareList`: si entrara, el mismo
+    // hueco que lo esconde hoy volveria a esconderlo, pero ya sin explicar por que.
+    const int cuarentena = cardQuarantine.computePreferredHeight();
+
+    if (cuarentena > 0)
+    {
+        cardQuarantine.setBounds(0, y, w, cuarentena);
+        y += cuarentena + 6;
+    }
+
+    // La ficha va debajo de la lista, y solo si hay fila abierta. `y` ya lleva
+    // el hueco de la lista, asi que las dos cosas se apilan solas.
+    const int detalle = quarantineDetailHeight(cardQuarantineDetail.target() != nullptr);
+
+    if (detalle > 0)
+        cardQuarantineDetail.setBounds(0, y, w, detalle);
 }
 
 void DrawerHardwareTab::ImageDisplayComponent::paint(juce::Graphics& g)
@@ -713,6 +894,167 @@ void DrawerHardwareTab::WiringGuideCard::paint(juce::Graphics& g)
     g.drawText("Response In:   ", inRow.removeFromLeft(105.0f), juce::Justification::centredLeft, true);
     g.setColour(SoundIdTheme::textSecondary);
     g.drawText(responseText.isNotEmpty() ? responseText : "Hardware Audio Out -> ADC Input 1 (L)", inRow, juce::Justification::centredLeft, true);
+}
+
+void DrawerHardwareTab::QuarantineListCard::paint(juce::Graphics& g)
+{
+    if (profiles.empty())
+        return;
+
+    auto bounds = getLocalBounds().toFloat();
+    g.setColour(SoundIdTheme::bgCard);
+    g.fillRoundedRectangle(bounds, 8.0f);
+    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.45f));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
+
+    auto content = bounds.reduced(14.0f, 10.0f);
+
+    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setColour(SoundIdTheme::accentAmber);
+    auto header = content.removeFromTop(18.0f);
+    g.drawText("WITHHELD BY QUARANTINE (" + juce::String(profiles.size()) + ")",
+               header, juce::Justification::centredLeft, true);
+
+    content.removeFromTop(2.0f);
+
+    for (size_t i = 0; i < profiles.size(); ++i)
+    {
+        const auto& entry = profiles[i];
+        const auto fila = static_cast<int>(i);
+        auto row = content.removeFromTop(16.0f);
+
+        // La fila abierta se pinta distinta. Y tiene que verse aunque el raton
+        // no este encima, porque "cual de estas dos cosas es la que estoy
+        // leyendo" es la pregunta que uno se hace al volver a la lista.
+        if (fila == selected)
+        {
+            g.setColour(SoundIdTheme::accentAmber.withAlpha(0.16f));
+            g.fillRect(row);
+            g.setColour(SoundIdTheme::accentAmber);
+            g.drawRect(row, 1.0f);
+        }
+        else if (fila == hovered)
+        {
+            g.setColour(SoundIdTheme::bgCardHover);
+            g.fillRect(row);
+        }
+
+        // El ancho del nombre se acota al 38% de la fila: con una ventana
+        // estrecha la columna del motivo es la que tiene que sobrevivir, porque
+        // es la que explica el motivo.
+        auto nombreCol = row.removeFromLeft(juce::jlimit(60.0f, 150.0f, row.getWidth() * 0.38f));
+
+        g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        g.setColour(fila == selected ? SoundIdTheme::accentAmber : SoundIdTheme::textSecondary);
+        g.drawText(entry.nombre, nombreCol, juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions(10.0f));
+        g.setColour(SoundIdTheme::textMuted);
+        g.drawText(entry.motivo, row, juce::Justification::centredLeft, true);
+    }
+
+    // El pie es el nota de siempre, o el aviso del ultimo reescaneo si lo hay.
+    // Mismo alto en los dos casos, que es justo lo que hace que un aviso
+    // pueda aparecer y desaparecer sin descuadrar el cajon.
+    g.setFont(juce::FontOptions(9.0f, juce::Font::italic));
+    g.setColour(statusText.isNotEmpty() ? SoundIdTheme::accentAmber : SoundIdTheme::textMuted);
+    g.drawText(statusText.isNotEmpty()
+               ? statusText
+               : juce::String("Not selectable: a withheld contract declares itself unreliable, so it cannot back a measurement. Click a row to see why."),
+               content.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+}
+
+int DrawerHardwareTab::QuarantineListCard::rowAt(int y) const noexcept
+{
+    // Las filas empiezan DESPUES del titulo, y el titulo se gasta 18 + 2. Sin
+    // ese desplazamiento el clic abriria el retenido de al lado, que es el peor
+    // fallo posible en una lista: se ve claramente que se ha abierto otro.
+    const int inicio = 10 + 18 + 2;
+    const int desplazamiento = y - inicio;
+
+    if (desplazamiento < 0)
+        return -1;
+
+    const int fila = desplazamiento / 16;
+
+    if (fila < 0 || fila >= static_cast<int>(profiles.size()))
+        return -1;
+
+    return fila;
+}
+
+void DrawerHardwareTab::QuarantineListCard::selectRow(int fila)
+{
+    if (selected == fila)
+        return;
+
+    selected = fila;
+    repaint();
+}
+
+void DrawerHardwareTab::QuarantineListCard::mouseDown(const juce::MouseEvent& e)
+{
+    const int fila = rowAt(e.getPosition().y);
+
+    if (fila < 0)
+        return;
+
+    if (onRowClicked != nullptr)
+        onRowClicked(fila);
+}
+
+void DrawerHardwareTab::QuarantineDetailCard::setTarget(const core::quarantine::Retenido* r)
+{
+    retenido.reset();
+
+    if (r != nullptr)
+        retenido = *r;
+}
+
+void DrawerHardwareTab::QuarantineDetailCard::updateTheme()
+{
+    btnAbrir.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
+    btnAbrir.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnReescanear.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
+    btnReescanear.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    repaint();
+}
+
+void DrawerHardwareTab::QuarantineDetailCard::paint(juce::Graphics& g)
+{
+    if (!retenido.has_value())
+        return;
+
+    auto bounds = getLocalBounds().toFloat();
+    g.setColour(SoundIdTheme::surfaceSubtle);
+    g.fillRoundedRectangle(bounds, 8.0f);
+    g.setColour(SoundIdTheme::accentAmber.withAlpha(0.45f));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
+
+    auto content = bounds.reduced(12.0f, 8.0f);
+
+    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    g.setColour(SoundIdTheme::accentAmber);
+    g.drawText(retenido->nombre, content.removeFromTop(16.0f),
+               juce::Justification::centredLeft, true);
+
+    // El motivo, entero y con puntos suspensivos si no cabe. Se recorta en vez
+    // de crecer el cajon porque el alto del cajon no puede depender de un texto
+    // que alguien puede reescribir en otro repositorio sin avisar.
+    g.setFont(juce::FontOptions(10.0f));
+    g.setColour(SoundIdTheme::textPrimary);
+    g.drawText(retenido->motivo, content.removeFromTop(32.0f),
+               juce::Justification::topLeft, true);
+
+    // Y el JSON exacto, que es la otra mitad del encargo: sin la ruta, el
+    // motivo explica pero no permite hacer nada.
+    g.setFont(juce::FontOptions(9.0f));
+    g.setColour(SoundIdTheme::textMuted);
+    g.drawText(retenido->fichero.getFullPathName(), content.removeFromTop(26.0f),
+               juce::Justification::topLeft, true);
+
+    btnAbrir.setBounds(0, getHeight() - 30, getWidth() / 2 - 4, 26);
+    btnReescanear.setBounds(getWidth() / 2 + 4, getHeight() - 30, getWidth() / 2 - 4, 26);
 }
 
 } // namespace abdaudiolab::gui

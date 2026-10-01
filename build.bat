@@ -43,20 +43,38 @@ if /i "%1"=="clean" (
 )
 
 :: 2.5. Link Shared Assets from ABDSharedAssets via NTFS Junctions (Zero-Copy)
+::
+:: WHAT THIS MUST NOT DO, AND WHY THE RULE IS PER PATH.
+::
+:: A junction here is only legitimate where nothing versioned is underneath.
+:: `assets/models` and `assets/brands` are gitignored on purpose, so pointing
+:: them at the sibling repo is exactly what they are for. `contracts/hardware`
+:: is the opposite: the .gitignore says "contracts/ is deliberately NOT
+:: ignored", and 40 contract JSONs are tracked there, because a clean clone
+:: and the CI of this repo have no sibling to link to.
+::
+:: So the rule is not "never make a junction". The rule is "never replace a
+:: path that git tracks with a junction", and it is asked per path, because
+:: asking it once for the section would forbid the two legitimate links.
+::
+:: What the blind version did: it asked `if not exist` and nothing else. On a
+:: machine where that directory was missing —fresh clone, a stale working
+:: copy, someone who deleted it to see what would happen— it created a link
+:: with no message. Git still listed 40 files, the preflight compared the
+:: source with itself through the link and reported them all identical, and the
+:: test did the same. Green everywhere, nothing checked. Both of those are
+:: fixed now and would still be green here.
+::
+:: An existing junction is only reported, never repaired. Deleting what
+:: somebody may have on purpose, mid-build, is not this script's call. The
+:: error is loud on purpose so it is visible before a broken build, and the
+:: repair is one command that is printed.
 set "SHARED_ASSETS=..\ABDSharedAssets"
 if exist "!SHARED_ASSETS!" (
-    if not exist "contracts\hardware" (
-        if not exist "contracts" mkdir "contracts"
-        mklink /J "contracts\hardware" "!SHARED_ASSETS!\contracts" >nul 2>nul
-    )
-    if not exist "assets\models" (
-        if not exist "assets" mkdir "assets"
-        mklink /J "assets\models" "!SHARED_ASSETS!\models" >nul 2>nul
-    )
-    if not exist "assets\brands" (
-        if not exist "assets" mkdir "assets"
-        mklink /J "assets\brands" "!SHARED_ASSETS!\brands" >nul 2>nul
-    )
+    call :avisarSiEsEnlace "contracts\hardware" "es una copia versionada que el preflight y el test de drift vigilan"
+    call :crearEnlaceSiProcede "contracts/hardware" "contracts\hardware" "!SHARED_ASSETS!\contracts"
+    call :crearEnlaceSiProcede "assets/models" "assets\models" "!SHARED_ASSETS!\models"
+    call :crearEnlaceSiProcede "assets/brands" "assets\brands" "!SHARED_ASSETS!\brands"
 )
 
 :: 3. Configure with CMake (only when cache is missing or CMakeLists changed)
@@ -129,6 +147,91 @@ if /i "%1"=="run" (
     echo [Info] Launching ABDAudioLab...
     start "" "build\ABDAudioLab_artefacts\Release\ABDAudioLab.exe"
 )
+
+:: ------------------------------------------------------------------ junctions
+::
+:: %1 = path as git knows it, relative, with forward slashes.
+:: %2 = path as Windows sees it, relative, with backslashes.
+:: %3 = where the link should point.
+::
+:: A tracked path is never replaced. The check is `git ls-files`, not a guess
+:: about which paths "look like" contracts: the question is not what this
+:: directory is called, it is whether git has files recorded inside it.
+:crearEnlaceSiProcede
+set "Rastreado=NO"
+set "GitResponde=NO"
+set "LISTA=%TEMP%\abdl_git_ls.txt"
+
+rem `-c safe.directory` esta aqui por una razon concreta: en una maquina donde
+rem el repo es de otro usuario, `git` responde "dubious ownership", sale con
+rem codigo 129 y no lista NADA. Leido sin mirar el codigo, eso es
+rem indistinguible de "no hay ficheros versionados aqui", que es exactamente
+rem la respuesta que abre la puerta que esta subroutine cierra.
+rem
+rem Por eso va `-c safe.directory=*` y no la ruta concreta: el `%~dp0` de batch
+rem sale con barras invertidas y barra final, y git no lo reconoce como el
+rem mismo sitio, asi que seguira respondiendo dubious ownership. Entre
+rem desactivar la comprobacion y no poder preguntar, se desactiva.
+rem
+rem Y el punto ese detras de `%~dp0.` no es un descuido. Medido: con la
+rem barra final, `-C "%~dp0"` hace que git se coma el resto de la linea y
+rem salga con 128, que es indistinguible de "no hay ficheros versionados".
+rem
+rem Y de ahi el segundo punto, que es el importante: si git no responde, NO se
+rem enlaza. "No se" no es "si": no saber si un path esta versionado no es un
+rem motivo para sustituirlo, porque el coste de equivocarse es un guard que
+rem miente en verde y el derangarse es un aviso.
+git -c safe.directory=* -C "%~dp0." ls-files -- "%~1" >"!LISTA!" 2>nul
+if not errorlevel 1 set "GitResponde=SI"
+for /f "usebackq delims=" %%f in ("!LISTA!") do set "Rastreado=SI"
+del "!LISTA!" >nul 2>nul
+
+if exist "%~2" goto :eof
+
+if "!GitResponde!"=="NO" (
+    echo [Aviso] %~2 NO se enlaza: git no ha podido decir si esta versionado.
+    echo         Se forego el enlace porque "no se" no es "si". Con git disponible:
+    echo           git -c safe.directory=* -C "%~dp0." ls-files -- "%~1"
+    goto :eof
+)
+
+if "!Rastreado!"=="SI" (
+    echo [Aviso] %~2 NO se enlaza: git rastrea ficheros dentro de el.
+    echo         Es una copia versionada a proposito, no un directorio de trabajo.
+    echo         Un enlace aqui haria que todo lo que vigila esa copia comparase
+    echo         el origen consigo mismo y saliese verde sin comprobar nada.
+    goto :eof
+)
+
+rem El padre, nunca el destino. `mklink /J` falla si el path ya existe,
+rem y existe aqui porque este mismo script lo acaba de crear. Eso fue un
+rem fallo de verdad: la junction no se creaba y el aviso decia que no se
+rem habia podido crear, que era cierto pero no decia por que.
+for %%d in ("%~2") do if not exist "%%~dpd" mkdir "%%~dpd" 2>nul
+mklink /J "%~2" "%~3" >nul 2>nul
+if errorlevel 1 (
+    echo [Aviso] No se ha podido crear el enlace a %~2. Se sigue con una copia vacia.
+)
+goto :eof
+
+:: Only reports. `fsutil` answers "not a reparse point" for a normal directory
+:: and does so as a normal user, which is all this needs: the point is to say
+:: it out loud, not to fix it.
+:avisarSiEsEnlace
+rem Solo para el path VIGILADO. En assets/models y assets/brands una
+rem junction es justo lo que esta ahi para que exista, asi que avisar
+rem de ella en cada build seria gritar a alguien que ha hecho bien su
+rem trabajo. Lo que se avisa es el enlace en el sitio donde no puede
+rem estar, y por eso el segundo parametro dice que se rompe.
+if not exist "%~1" goto :eof
+fsutil reparsepoint query "%~1" >nul 2>nul
+if errorlevel 1 goto :eof
+echo [Aviso] %~1 YA es una junction, y %~2.
+echo         El build sigue, pero con un enlace no se esta comparando
+echo         nada: todo lo que vigila esa ruta se compara consigo mismo.
+echo         Para dejar de verlo:
+echo           cmd /c rmdir "%~1"
+goto :eof
 
 :end
 endlocal

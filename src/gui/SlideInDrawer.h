@@ -50,6 +50,8 @@ public:
     const DrawerSetupTab& getSetupTab() const noexcept { return tabSetup; }
     void setHardwareList(const std::vector<HardwareItem>& list);
     void setContracts(std::vector<core::HardwareContract> contractsList);
+    void setQuarantinedProfiles(const std::vector<core::quarantine::Retenido>& profiles);
+    void setQuarantineStatus(const juce::String& texto);
     void setSelectedHardwareId(const juce::String& id);
     void clearSelectedHardware();
     void setHardwareLocked(bool locked);
@@ -95,6 +97,7 @@ public:
     std::function<void(const juce::String& hwId, const juce::String& funcId)> onHardwareSelected;
     std::function<void(const juce::String& displayName)> onDeviceDetected;
     std::function<void()> onNewFlowRequested;
+    std::function<void()> onContractsReloadRequested;
     std::function<void(const TestConfiguration& conf, int editingIndex)> onTestConfigConfirmed;
     std::function<void()> onChangeExportFolderClicked;
     std::function<void()> onOpenAudioSettingsClicked;

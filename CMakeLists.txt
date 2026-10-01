@@ -131,6 +131,7 @@ target_sources(ABDAudioLab
         src/core/ProfilingSequencer.cpp
         src/core/HardwareContractRegistry.h
         src/core/HardwareContractRegistry.cpp
+    src/core/HardwareContractQuarantine.cpp
         src/core/SessionSerializer.h
         src/core/SessionSerializer.cpp
         src/core/SessionPersistenceService.h
@@ -476,6 +477,8 @@ target_sources(ABDAudioLab
         src/gui/presentation/SessionStatusPresenter.cpp
         src/gui/MainContentComponent.h
         src/gui/MainContentComponent.cpp
+        src/gui/StartupWarningsPanel.h
+        src/gui/StartupWarningsPanel.cpp
         src/gui/LabApplication.h
         src/gui/SlideInDrawer.h
         src/gui/SlideInDrawer.cpp
@@ -916,6 +919,7 @@ add_executable(ABDAudioLab_Tests
     src/core/ProfilingSequencer.cpp
     src/core/SessionManager.cpp
     src/core/HardwareContractRegistry.cpp
+    src/core/HardwareContractQuarantine.cpp
     src/core/HardwareManager.cpp
     src/core/SharedHardwareContractAdapter.cpp
     src/core/plugins/PluginHostManager.cpp
@@ -955,9 +959,6 @@ add_executable(ABDAudioLab_Tests
     src/core/ExperimentStorage.cpp
     src/core/LabDataDirectories.cpp
     src/core/LabResourcePaths.cpp
-    src/tests/test_LabResourcePaths.cpp
-    src/tests/test_ResourcePathHygiene.cpp
-    src/tests/support/LabTestScratch.cpp
     src/core/GeneratedAcousticModel.cpp
     src/core/HoldoutSequence.cpp
     src/core/ModelHoldoutValidator.cpp
@@ -967,6 +968,15 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ModelExportNaming.cpp
     src/tests/test_ExperimentStorage.cpp
     src/tests/test_LabDataDirectories.cpp
+    src/tests/test_LabResourcePaths.cpp
+    src/tests/test_ResourcePathHygiene.cpp
+    src/tests/support/LabTestScratch.cpp
+    src/tests/test_HardwareContractRangeFieldNames.cpp
+    src/tests/test_HardwareContractQuarantine.cpp
+    src/tests/test_DrawerHardwareQuarantineSection.cpp
+    src/tests/test_StartupWarningsPanel.cpp
+    src/tests/test_ContractsSnapshotDrift.cpp
+    src/tests/test_ContractsCiContract.cpp
     src/tests/test_GeneratedAcousticModel.cpp
     src/tests/test_HoldoutSequence.cpp
     src/tests/test_ModelHoldoutValidation.cpp
@@ -1102,6 +1112,9 @@ target_compile_definitions(ABDAudioLab_Tests
         JUCE_PLUGINHOST_VST3=1
         JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
         ABD_TESTING=1
+        # Necesario para MessageManager::runDispatchLoopUntil(): el runner Catch2 es
+        # headless y debe bombear el message loop de JUCE para materializar las
+        # transiciones de estado que ProfilingSessionController difiere vía callAsync.
         JUCE_MODAL_LOOPS_PERMITTED=1
 )
 

@@ -17,6 +17,7 @@
 #include <HardwareMidiDetect/HardwareContract.h>
 #include "HardwareContractRegistry.h"  // local domain types
 #include <nlohmann/json.hpp>
+#include <utility>
 
 namespace abdaudiolab::core
 {
@@ -45,12 +46,30 @@ public:
             return false;
         }
         rebuildLocalCache();
+
+        // Todos retenidos NO es un fallo, igual que en el registro local: no hay
+        // error que arreglar, hay una decision editorial. Pero no se calla, porque
+        // "no hay contratos" a secas es indistinguible de un fallo de carga.
+        if (localCache_.empty() && !quarantined_.empty())
+            lastError_ = "todos los contratos cargados estan en cuarentena ("
+                         + std::to_string(quarantined_.size())
+                         + "); ver getQuarantinedProfiles()";
         return true;
     }
 
     [[nodiscard]] bool hasContracts() const noexcept { return !localCache_.empty(); }
     [[nodiscard]] const std::vector<HardwareContract>& getContracts() const noexcept { return localCache_; }
     [[nodiscard]] const HardwareContract* findContractById(const std::string& id) const noexcept;
+    /**
+     * @brief Los contratos que el registro compartido cargo y la cuarentena retiene,
+     *        con su motivo. Vacio si no hay ninguno.
+     * @details Existe para que un retenido sin razon sea indistinguible de un bug.
+     */
+    [[nodiscard]] const std::vector<std::pair<std::string, juce::String>>& getQuarantinedProfiles() const noexcept
+    {
+        return quarantined_;
+    }
+
     [[nodiscard]] const std::string& getLastError() const noexcept { return lastError_; }
 
 private:
@@ -60,6 +79,7 @@ private:
 
     abd::hwid::HardwareContractRegistry& sharedRegistry_;
     std::vector<HardwareContract> localCache_;
+    std::vector<std::pair<std::string, juce::String>> quarantined_;
     std::string lastError_;
 };
 
