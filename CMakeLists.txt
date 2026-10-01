@@ -272,6 +272,8 @@ target_sources(ABDAudioLab
         src/measurement/MeasurementContracts.h
         src/measurement/MeasurementSerialization.h
         src/measurement/MeasurementSerialization.cpp
+        src/measurement/MeasurementExportKeys.generado.h
+        src/measurement/MeasurementExportKeys.h
         src/measurement/MeasurementStimulusCoordinator.h
         src/measurement/MeasurementStimulusCoordinator.cpp
         src/measurement/MeasurementCaptureCoordinator.h
@@ -979,6 +981,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_LabResourcePaths.cpp
     src/tests/test_ResourcePathHygiene.cpp
     src/tests/support/LabTestScratch.cpp
+    src/tests/support/TestTelemetry.cpp
     src/tests/test_HardwareContractRangeFieldNames.cpp
     src/tests/test_HardwareContractQuarantine.cpp
     src/tests/test_DrawerHardwareQuarantineSection.cpp
@@ -1158,6 +1161,10 @@ target_link_libraries(ABDAudioLab_Tests
         ABDScope::ABDScopeCore
         ABDShared::HardwareMidiDetect
 )
+
+if(WIN32)
+    target_link_libraries(ABDAudioLab_Tests PRIVATE dbghelp)
+endif()
 
 include(CTest)
 include(Catch)
