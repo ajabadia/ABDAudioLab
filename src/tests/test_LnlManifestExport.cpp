@@ -4,6 +4,7 @@
 #include "core/SessionSerializer.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
@@ -21,7 +22,8 @@ TEST_CASE("LutExporter Manifest Serialization of Wiener-Hammerstein Model", "[ex
     manifest.whPreFilterCentroidHz = 1200.0f;
     manifest.whPostFilterCentroidHz = 3500.0f;
 
-    juce::File tempManifest = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("test_manifest_lnl.json");
+    juce::File tempManifest = abdaudiolab::test::scratchDir ("LnlManifestExportHtml")
+            .getChildFile ("test_manifest_lnl.json");
     tempManifest.deleteFile();
 
     std::vector<exporting::MeasuredPoint> pts;
@@ -59,7 +61,8 @@ TEST_CASE("SessionSerializer Roundtrip of Wiener-Hammerstein Model Parameters", 
     sm.whPostFilterCentroidHz = 4200.0f;
 
     core::SessionSerializer serializer;
-    juce::File tempPackage = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("test_lnl_roundtrip.abdlabtest");
+    juce::File tempPackage = abdaudiolab::test::scratchDir ("LnlManifestExportPackage")
+            .getChildFile ("test_lnl_roundtrip.abdlabtest");
     tempPackage.deleteFile();
 
     std::vector<exporting::MeasuredPoint> pts;

@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include <vector>
 #include <fstream>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::gui::measurement;
@@ -114,8 +115,7 @@ TEST_CASE("Fase 20.11 T5: Campaña Vertical Dexed Real y Exportacion FAIR/LNL", 
     CHECK(campaignResults.measurementResult.status == MeasurementStatus::completed);
 
     // 7. Escenario 7: Exportación FAIR/LNL con estructura de 12 artefactos
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_T5_Vertical_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("VerticalDexedAndFairT5");
 
     if (tempDir.exists())
         tempDir.deleteRecursively();

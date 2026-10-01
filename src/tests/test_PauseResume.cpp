@@ -5,6 +5,7 @@
 #include "../audio/LabAudioEngine.h"
 #include "../hardware/MockHardwareController.h"
 #include "../core/SessionManager.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
@@ -67,7 +68,7 @@ TEST_CASE("ProfilingSequencer - Pause/Resume state API", "[PauseResume]")
         {
             // Provide a minimal empty session; it will start the thread momentarily
             core::ProfilingSession emptySession;
-            sequencer.startSession(emptySession, juce::File::getSpecialLocation(juce::File::tempDirectory), "test");
+            sequencer.startSession (emptySession, abdaudiolab::test::scratchDir ("PauseResume"), "test");
             // Flag must be cleared immediately after startSession
             REQUIRE_FALSE(sequencer.isSessionPaused());
             sequencer.stopSession();

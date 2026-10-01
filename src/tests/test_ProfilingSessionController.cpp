@@ -4,6 +4,7 @@
 #include "core/LabResourcePaths.h"
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/ProfilingSessionContracts.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::gui::session;
 
@@ -703,9 +704,7 @@ TEST_CASE("ProfilingSessionController: Invariantes y proteccion al importar eval
         controller.loadEvaluationFromFile(approvedFile.getFullPathName().toStdString());
         REQUIRE(controller.getCurrentSnapshot().evaluation.hasEvaluation == true);
 
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-            .getChildFile("ABDAudioLab_CtrlExp_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-        tempDir.createDirectory();
+        const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_CtrlExp_");
 
         std::string expFolder;
         std::string expErr;

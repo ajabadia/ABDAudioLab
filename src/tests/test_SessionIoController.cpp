@@ -7,6 +7,7 @@
 #include "gui/ExportReportPanel.h"
 #include "gui/suite/SuiteDataModels.h"
 #include "synth/Sha256.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
@@ -22,8 +23,7 @@ TEST_CASE("SessionIoController: Session Persistence and Lifecycle Characterizati
     reportManager.saveFileChooserOverride = [](const juce::String&) { return juce::File(); };
 #endif
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_SessionIoTest_" + juce::String(juce::Random::getSystemRandom().nextInt(100000)));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionIoController");
     if (tempDir.exists())
         tempDir.deleteRecursively();
     tempDir.createDirectory();

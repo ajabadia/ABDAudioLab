@@ -3,6 +3,7 @@
 #include "math/LoopbackCalibrator.h"
 #include <vector>
 #include <cmath>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::math;
 
@@ -52,7 +53,8 @@ TEST_CASE("LoopbackCalibrator Phase Inversion Diagnostic Flag", "[math][loopback
     data.dcOffsetVolts = 0.045f;
     data.isCalibrated = true;
 
-    juce::File tempFile = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("test_loopback_diag.json");
+    juce::File tempFile = abdaudiolab::test::scratchDir ("LoopbackDiagnostics")
+            .getChildFile ("test_loopback_diag.json");
     tempFile.deleteFile();
 
     bool saved = LoopbackCalibrator::saveCalibrationToJson(data, tempFile);

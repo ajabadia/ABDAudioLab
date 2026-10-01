@@ -11,6 +11,7 @@
 #include "measurement/DexedParametricCampaignContracts.h"
 #include "measurement/DexedParametricCampaignCoordinator.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using Catch::Approx;
@@ -254,8 +255,7 @@ TEST_CASE("Phase 20.11.5: Batch Manifest determinista y hashes de variante", "[p
     items.push_back({ "var_note60_lvl50_ratio2",  60, 50, 2.0, "sha_state_e", "sha_stim_e", "containers/var_e" });
     items.push_back({ "var_note60_lvl50_ratio1",  60, 50, 1.0, "sha_state_d", "sha_stim_d", "containers/var_d" });
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("abdaudiolab_batch_manifest_test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("PhysicalEstimatorsAndRelease");
 
     BatchCampaignManifest manifest;
     std::string err;

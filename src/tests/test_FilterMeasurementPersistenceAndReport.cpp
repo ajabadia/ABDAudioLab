@@ -14,6 +14,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
 #include <numbers>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::core;
@@ -54,9 +55,7 @@ std::vector<float> generateImpulseResponse(double sampleRate, double decayTimeSe
 
 TEST_CASE("Filter Measurement - FAIR persistence, manifest export, and full reopening", "[measurement][filter][persistence]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_T3_Filter_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_T3_Filter_");
 
     const double sampleRate = 48000.0;
     const double duration = 0.1; // 4800 samples
@@ -204,9 +203,7 @@ TEST_CASE("Filter Measurement - FAIR persistence, manifest export, and full reop
 
 TEST_CASE("Filter Measurement - Anti-Tampering: sweep, capture, IR, deletion, and path traversal", "[measurement][filter][tamper]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_T3_FilterTamper_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_T3_FilterTamper_");
 
     const double sampleRate = 48000.0;
     const double duration = 0.05;

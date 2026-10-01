@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "export/LutExporter.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
@@ -23,7 +24,8 @@ TEST_CASE("LutExporter JavaScript ES6 Module Export", "[export][web][javascript]
         pts.push_back(p);
     }
 
-    juce::File tempJs = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("test_lut_module.js");
+    juce::File tempJs = abdaudiolab::test::scratchDir ("JsLutExport")
+            .getChildFile ("test_lut_module.js");
     tempJs.deleteFile();
 
     bool ok = exporting::LutExporter::exportToJavaScriptModule(tempJs.getFullPathName().toStdString(), meta, "lut_test_filter", pts);

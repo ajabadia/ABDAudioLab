@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "export/ModelExportNaming.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::exporting;
 
@@ -94,10 +95,7 @@ TEST_CASE("ModelExportNaming: Construccion del nombre canonico completo", "[expo
 
 TEST_CASE("ModelExportNaming: Resolucion unica contra sobrescritura de archivos", "[export][naming]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExportNaming_Tests_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_ExportNaming_Tests_");
 
     std::string baseFile = "TestSynth_LUT_SIMD_2D_20260915T095320Z_8c12ce90.h";
 

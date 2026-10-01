@@ -15,6 +15,7 @@
 #include "../gui/measurement/MeasurementComparisonSession.h"
 #include "../synth/Sha256.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::gui::measurement;
@@ -27,8 +28,7 @@ struct TempFolder
     juce::File dir;
     TempFolder(const juce::String& prefix)
     {
-        dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                  .getChildFile(prefix + "_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
+        dir = abdaudiolab::test::scratchDir (prefix);
         dir.createDirectory();
     }
     ~TempFolder()

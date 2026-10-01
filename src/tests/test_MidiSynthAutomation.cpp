@@ -3,6 +3,7 @@
 #include "core/ProfilingSequencer.h"
 #include "hardware/MockHardwareController.h"
 #include "audio/LabAudioEngine.h"
+#include "support/LabTestScratch.h"
 
 TEST_CASE("MidiSynthAutomation - Controller Note Dispatch & Tracking", "[hardware][midi]")
 {
@@ -86,9 +87,7 @@ TEST_CASE("MidiSynthAutomation - ProfilingSequencer Autonomous Note Excitation",
     tc.stabilizationWaitMs = 10.0;
     session.addTestCase(tc);
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("midi_synth_test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("midi_synth_test_");
 
     mock.clearSentMessages();
     REQUIRE(sequencer.startSession(session, tempDir, "synth_test"));

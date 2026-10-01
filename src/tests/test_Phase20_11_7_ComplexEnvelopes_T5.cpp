@@ -18,6 +18,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::measurement::adapters::casio;
@@ -230,8 +231,7 @@ TEST_CASE("Phase 20.11.7 T5: Transactional FAIR/LNL Container Export & Rollback"
     std::vector<float> rawAudio(4800, 0.2f);
     std::vector<float> compAudio(4800, 0.2f);
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_T5_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("ComplexEnvelopesT5");
 
     auto cleanup = [&]() {
         if (tempDir.exists()) tempDir.deleteRecursively();

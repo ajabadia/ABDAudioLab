@@ -24,6 +24,7 @@
 #include "synth/MidiAudioSynchronizer.h"
 #include "synth/ExperimentRecipe.h"
 #include "synth/Sha256.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::core;
@@ -201,9 +202,7 @@ TEST_CASE("HITO-02 / ST-11: Excitación MIDI Interna Automatizada y Flujo de Aud
     tc.stabilizationWaitMs = 10.0;
     session.addTestCase(tc);
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("st11_test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("st11_test_");
 
     mockHw.clearSentMessages();
     REQUIRE(sequencer.startSession(session, tempDir, "st11_campaign"));
@@ -268,9 +267,7 @@ TEST_CASE("HITO-02 / ST-12: Temporización Precisa de Compuerta gateMs y Silenci
     tc.stabilizationWaitMs = 10.0;
     session.addTestCase(tc);
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("st12_test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("st12_test_");
 
     REQUIRE(sequencer.startSession(session, tempDir, "st12_campaign"));
     REQUIRE(sequencer.waitForThreadToExit(8000));
@@ -408,9 +405,7 @@ TEST_CASE("HITO-02 / REQ-SAFETY-OVERLOAD: Aborto Inmediato por Sobrecarga Acúst
     tc.stabilizationWaitMs = 5.0;
     session.addTestCase(tc);
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("overload_test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("overload_test_");
 
     REQUIRE(sequencer.startSession(session, tempDir, "overload_campaign"));
 

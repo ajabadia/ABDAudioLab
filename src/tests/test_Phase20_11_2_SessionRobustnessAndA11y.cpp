@@ -15,6 +15,7 @@
 #include "../measurement/MeasurementSerialization.h"
 #include "../measurement/MeasurementComparisonReportGenerator.h"
 #include "../synth/Sha256.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::gui::measurement;
 using namespace abdaudiolab::measurement;
@@ -145,8 +146,7 @@ struct TempFolder
     juce::File dir;
     TempFolder()
     {
-        dir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                  .getChildFile("ABDAudioLab_Robustness_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+        dir = abdaudiolab::test::scratchDir ("SessionRobustnessAndA11y");
         dir.createDirectory();
     }
     ~TempFolder()

@@ -11,6 +11,7 @@
 #include "core/ExperimentStorage.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <cmath>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::core;
@@ -33,9 +34,7 @@ static juce::File createTestWav(const juce::File& file, double sampleRate, int n
 
 TEST_CASE("MeasurementContainerExporter - FAIR persistence and reopening", "[measurement][persistence]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_T4_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_T4_Test_");
 
     juce::File sourceWav = tempDir.getChildFile("source.wav");
     createTestWav(sourceWav, 48000.0, 24000);
@@ -118,9 +117,7 @@ TEST_CASE("MeasurementContainerExporter - FAIR persistence and reopening", "[mea
 
 TEST_CASE("MeasurementContainerExporter - Anti-tampering detection", "[measurement][persistence][tamper]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_T4_Tamper_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_T4_Tamper_");
 
     juce::File sourceWav = tempDir.getChildFile("source.wav");
     createTestWav(sourceWav, 48000.0, 4800);

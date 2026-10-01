@@ -5,6 +5,7 @@
 #include "../gui/SoundIdCurvePlotter.h"
 #include "../audio/LabAudioEngine.h"
 #include "../hardware/MockHardwareController.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
@@ -135,7 +136,7 @@ TEST_CASE("SessionExecutionCoordinator - Start, Pause, Resume, Stop Lifecycle Ch
         REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::SessionReady);
 
         core::ProfilingSession emptySession;
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorLifecycle");
         coordinator.triggerStartSession(emptySession, tempDir, "char_test_session");
 
         REQUIRE_FALSE(stateChanges.empty());
@@ -162,7 +163,7 @@ TEST_CASE("SessionExecutionCoordinator - Start, Pause, Resume, Stop Lifecycle Ch
         coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
 
         core::ProfilingSession emptySession;
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorIdempotency");
         coordinator.triggerStartSession(emptySession, tempDir, "char_idempotent_test");
 
         coordinator.triggerStopSession();
@@ -202,7 +203,7 @@ TEST_CASE("SessionExecutionCoordinator - Pause & Resume Idempotency Characteriza
         coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
 
         core::ProfilingSession emptySession;
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorPauseResume");
         coordinator.triggerStartSession(emptySession, tempDir, "toggle_pause_test");
 
         std::vector<bool> pauseHistory;
@@ -248,7 +249,7 @@ TEST_CASE("SessionExecutionCoordinator - Disconnected Callbacks Safety Character
         coordinator.onCoordinatorStateChanged = nullptr;
 
         core::ProfilingSession dummySession;
-        juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+        juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorDisconnectedCallbacks");
 
         coordinator.triggerStartSession(dummySession, tempDir, "null_cb_test");
         coordinator.togglePauseSession();
@@ -382,7 +383,7 @@ TEST_CASE("SessionExecutionCoordinator - Strict State Machine & Duplicate Operat
     coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
 
     core::ProfilingSession emptySession;
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorStateMachine");
 
     SECTION("Initial state is Idle")
     {
@@ -459,7 +460,7 @@ TEST_CASE("SessionExecutionCoordinator - ExecutionToken & Stale Callback Discard
     coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
 
     core::ProfilingSession emptySession;
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorExecutionToken");
 
     SECTION("New session produces unique monotonic runId in ExecutionToken")
     {
@@ -519,7 +520,7 @@ TEST_CASE("SessionExecutionCoordinator - Point Deduplication & Single Persistenc
     coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
 
     core::ProfilingSession emptySession;
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorDedup");
 
     SECTION("Diagnostics accurately track persisted points")
     {
@@ -542,7 +543,7 @@ TEST_CASE("SessionExecutionCoordinator - Destructor Safety with Active Session",
     gui::SoundIdCurvePlotter curvePlotter;
 
     core::ProfilingSession emptySession;
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionExecutionCoordinatorDestructor");
 
     SECTION("Destruction while session is active cleanly stops and unbinds")
     {

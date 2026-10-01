@@ -13,6 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <vector>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 
@@ -403,8 +404,7 @@ TEST_CASE("T4.2: Exportacion de Contenedor FAIR y Verificacion de Manifiesto", "
     REQUIRE(ok);
     REQUIRE(artifacts.record.status == "pass");
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_T4_2_Test_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("PhysicalLoopbackT4_2");
 
     if (tempDir.exists())
         tempDir.deleteRecursively();

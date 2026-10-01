@@ -16,6 +16,7 @@
 #include "../measurement/MeasurementComparisonReportGenerator.h"
 #include "../measurement/DexedVerticalCampaign.h"
 #include "../synth/Sha256.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::gui::measurement;
 using namespace abdaudiolab::measurement;
@@ -135,8 +136,7 @@ TEST_CASE("Fase 20.11.1: Multi-Container Comparison Session & Integrity", "[comp
         return containerDir;
     };
 
-    auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                       .getChildFile("ABDAudioLab_Comparison_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+    auto tempDir = abdaudiolab::test::scratchDir ("InteractiveViewerComparison");
     tempDir.createDirectory();
 
     SECTION("1. Sesión vacía opera sin errores y con cero excepciones")

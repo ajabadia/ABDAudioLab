@@ -25,6 +25,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::measurement::adapters::casio;
@@ -113,8 +114,7 @@ TEST_CASE("Phase 20.11.7 T6: Unified End-to-End Pipeline Audit (T1 -> T5)",
     CHECK(session.getRawCapture().getSha256() == initialRawSha);
 
     // 6. Export FAIR Container
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_T6_E2E_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("ComplexEnvelopesT6E2E");
 
     auto cleanup = [&]() {
         if (tempDir.exists()) tempDir.deleteRecursively();
@@ -185,10 +185,8 @@ TEST_CASE("Phase 20.11.7 T6: Strict Bit-Exact Repeatability Across Independent R
     spec.experimentId = "repeatability_test";
     spec.timestampPolicy = TimestampPolicy::FixedForTest;
 
-    juce::File tempDirA = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                              .getChildFile("ABDAudioLab_T6_PassA_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    juce::File tempDirB = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                              .getChildFile("ABDAudioLab_T6_PassB_" + juce::String(juce::Random::getSystemRandom().nextInt()));
+    juce::File tempDirA = abdaudiolab::test::scratchDir ("ComplexEnvelopesT6PassA");
+    juce::File tempDirB = abdaudiolab::test::scratchDir ("ComplexEnvelopesT6PassB");
 
     auto cleanup = [&]() {
         if (tempDirA.exists()) tempDirA.deleteRecursively();

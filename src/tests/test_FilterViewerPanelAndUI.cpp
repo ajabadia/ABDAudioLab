@@ -16,6 +16,7 @@
 #include "measurement/MeasurementContainerExporter.h"
 #include "measurement/MeasurementContracts.h"
 #include <cmath>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::gui::measurement;
 using namespace abdaudiolab::measurement;
@@ -191,9 +192,7 @@ TEST_CASE("MeasurementViewerPanel - End-to-End Container Load, Audio Tracks, and
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_T4_ViewerE2E_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_T4_ViewerE2E_");
 
     const double sampleRate = 48000.0;
     const double duration = 0.05;

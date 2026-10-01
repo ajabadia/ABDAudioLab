@@ -4,6 +4,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include "support/LabTestScratch.h"
 
 TEST_CASE("NAM Calibration Stimulus Generation", "[audio][nam]")
 {
@@ -78,7 +79,7 @@ TEST_CASE("NAM Dataset Export Files and Manifest", "[export][nam]")
         recorded.setSample(0, i + simulatedDelay, input.getSample(0, i) * 0.8f);
     }
 
-    auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("abdaudiolab_test_nam_dataset");
+    auto tempDir = abdaudiolab::test::scratchDir ("NamDatasetExporter");
     tempDir.deleteRecursively();
 
     NamDatasetManifest manifest;

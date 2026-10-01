@@ -3,14 +3,14 @@
 #include "gui/SessionReportManager.h"
 #include "core/SessionManager.h"
 #include "export/LutExporter.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 
 TEST_CASE("SessionReportManager: Report export and directory handling", "[gui][session][report_manager]")
 {
     gui::SessionReportManager reportManager;
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_ReportManagerTest_" + juce::String(juce::Random::getSystemRandom().nextInt(100000)));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionReportManager");
 
     if (tempDir.exists())
         tempDir.deleteRecursively();

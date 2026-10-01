@@ -2,6 +2,7 @@
 #include "core/ExperimentRecord.h"
 #include "core/ExperimentStorage.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::core;
 
@@ -69,9 +70,7 @@ ExperimentRecord createDummyRecord(const std::string& id = "20260915T135500Z_Ref
 
 TEST_CASE("ExperimentStorage: Guardado y lectura transaccional (Roundtrip)", "[experiment][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExpStorage_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ExpStorage_Test_");
 
     // Crear un archivo WAV simulado
     juce::File dummyWav = tempRoot.getChildFile("source_test.wav");
@@ -109,9 +108,7 @@ TEST_CASE("ExperimentStorage: Guardado y lectura transaccional (Roundtrip)", "[e
 
 TEST_CASE("ExperimentStorage: Regla de inmutabilidad y versiones (Revisiones)", "[experiment][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExpStorage_RevTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ExpStorage_RevTest_");
 
     auto recordRev1 = createDummyRecord("Exp_Invariance_001", 1);
     juce::String err;
@@ -143,9 +140,7 @@ TEST_CASE("ExperimentStorage: Regla de inmutabilidad y versiones (Revisiones)", 
 
 TEST_CASE("ExperimentStorage: Detección de corrupción por alteración de datos", "[experiment][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExpStorage_CorruptTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ExpStorage_CorruptTest_");
 
     juce::File dummyWav = tempRoot.getChildFile("audio.wav");
     dummyWav.replaceWithText("RIFF...WAVEDATA_ORIGINAL");
@@ -214,9 +209,7 @@ TEST_CASE("ExperimentStorage: Seguridad estricta anti-traversal en rutas relativ
 
 TEST_CASE("ExperimentStorage: Validación de schemaVersion", "[experiment][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExpStorage_VerTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ExpStorage_VerTest_");
 
     auto record = createDummyRecord("Exp_Ver_001", 1);
     juce::String err;
@@ -239,9 +232,7 @@ TEST_CASE("ExperimentStorage: Validación de schemaVersion", "[experiment][stora
 
 TEST_CASE("ExperimentStorage: Archivo desconocido en el directorio es ignorado de forma segura", "[experiment][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ExpStorage_UnknownTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ExpStorage_UnknownTest_");
 
     auto record = createDummyRecord("Exp_Unknown_001", 1);
     juce::String err;

@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "export/CertificationReportExporter.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 TEST_CASE("CertificationReportExporter HTML & SVG Generation", "[export][report]")
 {
@@ -24,8 +25,8 @@ TEST_CASE("CertificationReportExporter HTML & SVG Generation", "[export][report]
         points.push_back(p);
     }
 
-    juce::File tempHtmlFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                                  .getChildFile("test_certification_report.html");
+    juce::File tempHtmlFile = abdaudiolab::test::scratchDir ("CertificationReportExporter")
+        .getChildFile ("test_certification_report.html");
     if (tempHtmlFile.existsAsFile())
         tempHtmlFile.deleteFile();
 

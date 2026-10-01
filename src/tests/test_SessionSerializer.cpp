@@ -2,6 +2,7 @@
 #include "core/SessionSerializer.h"
 #include "core/ProfilingSession.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 TEST_CASE("SessionSerializer Serialization Roundtrip", "[core][serializer]")
 {
@@ -39,8 +40,8 @@ TEST_CASE("SessionSerializer Serialization Roundtrip", "[core][serializer]")
     p2.irSamples = { 0.0f, 0.8f, -0.1f };
     points.push_back(p2);
 
-    juce::File tempPackageFile = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                                     .getChildFile("unittest_session_package.abdlabtest");
+    juce::File tempPackageFile = abdaudiolab::test::scratchDir ("SessionSerializer")
+            .getChildFile ("unittest_session_package.abdlabtest");
     if (tempPackageFile.existsAsFile())
         tempPackageFile.deleteFile();
 

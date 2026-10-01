@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "hardware/SysexPresetGenerator.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::hardware;
 
@@ -30,7 +31,8 @@ TEST_CASE("SysexPresetGenerator Vendor Header and Byte Structure", "[hardware][s
     SECTION("Export to file roundtrip")
     {
         auto syx = SysexPresetGenerator::createNeutralCalibrationPatch("korg_ms2000");
-        juce::File tempSyx = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("test_neutral.syx");
+        juce::File tempSyx = abdaudiolab::test::scratchDir ("SysexPresetGenerator")
+                .getChildFile ("test_neutral.syx");
         tempSyx.deleteFile();
 
         bool ok = SysexPresetGenerator::exportToSyxFile(syx, tempSyx);

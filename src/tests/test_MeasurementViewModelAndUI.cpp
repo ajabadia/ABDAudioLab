@@ -16,6 +16,7 @@
 #include "measurement/MeasurementContainerExporter.h"
 #include "measurement/MeasurementContracts.h"
 #include "core/ExperimentStorage.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::gui::measurement;
 using namespace abdaudiolab::measurement;
@@ -40,9 +41,7 @@ TEST_CASE("MeasurementViewModelLoader - Load and Confinement", "[measurement][vi
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_VM_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_VM_Test_");
 
     juce::File sourceWav = tempDir.getChildFile("source.wav");
     createTestWavFile(sourceWav, 48000.0, 24000);
@@ -179,9 +178,7 @@ TEST_CASE("MeasurementAudioPlayerComponent - On-demand Integrity Defense", "[mea
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_Player_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_Player_Test_");
 
     juce::File audioFile = tempDir.getChildFile("ref.wav");
     createTestWavFile(audioFile, 48000.0, 12000);

@@ -16,6 +16,7 @@
 #include "core/ExperimentStorage.h"
 #include <juce_core/juce_core.h>
 #include <cmath>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::measurement;
 using namespace abdaudiolab::gui::measurement;
@@ -54,9 +55,7 @@ std::vector<float> generateAmBuffer(double sampleRate, double durationSec, doubl
 
 TEST_CASE("MeasurementContainerExporter - Dynamics FAIR Export, Report, and ViewModel loading", "[measurement][dynamics][export]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_DynExport_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_DynExport_Test_");
 
     MeasurementSpec spec;
     spec.measurementId = "meas-dyn-export-001";
@@ -154,9 +153,7 @@ TEST_CASE("MeasurementContainerExporter - Dynamics FAIR Export, Report, and View
 
 TEST_CASE("MeasurementContainerExporter - Modulation FAIR Export, Report, and ViewModel loading", "[measurement][modulation][export]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ModExport_Test_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_ModExport_Test_");
 
     MeasurementSpec spec;
     spec.measurementId = "meas-mod-export-001";

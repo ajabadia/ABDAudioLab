@@ -13,6 +13,7 @@
 #if JUCE_WINDOWS
 #include <windows.h>
 #endif
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::core;
 
@@ -52,9 +53,7 @@ void setTestEnvVar(const char* name, const char* value)
 
 TEST_CASE("LabDataDirectories: Prioridad estricta de resolución", "[directories]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_DirsTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_DirsTest_");
 
     juce::File explicitDir = tempRoot.getChildFile("ExplicitRoot");
     juce::File envDir = tempRoot.getChildFile("EnvRoot");
@@ -148,9 +147,7 @@ TEST_CASE("LabDataDirectories: Prioridad estricta de resolución", "[directories
 
 TEST_CASE("LabDataDirectories: Paquete autocontenido e igualdad de hashes embedded/export", "[directories][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_SelfContainedTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_SelfContainedTest_");
 
     juce::File experimentsDir = tempRoot.getChildFile("experiments");
     juce::File exportsDir = tempRoot.getChildFile("exports");
@@ -220,9 +217,7 @@ TEST_CASE("LabDataDirectories: Paquete autocontenido e igualdad de hashes embedd
 
 TEST_CASE("LabDataDirectories: Fallo transaccional limpia archivos temporales y aborta commit", "[directories][storage]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_AbortTest_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_AbortTest_");
 
     juce::File experimentsDir = tempRoot.getChildFile("experiments");
     experimentsDir.createDirectory();
@@ -252,9 +247,7 @@ TEST_CASE("LabDataDirectories: Fallo transaccional limpia archivos temporales y 
 
 TEST_CASE("LabDataDirectories: Higiene de sondas de escritura y limpieza absoluta", "[directories]")
 {
-    juce::File tempRoot = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_ProbeHygiene_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempRoot.createDirectory();
+    const auto tempRoot = abdaudiolab::test::scratchDir("ABDAudioLab_ProbeHygiene_");
 
     juce::String diag;
     juce::String setErr;

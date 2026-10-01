@@ -9,14 +9,14 @@
 #include <catch2/catch_approx.hpp>
 #include "core/SessionPersistenceService.h"
 #include <juce_core/juce_core.h>
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::core;
 
 TEST_CASE("SessionPersistenceService: Round-Trip Integrity & Canonical Equivalence", "[SessionPersistenceService]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_PersistTest_" + juce::String(juce::Random::getSystemRandom().nextInt(100000)));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionPersistenceServiceRoundTrip");
     if (tempDir.exists()) tempDir.deleteRecursively();
     tempDir.createDirectory();
 
@@ -146,8 +146,7 @@ TEST_CASE("SessionPersistenceService: Round-Trip Integrity & Canonical Equivalen
 
 TEST_CASE("SessionPersistenceService: Edge Cases and Atomic Integrity", "[SessionPersistenceService]")
 {
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                             .getChildFile("ABDAudioLab_PersistEdgeTest_" + juce::String(juce::Random::getSystemRandom().nextInt(100000)));
+    juce::File tempDir = abdaudiolab::test::scratchDir ("SessionPersistenceServiceEdgeCases");
     if (tempDir.exists()) tempDir.deleteRecursively();
     tempDir.createDirectory();
 

@@ -25,6 +25,7 @@
 #include "core/ExperimentStorage.h"
 
 #include <cmath>
+#include "support/LabTestScratch.h"
 
 namespace
 {
@@ -214,9 +215,7 @@ TEST_CASE("Fase 20.10.0 - T5: Medicion vertical completa de envolvente sobre Dex
     REQUIRE(measResult.curve.yUnit == "dBFS");
 
     // 6. Escribir archivo temporal WAV para exportacion FAIR
-    juce::File tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-        .getChildFile("ABDAudioLab_Dexed_T5_" + juce::String(juce::Random::getSystemRandom().nextInt()));
-    tempDir.createDirectory();
+    const auto tempDir = abdaudiolab::test::scratchDir("ABDAudioLab_Dexed_T5_");
 
     juce::File wavFile = tempDir.getChildFile("dexed_capture.wav");
     REQUIRE(writeAudioBufferToWav(wavFile, capResult.capturedAudio, sampleRate));
