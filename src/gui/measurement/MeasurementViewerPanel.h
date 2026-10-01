@@ -8,6 +8,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "MeasurementThemedPanel.h"
 #include "MeasurementViewModel.h"
 #include "MeasurementTemporalCurveComponent.h"
 #include "MeasurementFrequencyCurveComponent.h"
@@ -16,7 +17,7 @@
 namespace abdaudiolab::gui::measurement
 {
 
-class MeasurementViewerPanel : public juce::Component
+class MeasurementViewerPanel : public MeasurementThemedPanel
 {
 public:
     MeasurementViewerPanel();
@@ -31,7 +32,9 @@ public:
      * @brief Directly sets an existing view model.
      */
     void setViewModel(const MeasurementViewModel& model);
-    void updateTheme();
+
+    /** @brief Heredado del contrato que la ventana flotante usa para re-tematizar. */
+    void updateTheme() override;
 
     void paint(juce::Graphics& g) override;
     void resized() override;

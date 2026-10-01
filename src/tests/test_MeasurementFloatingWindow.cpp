@@ -16,19 +16,26 @@
 // el runner headless de Catch2.
 //
 // ----------------------------------------------------------------------------
-// POR QUE EL CONTENIDO ES UN COMPONENTE TONTO Y NO UNO DE LOS DOS PANELES.
+// POR QUE HAY DOS CONTENIDOS Y SOLO UNO ES DE LOS PANELES DE VERDAD.
 //
-// Porque `updateTheme()` tiene una lista cerrada de dos paneles concretos a los
-// que re-tematiza, y los dos son `dynamic_cast`. Si aqui metiesemos uno de
-// ellos, el test pasaria por el camino que ya se sabe que funciona y no
-// diria nada del otro: el que se puede equivocar sin que se note al usar la
-// aplicacion, que es el marco de la ventana.
+// `updateTheme()` usaba dos `dynamic_cast`, uno por panel, y eso era una lista
+// cerrada escrita como una pregunta de tipos en tiempo de ejecucion. Con el
+// contrato `measurement::MeasurementThemedPanel` la lista la lleva el
+// compilador, y aqui se pueden comprobar las DOS mitades sin construir la
+// aplicacion:
 //
-// Por eso el contenido es un `Component` que no es ninguno de los dos. Los dos
-// `dynamic_cast` no coinciden, y aun asi el marco tiene que quedar con el color
-// del tema. Y el color se comprueba DESPUES de romperlo a proposito: el
-// constructor ya pone `AppTheme::BackgroundApp`, asi que mirar el color tal
-// cual no distinguiria "updateTheme funciona" de "el constructor lo puso".
+//   - Un `Component` tonto que no implementa el contrato. No se re-tematiza,
+//     pero el marco de la ventana si. Ese camino se puede equivocar sin que se
+//     note al usar la aplicacion, y por eso es el que mas merece un test.
+//   - Un panel de mentira que SI implementa el contrato. Antes esto no se
+//     podia probar sin levantar un `MeasurementViewerPanel` entero con su view
+//     model y su sesion, que es justamente lo que no se puede montar en un
+//     runner headless. Con el contrato, un panel falso de seis lineas
+//     comprueba lo mismo.
+//
+// Y el color del marco se comprueba DESPUES de romperlo a proposito: el
+// constructor ya deja `AppTheme::BackgroundApp`, asi que mirar el color tal cual
+// no distinguiria "updateTheme funciona" de "el constructor lo puso".
 //
 // ----------------------------------------------------------------------------
 // QUE NO HACE ESTE TEST, Y POR QUE.
@@ -38,11 +45,10 @@
 // necesita un escritorio, y un test que necesita un escritorio no lo ejecuta
 // nadie dos veces.
 //
-// Tampoco prueba el camino POSITIVO: que con un `MeasurementViewerPanel` o un
-// `MeasurementComparisonPanel` dentro, `updateTheme()` llegue a llamarles. Eso
-// necesita el contexto completo de la aplicacion (el view model, la sesion), y
-// un panel de medicion a medio construir no mide nada. Aqui se comprueba que la
-// ventana no DEPENDE de esos dos, que es la parte que estaba sin probar.
+// Tampoco comprueba que los dos paneles REALES implementen el contrato. Eso lo
+// dice el compilador: si `MeasurementViewerPanel` no heredara de
+// `MeasurementThemedPanel`, no habria forma de pasarlo al constructor que
+// re-tematiza, y `MainContentComponent.cpp` no compilaria.
 // =============================================================================
 
 #include <catch2/catch_test_macros.hpp>
@@ -51,19 +57,33 @@
 
 #include "gui/AppTheme.h"
 #include "gui/MeasurementFloatingWindow.h"
+#include "gui/measurement/MeasurementThemedPanel.h"
 
 using namespace abdaudiolab;
 
 namespace
 {
 
-/** Contenido que no es ninguno de los dos paneles que `updateTheme()` conoce. */
+/** Contenido que NO implementa el contrato, asi que la ventana no lo re-tematiza.
+ *  El metodo existe a proposito, y no se llama nunca: si se llamara, el test
+ *  estaria probando el camino del panel, no el del marco. */
 class ContenidoGenerico : public juce::Component
 {
 public:
     int vecesThemed = 0;
 
     void updateTheme() { ++vecesThemed; }
+};
+
+/** El otro lado del contrato: un panel que SI sabe re-tematizarse. Seis lineas
+ *  en vez de un `MeasurementViewerPanel` entero, y comprueba lo mismo, porque la
+ *  ventana ya no lo conoce: solo conoce el contrato. */
+class PanelDeMentira : public gui::measurement::MeasurementThemedPanel
+{
+public:
+    int vecesThemed = 0;
+
+    void updateTheme() override { ++vecesThemed; }
 };
 
 /** Un `juce::Colour` no sabe imprimirse, asi que Catch2 lo saca como `{?}`. */
@@ -123,7 +143,7 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         CHECK (limites->getMaximumHeight() == 1440);
     }
 
-    SECTION ("updateTheme() repone el color del marco aunque ningun dynamic_cast coincida")
+    SECTION ("updateTheme() repone el color del marco aunque el contenido no sepa tematizarse")
     {
         auto* contenido = new ContenidoGenerico();
         gui::MeasurementFloatingWindow ventana ("Tema",
@@ -147,8 +167,10 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         INFO ("tras updateTheme: " << comoHex (ventana.getBackgroundColour()));
         CHECK (ventana.getBackgroundColour() == gui::AppTheme::BackgroundApp);
 
-        // Y el contenido desconocido no se toca: la lista cerrada sigue siendo
-        // una lista cerrada, no un `updateTheme()` generico.
+        // Y el contenido que no implementa el contrato no se toca. Que un
+        // `Component` tenga un metodo `updateTheme` no lo convierte en panel:
+        // se re-tematiza quien lo declara, no quien se parece a quien lo
+        // declara.
         CHECK (contenido->vecesThemed == 0);
     }
 
@@ -192,6 +214,34 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         CHECK_NOTHROW (ventana.updateTheme());
         INFO ("re-tematizado tras cerrar: " << comoHex (ventana.getBackgroundColour()));
         CHECK (ventana.getBackgroundColour() == gui::AppTheme::BackgroundApp);
+    }
+
+    SECTION ("Con un panel que SI implementa el contrato, updateTheme() lo alcanza")
+    {
+        auto* panel = new PanelDeMentira();
+        gui::MeasurementFloatingWindow ventana ("Contrato",
+                                                *panel,
+                                                640, 480,
+                                                320, 240);
+
+        // Montarla no tematiza: tematizar sigue siendo una decision, no un efecto
+        // lateral de construirse. El constructor solo guarda a quien preguntar.
+        REQUIRE (ventana.getContentComponent() == panel);
+        CHECK (panel->vecesThemed == 0);
+
+        ventana.updateTheme();
+        CHECK (panel->vecesThemed == 1);
+
+        // Y cada llamada llega: un panel que solo se re-tematiza al abrir la
+        // ventana es un panel que se queda del color anterior en cuanto el tema
+        // cambia con las dos abiertas, que es como se usaba la aplicacion.
+        ventana.updateTheme();
+        CHECK (panel->vecesThemed == 2);
+
+        // Y cerrar y volver a tematizar no lo deja de lado.
+        ventana.closeButtonPressed();
+        ventana.updateTheme();
+        CHECK (panel->vecesThemed == 3);
     }
 
     SECTION ("Dos ventanas no se pisan")

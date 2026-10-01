@@ -250,8 +250,12 @@ private:
 
     std::unique_ptr<gui::ScopeWebFloatingWindow> scopeWebWindow;
     std::unique_ptr<abd::keyboard::MidiKeyboardFloatingWindow> virtualKeyboardWindow;
-    std::unique_ptr<juce::DocumentWindow> measurementViewerWindow;
-    std::unique_ptr<juce::DocumentWindow> measurementComparisonWindow;
+    // Tipados, y no como `juce::DocumentWindow`: estos dos punteros solo han
+    // contenido una cosa en toda su vida, y declararlos como la clase base
+    // obligaba a un `dynamic_cast` en cada uso para volver al tipo que ya
+    // eran. Ese cast no comprobaba nada que el propio tipo no dijera.
+    std::unique_ptr<gui::MeasurementFloatingWindow> measurementViewerWindow;
+    std::unique_ptr<gui::MeasurementFloatingWindow> measurementComparisonWindow;
     abd::topology::StudioTopologyController topologyController;
     std::unique_ptr<gui::SoundIdSplashWindow> aboutSplashWindow;
 

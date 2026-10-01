@@ -6,7 +6,7 @@
  */
 
 #include "MeasurementStimulusCoordinator.h"
-#include "../audio/PinkNoise.h"
+#include "../math/PinkNoise.h"
 #include "../math/FarinaDeconvolver.h"
 #include "../synth/Sha256.h"
 #include <cmath>
@@ -62,7 +62,7 @@ std::vector<float> MeasurementStimulusCoordinator::generateAudioStimulus(const S
         case StimulusType::whiteNoise:
         {
             std::vector<float> buffer(totalSamples);
-            audio::PinkNoiseGenerator noise { spec.seed };
+            math::PinkNoiseGenerator noise { spec.seed };
 
             for (size_t i = 0; i < totalSamples; ++i)
                 buffer[i] = noise.nextWhite() * gainLinear;
@@ -73,7 +73,7 @@ std::vector<float> MeasurementStimulusCoordinator::generateAudioStimulus(const S
         case StimulusType::pinkNoise:
         {
             std::vector<float> buffer(totalSamples);
-            audio::PinkNoiseGenerator noise { spec.seed };
+            math::PinkNoiseGenerator noise { spec.seed };
 
             // `nextPink()` ya devuelve la suma por 0.11, asi que aqui solo
             // falta la ganancia del nivel pedido. La orden de las dos

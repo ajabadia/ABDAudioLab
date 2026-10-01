@@ -2,7 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
-#include "PinkNoise.h"
+#include "../math/PinkNoise.h"
 #include <vector>
 #include <cstdint>
 #include <atomic>
@@ -92,13 +92,13 @@ private:
     float endFreq { 20000.0f };
     double sweepDurationSec { 2.0 };
 
-    // Los coeficientes del ruido rosa viven en `PinkNoiseGenerator`, no aqui.
+    // Los coeficientes del ruido rosa viven en `math/PinkNoise.h`, no aqui.
     // La matematica estaba duplicada byte a byte con el coordinador de
     // estimulacion de medicion, y dos copias de la misma regla numerica
     // divergen sin ruido: el dia que una se toca y la otra no, los dos caminos
     // dan series distintas y el fallo aparece en un hash, a kilometros del sitio
     // del cambio. Ver el comentario de ese header para el resto del porque.
-    PinkNoiseGenerator pinkNoise;
+    math::PinkNoiseGenerator pinkNoise;
 };
 
 } // namespace abdaudiolab::audio

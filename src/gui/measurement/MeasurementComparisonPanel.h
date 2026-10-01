@@ -8,6 +8,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "MeasurementThemedPanel.h"
 #include "MeasurementComparisonSession.h"
 #include "MeasurementContainerListPanel.h"
 #include "MeasurementDynamicsComparisonComponent.h"
@@ -18,14 +19,15 @@
 namespace abdaudiolab::gui::measurement
 {
 
-class MeasurementComparisonPanel : public juce::Component,
+class MeasurementComparisonPanel : public MeasurementThemedPanel,
                                    public MeasurementComparisonSession::Listener
 {
 public:
     MeasurementComparisonPanel();
     ~MeasurementComparisonPanel() override;
 
-    void updateTheme();
+    /** @brief Heredado del contrato que la ventana flotante usa para re-tematizar. */
+    void updateTheme() override;
     void paint(juce::Graphics& g) override;
     void resized() override;
 

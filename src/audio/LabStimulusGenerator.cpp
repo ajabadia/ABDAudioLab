@@ -22,7 +22,7 @@ void LabStimulusGenerator::reset()
     finished.store(false, std::memory_order_relaxed);
     currentSampleIndex.store(0, std::memory_order_relaxed);
     totalSamples.store(0, std::memory_order_relaxed);
-    pinkNoise.reseed (PinkNoiseGenerator::defaultSeed);
+    pinkNoise.reseed (math::PinkNoiseGenerator::defaultSeed);
 }
 
 void LabStimulusGenerator::setStimulus(StimulusType type, double durationSeconds, float startFreqHz, float endFreqHz)

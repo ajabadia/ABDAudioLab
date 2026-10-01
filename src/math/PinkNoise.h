@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace abdaudiolab::audio
+namespace abdaudiolab::math
 {
 
 /**
@@ -15,6 +15,14 @@ namespace abdaudiolab::audio
  * que se puede comprobar, mientras que "suena igual" no se puede comprobar con
  * nada. Dos copias de una regla numerica son la forma mas barata de perder un
  * dia entero comparando hashes que no cuadran sin saber por que.
+ *
+ * Y vive en `math/`, no en `audio/`, porque no es audio: no reproduce nada, no
+ * toca el dispositivo ni el hilo, es un filtro de recurrencia y un LCG de 32
+ * bits. `audio/` es el que lo consume, y `measurement/` tambien, y mientras
+ * viviera en `audio/` este segundo hadia de incluir una capa de la que no
+ * depende: la inversion de capas entra por un `#include` y no se ve en ningun
+ * diagrama. Un LCG con siete filas de filtro tiene su sitio al lado de las otras
+ * matematicas del laboratorio, y desde ahi las dos capas bajan.
  *
  * Sin asignaciones, sin estado global y sin virtuales: se llama desde el hilo
  * de audio, aqui no hay nada que pueda fallar ni que pueda reservar memoria.
@@ -104,4 +112,4 @@ private:
     float b0 { 0.0f }, b1 { 0.0f }, b2 { 0.0f }, b3 { 0.0f }, b4 { 0.0f }, b5 { 0.0f }, b6 { 0.0f };
 };
 
-} // namespace abdaudiolab::audio
+} // namespace abdaudiolab::math

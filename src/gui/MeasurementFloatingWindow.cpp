@@ -7,8 +7,6 @@
 
 #include "MeasurementFloatingWindow.h"
 #include "SoundIdTheme.h"
-#include "gui/measurement/MeasurementViewerPanel.h"
-#include "gui/measurement/MeasurementComparisonPanel.h"
 
 namespace abdaudiolab::gui
 {
@@ -28,14 +26,26 @@ MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
     centreWithSize (defaultWidth, defaultHeight);
 }
 
+MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
+                                                     measurement::MeasurementThemedPanel& contentPanel,
+                                                     int defaultWidth,
+                                                     int defaultHeight,
+                                                     int minWidth,
+                                                     int minHeight)
+    : MeasurementFloatingWindow (title, &contentPanel, defaultWidth, defaultHeight, minWidth, minHeight)
+{
+    themedContent = &contentPanel;
+}
+
 void MeasurementFloatingWindow::updateTheme()
 {
     setBackgroundColour (AppTheme::BackgroundApp);
 
-    if (auto* viewer = dynamic_cast<measurement::MeasurementViewerPanel*> (getContentComponent()))
-        viewer->updateTheme();
-    else if (auto* comp = dynamic_cast<measurement::MeasurementComparisonPanel*> (getContentComponent()))
-        comp->updateTheme();
+    // Sin `dynamic_cast` y sin preguntar de que tipo es el contenido: el puntero
+    // lo deja el constructor que elige el llamante, y esa es toda la informacion
+    // que hace falta.
+    if (themedContent != nullptr)
+        themedContent->updateTheme();
 
     repaint();
 }

@@ -359,6 +359,7 @@ target_sources(ABDAudioLab
         src/gui/measurement/MeasurementFrequencyCurveComponent.cpp
         src/gui/measurement/MeasurementAudioPlayerComponent.h
         src/gui/measurement/MeasurementAudioPlayerComponent.cpp
+        src/gui/measurement/MeasurementThemedPanel.h
         src/gui/measurement/MeasurementViewerPanel.h
         src/gui/measurement/MeasurementViewerPanel.cpp
         src/gui/measurement/MeasurementComparisonSession.h
@@ -485,6 +486,16 @@ target_sources(ABDAudioLab
         src/gui/presentation/SessionStatusPresenter.cpp
         src/gui/MainContentComponent.h
         src/gui/MainContentComponent.cpp
+        # El resto de las unidades de MainContentComponent, una por seccion. Antes
+        # eran 3925 lineas en el fichero de arriba; el constructor sigue ahi porque
+        # se lee de arriba abajo y trocearlo solo anadiria firmas a la cabecera.
+        src/gui/MainContentComponentUiGovernance.cpp
+        src/gui/MainContentComponentHardware.cpp
+        src/gui/MainContentComponentProfilingSession.cpp
+        src/gui/MainContentComponentReport.cpp
+        src/gui/MainContentComponentPersistence.cpp
+        src/gui/MainContentComponentPluginUiHost.cpp
+        src/gui/MainContentComponentWorkflowMode.cpp
         src/gui/MeasurementFloatingWindow.h
         src/gui/MeasurementFloatingWindow.cpp
         src/gui/StartupWarningsPanel.h
@@ -1081,6 +1092,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_AudioABTolerancePolicy5D.cpp
     src/tests/test_AudioABComparatorAndVerdict5D.cpp
     src/tests/test_AudioABBaselineManifestValidation5D.cpp
+    src/tests/test_PinkNoiseGenerator.cpp
 )
 
 # ------------------------------------------------------------------------------

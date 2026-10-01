@@ -8,20 +8,13 @@ namespace abdaudiolab::core
 {
 
 // -----------------------------------------------------------------------------
-// LA LECTURA DE `setupActions`, Y POR QUE NO ESTA DENTRO DE ESTA CLASE.
+// POR QUE ESTA LECTURA VIVE FUERA DE LA CLASE.
 //
-// Hay dos puertas al catalogo de contratos y las dos necesitan leer esta parte
-// del formato: el registro local, aqui, y `SharedHardwareContractAdapter`, que
-// entra por el registro compartido de ABDSharedCode. La lectura estaba escrita
-// dos veces, byte a byte, como lambda local en cada una.
-//
-// Dos copias de una regla de parseo es el modo de fallo mas barato que existe:
-// una acepta un alias que la otra ignora y el contrato se comporta distinto
-// segun por donde entre, sin que nada se ponga rojo. Se unifica aqui porque las
-// dosTIENEN que decir lo mismo, no porque haya dado ya un problema.
-//
-// Y no es una API del registro: es la lectura del formato, asi que vive fuera
-// de la clase y al lado de los tipos que devuelve.
+// La razon entera esta en el comentario de la declaracion, en el `.h`, y no se
+// repite aqui a proposito. Cuando la misma justificacion vive en los dos
+// ficheros de un par declaracion/definicion se desincroniza sin ruido: una de
+// las dos copias deja de mencionar un alias, el contrato se comporta distinto
+// segun por donde entre, y nada se pone rojo.
 // -----------------------------------------------------------------------------
 void parseSetupActions (const nlohmann::json& arrJson,
                         std::vector<HardwareSetupAction>& actions)

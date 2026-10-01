@@ -11,7 +11,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
-#include "PinkNoise.h"
+#include "../math/PinkNoise.h"
 #include <atomic>
 #include <array>
 #include <memory>
@@ -349,7 +349,7 @@ private:
     // identicos cuando eligen ruido, y con el LCG escrito a mano en cada
     // sitio basta con que uno de los dos cambie un dia para que dejen de
     // coincidir sin que se note hasta que se comparan.
-    PinkNoiseGenerator auditionNoise { 0x12345678u };
+    math::PinkNoiseGenerator auditionNoise { 0x12345678u };
 
     // Internal real-time safe audio subroutines (P2 Callback Modularization)
     void renderDiagnosticTone(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept;
