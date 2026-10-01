@@ -56,7 +56,7 @@ El **HITO-06** tiene como misión desacoplar y migrar los puntos de enganche (*s
 
 ## 4. Fase 2: Contrato Canónico de Telemetría
 
-Se adopta como contrato único el valor inmutable `TelemetrySnapshot` (ya definido en [DiagnosticsTelemetrySnapshot.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/controllers/DiagnosticsTelemetrySnapshot.h)):
+Se adopta como contrato único el valor inmutable `TelemetrySnapshot` (ya definido en [DiagnosticsTelemetrySnapshot.h](src/gui/controllers/DiagnosticsTelemetrySnapshot.h)):
 
 ```cpp
 struct TelemetrySnapshot
@@ -101,7 +101,7 @@ struct TelemetrySnapshot
 
 ## 5. Fase 3: Fachada Compatible (Strangler Fig)
 
-La interfaz [IDiagnosticsTelemetrySource.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/controllers/IDiagnosticsTelemetrySource.h) constituye la frontera aislada:
+La interfaz [IDiagnosticsTelemetrySource.h](src/gui/controllers/IDiagnosticsTelemetrySource.h) constituye la frontera aislada:
 
 ```
                   ┌───────────────────────────────┐
@@ -134,7 +134,7 @@ La interfaz [IDiagnosticsTelemetrySource.h](file:///d:/desarrollos/ABDSynths/ABD
 
 ### Paso 3: Retirada de Parámetros Legacy en Constructor
 - Eliminar `LoopbackCalibrationModal&` y `WorkflowStepperBar&` del constructor de `MainContentTelemetrySource`.
-- Actualizar instanciación en [MainContentComponent.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/MainContentComponent.h) y tests unitarios.
+- Actualizar instanciación en [MainContentComponent.h](src/gui/MainContentComponent.h) y tests unitarios.
 
 ### Paso 4: Validación de No Regresión
 - Ejecutar:

@@ -219,7 +219,7 @@ cmake --build build --config Release --target ABDAudioLab
 - Acta Hito 3: [docs/audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md](audits/ACTA_HITO_03_STEPPER_EXCITATION_INTEGRATION.md).
 - Acta Hito 3.1: [docs/audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md](audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md).
 - Hoja de Ruta Maestra: [docs/ROADMAP.md](ROADMAP.md).
-- Plan de Implementación Activo: [implementation_plan.md](file:///C:/Users/ajaba/.gemini/antigravity-ide/brain/b641ba82-965e-4fcc-a8b6-f088d9337bc8/implementation_plan.md).
+- Plan de Implementación Activo: `implementation_plan.md` (artefacto del IDE; se genera por sesión y no se versiona).
 
 ---
 

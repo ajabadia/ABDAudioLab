@@ -10,7 +10,7 @@
 
 ## 1. Resumen Ejecutivo y Alcance Certificado
 
-En estricta observancia del principio metrológico *«Caracterizar primero $\to$ comparar después $\to$ migrar después $\to$ retirar al final»* establecido en [PLAN_HITO_10_TARGET_PROFILE.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/PLAN_HITO_10_TARGET_PROFILE.md), se ha culminado con éxito la implementación, ejecución y certificación formal de **HITO-10B: TargetProfile — Paridad Declarativa contra Legacy**.
+En estricta observancia del principio metrológico *«Caracterizar primero $\to$ comparar después $\to$ migrar después $\to$ retirar al final»* establecido en [PLAN_HITO_10_TARGET_PROFILE.md](PLAN_HITO_10_TARGET_PROFILE.md), se ha culminado con éxito la implementación, ejecución y certificación formal de **HITO-10B: TargetProfile — Paridad Declarativa contra Legacy**.
 
 HITO-10B responde formalmente con éxito y rigor matemático a la pregunta clave de la migración:
 > **Para ReferenceSynth, la ruta declarativa basada en `TargetProfile` resuelve exacta e idénticamente el mismo plan físico que la ruta C++ histórica, bit a bit y semántica a semántica, manteniendo el fallback legacy 100% operativo e intacto.**
@@ -22,7 +22,7 @@ $$\mathbf{Legacy\;ReferenceSynth} \;\equiv\; \mathbf{Declarative\;TargetProfile\
 ## 2. Metodología de Verificación y Comparador Especializado
 
 Se ha diseñado e implementado una herramienta de comparación de paridad especializada:
-[`src/tests/support/ResolvedExecutionPlanParity.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/support/ResolvedExecutionPlanParity.h) y [`.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/support/ResolvedExecutionPlanParity.cpp).
+[`src/tests/support/ResolvedExecutionPlanParity.h`](src/tests/support/ResolvedExecutionPlanParity.h) y [`.cpp`](src/tests/support/ResolvedExecutionPlanParity.cpp).
 
 El comparador evalúa la equivalencia estricta en 5 capas desacopladas, emitiendo diagnósticos inmediatos ante cualquier discrepancia:
 1. **Capa `ExperimentPlan`:** Verificación de `recipeId`, `sampleRate`, recuento de ventanas y recuento de eventos.
@@ -73,7 +73,7 @@ Se certifica formalmente que **HITO-10B: TargetProfile — Paridad Declarativa c
 
 Queda formalmente desbloqueado el siguiente sub-hito del roadmap:
 - **HITO-10C**: `TargetProfile` — Migración piloto de plugin real (**Dexed VST3**):
-  1. Perfil declarativo formal `dexed.target.json` con [`Vst3ParameterIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L34-L43).
+  1. Perfil declarativo formal `dexed.target.json` con [`Vst3ParameterIdentifier`](src/profiling/TargetProfile.h#L34-L43).
   2. Mapeo de `filter_cutoff` y `filter_resonance` a índices de parámetros VST3 del binario real de Dexed.
-  3. Concepto de borrador de perfil (`TargetProfileDraft`) a partir del descubrimiento dinámico en [`TargetContractDiscovery.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/synth/TargetContractDiscovery.cpp).
+  3. Concepto de borrador de perfil (`TargetProfileDraft`) a partir del descubrimiento dinámico en [`TargetContractDiscovery.cpp`](src/synth/TargetContractDiscovery.cpp).
   4. Auditoría de fixity binaria en preflight (`warn-on-mismatch` / `require-audit-on-change`).

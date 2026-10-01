@@ -13,7 +13,7 @@
 ## 1. Declaración de Alcance y Principio Rector
 
 El **Hito 3** integra la excitación de estímulos (tanto automática digital como manual analógica) en la superficie de control unificada de 5 pasos del Stepper de ABDAudioLab:
-- **Paso 2 (`Step::CalibrateLoopback` / Setup)**: Panel adaptativo de configuración de receta (`SoundIdExcitationConfigPanel`) coexistiendo en split de visualización con la calibración de loopback físico (`NativeCalibrationPanel`).
+- **Paso 2 (`Step::CalibrateLoopback` / Setup)**: Panel adaptativo de configuración de receta (`SoundIdExcitationConfigPanel`) coexistiendo en la misma vista con la calibración de loopback físico (`NativeCalibrationPanel`).
 - **Paso 3 (`Step::RunSession`)**: Proyección reactiva del ciclo de vida del ensayo y monitorización acústica continua (`SoundIdProfilingRunView`) preservando intactos la instrumentación permanente: medidor `meterStrip` y analizador FFT de 512 bandas (`curvePlotter`).
 
 ### Principio de Reutilización Estricta (Cero Motores Paralelos)

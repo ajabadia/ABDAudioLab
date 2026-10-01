@@ -19,7 +19,7 @@ Esta guía documenta la dirección de arte, sistema de diseño y especificación
 
 ## 2. Tokens de Diseño Global (`AppTheme`)
 
-Todos los componentes deben consultar exclusivamente la estructura estática [`abdaudiolab::gui::AppTheme`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/AppTheme.h). Queda prohibido hardcodear códigos hexadecimales o instanciar `juce::Colour` ad-hoc en los métodos de renderizado.
+Todos los componentes deben consultar exclusivamente la estructura estática [`abdaudiolab::gui::AppTheme`](../src/gui/AppTheme.h). Queda prohibido hardcodear códigos hexadecimales o instanciar `juce::Colour` ad-hoc en los métodos de renderizado.
 
 ### Paleta de Colores
 
@@ -144,7 +144,7 @@ Se estandariza el uso de dos familias tipográficas incrustadas mediante binario
   - Distribución en 2 columnas: `Signal Burst Duration` y `Custom Duration (s)` con sufijo «sec» integrado en el control.
   - `Adaptive Auto-Tail Silence Cutoff` implementado como un conmutador/toggle real (`juce::ToggleButton`).
 - **Sección 3 (Matriz de Resolución con `juce::TableListBox`)**:
-  - Sustitución de filas libres por una tabla estructurada [`juce::TableListBox`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/TestEditorPanel.h):
+  - Sustitución de filas libres por una tabla estructurada [`juce::TableListBox`](../src/gui/TestEditorPanel.h):
     - **Icono / Tipo (30 px)**: Icono vectorial (Knob / Fader).
     - **Parámetro (180 px)**: Nombre del control en SemiBold.
     - **Resolución (140 px)**: ComboBox embebido.

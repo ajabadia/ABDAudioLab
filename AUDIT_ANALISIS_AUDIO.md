@@ -276,7 +276,7 @@ Cada sección del documento matemático verificada contra el código fuente.
 
 ### §2 Wiener-Hammerstein (LNL) — ✅ IMPLEMENTADO (Sasai et al. 2020)
 
-Implementado en C++20 en [`WienerHammersteinFitter.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/WienerHammersteinFitter.h) y [`LabAnalyticEngine.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/LabAnalyticEngine.cpp) siguiendo el paper canónico de Takeo Sasai et al. (Optics Express / arXiv:2012.08046v1):
+Implementado en C++20 en [`WienerHammersteinFitter.h`](src/math/WienerHammersteinFitter.h) y [`LabAnalyticEngine.cpp`](src/math/LabAnalyticEngine.cpp) siguiendo el paper canónico de Takeo Sasai et al. (Optics Express / arXiv:2012.08046v1):
 - Modelo FIR $h_1$ ($K_1$ taps) $\rightarrow$ No-linealidad estática $f(u) = u + a \cdot u^3$ $\rightarrow$ FIR $h_2$ ($K_2$ taps).
 - Optimización simultánea mediante retropropagación analítica y optimizador Adam ($\beta_1=0.9, \beta_2=0.999$).
 - Extracción de métricas: Coeficiente no lineal $a$, bondad de ajuste $R^2$, RMSE y centroides espectrales en Hz.

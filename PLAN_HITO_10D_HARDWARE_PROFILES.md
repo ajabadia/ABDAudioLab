@@ -126,10 +126,10 @@ Se desarrollarán 4 suites de pruebas herméticas unitarias sin dependencias ext
    - `behringer_pro800.target.json`
    - `yamaha_dx7.target.json`
    - `boss_ds1_distortion.target.json`
-2. Esquema [target-profile.schema.json](file:///D:/desarrollos/ABDSynths/ABDAudioLab/docs/contracts/target-profile.schema.json) y servicio [TargetProfileService.cpp](file:///D:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfileService.cpp) enriquecidos con las políticas de seguridad de CC, SysEx y Manual.
+2. Esquema [target-profile.schema.json](docs/contracts/target-profile.schema.json) y servicio [TargetProfileService.cpp](src/profiling/TargetProfileService.cpp) enriquecidos con las políticas de seguridad de CC, SysEx y Manual.
 3. Cuatro nuevas suites registradas y aprobadas al 100% (PASS, 0 FAIL) en Release x64: 11 test cases, 315 assertions PASS.
 4. Cero regresiones en la suite global: 684 test cases, 676 PASS, 8 SKIPPED justificados, 0 FAIL, 268.496 assertions PASS.
-5. Emisión del acta formal [ACTA_HITO_10D1_HARDWARE_CONTRACTS.md](file:///D:/desarrollos/ABDSynths/ABDAudioLab/ACTA_HITO_10D1_HARDWARE_CONTRACTS.md).
+5. Emisión del acta formal [ACTA_HITO_10D1_HARDWARE_CONTRACTS.md](ACTA_HITO_10D1_HARDWARE_CONTRACTS.md).
 
 ---
 

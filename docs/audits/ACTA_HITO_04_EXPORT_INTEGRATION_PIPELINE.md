@@ -83,7 +83,7 @@ El **Hito 4** unifica la salida de resultados, validación previa a la exportaci
 
 ### Diagnóstico Inicial
 El caso de prueba original utilizaba un nombre de test referenciando `AutomatedMidi`, pero utilizaba un fixture con `hardwareId = "AIRA_TB3_..."`.
-En la implementación de producción ([ReportExportService.cpp:L130](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/export/ReportExportService.cpp#L130)):
+En la implementación de producción ([ReportExportService.cpp:L130](../../src/export/ReportExportService.cpp#L130)):
 ```cpp
 manifestData.deviceType = m.hardwareId.find("AIRA") != std::string::npos ? "AUTOMATED_SYSEX" : "MANUAL_EURORACK";
 ```
@@ -106,7 +106,7 @@ Con esta normalización, la trazabilidad requisito-código-test-evidencia queda 
 
 - **Archivos de Producción Modificados**: **0** (respeto estricto del rol de Lead Architect y el flujo en tándem).
 - **Warnings Nuevos**: **0**.
-- **Seguridad en Tiempo Real**: Ninguna de las operaciones de exportación o evaluación interfiere con el hilo DSP de audio (respeto de [.agents/rules/dsp_thread_safety.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/.agents/rules/dsp_thread_safety.md)).
+- **Seguridad en Tiempo Real**: Ninguna de las operaciones de exportación o evaluación interfiere con el hilo DSP de audio (respeto de [.agents/rules/dsp_thread_safety.md](../../.agents/rules/dsp_thread_safety.md)).
 - **Transaccionalidad en Disco**: Rollback automático verificado en fallos de staging o permisos de destino.
 
 ---

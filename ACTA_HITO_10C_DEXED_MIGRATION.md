@@ -22,7 +22,7 @@ Se ha culminado con éxito absoluto la implementación, auditoría y certificaci
 | Condición | Requisito Obligatorio | Evidencia Verificada en Build #439 | Estado |
 |---|---|---|:---:|
 | **Condición 1** | **No fijar índices VST3 sin inspección previa.** Contener ambos identificadores (`parameterIndex` y `parameterId` estable) con `UserConfirmed`. | La instancia real de Dexed fue introspeccionada mediante `ExternalPluginFixture` y `TargetContractDiscovery`, confirmando: `parameterIndex: 24`, `parameterId: "Cutoff"`, `Resonance: 25`, `Master: 0`. Ambas referencias quedaron formalizadas en `dexed.target.json`. | ✅ **CUMPLIDA** |
-| **Condición 2** | **Separar `TargetProfileDraft` de perfil formal.** `TargetProfileDraft::isExecutable()` siempre `false`. Inferencia no es comprensión. | Implementado [`src/profiling/TargetProfileDraft.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfileDraft.h). Los parámetros descubiertos nacen como `Inferred` (`"name_contains_cutoff"`) o `Unknown`. Un borrador es rechazado para ejecución de `Measurement`. La promoción requiere confirmación explícita. | ✅ **CUMPLIDA** |
+| **Condición 2** | **Separar `TargetProfileDraft` de perfil formal.** `TargetProfileDraft::isExecutable()` siempre `false`. Inferencia no es comprensión. | Implementado [`src/profiling/TargetProfileDraft.h`](src/profiling/TargetProfileDraft.h). Los parámetros descubiertos nacen como `Inferred` (`"name_contains_cutoff"`) o `Unknown`. Un borrador es rechazado para ejecución de `Measurement`. La promoción requiere confirmación explícita. | ✅ **CUMPLIDA** |
 | **Condición 3** | **Prueba real desacoplada y opcional (Hermético vs Externo).** Las suites herméticas pasan 100% en CI sin Dexed. La externa usa tag y SKIP justificado. | 3 suites herméticas (100% PASS en CI sin dependencias) y 2 suites externas bajo el tag `[target_profile][external][dexed]` que realizan `SKIP` si no se localiza `Dexed.vst3`. En el entorno local con Dexed instalado, **ambas suites externas ejecutaron al 100% PASS (0 SKIP en Dexed)**. | ✅ **CUMPLIDA** |
 | **Condición 4** | **Comprobar comportamiento acústico observable, no solo existencia de índice.** | Demostrado experimentalmente: Cutoff bajo ($0.20$) vs Cutoff alto ($0.80$) produce una variación acústica medible con $RMS_{diff} > 0.001$, $\Delta_{max} > 0.005$, sin clipping masivo y con repetibilidad estricta tras `resetState()` ($\Delta_{max} = 10^{-5} < 10^{-4}$). | ✅ **CUMPLIDA** |
 
@@ -66,11 +66,11 @@ Ejecución oficial en Release x64 (Build #439):
 
 | Nivel | Suite | Archivo de Prueba | Aserciones | Resultado |
 |---|---|---|:---:|:---:|
-| **Hermético** | 1. Perfil formal Dexed | [`test_TargetProfileDexedProfile.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_TargetProfileDexedProfile.cpp) | 26 | ✅ **PASS** |
-| **Hermético** | 2. Borrador desde descubrimiento | [`test_TargetProfileDraftGeneration.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_TargetProfileDraftGeneration.cpp) | 36 | ✅ **PASS** |
-| **Hermético** | 3. Auditoría de fixity binaria | [`test_TargetProfileBinaryFixity.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_TargetProfileBinaryFixity.cpp) | 24 | ✅ **PASS** |
-| **Externo Real** | 4. Hosting real Dexed | [`test_TargetProfileDexedHosting.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_TargetProfileDexedHosting.cpp) | 53 | ✅ **PASS (0 SKIP)** |
-| **Externo Real** | 5. Comportamiento acústico observable | [`test_TargetProfileDexedBehavior.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_TargetProfileDexedBehavior.cpp) | 38.429 | ✅ **PASS (0 SKIP)** |
+| **Hermético** | 1. Perfil formal Dexed | [`test_TargetProfileDexedProfile.cpp`](src/tests/test_TargetProfileDexedProfile.cpp) | 26 | ✅ **PASS** |
+| **Hermético** | 2. Borrador desde descubrimiento | [`test_TargetProfileDraftGeneration.cpp`](src/tests/test_TargetProfileDraftGeneration.cpp) | 36 | ✅ **PASS** |
+| **Hermético** | 3. Auditoría de fixity binaria | [`test_TargetProfileBinaryFixity.cpp`](src/tests/test_TargetProfileBinaryFixity.cpp) | 24 | ✅ **PASS** |
+| **Externo Real** | 4. Hosting real Dexed | [`test_TargetProfileDexedHosting.cpp`](src/tests/test_TargetProfileDexedHosting.cpp) | 53 | ✅ **PASS (0 SKIP)** |
+| **Externo Real** | 5. Comportamiento acústico observable | [`test_TargetProfileDexedBehavior.cpp`](src/tests/test_TargetProfileDexedBehavior.cpp) | 38.429 | ✅ **PASS (0 SKIP)** |
 | **Total Hito** | **5 suites nuevas** | **HITO-10C Completo** | **38.568** | ✅ **100% PASS** |
 
 ---

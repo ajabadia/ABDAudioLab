@@ -8,7 +8,7 @@
 | **Estado** | Aprobado para desarrollo (Actualizado con ABDScope Suite, ResourceProvider y ABDSharedCode) |
 | **Audiencia** | Equipo de desarrollo, QA, diseño |
 | **Fecha** | 2026-09-02 |
-| **Fuentes y Recursos** | `docs/google ia research/001.txt`, [AIRA_Modular_Effects-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) (Mugenkidou SysEx spec), [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md), [audio-latency-examiner-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/audio-latency-examiner-main/README.md), [NeuralAudio-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/NeuralAudio-main/README.md), [134-AES00.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/134-AES00.pdf) (Angelo Farina Swept-Sine), [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) (Takeo Sasai et al.), [Plan Master PDF](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf), `juce-audio-hybrid-plugin` skill, `ABDScope` (`D:\desarrollos\ABDSynths\ABDScope`), `ABDSharedCode` (`D:\desarrollos\ABDSynths\ABDSharedCode`) |
+| **Fuentes y Recursos** | `docs/google ia research/001.txt`, [AIRA_Modular_Effects-master](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) (Mugenkidou SysEx spec), [alltheFSKs-master](docs/google%20ia%20research/alltheFSKs-master/README.md), [audio-latency-examiner-main](docs/google%20ia%20research/audio-latency-examiner-main/README.md), [NeuralAudio-main](docs/google%20ia%20research/NeuralAudio-main/README.md), [134-AES00.pdf](docs/google%20ia%20research/134-AES00.pdf) (Angelo Farina Swept-Sine), [Wiener-Hammerstein model...pdf](docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) (Takeo Sasai et al.), [Plan Master PDF](docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf), `juce-audio-hybrid-plugin` skill, `ABDScope` (repo hermano), `ABDSharedCode` (repo hermano) |
 | **Idioma** | Español (código e identificadores en inglés) |
 
 ---
@@ -442,7 +442,7 @@ FSK (*Frequency Shift Keying*): los bytes del parche se codifican conmutando una
 
 ### 9.5 Lectura y Configuración vía MIDI SysEx (Bidireccionalidad Confirmada)
 
-A diferencia del canal de audio FSK (que es unidireccional y ciego), los módulos Roland AIRA Modular **sí disponen de implementación SysEx bidireccional nativa por USB** (documentada por ingeniería inversa en [AIRA_Modular_Effects-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md)). 
+A diferencia del canal de audio FSK (que es unidireccional y ciego), los módulos Roland AIRA Modular **sí disponen de implementación SysEx bidireccional nativa por USB** (documentada por ingeniería inversa en [AIRA_Modular_Effects-master](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md)). 
 
 Mediante los comandos SysEx Roland `RQ1` (Data Request 1) y `DT1` (Data Set 1), el laboratorio y editor pueden:
 1. **Volcar el estado interno actual (Dump Request)** sin necesidad de partir de un estado ciego.
@@ -464,11 +464,11 @@ Reglas de análisis:
 - La comparación `patch_vacio` vs `modulo_X_slot1` revela el bloque de bytes que carga el submódulo X (su ID).
 - La comparación con `modulo_X_slot2` revela cómo codifica el índice de slot.
 - La comparación con `cable_inL_outL` revela el bloque de codificación de cables.
-- Herramientas auxiliares de demodulación y análisis FSK disponibles en [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md).
+- Herramientas auxiliares de demodulación y análisis FSK disponibles en [alltheFSKs-master](docs/google%20ia%20research/alltheFSKs-master/README.md).
 
 ### 9.7 Especificación del Protocolo Roland SysEx (RQ1 / DT1)
 
-*(Fuente normativa: [AIRA_Modular_Effects-master/README.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md))*
+*(Fuente normativa: [AIRA_Modular_Effects-master/README.md](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md))*
 
 #### 9.7.1 Estructura de Trama SysEx Roland
 * **Data Request 1 (RQ1)**: `F0 41 10 00 00 00 [ModelID] 11 aa bb cc dd ss tt uu vv [sum] F7`
@@ -843,7 +843,7 @@ Uso posterior: detectar deriva térmica del rack; si el ruido de fondo sube (ej.
 
 ### 12.9 Módulo de Telemetría Avanzada (ABDScope Suite)
 
-Para la monitorización de señales complejas en tiempo real durante la calibración y el perfilado acústico, el laboratorio integra la suite **ABDScope** (`D:\desarrollos\ABDSynths\ABDScope`) con arquitectura dual desacoplada:
+Para la monitorización de señales complejas en tiempo real durante la calibración y el perfilado acústico, el laboratorio integra la suite **ABDScope** (repo hermano del ecosistema ABDSynths) con arquitectura dual desacoplada:
 
 1. **Ventana Flotante WebUI (`Scope (Web)`)**:
    - Aloja el motor `ABDScope` completo en modo `embedded` dentro de un `juce::DocumentWindow`.
@@ -863,7 +863,7 @@ Para la monitorización de señales complejas en tiempo real durante la calibrac
 
 ### 12.10 Código Compartido y Actualizaciones Automáticas (ABDSharedCode)
 
-El proyecto adopta la librería corporativa **ABDSharedCode** (`D:\desarrollos\ABDSynths\ABDSharedCode`) siguiendo la filosofía de cero duplicación y módulos puros:
+El proyecto adopta la librería corporativa **ABDSharedCode** (repo hermano del ecosistema ABDSynths) siguiendo la filosofía de cero duplicación y módulos puros:
 
 1. **Módulo `ABDShared::AutoUpdater`**:
    - Comprobador de versiones y releases asíncrono ejecutado en un hilo secundario (`juce::Thread`), completamente desacoplado del hilo de audio y de la GUI.
@@ -926,7 +926,7 @@ El proyecto adopta la librería corporativa **ABDSharedCode** (`D:\desarrollos\A
 > [!NOTE]
 > La Fase 1 ha sido implementada íntegramente en C++20 / JUCE 8.0.4.
 > El código fuente compila limpiamente mediante `build.bat` generando el ejecutable `build/ABDAudioLab_artefacts/Release/ABDAudioLab.exe`.
-> Para el detalle del mapa de ruta y del traspaso técnico entre fases, consultar [docs/ROADMAP.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/ROADMAP.md) y [docs/HANDOFF.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/HANDOFF.md).
+> Para el detalle del mapa de ruta y del traspaso técnico entre fases, consultar [docs/ROADMAP.md](docs/ROADMAP.md) y [docs/HANDOFF.md](docs/HANDOFF.md).
 
 | ID | Criterio de aceptación | Estado |
 |---|---|---|
@@ -997,9 +997,9 @@ El proyecto adopta la librería corporativa **ABDSharedCode** (`D:\desarrollos\A
 
 | ID | Pregunta | Estado / Impacto |
 |---|---|---|
-| PQ-1 | ¿Existen comandos SysEx por USB MIDI que activen un modo dump y configuración de los módulos? | **RESUELTA (100%)**: Protocolo SysEx `RQ1` (Data Request) y `DT1` (Data Set) completamente documentado e identificado en [AIRA_Modular_Effects-master/README.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md). Permite configuración y volcado bidireccional instantáneo por USB (sección 9.7). |
+| PQ-1 | ¿Existen comandos SysEx por USB MIDI que activen un modo dump y configuración de los módulos? | **RESUELTA (100%)**: Protocolo SysEx `RQ1` (Data Request) y `DT1` (Data Set) completamente documentado e identificado en [AIRA_Modular_Effects-master/README.md](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md). Permite configuración y volcado bidireccional instantáneo por USB (sección 9.7). |
 | PQ-2 | ¿Cuáles son los IDs y parámetros exactos de los 31 submódulos? | **RESUELTA (100%)**: Catálogo completo 31/31 con sus IDs hexadecimales (`00H`..`1FH`) y sus 4 parámetros internos por módulo extraídos de la ingeniería inversa (ver tabla normativa en 17.2). |
-| PQ-3 | ¿Cuál es la estructura exacta de trama FSK (audio analógico)? | En desarrollo / Calibración: FSK se mantiene como protocolo analógico de respaldo para `REMOTE IN`. Herramientas de modulación/demodulación listas en [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md). |
+| PQ-3 | ¿Cuál es la estructura exacta de trama FSK (audio analógico)? | En desarrollo / Calibración: FSK se mantiene como protocolo analógico de respaldo para `REMOTE IN`. Herramientas de modulación/demodulación listas en [alltheFSKs-master](docs/google%20ia%20research/alltheFSKs-master/README.md). |
 | PQ-4 | ¿El hardware confirma la recepción de MIDI CC? | Ajustado con Echo Shield (`RF-36` en C++ Core). |
 
 ### 16.2 Riesgos
@@ -1023,7 +1023,7 @@ Ver tabla normativa en 10.2. Resumen de los 5 tipos: `TimeDynamic`, `SpectrumFil
 
 ### 17.2 Diccionario Normativo de los 31 Submódulos AIRA (IDs Hex y Parámetros)
 
-*(Fuente: [AIRA_Modular_Effects-master/README.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md))*
+*(Fuente: [AIRA_Modular_Effects-master/README.md](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md))*
 
 | ID Hex | Submódulo | Tipo de Bloque | Parameter 1 | Parameter 2 | Parameter 3 | Parameter 4 |
 |---|---|---|---|---|---|---|
@@ -1135,14 +1135,14 @@ Guía de consulta de los archivos de investigación ubicados en `docs/google ia 
 
 | Recurso / Carpeta | Tipo | Utilidad y Rol en el Proyecto |
 |---|---|---|
-| [AIRA_Modular_Effects-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) | Documentación / Spec | **Ingeniería inversa MIDI/SysEx no oficial (Mugenkidou)**: Estructura de tramas `RQ1`/`DT1`, IDs de modelo (`15H`–`18H`), mapa de direcciones para los 6 slots, ruteo de cables virtuales (`10 20 ss dd`) y parámetros del módulo principal. |
-| [alltheFSKs-master](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/alltheFSKs-master/README.md) | Código Python | **Herramientas de Módem Audio FSK**: Scripts de modulación/demodulación (`MFSKModulator.py`, `MFSKDemodulator.py`, `crc16.py`) para decodificar grabaciones de patches `.wav` y servir de referencia para el modulador C++. |
-| [audio-latency-examiner-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/audio-latency-examiner-main/README.md) | Max / GenDSP | **Medición de Latencia Sample-Accurate**: Algoritmo de diferencia de tiempo y correlación de impulso (`at.calc_time_difference.gendsp`) aplicable a la calibración de línea loopback. |
-| [NeuralAudio-main](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/NeuralAudio-main/README.md) | Código C++ / CMake | **Motor de Inferencia Neuronal Real-Time (Mike Oliphant)**: Soporte para NAM (WaveNet/LSTM) y RTNeural (Keras) para modelado de no-linealidades complejas en la Fase 4. |
-| [134-AES00.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/134-AES00.pdf) | Paper AES (Farina) | **Fundamento del Farina Sweep**: Metodología del barrido senoidal logarítmico y de-convolución lineal para separar la respuesta lineal de los armónicos de distorsión no lineal con >60 dB de SNR. |
-| [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) | Paper Científico | **Modelado Block-Oriented (LNL)**: Demostración de estructuras lineales-no lineales en cascada y optimización por gradiente. |
-| [Especificaciones_Tecnicas_Laboratorio_Universal.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf) | Plan Master | Resumen ejecutivo de arquitectura del laboratorio universal y matriz de autodeterminación. |
-| [001.txt](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/001.txt) | Registro de Diseño | Transcripción completa de las sesiones de planificación técnica y análisis de requisitos. |
+| [AIRA_Modular_Effects-master](docs/google%20ia%20research/AIRA_Modular_Effects-master/README.md) | Documentación / Spec | **Ingeniería inversa MIDI/SysEx no oficial (Mugenkidou)**: Estructura de tramas `RQ1`/`DT1`, IDs de modelo (`15H`–`18H`), mapa de direcciones para los 6 slots, ruteo de cables virtuales (`10 20 ss dd`) y parámetros del módulo principal. |
+| [alltheFSKs-master](docs/google%20ia%20research/alltheFSKs-master/README.md) | Código Python | **Herramientas de Módem Audio FSK**: Scripts de modulación/demodulación (`MFSKModulator.py`, `MFSKDemodulator.py`, `crc16.py`) para decodificar grabaciones de patches `.wav` y servir de referencia para el modulador C++. |
+| [audio-latency-examiner-main](docs/google%20ia%20research/audio-latency-examiner-main/README.md) | Max / GenDSP | **Medición de Latencia Sample-Accurate**: Algoritmo de diferencia de tiempo y correlación de impulso (`at.calc_time_difference.gendsp`) aplicable a la calibración de línea loopback. |
+| [NeuralAudio-main](docs/google%20ia%20research/NeuralAudio-main/README.md) | Código C++ / CMake | **Motor de Inferencia Neuronal Real-Time (Mike Oliphant)**: Soporte para NAM (WaveNet/LSTM) y RTNeural (Keras) para modelado de no-linealidades complejas en la Fase 4. |
+| [134-AES00.pdf](docs/google%20ia%20research/134-AES00.pdf) | Paper AES (Farina) | **Fundamento del Farina Sweep**: Metodología del barrido senoidal logarítmico y de-convolución lineal para separar la respuesta lineal de los armónicos de distorsión no lineal con >60 dB de SNR. |
+| [Wiener-Hammerstein model...pdf](docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf) | Paper Científico | **Modelado Block-Oriented (LNL)**: Demostración de estructuras lineales-no lineales en cascada y optimización por gradiente. |
+| [Especificaciones_Tecnicas_Laboratorio_Universal.pdf](docs/google%20ia%20research/Especificaciones_Tecnicas_Laboratorio_Universal.pdf) | Plan Master | Resumen ejecutivo de arquitectura del laboratorio universal y matriz de autodeterminación. |
+| [001.txt](docs/google%20ia%20research/001.txt) | Registro de Diseño | Transcripción completa de las sesiones de planificación técnica y análisis de requisitos. |
 
 ---
 

@@ -486,10 +486,12 @@ Un hito o fase se considera terminado únicamente cuando:
 #### 🏗️ Sprint 2: Desacoplamiento Arquitectural, UI y Telemetría Moderna (COMPLETADO)
 - [x] **Modularización de MainContentComponent y Bootstrap**
   - Descomposición del monolito: `src/main.cpp` reducido de 1.807 líneas a 6 líneas de bootstrap.
-  - Extracción de [`src/gui/MainContentComponent.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/MainContentComponent.h) y [`src/gui/LabApplication.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/LabApplication.h).
+  - Extracción de [`src/gui/MainContentComponent.h`](../src/gui/MainContentComponent.h) y [`src/gui/LabApplication.h`](../src/gui/LabApplication.h).
 - [x] **Unificación de Telemetría y Retirada del Scope Nativo C++**
-  - Eliminación de [`ScopeFloatingWindow.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/ScopeFloatingWindow.h) y de su botón dual `Scope (C++)`.
-  - Unificación a un único botón y visor moderno: **`Scope`** ([`ScopeWebFloatingWindow.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/ScopeWebFloatingWindow.h) con WebView2 y multi-lane bundle).
+  - Eliminación de `ScopeFloatingWindow.h` (el nombre no sobrevive: el visor que lo
+    sustituye es `ScopeWebFloatingWindow.h`, según la línea siguiente) y de su botón
+    dual `Scope (C++)`.
+  - Unificación a un único botón y visor moderno: **`Scope`** ([`ScopeWebFloatingWindow.h`](../src/gui/ScopeWebFloatingWindow.h) con WebView2 y multi-lane bundle).
 - [x] **Rediseño Iconográfico de la Cola de Pruebas**
   - Sustitución de los botones textuales (`Edit`, `Copy`, `Del`, `View`, `Clear`) por iconos vectoriales JUCE Path nítidos y escalables (lápiz, duplicar, papelera, ojo de inspección y flecha de reset).
 - [x] **Funcionalidad del Botón "View" (Inspección de Puntos)**
@@ -575,18 +577,18 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
 - [x] **4.1: Desacoplamiento de `MainContentComponent` (2.803 líneas)**
   - [x] **4.1.1**: Extracción de componentes auxiliares (`ThemeToggleButton`, `MonochromeInfoButton`, `CenterSplitterBar`) a archivos de interfaz dedicados (`src/gui/CenterSplitterBar.h`, `src/gui/TopHeaderWidgets.h`).
   - [x] **4.1.2**: División en header limpio e implementación concreta: creación de `src/gui/MainContentComponent.cpp` y reducción de `src/gui/MainContentComponent.h` a 173 líneas.
-  - [x] **4.1.3**: Migración de la lógica de sesión (guardado `.abdsession`, paquetes `.zip`, recovery auto-save y estado sucio) hacia [`core::SessionManager`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/core/SessionManager.h).
-  - [x] **4.1.4**: Migración de la orquestación y routing de sintetizadores hacia [`core::HardwareManager`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/core/HardwareManager.h).
+  - [x] **4.1.3**: Migración de la lógica de sesión (guardado `.abdsession`, paquetes `.zip`, recovery auto-save y estado sucio) hacia [`core::SessionManager`](../src/core/SessionManager.h).
+  - [x] **4.1.4**: Migración de la orquestación y routing de sintetizadores hacia [`core::HardwareManager`](../src/core/HardwareManager.h).
 - [x] **4.2: Modularización de Cajones en `SlideInDrawer.cpp` (1.442 líneas)**
   - [x] Descomponer el cajón lateral en subcomponentes modulares e independientes (`src/gui/drawers/`): `DrawerFileSessionTab`, `DrawerHardwareTab`, `DrawerSetupTab` (con telemetría y card About integrada) y reutilización de `TestEditorPanel`. Reducción de `SlideInDrawer.cpp` a 426 líneas y `SlideInDrawer.h` a 109 líneas.
 - [x] **4.3: Modularización de `SoundIdSuiteList.cpp` (1.161 líneas)**
   - [x] Extracción de estructuras de datos, iconos vectoriales, layout de filas y renderizado especializado a `src/gui/suite/` (`SuiteDataModels.h`, `SuiteIcons.h`, `SuiteRowLayout.h/.cpp`, `SuiteRowRenderer.h/.cpp`). Reducción de `SoundIdSuiteList.cpp` a 718 líneas.
 - [x] **4.4: Separación Header/Implementation en Diálogos Modales**
-  - [x] Separar [`src/gui/OperatorStepModalDialog.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/OperatorStepModalDialog.h) (reducido de 791 a 93 líneas) e implementación modular con desacoplamiento en [`src/gui/OperatorStepModalDialog.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/OperatorStepModalDialog.cpp).
+  - [x] Separar [`src/gui/OperatorStepModalDialog.h`](../src/gui/OperatorStepModalDialog.h) (reducido de 791 a 93 líneas) e implementación modular con desacoplamiento en [`src/gui/OperatorStepModalDialog.cpp`](../src/gui/OperatorStepModalDialog.cpp).
 - [x] **4.5: Migración de Drivers de Hardware a `ABDSharedCode` y Guía de Integración**
-  - [x] Elaboración de la Guía de Integración de Hardware ([`docs/HARDWARE_INTEGRATION_GUIDE.md`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/HARDWARE_INTEGRATION_GUIDE.md)) documentando la arquitectura en dos niveles (*Shared Core Drivers* en `ABDShared::HardwareMidiDetect` vs *Application Facade* en `core::HardwareManager`).
+  - [x] Elaboración de la Guía de Integración de Hardware ([`docs/HARDWARE_INTEGRATION_GUIDE.md`](../docs/HARDWARE_INTEGRATION_GUIDE.md)) documentando la arquitectura en dos niveles (*Shared Core Drivers* en `ABDShared::HardwareMidiDetect` vs *Application Facade* en `core::HardwareManager`).
   - [x] **Extracción de `ABDShared::HardwareDrivers`**: Migración canónica de `IHardwareController`, `RoutingValidator`, `FskAudioModem`, `MidiCcController` y `AiraSysExController` hacia `ABDSharedCode/HardwareDrivers/`. Creación de adaptadores y re-exports en `ABDAudioLab/src/hardware/` manteniendo el 100% de tests unitarios (53/53 tests en verde).
-  - [x] Actualización de [`docs/ARCHITECTURE.md`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/ARCHITECTURE.md) (v1.2.0) reflejando el desacoplamiento de controladores, modularización de UI y telemetría unificada.
+  - [x] Actualización de [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) (v1.2.0) reflejando el desacoplamiento de controladores, modularización de UI y telemetría unificada.
 - [x] **4.6: Regeneración e Indexación del Grafo de Conocimiento (codebase-memory-mcp)**
   - [x] Re-indexación y sincronización completa del repositorio completada (3.985 nodos y 9.794 aristas indexadas).
 - [x] **4.7: Fusión de Contratos de Hardware y Detector con `ABDBankManager` (`ABDSharedAssets` / `ABDSharedCode`)** (COMPLETADO v1.3.0)
@@ -596,7 +598,7 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
     * Poblado el bloque `bankManagement` en los 13 contratos de sintetizador canónicos (`casio_cz101`, `roland_juno106`, `korg_ms2000`, `korg_prophecy`, `behringer_pro800`, `behringer_deepmind12`, `behringer_deepmind6`, `yamaha_dx7`, `yamaha_dx7ii`, serie Roland AIRA).
     * Provisión de herramienta de sincronización e hidratación `scripts/sync_contracts.mjs` y script `npm run sync-contracts` en `ABDBankManager` validando la concordancia de modelos al 100%.
   - **Arquitectura de Tres Niveles y Actualización Documental**:
-    * Actualizada la Guía de Integración de Hardware ([`docs/HARDWARE_INTEGRATION_GUIDE.md`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/HARDWARE_INTEGRATION_GUIDE.md)) y [`ABDSharedCode/INTEGRATION_GUIDE.md`](file:///d:/desarrollos/ABDSynths/ABDSharedCode/INTEGRATION_GUIDE.md) documentando la arquitectura de tres niveles (Nivel 0: SSOT en `ABDSharedAssets`, Nivel 1: Drivers/Detect en `ABDSharedCode`, Nivel 2: Aplicaciones `ABDAudioLab` y `ABDBankManager`).
+    * Actualizada la Guía de Integración de Hardware ([`docs/HARDWARE_INTEGRATION_GUIDE.md`](../docs/HARDWARE_INTEGRATION_GUIDE.md)) y `ABDSharedCode/INTEGRATION_GUIDE.md` (repo hermano) documentando la arquitectura de tres niveles (Nivel 0: SSOT en `ABDSharedAssets`, Nivel 1: Drivers/Detect en `ABDSharedCode`, Nivel 2: Aplicaciones `ABDAudioLab` y `ABDBankManager`).
     * Suite de validación de ABDAudioLab pasando al 100% (62/62 tests en verde).
 - [x] **4.8: Incorporación de Protocolos y Codecs Universales MIDI/SysEx (`ABDSharedCode::HardwareDrivers`)** (COMPLETADO v1.3.0)
   - [x] **Codec Universal 7-to-8 bit (`SysExCodec`)**: Extracción de `abd::hw::SysExCodec` (empaquetado y desempaquetado de memoria con byte recolector MSB de 7 bits), estándar universal en Korg, Yamaha y Roland. Test unitario 54 validado al 100%.
@@ -605,14 +607,14 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
   - [x] **Módem de Audio FSK Tape Interface (`JunoTapeModem`)**: Implementación de `abd::hw::JunoTapeModem` con modulación CPFSK de fase continua (Space 1.3 kHz / Mark 2.6 kHz a 1300 baud), generación de tono piloto, detección de portadora por Goertzel, y demodulación por conteo de cruces por cero con búsqueda de alineación de fase. Checksum Roland `(-sum) & 0x7F`. Forwarder en `src/hardware/JunoTapeModem.h`. Test unitario 58 validado al 100%.
   - **Suite completa**: 64/64 tests en verde tras la incorporación de ambos módulos.
 - [x] **4.9: Modelos DSP y Tolerancias Multivoz Compartidas (`ABDSharedCode::LutDSP`)** (COMPLETADO v1.3.0)
-  - [x] **Modelos Canónicos de Referencia de LUTs (`exported_luts` -> `ABDSharedCode::LutDSP::models`)**: Migración de las 6 tablas de perfilado oficial (`behringer_pro800`, `roland_juno106`, `casio_cz101`, `mock_va_moog_ladder`, `eurorack_diode_ladder`, `aira_bitrazer`) a `ABDSharedCode/LutDSP/models/` con cabecera índice [`OfficialLutModels.h`](file:///d:/desarrollos/ABDSynths/ABDSharedCode/LutDSP/models/OfficialLutModels.h). Forwarder integrado en `ABDAudioLab/src/dsp/OfficialLutModels.h` y validación al 100% de la suite de tests (62/62 tests en verde).
+  - [x] **Modelos Canónicos de Referencia de LUTs (`exported_luts` -> `ABDSharedCode::LutDSP::models`)**: Migración de las 6 tablas de perfilado oficial (`behringer_pro800`, `roland_juno106`, `casio_cz101`, `mock_va_moog_ladder`, `eurorack_diode_ladder`, `aira_bitrazer`) a `ABDSharedCode/LutDSP/models/` con cabecera índice `OfficialLutModels.h` (repo hermano). Forwarder integrado en `ABDAudioLab/src/dsp/OfficialLutModels.h` y validación al 100% de la suite de tests (62/62 tests en verde).
   - [x] **Chorus BBD MN3009 (`JunoBBD`)**: Módulo universal de Chorus analógico BBD de 256 etapas con interpolación cúbica, filtro de reconstrucción de 9 kHz y LFO dual en cuadratura en `ABDSharedCode/LutDSP/JunoBBD.h` con forwarder en `ABDAudioLab/src/dsp/JunoBBD.h`. Test unitario 65 validado al 100%.
     - **Corrección 2026-09-28**: ese módulo nunca llegó a completarse y el forwarder sí era un shim de 17 líneas sobre un borrador que leía del sitio equivocado del módulo. El motor de verdad es `ABDSharedCode/DspEffects/JunoBBD.h` (port del coro BBD de JUNiO601, con perfil `JunoBbdJ106Profile`/`JunoBbdJ60Profile` y etapa de carácter `BbdNoiseStage`); el borrador está en `ABDSharedCode/_Deprecados/LutDSP-JunoBBD.h` con un `#error` y el forwarder se borró. El test unitario 65 ahora se ejecuta contra el motor compartido.
   - [x] **Modelado de Dispersión Estocástica Multivoz (`VoiceDispersionModel`)**: Motor estocástico determinista para varianza de componentes analógicos (tolerancia VCF cutoff, ganancia VCA $\pm 2.4\%$, tracking y drift térmico browniano) en `ABDSharedCode/LutDSP/VoiceDispersionModel.h` con forwarder en `src/dsp/VoiceDispersionModel.h`. Test unitario 66 validado al 100%.
   - [x] **Asignador Polifónico de Voces (`VoiceAllocator`)**: Asignador universal independiente de GUI para modos Poly1 (round-robin), Poly2 (stealing / retrigger) y Unison en `ABDSharedCode/LutDSP/VoiceAllocator.h` con forwarder en `src/dsp/VoiceAllocator.h`. Test unitario 67 validado al 100%.
   - **Suite completa**: 67/67 tests en verde tras la incorporación de los 3 nuevos módulos.
 - [x] **4.10: Unificación de Assets y Eliminación de Duplicados Locales (`ABDSharedAssets` como Fuente Única de la Verdad)** (COMPLETADO v1.3.0)
-  - **Auditoría de Integridad**: Comparación exhaustiva de `ABDAudioLab/assets/` frente a `D:\desarrollos\ABDSynths\ABDSharedAssets\`:
+  - **Auditoría de Integridad**: Comparación exhaustiva de `ABDAudioLab/assets/` frente a `ABDSharedAssets/` (repo hermano):
     * `assets/models/` (48 archivos) y `assets/brands/` (12 archivos) eran 100% idénticos e intercambiables con `ABDSharedAssets/models` y `ABDSharedAssets/brands`.
     * El único recurso exclusivo de ABDAudioLab es la imagen de bienvenida `assets/splash_art.jpg` (referenciada en `SoundIdSplashScreen.h`).
   - **Acciones de Saneamiento y Resiliencia**:

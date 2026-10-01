@@ -10,7 +10,7 @@
 
 ## 1. Resumen Ejecutivo y Alcance Certificado
 
-En cumplimiento estricto del plan de ingeniería [PLAN_HITO_10_TARGET_PROFILE.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/PLAN_HITO_10_TARGET_PROFILE.md) y de los tres ajustes de frontera normativos acordados, se ha culminado con éxito la implementación, integración y verificación contractual de **HITO-10A: TargetProfile Contract & ReferenceSynth Pilot**.
+En cumplimiento estricto del plan de ingeniería [PLAN_HITO_10_TARGET_PROFILE.md](PLAN_HITO_10_TARGET_PROFILE.md) y de los tres ajustes de frontera normativos acordados, se ha culminado con éxito la implementación, integración y verificación contractual de **HITO-10A: TargetProfile Contract & ReferenceSynth Pilot**.
 
 El principio rector de la arquitectura metrológica queda consolidado:
 > **«La receta expresa la intención científica; el perfil declara cómo ese target puede realizarla; el entorno confirma si puede hacerlo hoy; el motor común sigue siendo el único que ejecuta.»**
@@ -26,16 +26,16 @@ $$\underbrace{\text{MeasurementRecipe}}_{\text{Qué se quiere medir (semanticId)
 - Las suites de caracterización de oráculo legacy (`test_TargetProfileLegacyCharacterization.cpp`) y paridad exacta bit a bit (`test_TargetProfileLegacyParity.cpp`) han sido formalmente segregadas y diferidas a **HITO-10B**, garantizando que HITO-10A no dependa ni modifique prematuramente la ruta legacy.
 
 ### Ajuste 2: ExperimentPlanCompiler como Autoridad Única de Compilación
-- [`TargetProfileService`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfileService.h) se limita de forma estricta a cargar, validar, canonicalizar (RFC 8785) y consultar perfiles (`findMapping`).
-- La compilación y resolución del plan físico reside exclusivamente en la sobrecarga unificada de [`ExperimentPlanCompiler::resolveExecutionPlan(recipe, profile, environment, defaults)`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/ExperimentPlanCompiler.h#L147-L152), evitando la creación de compiladores paralelos en el sistema.
+- [`TargetProfileService`](src/profiling/TargetProfileService.h) se limita de forma estricta a cargar, validar, canonicalizar (RFC 8785) y consultar perfiles (`findMapping`).
+- La compilación y resolución del plan físico reside exclusivamente en la sobrecarga unificada de [`ExperimentPlanCompiler::resolveExecutionPlan(recipe, profile, environment, defaults)`](src/profiling/ExperimentPlanCompiler.h#L147-L152), evitando la creación de compiladores paralelos en el sistema.
 
 ### Ajuste 3: Tipado Discriminado de Identificadores Técnicos (`std::variant`)
-- Se erradicó toda ambigüedad en los identificadores técnicos. Se sustituyeron los campos polimórficos planos por uniones discriminadas por tipo de transporte en [`TargetProfile.h`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L24-L83):
-  - [`InternalParameterIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L24-L32): Clave de parámetro interno (`parameterKey`). Implementado y verificado en HITO-10A.
-  - [`Vst3ParameterIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L34-L43): `parameterIndex` e ID de cadena VST3. Declarado para HITO-10C.
-  - [`MidiCcIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L45-L54): Canal y número de controlador continuo. Declarado para HITO-10D.
-  - [`MidiSysExIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L56-L65): Plantilla de mensaje y codificación de valor. Declarado para HITO-10D.
-  - [`ManualOperatorIdentifier`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/profiling/TargetProfile.h#L67-L76): ID de instrucción y mensaje de confirmación del operador. Declarado para HITO-10D.
+- Se erradicó toda ambigüedad en los identificadores técnicos. Se sustituyeron los campos polimórficos planos por uniones discriminadas por tipo de transporte en [`TargetProfile.h`](src/profiling/TargetProfile.h#L24-L83):
+  - [`InternalParameterIdentifier`](src/profiling/TargetProfile.h#L24-L32): Clave de parámetro interno (`parameterKey`). Implementado y verificado en HITO-10A.
+  - [`Vst3ParameterIdentifier`](src/profiling/TargetProfile.h#L34-L43): `parameterIndex` e ID de cadena VST3. Declarado para HITO-10C.
+  - [`MidiCcIdentifier`](src/profiling/TargetProfile.h#L45-L54): Canal y número de controlador continuo. Declarado para HITO-10D.
+  - [`MidiSysExIdentifier`](src/profiling/TargetProfile.h#L56-L65): Plantilla de mensaje y codificación de valor. Declarado para HITO-10D.
+  - [`ManualOperatorIdentifier`](src/profiling/TargetProfile.h#L67-L76): ID de instrucción y mensaje de confirmación del operador. Declarado para HITO-10D.
 
 ### Ajuste Menor: Capacidades de Canal Explícitas
 - Se reemplazó la ambigua declaración de canales por una estructura completa `audioOutput` en el esquema y en C++:

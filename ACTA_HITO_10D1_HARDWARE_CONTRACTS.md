@@ -18,9 +18,9 @@ En estricta observancia de los axiomas rectores formulados para la extensión de
 Se ha completado e implementado con éxito la fase **HITO-10D1: Hardware Digital (CC/SysEx) y Analógico Manual (Contratos y Resolución Hermética)**.
 
 Esta fase establece y congela en memoria la capacidad del motor de perfiles para:
-1. **Modelar y validar perfiles declarativos** para hardware digital mediante MIDI CC ([`behringer_pro800.target.json`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/behringer_pro800.target.json)).
-2. **Modelar y validar perfiles declarativos** para hardware digital mediante MIDI System Exclusive ([`yamaha_dx7.target.json`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/yamaha_dx7.target.json)).
-3. **Modelar y validar perfiles declarativos** para hardware analógico con control manual guiado ([`boss_ds1_distortion.target.json`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/profiles/targets/boss_ds1_distortion.target.json)).
+1. **Modelar y validar perfiles declarativos** para hardware digital mediante MIDI CC ([`behringer_pro800.target.json`](profiles/targets/behringer_pro800.target.json)).
+2. **Modelar y validar perfiles declarativos** para hardware digital mediante MIDI System Exclusive ([`yamaha_dx7.target.json`](profiles/targets/yamaha_dx7.target.json)).
+3. **Modelar y validar perfiles declarativos** para hardware analógico con control manual guiado ([`boss_ds1_distortion.target.json`](profiles/targets/boss_ds1_distortion.target.json)).
 4. **Resolver planes de ejecución** (`ResolvedExecutionPlan`) enriquecidos con identificadores nativos de parámetro y políticas de transporte (`Timestamped` vs `BestEffort`).
 5. **Garantizar seguridad hermética:** 0 bytes de tráfico MIDI físico transmitidos, mitigación de TOCTOU y validación estricta de límites de buffer de SysEx.
 

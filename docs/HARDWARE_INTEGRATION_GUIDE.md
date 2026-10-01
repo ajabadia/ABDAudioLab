@@ -11,7 +11,7 @@
 
 ## 1. Arquitectura en Tres Niveles (Three-Tier Hardware Architecture)
 
-Para garantizar **cero duplicación** entre sintetizadores virtuales (emuladores VST3/AU), aplicaciones de librería y volcados SysEx ([`ABDBankManager`](file:///d:/desarrollos/ABDSynths/ABDBankManager)) y el laboratorio autónomo de perfilado ([`ABDAudioLab`](file:///d:/desarrollos/ABDSynths/ABDAudioLab)), el ecosistema ABDSynths estructura las responsabilidades en tres niveles:
+Para garantizar **cero duplicación** entre sintetizadores virtuales (emuladores VST3/AU), aplicaciones de librería y volcados SysEx (`ABDBankManager`) y el laboratorio autónomo de perfilado (`ABDAudioLab`), el ecosistema ABDSynths estructura las responsabilidades en tres niveles:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -60,7 +60,7 @@ Para garantizar **cero duplicación** entre sintetizadores virtuales (emuladores
 Cada modelo de hardware se describe mediante un único archivo JSON normativo ubicado en `ABDSharedAssets/contracts/<hardware_id>.json`.
 
 ### 2.1 Esquema Normativo del Bloque `bankManagement`
-El esquema [`hardware_profile.schema.json`](file:///d:/desarrollos/ABDSynths/ABDSharedAssets/contracts/hardware_profile.schema.json) define las propiedades para gestión de volcados y bancos de presets:
+El esquema `ABDSharedAssets/contracts/hardware_profile.schema.json` (repo hermano) define las propiedades para gestión de volcados y bancos de presets:
 
 ```json
 "bankManagement": {
@@ -184,7 +184,7 @@ Si el hardware no responde a SysEx (como algunos convertidores USB-CV o sintetiz
 
 ## 3. Nivel 2: Implementación de Controladores (`IHardwareController`)
 
-Toda interacción física o simulada implementa la interfaz pura [`IHardwareController`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/hardware/HardwareController.h):
+Toda interacción física o simulada implementa la interfaz pura [`IHardwareController`](../src/hardware/HardwareController.h):
 
 ```cpp
 namespace abdaudiolab::hardware
@@ -242,7 +242,7 @@ Protege el hardware de configuraciones ilegales antes de enviar comandos:
 ### 3.4 Controlador para Operador Humano (`ManualAnalogueController`)
 Diseñado para sintetizadores puramente analógicos o módulos Eurorack sin MIDI:
 - `isAutomatic()` retorna `false`.
-- Emite un callback `PromptCallback` que despliega el diálogo modal interactivo [`OperatorStepModalDialog`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/OperatorStepModalDialog.h).
+- Emite un callback `PromptCallback` que despliega el diálogo modal interactivo [`OperatorStepModalDialog`](../src/gui/OperatorStepModalDialog.h).
 - Proporciona guía gráfica vectorial (Knob, Slider, Jack) y metrónomo visual/sonoro de 10 segundos para barridos continuos uniformes.
 
 ### 3.5 Codec Universal SysEx 7-to-8 Bit (`SysExCodec`) y Receptor NRPN (`NRPNParser`)
@@ -274,7 +274,7 @@ Para incorporar un nuevo sintetizador o módulo de hardware al ecosistema:
    - Si el dispositivo utiliza un protocolo SysEx propietario no estándar, añadir su parser en `MidiIdentityDetector::parseIdentityReply()`.
 
 3. **Registrar en la Fachada (`HardwareManager`):**
-   - [`HardwareManager::selectHardware()`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/core/HardwareManager.cpp) instancia automáticamente el controlador apropiado (`MidiCcController`, `AiraSysExController`, `ManualAnalogueController` o `MockHardwareController`).
+   - [`HardwareManager::selectHardware()`](../src/core/HardwareManager.cpp) instancia automáticamente el controlador apropiado (`MidiCcController`, `AiraSysExController`, `ManualAnalogueController` o `MockHardwareController`).
 
 4. **Ejecutar Ensayo de Calibración:**
    - Iniciar ABDAudioLab.

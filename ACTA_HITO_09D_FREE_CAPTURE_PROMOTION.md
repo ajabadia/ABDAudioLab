@@ -10,7 +10,7 @@
 
 ## 1. Resumen Ejecutivo y Alcance Certificado
 
-En cumplimiento estricto del plan de ingeniería [PLAN_HITO_09D_FREE_CAPTURE_PROMOTION.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/PLAN_HITO_09D_FREE_CAPTURE_PROMOTION.md) y de los principios de honestidad metrológica aprobados con el usuario, se ha culminado con éxito la implementación, integración en interfaz y verificación normativa de **HITO-09D: Promoción de Toma Libre (Exploration) a MeasurementRecipe Formal**.
+En cumplimiento estricto del plan de ingeniería [PLAN_HITO_09D_FREE_CAPTURE_PROMOTION.md](PLAN_HITO_09D_FREE_CAPTURE_PROMOTION.md) y de los principios de honestidad metrológica aprobados con el usuario, se ha culminado con éxito la implementación, integración en interfaz y verificación normativa de **HITO-09D: Promoción de Toma Libre (Exploration) a MeasurementRecipe Formal**.
 
 El principio rector de la metrología acústica ha quedado sellado:
 > **Una Toma Libre (`Exploration`) histórica permanece siempre `Exploration`, nunca se reclasifica retroactivamente y permanece bloqueada para exportación como medición formal.**  

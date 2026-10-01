@@ -482,3 +482,154 @@ los tres `TEST_CASE` nuevos están escritos para no necesitar nada más que el �
   y `test_SmokeStep4UI.cpp`) ya cumplen el contrato —temporal propio, vaciado y borrado al
   salir— por su cuenta, pero son cuatro copias de lo que ya hace `ScratchDir`. Convergerlas es
   limpieza, no bug: no se han tocado.
+
+---
+
+## 12. Telemetría del runner: atribuir la muerte silenciosa de `~[ves]` (2026-10-01)
+
+### 12.1 Qué se audita
+
+Gate 6 corre `ABDAudioLab_Tests.exe "~[ves]" -r console`. Ese proceso muere sin
+aserción, sin línea final y sin salida útil: el reporte de CI es literalmente
+`exit code 1`. Con 318 casos, esa información no permite atribuir la muerte a
+nadie, y el modo de fallo no se puede distinguir de un cuelgue ni de un `kill`
+del propio runner del job. Es un fallo ciego: no dice qué test, no dice por qué y
+no deja evidencia que nadie pueda mirar después.
+
+La hipótesis de este bloque no es "arreglar el fallo" —sin ejecutable no se puede
+ni reproducir— sino **dejar el rastro mínimo que convierte `exit code 1` en un
+sujeto con nombre**. La atribución es la mitad del encargo; el arreglo es el
+trabajo que el rastro vuelve posible.
+
+### 12.2 Qué se añade
+
+Tres piezas, todas fuera del árbol del repositorio salvo la última:
+
+| Pieza | Ruta | Qué es |
+|---|---|---|
+| Recorder | `src/tests/support/TestTelemetry.{h,cpp}` | Log append-only, heartbeat por test, manejador de excepción y minidump |
+| Activación | `src/tests/TestMain.cpp` | Una llamada, entre `ScopedJuceInitialiser_GUI` y `Catch::Session().run()` |
+| Lector | `tools/test_telemetry_report.py` | Traduce el log a veredicto + test + sección |
+
+Más dos líneas en `CMakeLists.txt`: el `.cpp` en el `add_executable` y `dbghelp`
+en el `target_link_libraries` (`CaptureStackBackTrace`, `SymInitialize`,
+`SymGetModuleInfoW64`, `MiniDumpWriteDump`).
+
+### 12.3 El formato del log
+
+Una línea, cuatro campos, todo en `clave=valor`:
+
+```
+<ISO 8601 UTC ms> pid=<n> <CLAVE> clave=valor clave="valor con espacios"
+```
+
+Las claves se emparejan por **posición**, no por nombre, y cada una tiene una
+contraparte obligatoria:
+
+| Clave | Significado |
+|---|---|
+| `RUNNER-START` | El recorder abrió el fichero. Fronteira de la corrida. |
+| `RUN-START` | Catch2 empieza. Lleva `total`, el número de casos del filtro. |
+| `CASE-START` | Entra en el test. `part`, `name`, `at=fichero:línea`, `tags` |
+| `SECTION-START` / `SECTION-END` | Entra y sale de una sección |
+| `CASE-END` | Sale del test. `ms`, `assertions`, `ok` |
+| `TICK` | Latido. `uptime_ms`, `case`, `section`, `case_ms` |
+| `RUN-END` | Catch2 terminó. `ms`, `assertions`, `testCases`, `aborting` |
+| `SLOWEST` / `SLOW` | Tabla de los 20 tests más lentos |
+| `EXCEPTION` / `CRASH` / `FRAME` / `DUMP` | Solo desde el manejador de caída |
+| `RUNNER-FATAL` | Fallo interno de Catch2 (`fatalErrorEncountered`) |
+
+Cuatro decisiones de diseño que no son obvias:
+
+1. **`CASE-START` es por *entrada*, no por test.** Catch2 entra en el cuerpo de un
+   test una vez por cada hoja del árbol de secciones. Un test con cinco `SECTION`
+   produce cinco `CASE-START` con el mismo nombre y distinto `part`. Esa
+   granularidad es lo que permite decir *"la sección 4 de este test"*, y con 318
+   casos el nombre del test a secas no basta.
+2. **`fflush` en cada línea.** Lo que sobrevivió a la caída es lo que estaba en
+   la página del fichero cuando el proceso murió. Un buffer de `stdio` sin vaciar
+   se pierde entero, y con él las últimas horas de diagnóstico.
+3. **Dos `FILE*` sobre el mismo fichero, no uno.** El camino normal usa un mutex
+   porque escriben varios hilos a la vez. El camino de caída **no puede tomarlo**:
+   si el proceso revienta mientras lo mantiene, quedarse esperando sería un
+   segundo interbloqueo dentro del manejador de una excepción que ya va mal.
+4. **`SectionStats` tiene `Counts`; `TestCaseStats` y `TestRunStats` tienen
+   `Totals`.** Confundirlo compila limpio —los tres `struct` tienen layout
+   compatible— y devuelve un número sin relación con nada.
+
+### 12.4 Los modos de muerte
+
+El lector `tools/test_telemetry_report.py` reduce el log a un veredicto. Es la
+distinción que nadie puede hacer leyendo la consola del gate, que es el punto
+entero del ejercicio:
+
+| Veredicto | Señal en el log | Lectura |
+|---|---|---|
+| `CAIDA` | `EXCEPTION`, `SIGNAL`, `CRASH`, `RUNNER-FATAL` | El proceso reventó. Hay pila y minidump. |
+| `COLGADO` | Un `TICK` **posterior** al último evento del runner | El proceso vivía y no avanzaba. El `TICK` dice en qué test y cuántos ms lleva. |
+| `INTERRUMPIDO` | Ni excepción ni `TICK` posterior | Murió antes de que el hilo de liveness tuviera otro turno (5 s). `kill` externo, o un fallo que tumbó también ese hilo. |
+| `TERMINADA` | `RUN-END` | Llegó al final. Si además hay `TICK` posteriores, se colgó en el **cierre** (destructor estático esperando un hilo, `MessageManager` sin apagar), no en un test. |
+
+**Límite honesto de la atribución.** Un cuelgue que más tarde mata el timeout del
+job y una muerte por `kill` externo dejan *el mismo log*: los latidos se detienen
+porque el proceso dejó de existir, y desde dentro no se puede observar la causa.
+Lo que el lector afirma no es "el proceso se colgó", sino algo más débil y más
+cierto: **"el proceso estaba demostrablemente vivo en el último latido, y ese
+latido nombra el test"**. Eso basta para el trabajo de verdad, que es dejar un
+sujeto donde antes solo había un código de salida.
+
+### 12.5 Dónde escribe, y por qué no en el repo
+
+`%TEMP%/abdaudiolab-tests/runner/run-<pid>-<n>.log` y su `.dmp` hermano. El
+directorio se puede redirigir con `ABD_TEST_TELEMETRY_DIR`; la telemetría entera se
+apaga con `ABD_TEST_TELEMETRY=0`.
+
+Dos razones por las que **no** se usa `scratchDir()`:
+
+- Escribir en el árbol del repositorio está prohibido por el propio guard
+  `[writes]` de §11.4. Una instrumentación que ensucia el árbol que se supone que
+  vigila no sirve de nada.
+- `scratchDir()` **lanza** si el directorio cae dentro de la raíz del repo. Una
+  instrumentación que puede tumbar la puerta que vigila es peor que no tenerla.
+
+Por eso el destino se elige a mano y se **descarta en silencio** si no se puede
+crear. `isActive()` lo consulta: si vale `false`, no hay telemetría y la suite
+sigue exactamente igual que antes. Un diagnóstico no puede ser la causa del
+fallo que diagnostica.
+
+El sufijo `-<n>` no es decorativo: Windows recicla PIDs, y sin él dos corridas
+consecutivas en la misma máquina acabarían en el mismo fichero, con el diagnóstico
+mezclando la muerte de una con los latidos de la otra.
+
+### 12.6 Verificación ejecutada
+
+`build/Release/ABDAudioLab_Tests.exe` no existe y no hay forma de recuperarlo sin
+cerrar la workstream de cuarentena. La verificación es, por tanto, de compilación y
+de autoverificación del lector, no de ejecución:
+
+- **Compilación unitaria** (`build/compile_one.cmd`, flags exactos de `Release|x64`):
+  `TestTelemetry.cpp` y `TestMain.cpp` en verde.
+- **`python tools/test_telemetry_report.py --selftest`**: los **6 escenarios**
+  sintéticos dan el veredicto y la atribución esperados —`CAIDA`, `COLGADO`,
+  `INTERRUMPIDO`, `MUERTO_ENTRE_TESTS`, `TERMINADA`, `TERMINADA` colgado en el
+  cierre—, incluidos los frames, la tabla de lentos y los ms del último latido.
+- **Simulación de los 9 barridos** (`build/sim_final.py`) con los ficheros nuevos
+  dentro: los 9 dan **0 infracciones**. El barrido de `support/` lee 3 ficheros
+  (antes 2) y sigue limpio.
+
+El selftest vive dentro de la herramienta y no en un `TEST_CASE` a propósito:
+justamente cuando el ejecutable no está disponible es cuando hace falta poder
+confiar en el lector, así que tiene que poder correr sin la suite compilada.
+
+### 12.7 Lo que falta para cerrar la atribución
+
+- **Probarlo en ejecución.** Con el ejecutable de vuelta, correr Gate 6 y
+  confirmar que el log aparece, que el `TICK` avanza entre tests y que el veredicto
+  del lector coincide con lo que haga el proceso. Hasta entonces, la atribución
+  está *diseñada*, no *demostrada*.
+- **Publicar el log en el artefacto del job.** El workflow de CI no sube `%TEMP%`
+  a ningún lado. Sin `upload-artifact`, el log se queda en la máquina virtual que
+  el job borra, y la instrumentación no sirve para el caso que la motivó. Ese
+  fichero pertenece a la workstream de cuarentena y no se ha tocado.
+- **Un heartbeat por test, no por sección.** `kLivenessTickMs` es un periodo
+  global de 5 s. Si un test concreto necesita resolución más fina,

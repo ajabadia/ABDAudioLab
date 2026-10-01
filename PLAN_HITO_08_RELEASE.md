@@ -99,7 +99,7 @@ Convertir el estado certificado post-HITO-07 en un **release reproducible, insta
 
 > **Nota sobre SemVer:** La versión v2.1.0 consolida las capacidades certificadas de hosting VST3, E2E, exportación unificada, telemetría y retirada de componentes legacy. No se presenta como un salto major derivado de una ruptura de compatibilidad; es un release minor con nuevas capacidades compatibles.
 
-#### [MODIFY] [CMakeLists.txt](file:///d:/desarrollos/ABDSynths/ABDAudioLab/CMakeLists.txt)
+#### [MODIFY] [CMakeLists.txt](CMakeLists.txt)
 - `project(ABDAudioLab VERSION 1.1.0 ...)` → `project(ABDAudioLab VERSION 2.1.0 ...)`
 
 #### [NEW] MANIFEST_RELEASE_v2.1.0.json

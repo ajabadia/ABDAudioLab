@@ -22,6 +22,7 @@ Thumbs.db
 .cache/
 .vscode/
 .aider*
+.freebuff/
 
 # Shared assets junctions (linked from ../ABDSharedAssets)
 # NOTE: contracts/ is deliberately NOT ignored — it is a tracked in-repo snapshot

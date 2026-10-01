@@ -8,7 +8,7 @@
 
 ## 1. Técnica de Barrido Senoidal Logarítmico (Farina Sweep)
 
-*(Basado en Angelo Farina, AES 108th Convention, París, 2000 — [134-AES00.pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/134-AES00.pdf))*
+*(Basado en Angelo Farina, AES 108th Convention, París, 2000 — [134-AES00.pdf](../docs/google%20ia%20research/134-AES00.pdf))*
 
 ### 1.1 Ecuación de la Señal de Excitación
 La frecuencia instantánea $\omega(t)$ varía exponencialmente con el tiempo entre $\omega_1 = 2\pi f_1$ y $\omega_2 = 2\pi f_2$ en una duración total $T$:
@@ -39,7 +39,7 @@ $$\Delta t_N = T \cdot \frac{\ln(N)}{\ln(\omega_2 / \omega_1)}$$
 
 ## 2. Modelado por Bloques Wiener-Hammerstein (LNL)
 
-*(Basado en Takeo Sasai et al., Optics Express 2020 / arXiv:2012.08046v1 — [Wiener-Hammerstein model...pdf](file:///d:/desarrollos/ABDSynths/ABDAudioLab/docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf))*
+*(Basado en Takeo Sasai et al., Optics Express 2020 / arXiv:2012.08046v1 — [Wiener-Hammerstein model...pdf](../docs/google%20ia%20research/Wiener-Hammerstein%20model%20and%20its%20learning%20for%20nonlinear%20digital%20pre-distortion%20of%20optical%20transmitters-with-annotations.pdf))*
 
 Los circuitos de hardware analógico, pedales de saturación y modelado ACB se descomponen en cascadas de 3 etapas no conmutativas (**Linear – Nonlinear – Linear**):
 

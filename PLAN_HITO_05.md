@@ -116,11 +116,11 @@ Para eliminar cualquier ambigüedad terminológica entre la documentación y el 
 
 | Concepto Metrológico | Enum Canónico en C++ | Archivo Fuente | Valores Válidos |
 |---|---|---|---|
-| **Auditoría de Target** | `synth::ApprovalStatus` | [TargetAuditor.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/synth/TargetAuditor.h) | `Approved`, `ApprovedWithWarnings`, `Rejected`, `Unsupported` |
-| **Selección de Modelo** | `synth::SelectionStatus` | [ModelEvaluationTypes.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/synth/ModelEvaluationTypes.h) | `Accepted`, `AcceptedWithWarnings`, `Inconclusive`, `Rejected`, `InvalidMeasurement` |
-| **Veredicto UI Resumen** | `core::ValidationUiSummary::Verdict` | [EvaluationContracts.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/session/EvaluationContracts.h) | `pass`, `warn`, `fail`, `inconclusive` |
-| **Paso de Stepper** | `gui::WorkflowStepperBar::Step` | [WorkflowStepperBar.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/WorkflowStepperBar.h) | `StudioEnvironment` (0), `HardwareRouting` (1), `Calibration` (2), `RunSession` (3), `ExportReport` (4) |
-| **Estado de Receta** | `gui::session::RecipeStatus` | [ProfilingSessionContracts.h](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/gui/session/ProfilingSessionContracts.h) | `Valid`, `IncompatibleWithTarget`, `InvalidParameters`, `NotGenerated` |
+| **Auditoría de Target** | `synth::ApprovalStatus` | [TargetAuditor.h](src/synth/TargetAuditor.h) | `Approved`, `ApprovedWithWarnings`, `Rejected`, `Unsupported` |
+| **Selección de Modelo** | `synth::SelectionStatus` | [ModelEvaluationTypes.h](src/synth/ModelEvaluationTypes.h) | `Accepted`, `AcceptedWithWarnings`, `Inconclusive`, `Rejected`, `InvalidMeasurement` |
+| **Veredicto UI Resumen** | `core::ValidationUiSummary::Verdict` | [ValidationUiSummary.h](src/core/ValidationUiSummary.h) | `pass`, `warn`, `fail`, `inconclusive` |
+| **Paso de Stepper** | `gui::WorkflowStepperBar::Step` | [WorkflowStepperBar.h](src/gui/WorkflowStepperBar.h) | `StudioEnvironment` (0), `HardwareRouting` (1), `Calibration` (2), `RunSession` (3), `ExportReport` (4) |
+| **Estado de Receta** | `gui::session::RecipeStatus` | [ProfilingSessionContracts.h](src/gui/session/ProfilingSessionContracts.h) | `Valid`, `IncompatibleWithTarget`, `InvalidParameters`, `NotGenerated` |
 
 ---
 
@@ -152,7 +152,7 @@ El contenedor `.abdlabtest` es un paquete ZIP (`juce::ZipFile`) que encapsula ar
 
 ## 7. Umbrales Canónicos de Audio
 
-En concordancia directa con [LabAudioReceiver.cpp](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/audio/LabAudioReceiver.cpp#L80-L166):
+En concordancia directa con [LabAudioReceiver.cpp](src/audio/LabAudioReceiver.cpp#L80-L166):
 - **Umbral de Saturación / Clipping (`E2E-N05`)**: `clippingThreshold = 0.99f` (~ -0.1 dBFS). Cualquier muestra $|x| \ge 0.99f$ se cataloga como saturación y marca la medición como sobrecargada.
 - **Umbral de Silencio / Desconexión (`E2E-N08`)**: `silenceThresholdLinear = 0.0001f` (-80 dBFS). Si el nivel máximo del bloque no supera este umbral, el sistema reporta señal ausente o cableado desconectado.
 

@@ -43,7 +43,7 @@ Se auditó la cadena de resolución de configuración de VES y el directorio de 
 
 1. **Resolución de Ajustes de VES:**
    - Ubicación: `%APPDATA%\VintageEmulatorStudio\settings\rom-directory.txt`
-   - Ruta configurada: `C:\Users\ajaba\Downloads\ves-windows\ROMS`
+   - Ruta configurada: variable de entorno `VES_ROM_DIR`
 2. **Archivo ROM CZ-101 Localizado:**
    - Nombre: `cz101.zip` (y binario plano `Casio CZ-101_HN613256P_5F3_S40.BIN`)
    - Tamaño: 30.223 bytes (zip) / 32.768 bytes (binario plano de 32 KB)
