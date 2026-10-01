@@ -14,6 +14,14 @@
  * un fallo aqui significa que un gate de CI puede volverse vacio o que la
  * suite dejara de ser reproducible, y ambos fallos son silenciosos.
  *
+ * POST-5D.5 cerro ademas la SEGUNDA mitad del problema: los tests escribian
+ * DENTRO del arbol del repositorio (docs/qa/runs/*.json, fixtures/evaluations/*.json,
+ * assets/presets/*.json), de modo que una corrida dejaba git status sucio y un
+ * artefacto regenerado sin querer se confundia con un cambio de codigo. La
+ * invariante es ahora explicita: la unica via por la que un test obtiene una ruta
+ * del repo para ESCRITURA es abdaudiolab::test::artifactDir(), que por defecto
+ * devuelve un temporal y solo devuelve el repo con ABD_REGENERATE_ARTIFACTS=1.
+ *
  * La excepcion declarada son los recursos que NO viven en el repositorio y por
  * tanto no pueden resolverse con LabResourcePaths: binarios de terceros (Dexed),
  * ROMs de VES y el directorio de trabajo del plugin worker. Cada uno debe
@@ -26,6 +34,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "core/LabResourcePaths.h"
+
+#include "support/LabTestScratch.h"
 
 #include <cctype>
 #include <fstream>
@@ -371,6 +381,125 @@ ScanResult scanForForbiddenPatterns (const juce::File& root,
     return result;
 }
 
+/**
+ * @brief Ficheros autorizados a pedir una ruta del REPO, con el motivo de cada uno.
+ *
+ * Estos tests NO escriben: leen recursos versionados como fixture de entrada
+ * (perfiles de target, snapshots de UI, evaluaciones aprobadas). La regla que
+ * vigina este listado no es "no toques el repo", sino "la UNICA via por la que
+ * un test puede obtener una ruta del repo con fines de ESCRITURA es
+ * abdaudiolab::test::artifactDir()". Por eso los lectores legitimos estan aqui
+ * y los escritores, no: un escritor aparece como infraccion del guard.
+ *
+ * INVARIANTE: una entrada que ya no lea del repo es una entrada que hay que
+ * BORRAR. Y cualquier escritor nuevo se migra a artifactDir(), no se autoriza
+ * aqui.
+ */
+const std::set<std::string>& allowedRepoPathReaders()
+{
+    static const std::set<std::string> allowed
+    {
+        // Prueba la propia API de resolucion: repoResource(), optionalRepoResource()
+        // y todos los accesores de directorio. Es el unico sitio donde probarlos.
+        { "test_LabResourcePaths.cpp" },
+
+        // Cargan perfiles/targets/*.target.json versionados como fixture de entrada
+        // del perfil de transporte, y el catalogo de contratos nativo.
+        { "test_TargetProfileTransportSafety.cpp" },
+
+        // Cargan el perfil Dexed versionado del repo como fixture de entrada del
+        // comportamiento esperado; no lo generan ni lo modifican.
+        { "test_TargetProfileDexedBehavior.cpp" },
+        { "test_TargetProfileDexedHosting.cpp" },
+
+        // read_fixture_file() abre fixtures/ui/*.snapshot versionados. El propio
+        // helper se llama read_ y devuelve std::string: es lectura pura.
+        { "test_UiCompositionSeam6.cpp" },
+
+        // Parten de fixtures/evaluations/fixture_approved.json versionado como
+        // estado inicial del controlador, y de ahi evolves.
+        { "test_ProfilingSessionController.cpp" },
+        { "test_ProfilingSessionCoordinator.cpp" },
+
+        // Workstream de cuarentena de hardware: leen el catalogo compartido de
+        // assets. Aun sin migrar al scratch, y siguen siendo solo lectura.
+        { "test_ContractsSnapshotDrift.cpp" },
+        { "test_HardwareContractQuarantine.cpp" },
+    };
+
+    return allowed;
+}
+
+/**
+ * @brief needles que delatan una ruta del repo obtenida para ESCRIBIR.
+ *
+ * Solo los accesores que existen porque alguien escribio ahi alguna vez. Los
+ * lectores (contractsHardwareDir, canonicalTargetsDir, profilingPresetsDir,
+ * profilesDir, docsQaDir, fixturesDir) quedan fuera a proposito: leer el repo
+ * es legitimo yynessimo, y prohibirlo seria un guard que obliga a falsejar el
+ * codigo en lugar de a protegerlo.
+ */
+const std::vector<std::string>& repoWritePathNeedles()
+{
+    static const std::vector<std::string> needles
+    {
+        "docsQaRunsDir",           // informes de corrida de docs/qa/runs
+        "fixturesEvaluationsDir",  // fixtures/evaluations
+        "exportedLutsDir",         // exported_luts
+        "assetsDir",               // assets/ (incluye assets/presets)
+        "repoResource",            // raiz del repo por ruta relativa; ingiere optionalRepoResource
+    };
+
+    return needles;
+}
+
+/**
+ * @brief Ficheros autorizados a construir su temporal con getSpecialLocation().
+ *
+ * La invariante es que cada test tenga SU directorio, vaciado al entrar. Ese
+ * contrato lo cumple abdaudiolab::test::scratchDir(), y por eso el helper
+ * puede citar tempDirectory: es el unico sitio del proyecto autorizado a hacerlo.
+ *
+ * Estas cuatro entradas quedan PENDIENTES de migracion (workstream de
+ * cuarentena de hardware). Cuando se cierren, la entrada se borra: una
+ * allowlist que acumula permisos caducados deja de proteger.
+ */
+const std::set<std::string>& allowedRawTempDirUsers()
+{
+    static const std::set<std::string> allowed
+    {
+        { "test_ContractsSnapshotDrift.cpp" },
+        { "test_HardwareContractQuarantine.cpp" },
+        { "test_HardwareContractRangeFieldNames.cpp" },
+        { "test_StartupWarningsPanel.cpp" },
+    };
+
+    return allowed;
+}
+
+/**
+ * @brief needles que delatan un temporal crudo en vez de un scratch por test.
+ *
+ * Se buscan las DOS grafias porque JUCE permite espacear la llamada y el codigo
+ * del repo ya usa las dos ("getSpecialLocation(" y "getSpecialLocation ("): un
+ * needle con una sola grafia deja pasar la otra y el guard protege a medias.
+ *
+ * NO se busca simplemente "tempDirectory": los RAII E2ETempDirectory /
+ * TestTempDirectory / IntegrationTempDirectory / SmokeTempDirectory la usan en
+ * el NOMBRE del tipo, y esos ya cumplen el contrato (temp propio, vaciado y
+ * borrado al salir) por su cuenta.
+ */
+const std::vector<std::string>& rawTempDirNeedles()
+{
+    static const std::vector<std::string> needles
+    {
+        "getSpecialLocation(juce::File::tempDirectory)",
+        "getSpecialLocation (juce::File::tempDirectory)",
+    };
+
+    return needles;
+}
+
 } // namespace
 
 TEST_CASE("Hygiene de rutas: ningun test resuelve datos del repo por getCurrentWorkingDirectory",
@@ -550,4 +679,164 @@ TEST_CASE("Hygiene de rutas: la raiz se resuelve igual desde cualquier directori
     const auto fromHere = abdaudiolab::core::requireRepoRoot();
     REQUIRE(fromHere.isDirectory());
     REQUIRE(fromHere.getChildFile("ABDAudioLab.workspace").existsAsFile());
+}
+TEST_CASE("Hygiene de escritura: ningun test pide una ruta del repo fuera de artifactDir",
+          "[hygiene][resourcepaths][writes]")
+{
+    // Este es el guard que convierte "ningun test escribe en ficheros versionados"
+    // de convencion en invariante. Los barridos anteriores miraban
+    // getCurrentWorkingDirectory y las rutas absolutas, pero los casos que de
+    // verdad ensuciaban el arbol (docs/qa/runs/*.json, fixtures/evaluations/*.json,
+    // assets/presets/*.json) no tocaban ninguno de los dos: escribian a traves de
+    // un ACCESOR que devuelve una ruta del repo, y ningun patron de texto delata
+    // un accessor. Un guard que no ve el fallo que motives la incidencia no
+    // protege de el.
+    const juce::File testsDir = juce::File(__FILE__).getParentDirectory();
+
+    REQUIRE(testsDir.isDirectory());
+
+    const auto result = scanForForbiddenPatterns (testsDir, false, "*.cpp",
+                                                  allowedRepoPathReaders(), kGuardFileName,
+                                                  repoWritePathNeedles(), true, false);
+
+    INFO("Ficheros de test escaneados: " << result.scanned);
+    INFO("Ficheros de test que piden una ruta del repo sin justificar: " << result.offenders.size());
+
+    for (const auto& offender : result.offenders)
+        FAIL_CHECK(offender);
+
+    for (const auto& missing : result.unreadable)
+        FAIL_CHECK("No se pudo leer: " + missing);
+
+    REQUIRE(result.unreadable.empty());
+    REQUIRE(result.scanned > 0);
+}
+
+TEST_CASE("Hygiene de escritura: las fixtures de un test viven en su scratch, no en %TEMP% crudo",
+          "[hygiene][resourcepaths][writes]")
+{
+    // Un temporal crudo tiene dos fallos que el scratch por test no tiene: el
+    // nombre fijo lo comparten dos tests que se pisan, y nadie lo borra, asi que
+    // los restos se acumulan en %TEMP% y una corrida interrumpida hereda un
+    // directorio a medio construir como si fuera valido.
+    const juce::File testsDir = juce::File(__FILE__).getParentDirectory();
+
+    REQUIRE(testsDir.isDirectory());
+
+    const auto tests = scanForForbiddenPatterns (testsDir, false, "*.cpp",
+                                                 allowedRawTempDirUsers(), kGuardFileName,
+                                                 rawTempDirNeedles(), true, false);
+
+    INFO("Ficheros de test escaneados: " << tests.scanned);
+    INFO("Ficheros de test con temporal crudo: " << tests.offenders.size());
+
+    for (const auto& offender : tests.offenders)
+        FAIL_CHECK(offender);
+
+    for (const auto& missing : tests.unreadable)
+        FAIL_CHECK("No se pudo leer: " + missing);
+
+    REQUIRE(tests.unreadable.empty());
+    REQUIRE(tests.scanned > 0);
+
+    // El helper es el unico autorizado a citar tempDirectory: es el punto donde se
+    // decide el scratch raiz. Sin este segundo barrido, migrar un test seria solo
+    // mover el problema de sitio.
+    const juce::File supportDir = testsDir.getChildFile("support");
+
+    REQUIRE(supportDir.isDirectory());
+
+    const auto support = scanForForbiddenPatterns (supportDir, false, "*.cpp",
+                                                    { "LabTestScratch.cpp" }, kGuardFileName,
+                                                    rawTempDirNeedles(), true, false);
+
+    INFO("Helpers escaneados: " << support.scanned);
+
+    for (const auto& offender : support.offenders)
+        FAIL_CHECK(offender);
+
+    for (const auto& missing : support.unreadable)
+        FAIL_CHECK("No se pudo leer: " + missing);
+
+    REQUIRE(support.unreadable.empty());
+    REQUIRE(support.scanned > 0);
+}
+
+TEST_CASE("LabTestScratch: el scratch de un test existe, se vacia y nunca cae en el repo",
+          "[hygiene][resourcepaths][writes][scratch]")
+{
+    using namespace abdaudiolab::test;
+
+    // 1. El scratch se crea y vive en el temporal del sistema.
+    const auto root = scratchRoot();
+    const auto tempDir = juce::File::getSpecialLocation (juce::File::tempDirectory);
+
+    REQUIRE(tempDir.isDirectory());
+    REQUIRE(root.isAChildOf (tempDir));
+
+    const auto dir = scratchDir ("hygiene_self_check");
+
+    REQUIRE(dir.isDirectory());
+    REQUIRE(dir.isAChildOf (root));
+    REQUIRE_FALSE(isInsideRepo (dir));
+
+    // 2. Volver a pedirlo lo vacia: dos corridas seguidas del mismo test empiezan
+    // desde el mismo estado, y una corrida interrumpida no hereda restos.
+    dir.getChildFile("basura.txt").replaceWithText ("contenido");
+
+    REQUIRE(dir.getChildFile("basura.txt").existsAsFile());
+
+    const auto again = scratchDir ("hygiene_self_check");
+
+    REQUIRE(again == dir);
+    REQUIRE_FALSE(again.getChildFile("basura.txt").exists());
+
+    // 3. clearScratchDir() borra, y es idempotente.
+    clearScratchDir ("hygiene_self_check");
+    REQUIRE_FALSE(dir.exists());
+    REQUIRE_NOTHROW (clearScratchDir ("hygiene_self_check"));
+
+    // 4. La invariante que hace que el helper sirva de algo. Se comprueba sobre
+    //    la raiz del repo y sobre un directorio REAL suyo, porque isAChildOf() no
+    //    es reflexivo y el caso de igualdad es justo el peligroso.
+    const auto repoRoot = abdaudiolab::core::requireRepoRoot();
+
+    REQUIRE(isInsideRepo (repoRoot));
+    REQUIRE(isInsideRepo (repoRoot.getChildFile ("docs")));
+    REQUIRE(isInsideRepo (repoRoot.getChildFile ("docs/qa/runs")));
+    REQUIRE_FALSE (isInsideRepo (root));
+    REQUIRE_FALSE (isInsideRepo (tempDir));
+    REQUIRE_FALSE (isInsideRepo (juce::File()));
+
+    // 5. Un nombre de test con acentos, comas y corchetes (como los que Catch2
+    //    genera al desglosar secciones) se vuelve un nombre de directorio valido.
+    const auto sanitized = sanitizeScratchName ("Fase 20.11.5: [T5] Medicion, \"caso\"");
+
+    REQUIRE(sanitized.isNotEmpty());
+    REQUIRE(sanitized.length() <= 96);
+
+    for (auto ch : sanitized)
+        REQUIRE((std::isalnum (static_cast<unsigned char> (ch)) != 0
+                 || ch == '.' || ch == '_' || ch == '-'));
+
+    REQUIRE(sanitizeScratchName ("").isEmpty());
+
+    // 6. artifactDir() sin opt-in devuelve el scratch; con opt-in, el repo. La
+    //    rama se elige con el valor REAL del proceso, de modo que correr la suite
+    //    con ABD_REGENERATE_ARTIFACTS=1 ejercita la otra mitad sin duplicar test.
+    const auto artifact = artifactDir ("docs/qa/runs", "hygiene_self_check");
+
+    if (artifactRegenerationEnabled())
+    {
+        REQUIRE(artifact == abdaudiolab::core::docsQaRunsDir());
+        REQUIRE(isInsideRepo (artifact));
+    }
+    else
+    {
+        REQUIRE(artifact.isAChildOf (root));
+        REQUIRE_FALSE(isInsideRepo (artifact));
+    }
+
+    clearScratchDir ("hygiene_self_check");
+    clearScratchDir ("hygiene_self_check_docs_qa_runs");
 }
