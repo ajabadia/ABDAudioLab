@@ -80,6 +80,11 @@
 namespace abdaudiolab
 {
 
+namespace gui
+{
+class MeasurementFloatingWindow;
+}
+
 class MainContentComponent : public juce::Component,
                              public juce::Timer,
                              public juce::KeyListener,

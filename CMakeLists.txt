@@ -483,6 +483,8 @@ target_sources(ABDAudioLab
         src/gui/presentation/SessionStatusPresenter.cpp
         src/gui/MainContentComponent.h
         src/gui/MainContentComponent.cpp
+        src/gui/MeasurementFloatingWindow.h
+        src/gui/MeasurementFloatingWindow.cpp
         src/gui/StartupWarningsPanel.h
         src/gui/StartupWarningsPanel.cpp
         src/gui/LabApplication.h
