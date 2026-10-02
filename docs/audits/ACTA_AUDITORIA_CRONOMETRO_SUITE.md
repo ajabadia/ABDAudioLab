@@ -511,10 +511,10 @@ Un aviso que sale aunque la comparación esté en verde es justo lo que hace que
 
 | Vuelta | Qué pasó | Qué dijo el cronómetro |
 |---|---|---|
-| 1.ª | **SIGSEGV** en `test_MeasurementFloatingWindow.cpp:108`, seccion *«el constructor se queda el contenido y la geometria que le pasan»*, cortado a los **585 de 939** casos | `medicion-incompleta`, código 1, *«ha terminado de forma anormal, con codigo 3221226525»* |
+| 1.ª | muerte **sin traza**, cortada a los **585 de 939** casos. El caso que aparecía abierto no es el punto de la muerte: **ver §6.23** | `medicion-incompleta`, código 1, *«ha terminado de forma anormal, con codigo 3221226525»* |
 | 2.ª | muerte temprana, **XML sin cerrar** antes de los 100 s | `medicion-incompleta`, código 1, *«le falta el cierre del documento»* |
 
-Aislado ese test **pasa** (33 aserciones con el filtro `[floating_window]`), así que la muerte depende del orden — Catch2 siembra el azar distinto en cada vuelta —. Es código **commiteado**: del crash no hay nada en el `working tree` de este hilo, y `test_MeasurementFloatingWindow.cpp` no lo toca ninguno de los ficheros modificados. Queda anotado aquí para el hilo que lo tenga delante.
+**Corregido en §6.23.** Aquí se señaló un `SIGSEGV` en `test_MeasurementFloatingWindow.cpp:108`, y las dos cosas son falsas: no hubo nunca un `SIGSEGV`, y ese fichero no estaba en ninguna traza. Lo que se leyó como «el caso en el que murió» era **el último `<TestCase>` que el buffer del reporter llegó a volcar**, que es el corte de la escritura y no el punto donde el proceso se quedó. Por eso el nombre cambiaba de una vuelta a otra, y por eso el fichero señalado no tenía nada que ver. Ese test **pasa** aislado —33 aserciones, 0,26 s— y siempre pasó.
 
 Las dos muertes demuestran que los guards **del cronómetro** funcionan: se negó a analizar una medición incompleta, dio el motivo exacto y salió con 1.
 
@@ -1116,6 +1116,122 @@ contenido manda a mirar donde no está el fallo. Ahora es *Self-check: what this
 repo says about itself is true*, que es la promesa y no la lista —las listas se
 pudren—.
 
+## 6.23. No era un SIGSEGV: el proceso se quedaba vivo esperando a un driver
+
+La muerte que bloqueaba la regeneración de §6.14 tenía nombre y fichero de
+origen. Los dos eran incorrectos, y el error era de lectura, no de medición: el
+XML del reporter se vuelca por trozos, así que **el último `<TestCase>` abierto
+es el último que el buffer alcanzó a escribir**, no el caso en el que el
+proceso se paró. Ese corte cambia entre ejecuciones según cuánto quepa en el
+buffer, así que leerlo como «el caso culpable» produce un fichero distinto cada
+vez. En tres vueltas el mismo fallo se leyó como `ProfilingSessionController`,
+como `AudioMidiInterfaceDetector` y como `HITO-10D2.7A.2 - 2`.
+
+### Lo que sí pasaba: el proceso no moría
+
+La telemetría del runner escribe un latido cada 5 s con `alive=yes`, y en los
+cortes seguía escribiendo: `case_ms` llegó a **569 093** en
+`run-13484-1.log` y a **310 375** en otra vuelta. Un proceso que ha muerto por
+violación de acceso no puede escribir. El estado de los hilos, leído con
+PowerShell, lo dice sin ambigüedad:
+
+```
+tid=54592 state=Wait wait=LpcReply cpu=0.26
+```
+
+`LpcReply` es un proceso de usuario **esperando al kernel** a que un driver le
+conteste. No es memoria corrupta: es una llamada que nunca vuelve. No hay
+`cdb`, `windbg` ni `dumpchk` en la máquina, y no hay ningún `.dmp` —el volcado
+solo se dispara ante una muerte, y aquí no hubo muerte—, así que el camino es
+reducir el caso con el latido, y el caso con marcas.
+
+### Reducir el caso, y por qué las marcas van a `stderr`
+
+El latido del runner dice el caso y la sección, que ya reduce mucho. Para el
+dentro, marcas con `fflush` a `stderr`: el `stdout` del reporter está
+bufferizado, así que mientras el proceso vive no se ve **nada** de lo que
+Catch2 escribió. Con las marcas sale la secuencia entera y el último punto
+alcanzado es donde se queda. Marcar entre llamadas, no dentro de la que se
+cuelga, porque si no el último `DIAG` es el de antes y solo se ve que no se
+llegó.
+
+### El culpable, medido con `winmm` y sin JUCE
+
+Si el cuelga está en JUCE no se arregla mirando JUCE. Con una sonda a
+`winmm.dll` por P/Invoke —sin Catch2, sin el repo, sin nada de lo que
+sospechar— la máquina responde en milisegundos al audio y **nunca** al MIDI:
+
+| Llamada | Resultado |
+|---|---|
+| `midiOutGetNumDevs()` | 3: *Microsoft GS Wavetable Synth*, *DeepMind12D*, *AudioBox USB MIDI Out* |
+| `midiOutGetDevCaps(i)` | los tres, en milisegundos |
+| `midiOutOpen(0)` | `rc=0` en **205 ms** |
+| `midiOutOpen(1)` | **no vuelve** (> 90 s) |
+| `waveOutOpen(i)`, los tres | `rc=11` en 0–16 ms |
+
+El caso que cuelga es el que resuelve el puerto con
+`juce::MidiOutput::getAvailableDevices()` y abre **ese** endpoint por USB
+(`vid_26a0&pid_0042`). El atascado es el driver MIDI del sintetizador, en la
+máquina; no es código de ABDAudioLab.
+
+### Los doce benches, uno a uno
+
+De los doce casos de `test_TargetProfilePhysicalPreflightBench.cpp`, medidos
+aislados con 25 s de plazo:
+
+| Caso | Qué hace | Aislado |
+|---|---|---|
+| `- 1.` | solo **enumera** puertos | 0,23 s |
+| `- 2.` | abre el endpoint que encuentra | **cuelga** |
+| `- 3.` | abre el endpoint que encuentra | **cuelga** |
+| `- 4.` | catálogo de contratos | 0,23 s |
+| `- 5.` | digests y consentimiento | 0,19 s |
+| `- 6.` | cadena canónica y digest | 0,22 s |
+| `- 7.` | abre y despacha 3 bytes | **cuelga** |
+| `- 8.` | id inexistente | 0,32 s |
+| `- 9.` a `- 12.` | `MockMidiTransport` | no abren nada |
+
+La distinción que separa a los tres que cuelgan de los que no es **abrir o
+enumerar**, y por eso la lista no se deduce leyendo si el caso menciona
+hardware: `- 5.` y `- 6.` escriben el mismo puerto que `- 7.` y terminan en
+milisegundos porque nunca llegan a abrirlo.
+
+### El arreglo: que un driver malo no pueda tumbar la suite
+
+Un test que depende de una llamada a hardware ajeno no puede vivir en la
+corrida por defecto: cuando esa llamada no vuelve, **Catch2 no puede cortar
+nada** porque el caso no ha terminado, y la suite entera se queda viva. Eso no
+lo arregla el repositorio, pero sí lo arregla que esos tres casos no se ejecuten
+por defecto. Llevan el tag `[.]` de Catch2: siguen escritos y se ejecutan a
+mano por su nombre cuando el sintetizador está conectado y el driver responde,
+y ya no pueden tumbar la suite ni el cronómetro. El motivo está escrito en el
+propio fichero, junto al primer caso.
+
+**El límite del tag, medido.** Con los filtros que usa el cronómetro
+(`~[integration-01]` y `~*PluginHost*`) los tres **no** corren, comprobado sobre
+la corrida completa. Con un filtro **por tags** sí: `[hardware]` vuelve a
+ejecutarlos. No es un fallo del tag sino de cómo pide el caso la ejecución, y
+lo que protege de verdad es la corrida por defecto, que es la que usan CTest y
+la CI.
+
+### Lo que queda fuera, y por qué el cronómetro sigue sin poder terminar
+
+Recuperar el subsistema MIDI es cosa de la máquina y **no** hay cambio de
+código que la arregle. Se intentó sin reiniciar Windows, en este orden y con
+resultado medido: reiniciar el dispositivo PnP del DeepMind (**se reinició
+bien, no sirvió**), matar `audiodg` (**se terminó, no sirvió**) y reiniciar el
+servicio `AudioSrv` (**se detuvo y arrancó, no sirvió**). El atasco está en un
+driver en modo kernel que no se descarga con esas tres cosas. Queda pendiente
+desenchufar y volver a enchufar el USB del sintetizador, o reiniciar la
+máquina.
+
+Mientras tanto la **regeneración de la referencia sigue bloqueada**: sin MIDI
+sano hay casos que se quedan vivos aunque ya no sean los tres de aquí, y el
+bloque `ruido` de §6.14 no se puede guardar. Las cinco comprobaciones que lo
+vigilan **siguen aparcadas** en `tools/test_duraciones_suite.mjs`, que es donde
+deben estar: no están aparcadas por un defecto del cronómetro sino por el
+estado de una máquina.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -1260,6 +1376,17 @@ pudren—.
 | §6.22: el rojo segun la posicion del auditor en el bloque | primero **llega**, segundo y tercero **no llegan** |
 | §6.22: lo mismo con `&&` y con `;` | **igual**: el rojo llega solo en primera posicion |
 | §6.22: el YAML tras el cambio | **parsea**, y el paso no lleva `continue-on-error` |
+| §6.23: el latido del runner en los cortes | `alive=yes` con `case_ms` de hasta **569 093 ms**: el proceso no había muerto |
+| §6.23: el estado del hilo principal, por PowerShell | `Wait` en **`LpcReply`**, o sea esperando al kernel |
+| §6.23: `test_MeasurementFloatingWindow.cpp` aislado | **pasa**, 33 aserciones, 0,26 s |
+| §6.23: los doce benches del preflight, aislados, 25 s de plazo | **3 cuelgan** (`- 2.`, `- 3.`, `- 7.`), los otros nueve en 0,19–0,32 s |
+| §6.23: `midiOutOpen` por P/Invoke, sin JUCE | puerto 0 en **205 ms**, puerto 1 **no vuelve**; `waveOutOpen` responde en 0–16 ms |
+| §6.23: los tres casos con `[.]` pedidos por su nombre | **siguen colgando**: el tag no los arregla, solo los esconde |
+| §6.23: los tres casos con los filtros `~` del cronometro | **no se ejecutan**, comprobado sobre la corrida completa |
+| §6.23: `[hardware]` sobre los mismos tres | **sí se ejecutan**: un filtro por tags resucita un caso oculto |
+| §6.23: reinicio del dispositivo PnP, `audiodg` y `AudioSrv` | los tres **sin efecto**: el atasco está en el driver de kernel |
+| §6.23: `test_build_bat_perf.mjs` | **158 aserciones** |
+| §6.23: `test_duraciones_suite.mjs` | **202 aserciones**, con las cinco de `ruido` sigue aparcadas |
 
 ## 8. Commits
 
@@ -1296,7 +1423,8 @@ pudren—.
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
-| este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
+| este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14 y §6.23— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
+| este commit | §6.23: **corrige** el diagnóstico de §6.14. No hubo un `SIGSEGV` en `test_MeasurementFloatingWindow.cpp:108`: el proceso se quedaba **vivo** con el hilo principal en `LpcReply`, esperando a que un driver MIDI de la máquina contestara, y el «caso culpable» era el último volcado del buffer del reporter. Localizado con una sonda a `winmm` sin JUCE —`midiOutOpen` del DeepMind12D no vuelve, mientras `waveOutOpen` responde en milisegundos— y medidos los doce benches del preflight uno a uno. Arreglo: los **tres** que abren un endpoint real llevan el tag `[.]` de Catch2, y ya no pueden tumbar la suite por defecto; el motivo queda escrito en el fichero. **La regeneración de la referencia sigue bloqueada** por el driver: reiniciar el dispositivo, `audiodg` y `AudioSrv` no lo liberan, y las cinco comprobaciones de `ruido` siguen aparcadas. 158 y 202 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 

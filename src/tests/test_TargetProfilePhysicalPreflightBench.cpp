@@ -87,6 +87,22 @@ MidiPortSelection makeDeepMind12Port()
 
 } // namespace
 
+// POLÍTICA DE CASOS QUE ABREN HARDWARE REAL
+//
+// Estos benches de aquí abajo abren de verdad un endpoint MIDI del host a
+// través de JuceMidiTransport. En una máquina cuyo driver de dispositivo está
+// sano, abrir un puerto USB cuesta milisegundos. Si el driver está en mal
+// estado, midiOutOpen se queda bloqueado para siempre: el hilo principal no
+// vuelve y la corrida entera se queda viva, sin Catch2 que pueda cortar nada
+// porque el caso no ha terminado. No es un fallo del código de ABDAudioLab y
+// no se puede arreglar desde aquí.
+//
+// Por eso los casos que SÍ abren hardware llevan el tag [.] de Catch2: siguen
+// escritos y se ejecutan a mano por su nombre cuando el sintetizador está
+// conectado y el driver responde, pero no pueden tumbar la suite ni el
+// cronómetro. Un caso que solo ENUMERA puertos (este primero) no lleva [.]
+// porque enumerar no abre y termina siempre en milisegundos.
+
 TEST_CASE("HITO-10D2.7A.2 - 1. Host MIDI Port Enumeration and Virtual Port Exclusion", "[hardware][physical][bench][preflight]")
 {
     const auto availableOutputs = juce::MidiOutput::getAvailableDevices();
@@ -126,7 +142,9 @@ TEST_CASE("HITO-10D2.7A.2 - 1. Host MIDI Port Enumeration and Virtual Port Exclu
     }
 }
 
-TEST_CASE("HITO-10D2.7A.2 - 2. Read-Only Physical Preflight on Observed Endpoint", "[hardware][physical][bench][preflight]")
+// Apertura de endpoint MIDI real: véase la nota de política justo antes del
+// caso "HITO-10D2.7A.2 - 1." de este mismo fichero.
+TEST_CASE("HITO-10D2.7A.2 - 2. Read-Only Physical Preflight on Observed Endpoint", "[hardware][physical][bench][preflight][.]")
 {
     const auto availableOutputs = juce::MidiOutput::getAvailableDevices();
     juce::MidiDeviceInfo deepMindOut;
@@ -199,7 +217,7 @@ TEST_CASE("HITO-10D2.7A.2 - 2. Read-Only Physical Preflight on Observed Endpoint
     }
 }
 
-TEST_CASE("HITO-10D2.7A.2 - 3. Fail-Closed Boundaries on Invalid Port and Strict Identity", "[hardware][physical][bench][preflight]")
+TEST_CASE("HITO-10D2.7A.2 - 3. Fail-Closed Boundaries on Invalid Port and Strict Identity", "[hardware][physical][bench][preflight][.]")
 {
     SECTION("Invalid port selection fails closed with ERR_MIDI_OUTPUT_OPEN_FAILED")
     {
@@ -506,7 +524,7 @@ TEST_CASE("HITO-10D2.7A.3 - 6. Literal Canonical String, Byte Count and Digest F
     REQUIRE(req.commandDigest == expectedCommandDigest);
 }
 
-TEST_CASE("HITO-10D2.7A.4 - Single Physical Dispatch Execution (3 Bytes Wire CC) and Forensics", "[hardware][physical][bench][dispatch]")
+TEST_CASE("HITO-10D2.7A.4 - Single Physical Dispatch Execution (3 Bytes Wire CC) and Forensics", "[hardware][physical][bench][dispatch][.]")
 {
     // Pre-dispatch Validation 1: Physical endpoint availability
     const auto availableOutputs = juce::MidiOutput::getAvailableDevices();
