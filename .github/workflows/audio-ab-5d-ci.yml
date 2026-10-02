@@ -92,6 +92,14 @@ jobs:
           path: ABDSharedAssets
           fetch-depth: 1
 
+      - name: Checkout ABDScope (Immutable Sibling Ref)
+        uses: actions/checkout@v4
+        with:
+          repository: ajabadia/ABDScope
+          ref: 0a296f3f3d161f65b41be4d02413ab858dddff55
+          path: ABDScope
+          fetch-depth: 1
+
       - name: Setup MSVC Environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -164,6 +172,25 @@ jobs:
           path: |
             ${{ runner.temp }}/abdaudiolab-tests/runner/
           if-no-files-found: ignore
+
+      # ─────────────────────────────────────────────────────────────────────
+      # EL CRONOMETRO SE COMPRUEBA A SI MISMO, y este paso es PUERTA de verdad.
+      #
+      # No es lo mismo que el paso de medir que viene justo despues, y la
+      # diferencia es la misma que separa el codigo 1 del codigo 2: aqui no hay
+      # nada dependiente de la maquina. Los tests del tool son deterministas,
+      # tardan 0,7 s y no tocan la suite de C++, asi que un rojo aqui significa
+      # exactamente una cosa —el tool esta roto— y no «hoy la maquina va cargada».
+      # Por eso este paso NO lleva continue-on-error y el de medir si.
+      #
+      # Va antes de medir y no despues por un motivo concreto: si el tool esta
+      # roto, la medicion que salga de el no es una medicion mala, es una
+      # medicion que no existe con forma de medicion. Despues se podria avisar,
+      # pero el resultado ya habria quedado en el log, y hay quien lo lee sin mirar el
+      # exit code. Antes, el rojo sale solo y no hay nada que leer por encima.
+      - name: Self-check the Timing Tool
+        run: |
+          node tools/test_duraciones_suite.mjs
 
       # El cronometro, aqui y no en un job aparte, porque es el UNICO sitio donde
       # la suite esta compilada. En Ubuntu no compila —el proyecto es JUCE con
