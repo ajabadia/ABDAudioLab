@@ -576,6 +576,7 @@ const std::set<std::string>& allowedPathCitationDocuments()
         // Actas que registran el incidente que las produjo (Gate 6) y el informe
         // de calidad con el literal de cada hallazgo.
         { "ACTA_HITO_AUDIO_AB_5D.md" },
+        { "ACTA_AUDITORIA_CRONOMETRO_SUITE.md" },
         { "CODE_QUALITY_REPORT.md" },
 
         // Documentos que ENSEÑAN el patron para que no se repita.

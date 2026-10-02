@@ -430,7 +430,7 @@ El `exit /b 3` aparece **una sola vez** en el fichero, y hay aserción para eso:
 
 ## 6.12. La referencia guarda la ruta relativa al repositorio, y el formato pasa a 2
 
-La referencia guardaba en cada caso la ruta **ABSOLUTA** que le da Catch2, y con ella dentro iban el disco, el proyecto y el usuario: `D:/desarrollos/ABDSynths/ABDAudioLab/src/tests/...`. Tres cosas que no son las mismas en otra máquina y que no dicen nada del test. Y la referencia está **commiteada**, así que el efecto era concreto: dos personas con el mismo código generaban dos ficheros distintos, y el diff de la referencia decia cosas que no eran cambios de tiempo.
+La referencia guardaba en cada caso la ruta **ABSOLUTA** que le da Catch2, y con ella dentro iban el disco, el proyecto y el usuario: `<disco>/<desarrollos>/<proyecto>/src/tests/...`. Tres cosas que no son las mismas en otra máquina y que no dicen nada del test. Y la referencia está **commiteada**, así que el efecto era concreto: dos personas con el mismo código generaban dos ficheros distintos, y el diff de la referencia decia cosas que no eran cambios de tiempo.
 
 **Ahora guarda la ruta relativa al repositorio**, con `/`. De los 939 casos, **875** quedan como `src/tests/...` y **64 como `../ABDSharedCode/...`**, que son los del repo hermano y no son un caso hipotético: son casi siete de cada cien. Los que no caen ni en el repo ni en su hermano **se dejan como venían**, porque ahí no hay ruta relativa que diga la verdad y fabricar una sería peor que guardar la entera. Lo que se fue de la referencia: **39.353 bytes**, todos de disco y de usuario.
 
@@ -544,7 +544,7 @@ Una suite que se muere en el 62 % del recorrido daba un build **verde**, con su 
 En `build.bat:293` la línea termina en `set "PERF_ESTADO=%%e` **sin la comilla de cierre**. Esa lónea está dentro de un bloque `if/else`, y dentro de un bloque cmd empareja las comillas cruzando líneas: el `for /f` deja de ejecutar el comando y busca un **fichero** llamado `findstr /b /c:...`. En el log de verdad:
 
 ""
-El sistema no puede encontrar el archivo "findstr /b /c:"ABD-VEREDICTO " "C:\Users\...\abdl_perf.txt"".
+El sistema no puede encontrar el archivo "findstr /b /c:"ABD-VEREDICTO " "<temp_dir>\abdl_perf.txt"".
 [Warn] State: desconocido.
 ""
 
