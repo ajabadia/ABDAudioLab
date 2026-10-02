@@ -694,6 +694,32 @@ La etiqueta `:WAIT_LOOP` está dentro del `if errorlevel 1 (` del paso 2, y es e
 
 **No se ha tocado `run-plan.bat`.** Es el ejecutor del tándem y el hilo paralelo lo está usando: cambiarlo en caliente es exactamente el tipo de acción que se cruza entre workstreams. El arreglo es mover `:WAIT_LOOP` fuera del bloque y dejar el `goto` de vuelta, que es la variante B de la reproducción y da el mismo resultado sin el bucle eterno. Queda pendiente de decisión.
 
+### El arreglo de `run-plan.bat`, aplicado y ejecutado
+
+La espera pasa a ser una **subrutina**. La etiqueta sale del `if errorlevel 1 (`, se entra con `call :esperarServidor` y se sale con `goto :eof`, que es el mismo idioma que usa `build.bat`. El flujo principal salta por encima con `goto :finDelPaso2`, sin el cual la rama `else` caería dentro del cuerpo de la subrutina con `%1` vacío —el fallo de §6.9, con un `curl` en vez de un `mklink`. Y `:OLLAMA_UP` desaparece: solo existía porque el bucle estaba dentro de la rama.
+
+**Ejecutado de verdad, con shims `.exe` de System32** — un `.cmd` mataría el script, §6.16—. Dos casos, los dos completos:
+
+| Caso | Estado | Llega al paso 3 | Llega al paso 4 |
+|---|---|---|---|
+| el servidor ya responde | **0** | sí | sí |
+| el servidor no responde nunca | **1** | **no** | no |
+
+La rama `else` llega al paso 3 sin haber pasado por la subrutina, que es la caída que se estaba arreglando. Y la rama de espera respeta el plazo y **falla el script entero**.
+
+#### El fallo que el arreglo introdujo, y que solo apareció al ejecutarlo
+
+El `exit /b 1` del plazo estaba en el **cuerpo** de la subrutina, así que salió del `call` y no del script: el flujo seguía y el paso 3 se ponía a **descargar el modelo contra un servidor muerto**. El mensaje de error era correcto y el script hacía lo contrario, sin rojo en ninguna parte —la clase de verde falso de §6.7, hecha de un `exit /b` que nadie miró porque estaba donde se puso.
+
+El arreglo es propagar el fallo en quien llama:
+
+```
+call :esperarServidor
+if errorlevel 1 exit /b 1
+```
+
+Y es la razón de que la verificación sea **de ejecución** y no de texto. Las tres ramas de §6.16 y §6.17 son reglas de forma; esta comprueba una cosa que la forma no dice: que un `exit /b` dentro de un `call` se comporte como un `exit /b` dentro de un `call`.
+
 ### Dos falsos positivos que salieron de la propia regla de §6.17
 
 La primera versión del auditor aplicaba la regla del hueco a **todas** las etiquetas y daba tres hallazgos en `run-plan.bat`. Dos de ellos eran falsos, y el motivo es una suposición que §6.17 nunca explicito:
@@ -834,6 +860,10 @@ Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la prop
 | §6.18: falsos positivos de la regla del hueco sin la distinción `call` | **2**, los dos en `:OLLAMA_UP` |
 | §6.18: mutaciones del auditor, una por regla | **5 de 5** |
 | §6.18: auditor con una subrutina sin su `goto :eof` | antes **verde** por un dos puntos perdido → ahora rojo |
+| §6.18: `run-plan.bat` con la espera como subrutina | **limpio en las cinco reglas** |
+| §6.18: ejecutado, servidor respondiendo | **status 0**, pasos 3 y 4 alcanzados |
+| §6.18: ejecutado, servidor muerto | **status 1**, el paso 3 **no** se alcanza |
+| §6.18: el `exit /b 1` de la subrutina sin propagar | imprimía el error y **seguía descargando el modelo** |
 
 ## 8. Commits
 
@@ -853,6 +883,7 @@ Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la prop
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
+| este commit | §6.18 (cont.): la espera de `run-plan.bat` pasa a ser una **subrutina** —`call :esperarServidor`, se sale con `goto :eof`, y el flujo principal salta por encima con `goto :finDelPaso2`— y `:OLLAMA_UP` desaparece. Ejecutado con shims `.exe`: con el servidor respondiendo **status 0** y pasos 3 y 4 alcanzados; con el servidor muerto **status 1** y sin llegar al paso 3. El arreglo introdujo un fallo que solo apareció al ejecutarlo: el `exit /b 1` del plazo salía del `call` y no del script, así que el flujo seguía y **se ponía a descargar el modelo contra un servidor muerto** con el mensaje de error puesto. Corregido propagando el fallo en quien llama |
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |

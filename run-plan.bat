@@ -36,25 +36,50 @@ curl -s --max-time 3 "%OLLAMA_API_BASE%/api/version" >nul 2>&1
 if errorlevel 1 (
     echo        Servidor no detectado. Arrancando ollama serve en background...
     start /b "" ollama serve
-
-    :: Esperar hasta OLLAMA_TIMEOUT_SEC segundos a que responda
-    set /a WAIT=0
-:WAIT_LOOP
-    timeout /t 2 /nobreak >nul
-    curl -s --max-time 2 "%OLLAMA_API_BASE%/api/version" >nul 2>&1
-    if not errorlevel 1 goto OLLAMA_UP
-    set /a WAIT+=2
-    if !WAIT! geq %OLLAMA_TIMEOUT_SEC% (
-        echo [ERROR] Ollama no arranco en %OLLAMA_TIMEOUT_SEC% segundos.
-        exit /b 1
-    )
-    echo        Esperando... (!WAIT!s / %OLLAMA_TIMEOUT_SEC%s)
-    goto WAIT_LOOP
+    call :esperarServidor
+    rem `exit /b 1` dentro de una subrutina sale del CALL, no del script. Sin
+    rem esta linea, el script imprime su error de plazo y sigue a descargar el
+    rem modelo contra un servidor muerto, sin rojo en ninguna parte.
+    if errorlevel 1 exit /b 1
 ) else (
     echo        OK - servidor Ollama respondiendo.
 )
+goto :finDelPaso2
 
-:OLLAMA_UP
+:: La espera es una SUBRUTINA y no un bucle dentro del `if`, y no por gusto.
+::
+:: Una etiqueta dentro de un bloque se alcanza con el bloque abierto: el `goto`
+:: la busca por el fichero entero y el parser arrastra el parentesis que
+:: falta. Medido con una reproduccion de esta misma estructura: con la
+:: etiqueta FUERA el bucle se comporta, y con la etiqueta DENTRO no sale de
+:: el en 30 s. El sintoma exacto en este script no se ha medido --no se ha
+:: ejecutado de verdad porque necesita Ollama--, pero el hecho estructural es
+:: el mismo y no depende de quien lo mida.
+::
+:: Y al salir de la subroutina con `goto :eof`, el `else` vuelve a caer en
+:: `:finDelPaso2`, que es el punto donde se juntan las dos ramas. Antes el
+:: punto de encuentro era una etiqueta mas, `:OLLAMA_UP`, que solo hacia falta
+:: porque el bucle estaba dentro de la rama: al salir el bucle de ahi, ella
+:: tambien se va.
+:esperarServidor
+:: Esperar hasta OLLAMA_TIMEOUT_SEC segundos a que responda
+set /a WAIT=0
+:WAIT_LOOP
+timeout /t 2 /nobreak >nul
+curl -s --max-time 2 "%OLLAMA_API_BASE%/api/version" >nul 2>&1
+if not errorlevel 1 goto :eof
+set /a WAIT+=2
+if !WAIT! geq %OLLAMA_TIMEOUT_SEC% (
+    echo [ERROR] Ollama no arranco en %OLLAMA_TIMEOUT_SEC% segundos.
+    exit /b 1
+)
+echo        Esperando... (!WAIT!s / %OLLAMA_TIMEOUT_SEC%s)
+goto WAIT_LOOP
+
+:: El salto de antes lo salta. Sin el, el flujo principal caeria en el cuerpo
+:: de la subrutina con `%1` vacio --que es justo el fallo de 6.9 en
+:: `build.bat`, con `mklink /J "" ""` en vez de un `curl`.
+:finDelPaso2
 
 :: -----------------------------------------------------------------------
 :: PASO 3: Comprobar si el modelo esta disponible; descargarlo si no lo esta
