@@ -354,6 +354,32 @@ El comentario que justificaba la posición antigua afirmaba que «los enlaces de
 
 Dos cosas de batch que el banco tuvo que aprender, y que están escritas porque las dos son trampas que se cobran un `exit=0` que parece verde: un `goto :eof` **fuera de un `call`** termina el script entero y se come la cola, así que las subrutinas tienen que ir **al final** del `.bat` generado; y un comentario `::` no es una etiqueta, aunque empiece por `:`. El primer banco fallaba con `exit=0` y ningún veredicto, y era el banco el que estaba mal.
 
+## 6.9. El enlace con la ruta vacía, y lo que había detrás de él
+
+El aviso era `[Error] Could not create the link to .` —con un punto y nada detrás—, y salía en **cada** ejecución, con cualquier modo. En `perf` se veía más porque el bloque del cronómetro es lo último que se ejecuta y es lo que se está mirando en ese momento.
+
+**La causa no era una llamada mal formada. Era que no había ninguna llamada.** El flujo principal terminaba en la línea 356, el `)` que cierra el bloque del cronómetro, y detrás no había ni un `goto` ni un `exit /b`: solo comentarios y, cuatro líneas más abajo, la etiqueta `:crearEnlaceSiProcede`. Batch no distingue *llamar* de *continuar*, así que el flujo principal **cayó dentro de la subrutina**. Dentro ya no hay un `call` delante, de modo que `%1` es el modo del build y `%2` y `%3` están vacíos: en `perf`, `%1` vale `perf` y los otros dos no existen.
+
+A partir de ahí la subrutina se ejecuta con argumentos que nadie le pasó, y hace exactamente lo que se le pedía hacer con ellos:
+
+| Línea | Qué pasa con `%~2` vacío |
+|---|---|
+| `if exist "%~2" goto :eof` | `if exist ""` es **falso**, así que la salida temprana **no** dispara |
+| `git ls-files -- "%~1"` | con `%~1` = `perf` no lista nada, `Rastreado=NO` |
+| `mklink /J "%~2" "%~3"` | `mklink /J "" ""` falla, y el mensaje es `Could not create the link to .` |
+
+El detalle que lo hace tan difícil de leer es que la salida temprana de la línea 399 es justamente la que protege de este camino: con un destino real se sale en la primera línea, y con la ruta vacía no. Un `if exist` que protege el resto del script pero no su propia entrada.
+
+**Lo que había detrás era peor que el ruido.** El `goto :eof` del final de esa subrutina, sin un `call` que lo contenga, no devuelve a quien llama: **termina el script entero**. Con él se iban la cola de `:end` y los dos guards, que es donde vive el `exit /b 1`. Medido antes del arreglo, con `PERF_FATAL=1` puesto a mano y el flujo principal llegando al final: el script imprimía los dos `[Error]` del enlace, se callaba y salía con **0**, sin imprimir nada de la cola.
+
+Es decir que todo lo de §6.1 y §6.8 —los códigos de salida, el 2 del cronómetro, los guards de junctions— estaba escrito y comprobándose sobre una cola que el script real no ejecutaba nunca. Los tests lo decían sin saberlo.
+
+**Por qué el banco no lo veía, que es la parte que conviene quedarse.** `tools/test_build_bat_perf.mjs` no ejecuta `build.bat`: extrae el preámbulo, el bloque del cronómetro y la cola, y los reensambla en un `.bat` propio. Ese montaje es exactamente el layout correcto —flujo, salto, subrutinas, cola— que es lo que faltaba en el original. El banco era una especificación de cómo debería ser el fichero, y una especificación no puede detectar que el fichero no la cumple.
+
+**El arreglo es un `goto :end`** al final del flujo principal, con el motivo escrito al lado para que nadie lo borre por parecer muerto: no lo está. Va antes de la etiqueta y no un `exit /b` al final del fichero, porque `:end` tiene que seguir siendo alcanzable —es la cola que devuelve el fallo—.
+
+**La aserción que lo fija** no ejecuta nada, porque no hay nada que ejecutar: mira el texto. Toda etiqueta de subrutina tiene que tener delante una línea ejecutable que salte (`goto` o `exit /b`); comentarios, `rem` y blancos no cuentan, porque batch se los salta. Se ha comprobado que muerde: quitando el `goto :end` de una copia, se ponen rojas dos.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -387,6 +413,10 @@ Dos cosas de batch que el banco tuvo que aprender, y que están escritas porque 
 | §6.8: el acumulador debajo de sus `call` (fallo encontrado al revisar) | aserción nueva **roja**; con el acumulador en su sitio, verde |
 | §6.8: mutaciones del reparto tras mover el acumulador | **7 mutaciones → 7 en rojo** |
 | §6.8: `test_duraciones_suite.mjs`, sin cambios en el tool | **160 aserciones**, en verde |
+| §6.9: el flujo principal caía dentro de `:crearEnlaceSiProcede` | `[Error] Could not create the link to .` en cada build |
+| §6.9: con `PERF_FATAL=1`, a mano y llegando al final | antes **exit 0** y sin cola → ahora **exit 1** con los dos `[Error]` de la cola |
+| §6.9: `test_build_bat_perf.mjs` con la regla de alcance | **69 aserciones**, +3 |
+| §6.9: esa aserción quitando el `goto :end` de una copia | **2 en rojo** |
 
 ## 8. Commits
 
@@ -400,6 +430,7 @@ Dos cosas de batch que el banco tuvo que aprender, y que están escritas porque 
 | este commit | §6.6: el reparto de códigos pasa de un banco de un solo uso a `tools/test_build_bat_perf.mjs`, y `build.bat` lo ejecuta antes de cronometrar (42 aserciones). Con `*.bat text eol=crlf` en `.gitattributes`, que evita que el diff del build.bat sea el fichero entero cada vez que se toca |
 | este commit | §6.7: el cronómetro imprime una línea de veredicto legible por máquina (seis estados, un solo punto de emisión), un fallo del tool sale con 2 en vez de 1, y `build.bat` lee el estado. El banco del reparto deja de colgarse: emparejamiento por prefijo, las llamadas sin sustituir se nombran, timeout de 40 s por caso y cerrojo de instancia única |
 | este commit | §6.8: cinco comprobaciones de `build.bat` que solo avisaban pasan a fallar el build, con un acumulador propio para las junctions y otro para el cronómetro. El acumulador nuevo ha nacido 40 líneas por debajo de los `call` que lo mueven — lo ha detectado la revisión de este commit, no el test, cuya aserción miraba la definición de la etiqueta en vez del `call` — y esa aserción está corregida. Se deja sin hacer fatal `Rastreado=SI`, que es la comprobación contestando de verdad |
+| este commit | §6.9: el flujo principal se caía dentro de `:crearEnlaceSiProcede` sin un `call` delante, de modo que `%2` y `%3` llegaban vacíos y `mklink /J "" ""` imprimía un enlace con la ruta vacía en cada build. Detrás venía el `goto :eof` de esa subrutina, que sin `call` termina el script y se llevaba la cola de `:end`, o sea el `exit /b 1` de los guards de §6.1 y §6.8. Añadido el `goto :end` que faltaba, y una aserción que prohíbe que una etiqueta de subrutina se alcance por caída |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 

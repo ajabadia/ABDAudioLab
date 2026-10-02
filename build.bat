@@ -355,6 +355,28 @@ set "PERF_FATAL=1"
     )
 )
 
+
+rem --------------------------------------------------------------------- fin
+rem
+rem Aqui TERMINA el flujo principal, y el salto de abajo no es decorativo.
+rem Sin el, batch sigue leyendo linea tras linea y CAE dentro de
+rem :crearEnlaceSiProcede, que esta mas abajo en este mismo fichero. Ahi ya
+rem no hay un `call` delante, de modo que %1 es el modo del build ("perf") y
+rem %2 y %3 estan vacios: `mklink /J "" ""` falla y el build se quejaba de un
+rem enlace con la ruta vacia en CADA ejecucion, sin que nadie lo pidiera.
+rem
+rem Y debajo de ese ruido hay algo mas grave. El `goto :eof` de esa
+rem subrutina, sin un `call` que lo contenga, no devuelve al que llama:
+rem termina el script entero. Con el se iban los dos guards de la cola de
+rem :end, que es donde vive el `exit /b 1`. Medido antes de este arreglo:
+rem con PERF_FATAL=1 puesto, el script salia con 0 y sin imprimir nada de la
+rem cola. Los tests no lo veian porque el banco se reensambla sus propios
+rem fragmentos en el orden correcto, que es justo el que faltaba aqui.
+rem
+rem El salto va aqui y no un `exit /b` al final del fichero, porque :end
+rem tiene que seguir siendo alcanzable: es la cola que devuelve el fallo.
+goto :end
+
 :: ------------------------------------------------------------------ junctions
 ::
 :: %1 = path as git knows it, relative, with forward slashes.
@@ -461,10 +483,10 @@ set "BUILD_FATAL=1"
 goto :eof
 
 :end
-:: El fallo se devuelve aqui y no en el bloque del cronometro, por el motivo que
-:: dice el comentario de PERF_FATAL: los enlaces se montan despues y salir antes
-:: se los saltaria. Un build que montase los enlaces a medias y ademas fallara
-:: dejaria el arbol peor que uno que no llego a empezar.
+:: El fallo se devuelve aqui y no en el bloque donde se detecta, porque todo
+:: lo que se imprime a partir de ahi es largo y quien lee un log se para en el
+:: final. Un build que montase los enlaces a medias y ademas fallara dejaria
+:: el arbol peor que uno que no llego a empezar.
 if "!BUILD_FATAL!"=="1" (
     rem El motivo se dice aqui y no en el punto de fallo, por el mismo motivo
     rem que el de PERF_FATAL: las junctions se montan ANTES de aqui, asi que

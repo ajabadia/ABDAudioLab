@@ -508,6 +508,44 @@ comprobar('y distingue el fallo del cronometro del fallo de los junctions',
 comprobar('los dos guard se leen los dos, no uno o el otro',
   LINEAS.filter((l) => l.includes('endlocal & exit /b 1')).length === 2);
 
+console.log('\nel flujo principal no puede CAER dentro de una subrutina');
+
+// Batch no distingue llamar de continuar. Si el flujo principal llega a una
+// etiqueta sin un `call` delante, %1 es el modo del build y %2 y %3 estan
+// vacios: ahi se ejecutaba `mklink /J "" ""` en cada build, que imprimia un
+// enlace con la ruta vacia. Y el `goto :eof` de esa subrutina, sin `call` que
+// lo contenga, no devuelve: termina el script entero. Con el se iba la cola
+// entera de :end, o sea el `exit /b 1` de los dos guards. Medido: con
+// PERF_FATAL=1 puesto, el script salia con 0 y sin imprimir nada de la cola.
+//
+// El banco no lo veia porque no ejecuta el script: se reensambla sus propios
+// fragmentos en el orden correcto, que es justo el orden que faltaba aqui.
+// Asi que esta asercion es sobre el texto del fichero, no sobre una corrida.
+const ETIQUETAS = LINEAS
+  .map((l, i) => [l.trim(), i])
+  .filter(([l]) => /^:[A-Za-z]/.test(l));
+
+// La ultima linea EJECUTABLE antes de la etiqueta. Comentarios, `rem` y
+// blancos no cuentan: batch se los salta, asi que no cortan el flujo.
+const ULTIMA_EJECUTABLE = (i) => {
+  for (let k = i - 1; k >= 0; k -= 1) {
+    const t = LINEAS[k].trim();
+    if (!t || t.startsWith('::') || /^rem/i.test(t)) continue;
+    return t;
+  }
+  return '';
+};
+
+const POR_CAIDA = ETIQUETAS
+  .filter(([, i]) => !/^(goto|exit\s*\/b)/i.test(ULTIMA_EJECUTABLE(i)));
+
+comprobar('build.bat tiene etiquetas de subrutina que comprobar', ETIQUETAS.length >= 3);
+comprobar('ninguna se alcanza por caida: la linea de antes siempre salta',
+  POR_CAIDA.length === 0);
+comprobar('y la de los junctions salta a la cola, no se come el flujo',
+  ULTIMA_EJECUTABLE(ETIQUETAS.find(([l]) => l === ':crearEnlaceSiProcede')[1])
+    === 'goto :end');
+
 // ── Las comillas ──
 //
 // La asercion mas tonta del fichero y la que mas ha costado: siete lineas
