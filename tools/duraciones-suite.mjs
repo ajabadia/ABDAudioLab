@@ -147,8 +147,48 @@ export function paraCatchDe(argumentos) {
   return argumentos.filter((a) => !a.startsWith('--') && !valores.has(a));
 }
 
-/** Tiempo de reloj que se concede a la suite antes de darla por colgada. */
-const LIMITE_MS = 20 * 60 * 1000;
+/** Cuantas veces el total de la referencia se concede antes de darla por colgada. */
+const VECES_EL_TOTAL = 4;
+
+/**
+ * El total de referencia que se supone cuando no hay ninguna.
+ *
+ * 300 s por cuatro son 1200 s, que es lo que el limite ha sido siempre. Sin
+ * referencia no hay nada mejor que ese numero, y cualquier numero inventado seria
+ * mejor que el viejo solo si hubiera una razon —que no hay—.
+ */
+const TOTAL_SIN_REFERENCIA_S = 300;
+
+/**
+ * El tiempo de reloj que se concede a la suite antes de darla por colgada.
+ *
+ * Sale de la referencia en vez de ser un numero fijo, porque un tope fijo solo
+ * significa algo mientras la suite mida lo que media cuando se escribio el tope.
+ * Con 20 minutos y una suite de 176 s el tope era catorce veces el trabajo
+ * esperado: no era un limite, era un tope nominal, y un cuelgue se acababa
+ * descubriendo por el reloj del pipeline y no por aqui.
+ *
+ * CUATRO VECES, y el numero sale de una asimetria. Equivocarse por lo bajo
+ * produce un cuelgue FALSO: una maquina tres veces mas lenta que la de la
+ * referencia no esta colgada, esta ocupada, y desde 078b2aa eso sale
+ * con codigo 1 y con un mensaje de medicion que no ha terminado —una alarma
+ * falsa en el sitio donde mas se lee—. Equivocarse por lo alto solo cuesta
+ * esperar. Entre las dos, la que avisa antes de tiempo se equivoca por lo alto.
+ *
+ * QUE PASA SI LA SUITE CRECE. El limite crece con ella, asi que no hay techo:
+ * una vuelta legitima mas larga que el tope solo es posible si la referencia
+ * esta vieja, y eso es un problema de la referencia, no del limite. Por eso el
+ * mensaje de corte dice cuanto decia la referencia y por cuanto se multiplico,
+ * para que se pueda ver la cuenta cuando las dos cosas no cuadren.
+ *
+ * @param {object|null} base la referencia, o `null` si no hay.
+ * @returns {number} milisegundos.
+ */
+export function limiteDeReloj(base) {
+  const total = base?.totalSegundos ?? TOTAL_SIN_REFERENCIA_S;
+
+  return Math.round(total * VECES_EL_TOTAL * 1000);
+}
 
 /**
  * Cuanto se deja que escriba la suite antes de cortar su salida.
@@ -759,13 +799,29 @@ export function xmlTruncado(xml) {
  * @param {object} r lo que devuelve `spawnSync`.
  * @returns {string|null} por que no ha terminado, o `null` si ha terminado.
  */
-export function falloDeSpawn(r) {
+export function falloDeSpawn(r, base = null) {
   const codigo = r?.error?.code;
 
   // El caso principal. El corte por reloj deja la salida puesta, y sin mirar
   // aqui el XML truncado se analiza como si fuera una medicion buena.
-  if (codigo === 'ETIMEDOUT')
-    return `no ha terminado en ${LIMITE_MS / 60000} min y se ha matado al agotar el limite`;
+  //
+  // El mensaje lleva la cuenta —cuanto decia la referencia y por cuanto se
+  // multiplico— porque hay dos motivos muy distintos para un corte y se distinguen
+  // justo por esa cuenta: o la suite se ha colgado, o la referencia esta vieja y
+  // la suite ha crecido. Con los dos numeros a la vista se ve cual de los dos es
+  // sin tener que ir a buscar el JSON.
+  //
+  // Ninguna rama termina en punto: quien imprime pone el suyo, y estas frases son
+  // la mitad de una oracion. Una que se cierre aqui y otra que no es como salen
+  // dos puntos seguidos al final del mensaje.
+  if (codigo === 'ETIMEDOUT') {
+    const limite = limiteDeReloj(base);
+    const cuenta = base?.totalSegundos === undefined
+      ? ''
+      : `; la referencia dice que la suite tarda ${base.totalSegundos} s y el limite es ese total x${VECES_EL_TOTAL}`;
+
+    return `no ha terminado en ${(limite / 60000).toFixed(1)} min y se ha matado al agotar el limite${cuenta}`;
+  }
 
   // El mismo fallo por el otro lado: escribir de mas tambien corta la salida, y
   // tambien deja un XML que parece entero hasta el final.
@@ -843,17 +899,17 @@ function escribirEntero(ruta, contenido) {
  * `null` con el motivo; `salida` siempre, porque es lo que hay que enseñar para
  * entender por que.
  */
-function capturarXml(args) {
+function capturarXml(args, base) {
   const r = spawnSync(SUITE, ['-r', 'xml', '-d', 'yes', ...args, ...FILTROS], {
     cwd: raiz,
     encoding: 'utf8',
     maxBuffer: MAX_BUFFER_MB * 1024 * 1024,
-    timeout: LIMITE_MS,
+    timeout: limiteDeReloj(base),
     windowsHide: true,
   });
 
   const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  const motivo = falloDeSpawn(r);
+  const motivo = falloDeSpawn(r, base);
 
   return { xml: motivo === null ? salida : null, motivo, salida };
 }
@@ -927,6 +983,12 @@ function main(argumentos) {
   const indiceBase = argumentos.indexOf('--base');
   const rutaBase = indiceBase >= 0 ? argumentos[indiceBase + 1] : RUTA_BASE;
 
+  // La referencia se lee ANTES de correr nada, y no por ordenar: el limite de
+  // reloj de la vuelta se deriva de su total, asi que hace falta tenerla en la
+  // mano para lanzar el proceso. Leerla aqui en vez de mas abajo no es un
+  // Tattoo de orden, es que despues ya no llega.
+  const base = leerBase(rutaBase);
+
   let xml;
   // Por que no hay un XML entero, si es que no lo hay. Es `null` cuando si lo
   // hay: un fallo y una captura sin casos se distinguen a proposito, porque solo
@@ -963,7 +1025,7 @@ function main(argumentos) {
     // sin ningun caso detras y mediria cero sin decir por que.
     const paraCatch = paraCatchDe(argumentos);
 
-    const captura = capturarXml(paraCatch);
+    const captura = capturarXml(paraCatch, base);
 
     if (captura.xml === null)
       motivoCorte = captura.motivo;
@@ -1028,7 +1090,9 @@ function main(argumentos) {
   // test se ha puesto lento». Se informa de las dos y se sale con 1 si hay
   // cualquier cosa, para que un pipeline no tenga que saber cual de las dos
   // preguntas era la importante.
-  const base = leerBase(rutaBase);
+  //
+  // `base` ya esta leido de arriba, antes de correr la suite: el limite de reloj
+  // sale de su total, asi que no se puede leer despues de lanzar el proceso.
 
   if (guardar) {
     // Guardar y comparar a la vez daria un verde de comparacion contra uno

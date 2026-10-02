@@ -29,7 +29,7 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, identidadDeLaMaquina, resumenMaquina, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, identidadDeLaMaquina, resumenMaquina, limiteDeReloj, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -381,7 +381,48 @@ console.log('\nuna referencia de otra version de formato se recusa, no se compar
 comprobar('una base con version distinta no se usa',
   leerBase(NO_EXISTE_O_INCOMPATIBLE) === null);
 
-console.log('\nel umbral por defecto sale de la medicion, no de un ojo');
+// ─────────────────────────────────────────────────────────────────────────
+// EL LIMITE DE RELOJ SE DERIVA DE LA REFERENCIA, Y POR QUE ESO MEJORA
+//
+// Un tope fijo solo significa algo mientras la suite mida lo que media cuando se
+// escribio el tope. Con 20 minutos y una suite de 176 s eran catorce veces el
+// trabajo esperado, que no es un limite sino un tope nominal: un cuelgue se
+// acababa descubriendo por el reloj del pipeline y no por aqui.
+console.log('\nel limite de reloj sale de la referencia, no de un numero fijo');
+
+comprobar('sin referencia el limite son los 20 min de siempre',
+  limiteDeReloj(null) === 20 * 60 * 1000);
+
+comprobar('con referencia es cuatro veces su total',
+  limiteDeReloj({ totalSegundos: 100 }) === 4 * 100 * 1000);
+
+// El caso que hace que esto no sea un tope con otro nombre: una suite mas lenta
+// tiene que traer un limite mas alto. Si el limite creciera con la referencia y
+// se quedara corto, la herramienta no podria medir lo que haria falta para poder
+// medirse despues.
+comprobar('una referencia mas larga trae un limite mas alto',
+  limiteDeReloj({ totalSegundos: 400 }) > limiteDeReloj({ totalSegundos: 100 }));
+
+comprobar('y con la referencia de ahora sale bastante por debajo de los 20 min',
+  limiteDeReloj({ totalSegundos: 176.38 }) < 20 * 60 * 1000);
+
+console.log('\nel corte por reloj dice la cuenta, para poder distinguir por que fue');
+
+// Hay dos motivos muy distintos para un corte y se distinguen por la cuenta: o
+// la suite se ha colgado, o la referencia esta vieja y la suite ha crecido. Con
+// los dos numeros a la vista se ve cual de los dos es sin ir a buscar el JSON.
+const corteConBase = falloDeSpawn({ error: { code: 'ETIMEDOUT' } }, { totalSegundos: 176.38 });
+
+comprobar('el corte dice cuanto decia la referencia',
+  corteConBase.includes('176.38'));
+
+comprobar('y por cuanto se multiplica', corteConBase.includes('x4'));
+
+comprobar('y dice el limite en minutos, que es como se piensa en el tiempo',
+  corteConBase.includes('min'));
+
+comprobar('sin referencia, el corte no inventa una referencia',
+  !falloDeSpawn({ error: { code: 'ETIMEDOUT' } }).includes('La referencia dice'));
 
 comprobar('el umbral por defecto son 8 s', UMBRAL === 8);
 

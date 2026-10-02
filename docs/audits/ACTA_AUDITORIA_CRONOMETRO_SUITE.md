@@ -169,10 +169,35 @@ Es lo más importante que sale de esta auditoría y no es un fallo de la herrami
 
 Consecuencia honesta: el guard ahora es fiable **cuando alguien lo mira**, y no hay ninguna puerta automática que se ponga roja por un cuelgue de la suite. Cerrar eso es una decisión de proyecto, no un arreglo: implica elegir qué significa «una medición incompleta» en un pipeline donde el resto de los pasos sí son puerta.
 
-### 6.2 El límite de reloj es 7,8 veces la medición real
+### 6.2 El límite de reloj era un tope nominal — CORREGIDO, ahora sale de la referencia
 
-`LIMITE_MS = 20 * 60 * 1000` (línea 127) son 1200 s. La última vuelta real midió 153,1 s de suite y la referencia suma 301,516 s. Un límite que está casi ocho veces por encima del trabajo esperado no es un límite: es un tope nominal, y un cuelgue real se descubre por el reloj del pipeline, no por esta herramienta. Lo que sí se ha hecho en `078b2aa` es que, cuando el límite se agota, el resultado no se confunda con una medición buena. Derivar el límite de la referencia lo dejaría en un número con razón.
+Se escribió abierto y se ha cerrado. El texto original se conserva al final.
 
+**Lo que decía antes.** `LIMITE_MS = 20 * 60 * 1000`, 1200 s fijos. La última vuelta real medianía 153,1 s de suite y la referencia sumaba 301,516 s. Un límite casi ocho veces por encima del trabajo esperado no es un límite: es un tope nominal, y un cuelgue real se descubre por el reloj del pipeline, no por la herramienta.
+
+**Lo que se ha hecho.** El límite de reloj se **deriva del total de la referencia**: cuatro veces. Con la referencia de ahora son 705 s, 11,8 min.
+
+**Por qué cuatro.** Por una asimetría, que es el argumento entero:
+
+- Equivocarse por lo **bajo** produce un cuelgue **falso**. Una máquina tres veces más lenta que la de la referencia no está colgada, está ocupada, y desde `078b2aa` eso sale con código 1 y con un mensaje de «la medición no ha terminado»: una alarma falsa en el sitio donde más se lee.
+- Equivocarse por lo **alto** solo cuesta esperar.
+
+Entre las dos, la que avisa antes de tiempo se equivoca por lo alto. Por eso cuatro y no dos.
+
+**Lo que se ha arreglado de paso.** El límite **crece con la suite**, así que no hay techo. Con un tope fijo, una vuelta legítima más larga que el tope solo se explicaba porque el tope era enorme; ahora se explica porque la referencia está vieja, y el mensaje del corte lo dice con los dos números a la vista:
+
+```
+LA SUITE NO HA TERMINADO: no ha terminado en 0.3 min y se ha matado al agotar
+del limite; la referencia dice que la suite tarda 5 s y el limite es ese total x4.
+```
+
+Eso convierte un corte opaco en una cuenta que se puede comprobar.
+
+**Sin referencia** el límite son 1200 s, que es exactamente lo que ha sido siempre. No hay nada mejor que ese número, y cualquier otro sería inventado sin razón.
+
+**Lo que sigue en pie.** El paso de medir de la CI **no tiene `timeout-minutes` propio**: hereda el del job, que en este workflow es el valor por defecto de Actions. Es decir que el límite del cronómetro es la única red contra un paso colgado, y ahora es más corta: 11,8 min en vez de 20. Si algún día se le pone un `timeout-minutes` a ese paso, tiene que ser **mayor** que el límite del cronómetro y no al revés, o el pipeline matará el proceso antes de que la herramienta pueda explicar por qué lo mató.
+
+*Lo que decía antes, literal:* «`LIMITE_MS = 20 * 60 * 1000` (línea 127) son 1200 s. La última vuelta real midió 153,1 s de suite y la referencia suma 301,516 s. Un límite que está casi ocho veces por encima del trabajo esperado no es un límite: es un tope nominal. Derivar el límite de la referencia lo dejaría en un número con razón.»
 ### 6.3 El factor ×2 señalaba ruido por debajo de un segundo — CORREGIDO EN `78e238f`
 
 Este punto se escribió abierto y se ha cerrado. Se conserva lo que se pensaba antes para que se vea la diferencia con lo que se midió después.
