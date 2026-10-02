@@ -173,7 +173,7 @@ Consecuencia honesta: el guard ahora es fiable **cuando alguien lo mira**, y no 
 
 `LIMITE_MS = 20 * 60 * 1000` (línea 127) son 1200 s. La última vuelta real midió 153,1 s de suite y la referencia suma 301,516 s. Un límite que está casi ocho veces por encima del trabajo esperado no es un límite: es un tope nominal, y un cuelgue real se descubre por el reloj del pipeline, no por esta herramienta. Lo que sí se ha hecho en `078b2aa` es que, cuando el límite se agota, el resultado no se confunda con una medición buena. Derivar el límite de la referencia lo dejaría en un número con razón.
 
-### 6.3 El factor ×2 señalaba ruido por debajo de un segundo — CORREGIDO
+### 6.3 El factor ×2 señalaba ruido por debajo de un segundo — CORREGIDO EN `78e238f`
 
 Este punto se escribió abierto y se ha cerrado. Se conserva lo que se pensaba antes para que se vea la diferencia con lo que se midió después.
 
@@ -206,12 +206,17 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 | Comprobación | Resultado |
 |---|---|
 | Test del tool antes de esta auditoría | 65 aserciones |
+| Test del tool con §6.3 | **99 aserciones, todas en verde** |
 | Test del tool después | **91 aserciones, todas en verde** (+26) |
 | `--base otra.json` entre lo que recibe Catch2 | antes sí → **después no** |
 | Renombrado entre máquinas: `nuevos` / `ausentes` | antes `1 / 1` → **después `0 / 0`** |
 | Renombrado que se multiplica por cuatro | antes 0 regresiones → **después 1, con su tiempo anterior** |
 | Sustitución de una referencia existente | la nueva se lee entera, sin temporales |
 | Medición real, sin cambios de comportamiento | 936 casos, 9 nuevos, salida con 0 |
+| §6.3: falsos positivos del factor ×2 en dos vueltas del mismo código | 7 de 939 → **0** con el umbral de 1 s |
+| §6.3: señal intacta, caso real de 6,15 s fingido a ×2,5 | **sale como regresión** |
+| §6.3: ruido intacto, caso real de 0,22 s fingido a ×2,5 | **no sale** |
+| Suite completa tras §6.3 | **939 casos, 890 pasados, 0 fallos, 49 saltados**, 2 m 56 s |
 | Fichero de la herramienta | 554 líneas → 964 |
 
 ## 8. Commits
@@ -220,5 +225,9 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 |--------|-----------|
 | `078b2aa` | El fallo abierto: resultado del spawn, cierre del documento, cuenta de casos, ausentes con código 1 |
 | `cf17e42` | Los cuatro hallazgos de esta acta |
+| `78e238f` | §6.3: el umbral absoluto de 1 s. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. Los ficheros son los de WS-1 y el cambio es el descrito en §6.3. |
+| `93c47cd` | `build.bat` distingue el código 2 de entorno del 1 de rendimiento, y fija el contrato en la cabecera del tool |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
+
+Y por el mismo motivo pasó con `78e238f`: el hilo paralelo commiteó los cambios de §6.3 que estaban sin commitear en el árbol de trabajo. El contenido es correcto y el asunto no engaña —*refine absolute suite duration threshold* describe exactamente el umbral absoluto—, pero el commit no lleva cuerpo ni atribución. Queda anotado aquí en lugar de reescribir historia ajena.
