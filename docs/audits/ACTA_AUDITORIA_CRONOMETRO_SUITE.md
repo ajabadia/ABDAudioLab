@@ -1232,6 +1232,89 @@ vigilan **siguen aparcadas** en `tools/test_duraciones_suite.mjs`, que es donde
 deben estar: no están aparcadas por un defecto del cronómetro sino por el
 estado de una máquina.
 
+## 6.24. La rama de «sin node» estaba contada, y no medida
+
+De las seis ramas que el banco cuenta al principio del fichero, cinco se
+ejecutan y la sexta no. Es la de **«sin node en el PATH: se pidió medir y no se
+podía medir»**, y que conste en la lista de ramas es la mitad del contrato:
+cuenta que su línea exista en el `.bat`, no que el build haga lo que esa línea
+promete cuando se llega a ella. Un banco en verde con una rama contada y no
+medida dice que la línea está escrita, y nada más.
+
+### Cómo se quita node sin mentir
+
+El caso se hace con el mismo esqueleto de los trece de la tabla —los shims, el
+`CMakeCache.txt`, el exe de mentira— y se le quita **node** del `PATH` antes de
+arrancar. Dos cosas y las dos importan:
+
+- Se quita **entrada por entrada**, mirando si en cada directorio hay un
+  `node.exe` o un `node.cmd`. Borrar «la que parece la de node» sería una
+  heurística, y una heurística en el instrumento de medición es la forma más
+  limpia de mentirse uno mismo sin darse cuenta.
+- Y se comprueba con **`where node`**, que es la misma pregunta que hace el
+  `.bat`. Un `existsSync` respondería por el banco; `where` responde por el
+  `cmd` que va a ejecutar el build, que es quien tiene que dar la misma
+  respuesta.
+
+Por eso el caso lleva **un control por delante**: con el `PATH` del banco hay
+node —comprobado, no supuesto— y con el `PATH` que se le pasa al caso no lo hay.
+Sin esas dos comprobaciones, un fallo al filtrar —una entrada que se cuela, un
+`PATHEXT` raro— daría un caso en verde que no habría medido nada.
+
+### Por qué no está en la tabla de `CASOS`
+
+Los trece de la tabla cambian lo que **contestan** los stubs. Este no tiene stub
+que contestar, porque no hay nada que lo ejecute: no se llama a ninguno. Ese
+resultado —no llamarse a ninguno y salir con 1— es justo lo que lo distingue de
+«hay node pero el tool está roto», que es la diferencia entre dos clases que
+§6.7 ya tenía separadas y que aquí son «anuncia el fallo» y «no anuncia nada».
+
+### Lo que comprueba, que es más que el código de salida
+
+Son nueve comprobaciones, y sólo dos podrían haber bastado. Están las otras
+siete porque el código de salida solo no dice nada:
+
+- **el motivo, no solo el 1**. Salir con 1 lo puede hacer media clase de fallos.
+  Lo que dice que sabe *por qué* no ha medido es lo que lo hace diagnosticable, y
+  se compara contra el texto del `.bat` de verdad: si mañana lo cambian, el rojo
+  lo dice ahí y no en el log de una máquina que no es esta.
+- **que no se anuncia ninguna medición**. El cartel de *Timing the suite*
+  saldría igual que en una corrida buena: es el verde falso con forma de
+  cronómetro.
+- **que no se llamó a ninguno de los cuatro stubs**. Es además la red que
+  atrapa un shim de `node` que alguien añada al directorio de los shims sin
+  querer: el caso se volvería el caso bueno y el rastro lo delataría.
+- y las tres de la cola, que son las mismas que se comprueban en los trece
+  casos: no colgarse, decir el fallo, y decirlo **al final**.
+
+### Lo que se ha encontrado de paso: diez comprobaciones que no se ejecutaban
+
+Al escribir el caso se leyó el banco de punta a punta, y el `process.exit`
+—que hace el `Todo en verde` y sale— estaba en la línea 983, con **diez
+comprobaciones debajo**. La sección entera de la cuarta clase de §6.21 estaba
+después del `process.exit` y **no se ejecutaba nunca**: el banco las contaba
+como si nada y el total de la última línea decía un número que no era el que se
+había comprobado. Lo que se ha escrito es, también, un banco en verde con una
+décima parte de sus aserciones sin correr.
+
+Ninguna comprobación lo caza, porque no hay ninguna que mire si lo que hay
+debajo del `exit` se ejecuta. Se ha visto leyendo, y la forma de que se note a
+partir de ahora es el número: si el bloque vuelve a moverse, el total baja y
+las aserciones nuevas no salen.
+
+**Y al ejecutarlas, una sale en rojo.** Y no es del `.bat`: es de la propia
+comprobación. Buscaba `exit /b 4` en una ventana de **16 líneas** a partir del
+guard, y el `exit` está en la **17.ª**, porque entre el guard y el código hay
+nueve líneas de `rem`. Una ventana de líneas no es un invariante —depende de
+cuántos comentarios haya puesto después quien escriba el mensaje—; el bloque
+sí lo es, y es lo que se comprueba ahora, con el `exit` además **último antes
+del cierre**.
+
+### El número
+
+158 → **178**. Sumando: las nueve del caso, la del rango del bloque y las diez
+que llevaban desde §6.21 sin ejecutarse. Mutaciones **3 de 3**.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -1387,6 +1470,17 @@ estado de una máquina.
 | §6.23: reinicio del dispositivo PnP, `audiodg` y `AudioSrv` | los tres **sin efecto**: el atasco está en el driver de kernel |
 | §6.23: `test_build_bat_perf.mjs` | **158 aserciones** |
 | §6.23: `test_duraciones_suite.mjs` | **202 aserciones**, con las cinco de `ruido` sigue aparcadas |
+| §6.24: comprobaciones debajo del `process.exit` | **10**, de las cuales **0** se ejecutaban |
+| §6.24: el `exit /b 4` de la cola del layout | esta en la linea 17 del bloque; la ventana miraba 16 |
+| §6.24: el caso sin node, con el `PATH` sin filtrar | sale con **0** y mide, como los trece de la tabla |
+| §6.24: el control del filtro | con el PATH del banco **hay** node, y con el del caso **no** |
+| §6.24: el caso sin node | sale con **1**, dice que falta node, no anuncia medicion y no llama a ningun stub |
+| §6.24: mutacion A, el mensaje de sin node dice otra frase | **1 en rojo**: la comprobacion del motivo |
+| §6.24: mutacion C, la rama sin node no marca `PERF_FATAL` | **3 en rojo**: el codigo de salida, el anuncio del fallo y el conteo de ramas |
+| §6.24: mutacion D, la cola del layout sale con 1 | **5 en rojo**, incluidas las dos nuevas del rango del bloque |
+| §6.24: `test_build_bat_perf.mjs` | **178 aserciones** (antes 158) |
+| §6.24: `tools/auditar-bats.mjs` | sin cambios, sigue limpio |
+| §6.24: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
 
 ## 8. Commits
 
@@ -1424,6 +1518,7 @@ estado de una máquina.
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14 y §6.23— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
+| este commit | §6.24: la rama de **«sin node en el PATH»** estaba **contada y no medida** en el banco: constaba entre las seis que se cuentan, y ninguna comprobacion la ejecutaba. Se mide quitando node del PATH entrada por entrada —con `existsSync`, no por nombre— y comprobandolo con `where node`, que es la misma pregunta que hace el `.bat`; el caso lleva un control delante para que un fallo al filtrar no de un verde que no ha medido nada. Nueve comprobaciones: el motivo, que no se anuncie medicion, que no se llame a ninguno de los cuatro stubs, el codigo de salida y las tres de la cola. **De paso: el `process.exit` estaba en la linea 983 con diez comprobaciones debajo**, la seccion entera de la cuarta clase de §6.21 sin ejecutarse nunca, y el banco contando un total que no era el comprobado. Al destaparlas, una sale en rojo y es del test: buscaba `exit /b 4` a 16 lineas del guard y esta en la 17. Ahora se comprueba el bloque, y que el `exit` sea el ultimo antes del cierre. 158 -> 178 aserciones, 3 de 3 mutaciones |
 | este commit | §6.23: **corrige** el diagnóstico de §6.14. No hubo un `SIGSEGV` en `test_MeasurementFloatingWindow.cpp:108`: el proceso se quedaba **vivo** con el hilo principal en `LpcReply`, esperando a que un driver MIDI de la máquina contestara, y el «caso culpable» era el último volcado del buffer del reporter. Localizado con una sonda a `winmm` sin JUCE —`midiOutOpen` del DeepMind12D no vuelve, mientras `waveOutOpen` responde en milisegundos— y medidos los doce benches del preflight uno a uno. Arreglo: los **tres** que abren un endpoint real llevan el tag `[.]` de Catch2, y ya no pueden tumbar la suite por defecto; el motivo queda escrito en el fichero. **La regeneración de la referencia sigue bloqueada** por el driver: reiniciar el dispositivo, `audiodg` y `AudioSrv` no lo liberan, y las cinco comprobaciones de `ruido` siguen aparcadas. 158 y 202 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.

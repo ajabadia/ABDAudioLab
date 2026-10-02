@@ -70,7 +70,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 // CERROJO DE INSTANCIA UNICA.
@@ -975,12 +975,116 @@ if (setsImpares.length > 0)
     console.log(`          ${l.trim()}`);
 
 
-console.log('\n' + '='.repeat(64));
-console.log(fallos.length === 0
-  ? `TODO EN VERDE: ${total} aserciones`
-  : `ROJO: ${fallos.length} fallo(s) de ${total} aserciones`);
+console.log(LF + 'sin node en el PATH, que es una rama contada y no medida');
 
-process.exit(fallos.length === 0 ? 0 : 1);
+// La sexta rama de las que se cuentan mas arriba --«sin node en el PATH: se pidio
+// medir y no se podia medir»-- estaba CONTADA y no MEDIDA, y no son lo mismo.
+// Contada es que su linea existe en el .bat; medida es que el build hace lo que
+// esa linea promete cuando se llega a ella. Con una rama que solo se cuenta, un
+// banco en verde no dice que la rama funcione: dice que la linea esta escrita.
+//
+// El caso NO se mete en la tabla de CASOS porque es de otra clase: los trece de
+// alla cambian lo que CONTESTAN los stubs, y este no tiene stub que contestar,
+// porque no hay nada que ejecute el stub. Su resultado --no llamarse a ninguno y
+// salir con 1-- es justo lo que distingue a «no hay node» de «node hay pero el
+// tool esta roto», que es lo que §6.7 llama a clases distintas y aqui a
+// «anuncia el fallo» y «no anuncia nada».
+//
+// Y CUANDO SE COMPRUEBA QUE NO HAY NODE, SE COMPRUEBA CON `where`. Un
+// existsSync responderia por el banco; `where` responde por el cmd que va a
+// ejecutar el build, que es quien tiene que dar la misma respuesta. Sin el
+// control de las dos lineas de abajo, un fallo al quitar node --una entrada que
+// se cuela, un PATHEXT raro-- daria un caso en verde que no ha medido nada.
+
+const CON_NODE = process.env.PATH;
+
+// Quitar node mirando ENTRADA POR ENTRADA, y no por nombre: borrar «la que
+// parece la de node» seria una heuristica, y una heuristica en el instrumento
+// de medicion es la forma mas limpia de mentir uno mismo sin querer.
+const entradasNode = CON_NODE.split(';').filter((d) => d
+  && (existsSync(join(d, 'node.exe')) || existsSync(join(d, 'node.cmd'))));
+
+const SIN_NODE = CON_NODE.split(';').filter((d) => !entradasNode.includes(d)).join(';');
+
+const dondeHayNode = (p) => spawnSync('cmd', ['/c', 'where', 'node'], {
+  encoding: 'utf8',
+  env: { ...process.env, PATH: p },
+}).status === 0;
+
+const ETIQUETA_SIN_NODE = 'sin-node';
+
+{
+  const { cwd, shims, rastro } = montarBanco(ETIQUETA_SIN_NODE);
+  const { ruta: bat, copia } = batDe(ETIQUETA_SIN_NODE);
+
+  if (copia)
+    COPIAS.push(copia);
+
+  // El control va PRIMERO y es el que hace que el resto signifique algo: sin
+  // node en el PATH, este caso seria verde tambien si el esqueleto estuviera
+  // roto, porque lo unico que se comprueba seria que no se puede medir.
+  comprobar('el control: con el PATH del banco hay node, y de verdad lo hay',
+    dondeHayNode(CON_NODE) && entradasNode.length > 0);
+
+  comprobar('el PATH que se le pasa a este caso NO tiene node, que es lo que se va a probar',
+    !dondeHayNode(SIN_NODE));
+
+  const r = spawnSync('cmd', ['/c', bat, 'perf'], {
+    cwd,
+    encoding: 'utf8',
+    timeout: 150000,
+    env: {
+      ...process.env,
+      PATH: shims + ';' + SIN_NODE,
+      ABD_RASTRO: rastro,
+      ABD_LAYOUT: '0',
+      ABD_TEST_TOOL: '0',
+      ABD_TEST_BANCO: '0',
+      ABD_CRONO_SALIDA: '0',
+      ABD_CRONO_ESTADO: 'ok',
+      ABD_SIN_VEREDICTO: '0',
+    },
+  });
+
+  const salida = (r.stdout || '').split(LF).filter((x) => x.trim());
+  const junto = salida.join('');
+  const llamado = readFileSync(rastro, 'utf8').split(LF).filter((x) => x.trim());
+
+  comprobar(ETIQUETA_SIN_NODE + ': el build termina dentro del limite, sin colgarse', !r.signal);
+
+  if (r.signal)
+    comprobar(ETIQUETA_SIN_NODE + ': el build se ha COLGADO siendo que sin node no hay'
+      + ' nada que pueda colgarse', false);
+
+  // El motivo, no solo el codigo. Salir con 1 lo puede hacer media clase de
+  // fallos; lo que dice que sabe POR QUE no ha medido es lo que lo hace
+  // diagnosticable. Y el mensaje es el del .bat de verdad: si mañana cambia, el
+  // rojo lo dice aqui y no en un log de una maquina que no es esta.
+  comprobar(ETIQUETA_SIN_NODE + ': dice que lo que falta es node, no otra cosa',
+    junto.includes('needs node and there is none in PATH'));
+
+  // Y lo que NO tiene que hacer, que es la mitad del contrato. Anunciarse
+  // midiendo sin node es el verde falso con forma de cronometro: el cartel de
+  // «Timing the suite» saldria igual que en una corrida buena.
+  comprobar(ETIQUETA_SIN_NODE + ': no se anuncia ninguna medicion',
+    !salida.some((x) => x.includes('Timing the suite')));
+
+  // El rastro vacio es la prueba de que no llego a ejecutar nada. Si un dia
+  // existiera un shim de node en el directorio de los shims, este caso pasaria
+  // a ser el caso bueno sin que nadie se enterase: el rastro delata el cambio.
+  comprobar(ETIQUETA_SIN_NODE + ': no se ha llamado a ninguno de los cuatro stubs',
+    llamado.length === 0);
+
+  comprobar(ETIQUETA_SIN_NODE + ': el build sale con 1, no con 0 de un build que no ha medido',
+    r.status === 1);
+  comprobar(ETIQUETA_SIN_NODE + ': y anuncia el fallo',
+    junto.includes(CIERRE_FALLO));
+
+  comprobar(ETIQUETA_SIN_NODE + ': el fallo se dice al final y no en medio',
+    salida.findIndex((x) => x.includes(CIERRE_FALLO))
+      === salida.map((x) => x.includes(CIERRE_FALLO)).lastIndexOf(true));
+}
+
 console.log(LF + 'el build comprueba que el propio .bat esta bien, y es clase aparte');
 
 // La cuarta clase. No es un PERF_FATAL mas y la asercion de por que es
@@ -1011,10 +1115,23 @@ comprobar('y marca LAYOUT_FATAL, no PERF_FATAL ni SELFTEST_FATAL',
 const colaLAYOUT = LINEAS.find((l) => l.trim() === 'if ' + Q + '!LAYOUT_FATAL!' + Q + '==' + Q + '1' + Q + ' (');
 
 comprobar('la cola tiene su propio guard para el layout', colaLAYOUT !== undefined);
+
+// El RANGO DEL BLOQUE, y no una ventana de lineas. Esta comprobacion llevaba
+// desde §6.21 sin ejecutarse --estaba debajo del `process.exit`, ver el final
+// del fichero-- asi que el 16 que se eligio nunca llego a mirar nada. Al
+// ejecutarse, el rojo era del test y no del `.bat`: el `exit /b 4` esta en la
+// linea 17 del bloque y una ventana de 16 se quedaba a una. Un numero de
+// lineas no es un invariante --depende de cuantos `rem` haya puesto despues
+// quien escriba el comentario-- y el bloque si lo es.
+const BLOQUE_COLA_LAYOUT = colaLAYOUT === undefined ? [] : bloqueDesde(colaLAYOUT);
+
+const INDICE_EXIT_4 = BLOQUE_COLA_LAYOUT.findIndex((l) => l.includes('exit /b 4'));
+
 comprobar('y sale con 4, que no es el 1 de PERF_FATAL ni el 3 de SELFTEST_FATAL',
-  colaLAYOUT !== undefined
-  && LINEAS.slice(LINEAS.indexOf(colaLAYOUT), LINEAS.indexOf(colaLAYOUT) + 16)
-    .some((l) => l.includes('exit /b 4')));
+  INDICE_EXIT_4 > -1);
+
+comprobar('y el 4 sale DESDE el guard del layout y no de una linea de despues',
+  BLOQUE_COLA_LAYOUT.length > 0 && INDICE_EXIT_4 === BLOQUE_COLA_LAYOUT.length - 2);
 comprobar('el 4 aparece una sola vez: un codigo repetido en dos sitios son dos reglas',
   LINEAS.filter((l) => l.includes('exit /b 4')).length === 1);
 
@@ -1037,5 +1154,25 @@ comprobar('el caso del .bat roto esta en la tabla y sale con 4, no con el 1 de P
   CASO_LAYOUT !== undefined && CASO_LAYOUT.build === 4);
 comprobar('y no llega a medir: si el script que lee el resultado esta roto, no hay',
   CASO_LAYOUT !== undefined && CASO_LAYOUT.muere === true);
+
+// ── El final va aqui, y no donde estaba ──
+//
+// El `process.exit` estaba puesto encima de la seccion de la cuarta clase, de
+// modo que las diez comprobaciones de debajo no se ejecutaban NUNCA y el banco
+// las contaba como si nada. El sintoma es el peor de este fichero: un banco en
+// verde con una decima parte de sus aserciones sin correr, y el numero de la
+// ultima linea diciendo un total que no es el que se ha comprobado.
+//
+// No lo ha cazado ningun test porque no hay ningun test que mire si lo que hay
+// debajo del exit se ejecuta. Se ha visto leyendo el fichero de punta a punta
+// para escribir el caso de node, que estaba en el hueco justo debajo. Se
+// comprueba con el numero: si este bloque vuelve a moverse, el total de la
+// ultima linea baja y las aserciones que se Agreguen aqui no saldran.
+console.log('\n' + '='.repeat(64));
+console.log(fallos.length === 0
+  ? `TODO EN VERDE: ${total} aserciones`
+  : `ROJO: ${fallos.length} fallo(s) de ${total} aserciones`);
+
+process.exit(fallos.length === 0 ? 0 : 1);
 
 
