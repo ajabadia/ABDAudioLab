@@ -104,7 +104,6 @@ const std::map<std::string, int> kPresupuestoScopedJuce {
     { "test_FreeCaptureRecipePromotion.cpp", 1 },
     { "test_GuidedPluginLoad_Dexed.cpp", 4 },
     { "test_MatrixResolutionTableComponent.cpp", 2 },
-    { "test_MeasurementFloatingWindow.cpp", 1 },
     { "test_MeasurementViewModelAndUI.cpp", 3 },
     { "test_OperatorCardsContainerComponent.cpp", 3 },
     { "test_OutOfProcessVst3LifecycleAdapter.cpp", 1 },

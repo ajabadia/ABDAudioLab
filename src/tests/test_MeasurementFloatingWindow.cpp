@@ -103,8 +103,6 @@ std::string comoHex (juce::Colour color)
 TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su contenido",
            "[gui][measurement][floating_window]")
 {
-    juce::ScopedJuceInitialiser_GUI juceInit;
-
     SECTION ("El constructor se queda el contenido y la geometria que le pasan")
     {
         auto* contenido = new ContenidoGenerico();
