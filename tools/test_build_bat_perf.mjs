@@ -125,7 +125,10 @@ function comprobar(descripcion, condicion) {
 // La frase que cierra el build cuando no hay medicion. Se comprueba que es la
 // ULTIMA linea que dice algo, y no solo que este en la salida: que se anuncie
 // el fallo al final es la mitad del contrato de la cola de :end.
-const CIERRE_FALLO = 'Nothing above this line is a performance result.';
+// La frase que cierra los cuatro guards. La cuarta clase la dice partida en dos
+// lineas --'Nothing above this line is a performance result: the thing' / 'that reads the result is the thing that is broken.'--, asi que se
+// busca el TROZO que las cuatro comparten, no la frase entera.
+const CIERRE_FALLO = 'Nothing above this line is a performance result';
 
 if (process.platform !== 'win32') {
   console.error('ROJO  este test ejecuta cmd.exe y solo puede correr en Windows.');
@@ -258,6 +261,7 @@ const SHIMS = [
 // anadir una fila. Cada uno deja su nombre en un rastro, que es lo que permite
 // comprobar que los tres se han llamado y que no se ha llamado ninguno mas.
 const STUBS = [
+  { nombre: 'auditar-bats.mjs', salida: 'ABD_LAYOUT' },
   { nombre: 'test_duraciones_suite.mjs', salida: 'ABD_TEST_TOOL' },
   { nombre: 'test_build_bat_perf.mjs', salida: 'ABD_TEST_BANCO' },
   { nombre: 'duraciones-suite.mjs', cronometro: true },
@@ -395,12 +399,17 @@ const CASOS = [
   { ntest: 0, nbanco: 0, ncrono: 1, estado: 'medicion-incompleta', build: 1, muere: true, motivo: 'la medicion no llego a terminar' },
   { ntest: 0, nbanco: 0, ncrono: 1, sinVeredicto: true, build: 0, muere: false, motivo: 'sin veredicto y el codigo es 1' },
   { ntest: 0, nbanco: 0, ncrono: 2, sinVeredicto: true, build: 1, muere: true, motivo: 'sin veredicto y el codigo es 2' },
+  // La cuarta clase, y la que hace que sea una clase: el .bat esta roto por
+  // dentro, asi que lo que el cronometro mida no lo lee un script fiable. Sale
+  // con 4 y no con el 1 de PERF_FATAL, que seria "no he medido": aqui el
+  // problema es de quien lee, no de lo que se mide.
+  { nlayout: 1, ntest: 0, nbanco: 0, ncrono: 0, estado: 'ok', build: 4, muere: true, motivo: 'el build script esta roto por dentro' },
 ];
 
 // El orden REAL en que el build llama a node. Vive al lado de la tabla y no
 // dentro de ella porque describe al .bat, no a los stubs: si el build cambia
 // el orden, esto es lo que se pone rojo.
-const ORDEN = ['test_build_bat_perf.mjs', 'test_duraciones_suite.mjs', 'duraciones-suite.mjs'];
+const ORDEN = ['auditar-bats.mjs', 'test_build_bat_perf.mjs', 'test_duraciones_suite.mjs', 'duraciones-suite.mjs'];
 
 const COPIAS = [];
 
@@ -410,7 +419,7 @@ try {
   for (const c of CASOS) {
     // El estado va en la etiqueta porque hay dos casos con el mismo codigo de
     // cronometro y distinto estado, y con la etiqueta de antes se pisarian.
-    const etiqueta = 't' + c.ntest + '-b' + c.nbanco + '-c' + c.ncrono
+    const etiqueta = 'l' + (c.nlayout || 0) + '-t' + c.ntest + '-b' + c.nbanco + '-c' + c.ncrono
       + (c.estado ? '-' + c.estado : '')
       + (c.sinVeredicto ? '-sinveredicto' : '');
     const { raiz, cwd, shims, rastro } = montarBanco(etiqueta);
@@ -438,6 +447,7 @@ try {
         ...process.env,
         PATH: shims + ';' + process.env.PATH,
         ABD_RASTRO: rastro,
+        ABD_LAYOUT: String(c.nlayout || 0),
         ABD_TEST_TOOL: String(c.ntest),
         ABD_TEST_BANCO: String(c.nbanco),
         ABD_CRONO_SALIDA: String(c.ncrono),
@@ -447,7 +457,14 @@ try {
     });
 
     const salida = (r.stdout || '').split(LF).filter((x) => x.trim());
-    const ultima = salida.length ? salida[salida.length - 1].trim() : '';
+    // La salida JUNTA. El ancho de la consola parte los mensajes largos en dos
+    // lineas, y las cuatro colas de :end dicen el cierre partido en algún punto:
+    // la de la cuarta clase lo tiene justo en el colon. Buscar linea a linea
+    // hace que las dos comparaciones del final fallen solo para esa clase,
+    // cuando las cuatro dicen exactamente lo mismo. Quien lee el log lo lee
+    // junto, asi que aqui tambien.
+    const junto = salida.join('');
+    // La salida JUNTA. El ancho de la consola parte los mensajes largos en dos
     const llamado = readFileSync(rastro, 'utf8').split(LF).filter((x) => x.trim());
 
     // signal es SIGTERM cuando salta el timeout, y entonces el build no ha
@@ -470,19 +487,26 @@ try {
       && salida.some((x) => x.includes('NO se enlaza'))
       && salida.some((x) => x.includes('Build Successful')));
 
-    comprobar(etiqueta + ': y llega al cronometro cuando los dos tests pasan',
-      c.ntest || c.nbanco || salida.some((x) => x.includes('Timing the suite')));
+    comprobar(etiqueta + ': y llega al cronometro cuando el .bat esta bien y los dos tests pasan',
+      c.nlayout || c.ntest || c.nbanco || salida.some((x) => x.includes('Timing the suite')));
 
     // El orden de las llamadas lo pone el build.bat y no esta tabla, que esta
     // en otro orden: este test se llama PRIMERO, antes que la autocomprobacion
     // del cronometro, porque el reparto de codigos es la promesa que sostiene
     // a la otra. Con los dos en rojo no se llega al cronometro; con el segundo
     // en rojo se llega a los dos primeros y no al tercero.
-    const esperado = c.nbanco !== 0
+    // OJO: `c.nlayout !== 0` seria TRUE en todos los casos sin la dimension,
+    // porque undefined !== 0. Y ahi esta el fallo entero del banco entero: los
+    // doce casos se paraban en el auditor y ninguno llegaba a medir. La forma
+    // correcta es preguntar por la verdad de la dimension, no por comparar con
+    // un numero que en la maioria de los casos no existe.
+    const esperado = c.nlayout
       ? ORDEN.slice(0, 1)
-      : c.ntest !== 0
+      : c.nbanco !== 0
         ? ORDEN.slice(0, 2)
-        : ORDEN;
+        : c.ntest !== 0
+          ? ORDEN.slice(0, 3)
+          : ORDEN;
 
     // Que los stubs se hayan llamado es lo que prueba que el cronometro se
     // ha ejecutado de verdad, y que no se ha llamado ninguno mas es lo que
@@ -503,13 +527,15 @@ try {
     comprobar(etiqueta + ': ' + c.motivo + ' -> el build sale con ' + c.build,
       r.status === c.build);
     comprobar(etiqueta + ': ' + c.motivo + ' -> ' + (c.muere ? 'anuncia el fallo' : 'no anuncia fallo'),
-      ultima.includes(CIERRE_FALLO) === c.muere);
+      junto.includes(CIERRE_FALLO) === c.muere);
 
     // El fallo tiene que ser lo ULTIMO que se dice. Si aparece antes, el cierre
     // se ha colado dentro del bloque del cronometro y el build se saltaria los
     // junctions, que es justo por lo que el fallo vive en :end.
     comprobar(etiqueta + ': el fallo se dice al final y no en medio',
-      salida.findIndex((x) => x.includes(CIERRE_FALLO)) === (c.muere ? salida.length - 1 : -1));
+      salida.findIndex((x) => x.includes(CIERRE_FALLO)) === (c.muere
+        ? salida.map((x) => x.includes(CIERRE_FALLO)).lastIndexOf(true)
+        : -1));
 
     // Ni cronometro ni reparto se autocomprueban, asi que ninguno de los dos
     // puede decir nada de la duracion de la suite. Anunciarse midiendo sin haber
@@ -955,3 +981,61 @@ console.log(fallos.length === 0
   : `ROJO: ${fallos.length} fallo(s) de ${total} aserciones`);
 
 process.exit(fallos.length === 0 ? 0 : 1);
+console.log(LF + 'el build comprueba que el propio .bat esta bien, y es clase aparte');
+
+// La cuarta clase. No es un PERF_FATAL mas y la asercion de por que es
+// distinta de las otras esta en el motivo, aqui esta la forma.
+
+// El acumulador existe y arranca a 0, y ANTES del bloque que lo marca: un
+// `set ...=0` debajo BORRARIA el fallo, y el guard se quedaria verde para
+// siempre. Es el fallo de BUILD_FATAL, que nacio en la linea 119.
+const initLAYOUT = LINEAS.findIndex((l) => l.trim().toLowerCase() === 'set ' + Q + 'layout_fatal=0' + Q);
+
+comprobar('build.bat tiene un acumulador propio para el layout, inicializado a 0',
+  initLAYOUT > -1);
+comprobar('y se inicializa ANTES del bloque del cronometro que lo marca',
+  initLAYOUT > -1 && initLAYOUT < LINEAS.indexOf(BLOQUE_PERF[0]));
+
+// La rama, buscada por su MENSAJE y no por el nombre de la variable: lo que
+// se comprueba es que ESA rama marque el acumulador nuevo y no el viejo. Con el
+// nombre seria tautologia.
+const RAMA_LAYOUT = LINEAS.findIndex((l) => l.includes('This build script is broken inside'));
+
+comprobar('la rama que detecta el .bat roto por dentro existe', RAMA_LAYOUT > -1);
+comprobar('y marca LAYOUT_FATAL, no PERF_FATAL ni SELFTEST_FATAL',
+  RAMA_LAYOUT > -1
+  && LINEAS.slice(RAMA_LAYOUT, RAMA_LAYOUT + 14).some((l) => l.trim().toLowerCase() === 'set ' + Q + 'layout_fatal=1' + Q)
+  && !LINEAS.slice(RAMA_LAYOUT, RAMA_LAYOUT + 14).some((l) => l.trim().toLowerCase().includes('perf_fatal')));
+
+// El guard, y el codigo propio.
+const colaLAYOUT = LINEAS.find((l) => l.trim() === 'if ' + Q + '!LAYOUT_FATAL!' + Q + '==' + Q + '1' + Q + ' (');
+
+comprobar('la cola tiene su propio guard para el layout', colaLAYOUT !== undefined);
+comprobar('y sale con 4, que no es el 1 de PERF_FATAL ni el 3 de SELFTEST_FATAL',
+  colaLAYOUT !== undefined
+  && LINEAS.slice(LINEAS.indexOf(colaLAYOUT), LINEAS.indexOf(colaLAYOUT) + 16)
+    .some((l) => l.includes('exit /b 4')));
+comprobar('el 4 aparece una sola vez: un codigo repetido en dos sitios son dos reglas',
+  LINEAS.filter((l) => l.includes('exit /b 4')).length === 1);
+
+// Y VA PRIMERO. El orden no es estetico: si el script esta roto, los dos tests
+// que vienen despues estan contando sobre un script que no es el que se
+// cree, asi que un guard que se ejecutara despues de ellos no protegeria
+// nada. Se comprueba por posicion, no por comentario.
+const nodoAuditor = LINEAS.findIndex((l) => l.includes('auditar-bats.mjs') && l.trim().startsWith('node'));
+const nodoReparto = LINEAS.findIndex((l) => l.includes('test_build_bat_perf.mjs') && l.trim().startsWith('node'));
+
+comprobar('el auditor se llama, y se llama ANTES que los dos tests del cronometro',
+  nodoAuditor > -1 && nodoReparto > -1 && nodoAuditor < nodoReparto);
+
+// Y el caso que hace que todo esto signifique algo: con el stub en rojo el
+// build sale con 4, no con el 1. Si saliera con el 1, la cuarta clase seria un
+// PERF_FATAL renombrado y este bloque entero no diria nada.
+const CASO_LAYOUT = CASOS.find((c) => c.nlayout);
+
+comprobar('el caso del .bat roto esta en la tabla y sale con 4, no con el 1 de PERF_FATAL',
+  CASO_LAYOUT !== undefined && CASO_LAYOUT.build === 4);
+comprobar('y no llega a medir: si el script que lee el resultado esta roto, no hay',
+  CASO_LAYOUT !== undefined && CASO_LAYOUT.muere === true);
+
+

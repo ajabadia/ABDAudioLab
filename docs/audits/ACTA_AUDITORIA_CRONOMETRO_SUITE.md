@@ -922,6 +922,119 @@ contabiliza las ramas por numero, asi que anadir una cuarta clase de fallo
 pide tocar ese numero --que es lo que el propio banco obliga a hacer-- y
 decidir si esa clase lleva codigo propio o comparte el 1.
 
+## 6.21. El build comprueba que el propio `.bat` está bien, y es clase aparte
+
+#### Que se decidió y por qué
+
+`auditar-bats.mjs` seguía sin estar en ninguna cadena, así que se podía pudrir
+sin que nadie se enterara. Con el anclaje de §6.20 arreglado y medido que un
+guard dentro de `build.bat` llega a ejecutarse aunque el script se haya caído,
+el sitio era claro: la autocomprobación, con los otros dos tests.
+
+Lo que **no** era claro era si hacer una clase nueva o compartir el `1` de
+`PERF_FATAL`. Es clase, y lleva código propio:
+
+| | qué significa |
+|---|---|
+| `PERF_FATAL` = 1 | no he medido |
+| `SELFTEST_FATAL` = 3 | el tool que mide no funciona |
+| `BUILD_FATAL` = 1 | una comprobación no llegó a correr |
+| `LAYOUT_FATAL` = **4** | **el script que está corriendo está roto por dentro** |
+
+Las cuatro no son la misma cosa. Un `build.bat` con una caída dentro de una
+subrutina puede salir con 0 sin haber medido nada, o medir y que lo que diga el
+resultado no corresponda a lo que el cronómetro imprime. Eso no es «no he
+medido»: es «lo que dice este fichero no describe lo que ha pasado». El código
+de salida es lo único que un `.bat` y una CI pueden mirar, así que es donde tenía
+que quedar la distinción.
+
+El 4 es el siguiente libre y el que menos se confunde con ninguno.
+
+#### Va primero, y no es una decisión de estilo
+
+El auditor se llama **antes** de los dos tests del cronómetro. Si el script que
+decide cómo se lee el resultado está roto, los tests que vienen después están
+contando sobre un script que no es el que se cree, así que un guard que se
+ejecutara después de ellos no protegería nada. El guard de `:end` va primero por
+el mismo motivo y por un motivo más fuerte.
+
+Hay una aserción que lo comprueba por **posición** y no por comentario, porque
+un comentario no falla cuando alguien mueve una línea.
+
+#### Ejecutado, que es lo único que vale
+
+Tres repartos, con el build de verdad y el arnés del banco. El caso intermedio
+es el que demuestra que son dos clases y no una con otro nombre:
+
+| | sale con |
+|---|---|
+| el `.bat` está limpio | **0** y mide |
+| el `.bat` tiene la caída de §6.9 | **4**, y no llega a medir |
+| el `.bat` limpio, el test del reparto en rojo | **1**, no 4 |
+
+Y el motivo del 4 lo dice el auditor, con fichero y línea:
+
+```
+ROJO  build.bat:540  [HUECO] :avisarSiEsEnlace: el hueco tiene 28 ejecutable(s)
+      y el mas cercano a la etiqueta es ")"; el salto se perdio o no protege
+```
+
+**El guard que se acaba de conectar cazó un defecto introducido en este mismo
+commit.** El `) else (` de la nueva rama dejaba la cadena de paréntesis sin
+cerrar, y el auditor —que ahora corre dentro del propio build— lo vio. El
+build original de git sale limpio con las cinco reglas; el parcheado no salía.
+Es la mejor prueba posible de que el guard hace falta, y no la tiene ningún otro
+test de este hilo.
+
+#### El banco, y el fallo que costó dos intentonas
+
+El banco de §6.16 ejecuta el `.bat` entero con stubs, así que el auditor necesita
+lo de los otros dos: un stub en `tools/`, una fila en `ORDEN` —que va primero—,
+una dimensión `nlayout` y un caso más.
+
+Dos cosas que solo se ven ejecutando:
+
+1. **`c.nlayout !== 0` es `true` en todos los casos sin la dimensión**, porque
+   `undefined !== 0`. Los doce casos se paraban en el auditor y ninguno llegaba
+   a medir. La forma correcta es preguntar por la verdad de la dimensión.
+2. **La salida se busca línea a línea y hay que buscarla junta.** El ancho de la
+   consola parte los mensajes largos, y la cola de la cuarta clase dice el
+   cierre partido justo en el colon. Las dos comparaciones —que la frase esté en
+   la última línea y que no aparezca antes— fallaban solo para esa clase,
+   cuando las cuatro dicen exactamente lo mismo.
+
+Y una tercera que salió al ejecutar y no se había visto en el texto: las cuatro
+colas de `:end` terminaban de forma distinta. La nueva ponía el código **después**
+del cierre, así que el cierre dejaba de ser la última línea justo en la clase que
+acaba de añadirse. Ahora las cuatro dicen el código primero y el cierre al final,
+que es además lo primero que se mira de un log cuando se busca por qué falló algo.
+
+**158 aserciones** en el banco del reparto, **202** en el del cronómetro,
+auditor limpio.
+
+#### Mutaciones
+
+| mutación | rojos |
+|---|---|
+| el guard de la cuarta clase deja de salir con 4 | **2** |
+| la rama marca `PERF_FATAL` en vez de `LAYOUT_FATAL` | **2** |
+| la llamada al auditor desaparece del todo | **14** |
+| el auditor de verdad sobre un `.bat` con la caída de §6.9 | **código 1** y el hallazgo nombrado |
+
+**3 de 3.** La tercera es la que más vale: sin la llamada no hay guard, y eso
+degrada a 14 rojos que incluyen todos los casos.
+
+#### Lo que esto no arregla
+
+El banco comprueba que el `.bat` esté bien **en la máquina donde corre**, y lo
+comprueba antes de medir. Lo que sigue abierto:
+
+- La CI invoca los dos tests del cronómetro en su propio paso y **no al
+  auditor**, así que ahí el guard depende de que alguien haya ejecutado el build
+  con `perf`. Es el hueco que queda.
+- El `SIGSEGV` de `test_MeasurementFloatingWindow.cpp:108` sigue igual: mata la
+  suite al 62 % y bloquea la regeneración de la referencia de §6.14. Ver §6.14.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -1050,6 +1163,16 @@ decidir si esa clase lleva codigo propio o comparte el 1.
 | §6.20: las tres mutaciones desde el árbol que las hace aparecer | **3 de 3** |
 | §6.20: `test_build_bat_perf.mjs` | **148 aserciones**, sin cambios |
 | §6.20: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
+| §6.21: build con el .bat limpio | **0** y mide |
+| §6.21: build con la caida de §6.9 en el .bat | **4**, y no llega a medir |
+| §6.21: build limpio con el test del reparto en rojo | **1**, no 4 |
+| §6.21: el auditor dentro del build sobre el .bat parcheado | **9 hallazgos**: el parche habia dejado la cadena de parentesis sin cerrar |
+| §6.21: el build original de git bajo las cinco reglas | **limpio** |
+| §6.21: las cuatro colas de :end terminan igual | el codigo primero, el cierre al final |
+| §6.21: mutaciones del banco | **3 de 3** |
+| §6.21: auditor de verdad sobre un .bat con la caida de §6.9 | **codigo 1** y el hallazgo nombrado, con fichero y linea |
+| §6.21: `test_build_bat_perf.mjs` | **158 aserciones** |
+| §6.21: `test_duraciones_suite.mjs` | **202 aserciones** |
 
 ## 8. Commits
 
@@ -1080,6 +1203,7 @@ decidir si esa clase lleva codigo propio o comparte el 1.
   aunque el script se haya caído: el `call` devuelve, y la caída se come el código de
   detrás de la etiqueta, no el `call`. Mutaciones **3 de 3**; dos de ellas solo se ven
   desde el árbol donde el fallo puede aparecer, que no es la raíz |
+| este commit | §6.21: el build comprueba **que el propio .bat esta bien**, y es clase aparte con codigo **4**. Las cuatro clases no son la misma cosa --1 es no he medido, 3 es el instrumento roto, y 4 es el script que esta corriendo que no describe lo que ha pasado-- asi que el codigo de salida, que es lo unico que un .bat y una CI pueden mirar, es donde tiene que quedar la distincion. Va PRIMERO en la cadena: si el que decide como se lee el resultado esta roto, los tests que vienen detras estan contando sobre un script que no es el que se cree. **El guard cazo un defecto introducido en este mismo commit**: el `) else (` de la rama nueva dejo la cadena de parentesis sin cerrar y el auditor --que ahora corre dentro del build-- lo vio con 9 hallazgos, mientras que el .bat original sale limpio. Ejecutado de verdad, no solo leido. Dos cosas que solo salieron al ejecutar: `c.nlayout !== 0` es `true` en todos los casos sin la dimension porque `undefined !== 0`, y las cuatro colas de :end terminar de forma distinta hacia que el cierre dejara de ser la ultima linea justo en la clase nueva. 158 y 202 aserciones, 3 de 3 mutaciones |
 | este commit | §6.18 (cont.): la espera de `run-plan.bat` pasa a ser una **subrutina** —`call :esperarServidor`, se sale con `goto :eof`, y el flujo principal salta por encima con `goto :finDelPaso2`— y `:OLLAMA_UP` desaparece. Ejecutado con shims `.exe`: con el servidor respondiendo **status 0** y pasos 3 y 4 alcanzados; con el servidor muerto **status 1** y sin llegar al paso 3. El arreglo introdujo un fallo que solo apareció al ejecutarlo: el `exit /b 1` del plazo salía del `call` y no del script, así que el flujo seguía y **se ponía a descargar el modelo contra un servidor muerto** con el mensaje de error puesto. Corregido propagando el fallo en quien llama |
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |

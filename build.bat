@@ -127,7 +127,18 @@ rem ha medido Y no se creeria lo que se hubiera medido. Sale con codigo PROPIO
 rem --3-- para que quien solo mire el exit sepa cual de las dos cosas ha
 rem pasado, sin tener que leer el log entero.
 set "SELFTEST_FATAL=0"
-if /i "%1"=="tests" (
+rem Y una CUARTA clase, que es la unica que no habla del cronometro ni de
+rem lo que este build ha hecho: habla de ESTE SCRIPT. Un build.bat con una
+rem caida dentro de una subrutina puede seguir y salir con 0 sin haber
+rem medido nada, o medir y que lo que diga el resultado no corresponda a lo
+rem que el cronometro imprime, porque el flujo principal se ha comido el
+rem cuerpo de la etiqueta de paso. Nada de lo que este fichero afirme
+rem despues de ahi es de fiar, ni sus propios tests del cronometro, porque
+rem estan contando sobre un script que no es el que se cree. Por eso va
+rem PRIMERO en la cadena y sale con codigo PROPIO: el 4, que no es el 1 de
+rem "no he medido" ni el 3 del instrumento roto. Quien solo mire el exit
+rem tiene que poder decir cual de las cuatro cosas ha pasado.
+set "LAYOUT_FATAL=0"if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
     set "IS_TEST_ONLY=1"
     echo [Info] Fast build mode: compiling ABDAudioLab_Tests only.
@@ -251,6 +262,21 @@ set "PERF_FATAL=1"
             rem
             rem Los dos tests van juntos porque son la misma promesa: que lo que dice
             rem el cronometro sea lo que lee el build.
+            node tools\auditar-bats.mjs
+            if errorlevel 1 (
+                echo [Error] This build script is broken inside. A subroutine has a
+                echo [Error] fall-through, a label sits inside an if block, or a call
+                echo [Error] has nowhere to go, and which one is printed above.
+                echo [Error] Nothing this build says about the suite can be trusted,
+                echo [Error] including the tests it would have run next. Fix it
+                echo [Error] first:
+                echo [Error]   node tools\auditar-bats.mjs
+                echo [Error] The build will FAIL with code 4 at the end. That 4 is
+                echo [Error] not the 1 of a slow suite and not the 3 of a broken
+                echo [Error] timing tool: it is this script, the thing that reads
+                echo [Error] the result.
+                set "LAYOUT_FATAL=1"
+            ) else (
             node tools\test_build_bat_perf.mjs
             if errorlevel 1 (
                 echo [Error] The build cannot be trusted to read a timing result. Its own
@@ -399,6 +425,7 @@ set "PERF_FATAL=1"
                         echo [Error] The build will FAIL at the end.
                         set "PERF_FATAL=1"
                     )
+            )
                 )
             )
         )
@@ -537,6 +564,24 @@ goto :eof
 :: lo que se imprime a partir de ahi es largo y quien lee un log se para en el
 :: final. Un build que montase los enlaces a medias y ademas fallara dejaria
 :: el arbol peor que uno que no llego a empezar.
+if "!LAYOUT_FATAL!"=="1" (
+    rem El primero de los cuatro, por la misma razon que el de
+    rem SELFTEST_FATAL mas abajo y por un motivo mas fuerte: no es que no se
+    rem haya medido, es que lo que este script dice no describe lo que ha
+    rem pasado. Con una caida dentro de una subrutina puede haber seguido y
+    rem salir con 0 sin medir, o medir con el flujo principal dentro del
+    rem cuerpo de una etiqueta. El motivo se dice aqui y no en el punto de
+    rem fallo por el mismo motivo que los otros: lo que decide se imprime
+    rem arriba.
+    echo [Error] Build failed: this build script is broken inside.
+    echo [Error] A subroutine has a fall-through, a label sits inside an if
+    echo [Error] block, or a call has nowhere to go. Which one is printed
+    echo [Error] above.
+    echo [Error] Exit code 4.
+    echo [Error] Nothing above this line is a performance result: the thing
+    echo [Error] that reads the result is the thing that is broken.
+    endlocal & exit /b 4
+)
 if "!SELFTEST_FATAL!"=="1" (
     rem El primero de los tres, y no por orden de gravedad sino por otra cosa:
     rem es el UNICO que significa que las otras respuestas no son de fiar. Si el
@@ -548,6 +593,7 @@ if "!SELFTEST_FATAL!"=="1" (
     echo [Error] measure the suite, and it would not have been believable if it had.
     echo [Error] Exit code 3. The 1 of this build is a check that could not run or a
     echo [Error] measurement that was not produced; the 3 is the tool not working.
+    echo [Error] Exit code 3.
     echo [Error] Nothing above this line is a performance result.
     endlocal & exit /b 3
 )
@@ -558,11 +604,13 @@ if "!BUILD_FATAL!"=="1" (
     echo [Error] Build failed: a check in this build did NOT run.
     echo [Error] The links above could not be verified or created. Which check
     echo [Error] did not run is printed above, where it failed.
+    echo [Error] Exit code 1.
     echo [Error] Nothing above this line is a performance result.
     endlocal & exit /b 1
 )
 if "!PERF_FATAL!"=="1" (
     echo [Error] Build failed: the timing guard could not produce a measurement.
+    echo [Error] Exit code 1.
     echo [Error] Nothing above this line is a performance result.
     endlocal & exit /b 1
 )
