@@ -786,6 +786,142 @@ Si la loopback no contestara, `ping` tardaría **más**: ~4 s por paquete en vez
 
 **Una línea en cada `.bat`, 148 y 202 aserciones en verde.**
 
+## 6.20. El auditor estaba anclado a dos raices a la vez, y una era el cwd
+
+#### Que se busco
+
+Conectar `tools/auditar-bats.mjs` a la cadena de autocomprobacion de
+`build.bat` no se puede hacer sin decidir una cosa antes: si el guard
+sobrevive a un `build.bat` que se ha caido. Un guard al que el fallo se come
+antes de llegar es un guard mudo en el unico caso para el que existe, y eso
+es una pregunta de arranque, no de logica.
+
+Al medirla salio otra cosa, y era mas grave que la pregunta.
+
+#### El fallo: dos raices, y la que importaba era la equivocada
+
+El auditor tiene dos sitios de donde sacar la lista de `.bat`:
+
+- la lista en si, que viene de `git ls-files`,
+- la lectura de cada fichero, que se anclaba al propio script.
+
+Lo primero corria en el **cwd** y lo segundo en la **raiz del repo**, asi
+que eran dos raices distintas y solo una estaba bien. `git ls-files` dentro
+de un subdirectorio no ve los `.bat` de la raiz, y entonces la lista salia
+vacia.
+
+Y lo que se hacia con la lista vacia era esto:
+
+```bat
+if (RUTAS.length === 0) (
+    echo No hay .bat ni .cmd versionados.
+    exit /b 0
+)
+```
+
+Medido, con el cwd en un subdirectorio:
+
+| cwd | codigo | lo que imprime |
+|---|---|---|
+| la raiz del repo | 0 | `auditados 2 fichero(s): build.bat, run-plan.bat` |
+| un subdirectorio | 0 | `No hay .bat ni .cmd versionados.` |
+| un subdirectorio **con un `.bat` roto dentro** | 0 | `No hay .bat ni .cmd versionados.` |
+
+La tercera fila es la que importa: hay un `.bat` roto en el sitio y el
+auditor sale con 0 sin haberlo mirado. **Un verde que no ha mirado nada.** Y
+no es teorico, porque `build.bat` llama a node con rutas RELATIVAS al
+directorio de trabajo: es exactamente lo que hace el banco de 6.16, que
+ejecuta el `.bat` de verdad con un esqueleto como cwd.
+
+Encima el mensaje decia una cosa que era cierta --en ese directorio no hay
+ninguno-- y callaba la unica que importaba: que el auditor no habia
+auditado el repo. Salia con el codigo de "he mirado todo y no he encontrado
+nada", que es justo el codigo de "no he mirado nada".
+
+#### El arreglo
+
+Tres cosas, y las tres son el mismo defecto visto desde tres sitios:
+
+1. Una sola raiz, `RAIZ`, resuelta desde el propio script y usada por las
+   dos cosas. `git ls-files` recibe `cwd: RAIZ`.
+2. La lectura de cada fichero usa `RAIZ` en vez de recalcular `..`.
+3. **Una lista vacia sale con 1, no con 0**, con un mensaje que dice que no
+   se ha comprobado nada y donde se ha preguntado a git.
+
+La tercera es la que convierte un rojo mudo en un rojo que se lee. El codigo
+de salida es lo unico que un `.bat` y una CI pueden mirar, asi que es donde
+tenia que estar la distincion.
+
+#### El problema de arranque, medido
+
+La pregunta con la que se empezo: si el guard va DENTRO de `build.bat`,
+llega a ejecutarse cuando el `.bat` se ha caido?
+
+La caida de 6.9 metida de verdad --la subrutina sin su `goto :eof`-- con el
+arnes completo del banco: stubs de node, `cmake` como copia de `attrib.exe`,
+`cl.exe` como fichero que no es ejecutable.
+
+| | llega al cronometro | el guard corre | salida |
+|---|---|---|---|
+| control, sin mutar | si | -- | 0 |
+| subrutina sin su `goto :eof` | si | -- | 0 |
+| la caida, con el guard en la autocomprobacion | si | **si** | 0 |
+
+El guard corre. **El problema de arranque no existe**, y la razon es que un
+`call` devuelve: la caida se come el codigo que hay detras de la etiqueta,
+no el `call` de quien la invoco. El flujo sigue y llega al bloque del
+cronometro.
+
+Esto no lo da por supuesto, porque las dos primeras mediciones de este
+apartado salieron mal y las dos por lo mismo. La primera mutacion no era una
+caida real --el marcador de "ha entrado en la subrutina" nunca se
+imprimio-- y la segunda se paro en `cmake` antes de los dos puntos donde
+estaba el guard, de modo que la unica cifra que decia algo decia lo de la
+posicion, no lo de la caida. Un arnes que no reproduce el fallo no mide el
+fallo. Por eso el control va primero: si el control no llega al cronometro,
+las cifras de abajo no dicen nada y hay que arreglar el arnes.
+
+#### Las tres mutaciones
+
+Un arreglo de verde que no mira es el peor arreglo posible: quita un rojo que
+no estaba y deja un comentario que explica que ya no pasa. Cada mutacion
+deshace una cosa y tiene que cambiar el resultado.
+
+Y aqui estan las dos filas del marcador:
+
+1. **Medir solo contra el 0 no basta.** La segunda mutacion --la lista vacia
+   vuelve a salir con 0-- se ponia en verde porque lo bueno, en un arbol sin
+   `.bat`, **es** el rojo. Comparar contra el 0 se come una mutacion que si
+   muerde y declara que un arreglo que funciona no funciona. La referencia es
+   el codigo de ese mismo arbol sin mutar.
+2. **Medir desde donde el fallo puede aparecer.** Las tres mutaciones
+   medidas desde la raiz del repo dan 0 de 3, y las tres estan bien: desde la
+   raiz `git ls-files` ve los `.bat` y el defecto no se manifiesta. Hace
+   falta un segundo arbol de verdad, un repo git con el tool dentro y ningun
+   `.bat`, que es el caso de "alguien copio el auditor a otro repo".
+
+| mutacion | donde se mide | sin mutar | mutado |
+|---|---|---|---|
+| se quita el `cwd: RAIZ` | arbol CON `.bat` | 0 | **1** |
+| la lista vacia vuelve a salir con 0 | arbol SIN `.bat` | 1 | **0** |
+| `RAIZ` se resuelve contra el cwd | arbol CON `.bat` | 0 | **1** |
+
+**3 de 3.** La tercera es la que mas justificaba la prueba: es un cambio de
+un signo, `..` por `process.cwd()`, que no se ve leyendo el fichero.
+
+#### Lo que queda sin conectar
+
+`auditar-bats.mjs` **sigue sin estar en ninguna cadena**. La medicion de
+arranque dice que podria ir en la autocomprobacion de `build.bat` sin que la
+caida se lo coma, y el sitio natural es ahi, junto a los otros dos tests.
+
+No se ha conectado en este commit por una razon que no es tecnica: el
+acumulador y el codigo de salida nuevos tienen que ser una decision explicita
+y no un efecto colateral de haber anadido una llamada. El banco de 6.16
+contabiliza las ramas por numero, asi que anadir una cuarta clase de fallo
+pide tocar ese numero --que es lo que el propio banco obliga a hacer-- y
+decidir si esa clase lleva codigo propio o comparte el 1.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -905,6 +1041,15 @@ Si la loopback no contestara, `ping` tardaría **más**: ~4 s por paquete en vez
 | §6.19: `ping -n 3` contra una ruta muerta | **13.861 ms**: el fallo va hacia un build más lento |
 | §6.19: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
 | §6.19: `test_build_bat_perf.mjs` | **148 aserciones**, sin cambios |
+| §6.20: `git ls-files` desde un subdirectorio | **vacío**, y el auditor salía con 0 |
+| §6.20: subdirectorio **con un `.bat` roto dentro** | **código 0**: verde sin haber mirado nada |
+| §6.20: la lista vacía, después del arreglo | **código 1**, diciendo que no se ha comprobado nada |
+| §6.20: el mismo `.bat` desde la raíz y desde un subdirectorio | **los mismos 2 ficheros** en los dos |
+| §6.20: guard en la autocomprobación con la subrutina sin `goto :eof` | **corre**, y el build sale con 0: el problema de arranque no existe |
+| §6.20: las tres mutaciones medidas desde la raíz | **0 de 3**, y las tres están bien: el fallo no se ve desde ahí |
+| §6.20: las tres mutaciones desde el árbol que las hace aparecer | **3 de 3** |
+| §6.20: `test_build_bat_perf.mjs` | **148 aserciones**, sin cambios |
+| §6.20: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
 
 ## 8. Commits
 
@@ -925,6 +1070,16 @@ Si la loopback no contestara, `ping` tardaría **más**: ~4 s por paquete en vez
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
 | este commit | §6.19: `timeout /t` **no espera cuando no hay consola** —medido, 92 ms para 2 s pedidos— y en CI no hay consola. En `build.bat` era el segundo que se le da a la aplicación recién cerrada para que suelte los ficheros; en `run-plan.bat`, los dos segundos de cada vuelta de la espera de Ollama. Cambiado a `ping -n N+1 127.0.0.1`, que espera 2,066 ms y sale con 0. La dirección del fallo importa y está medida: si la loopback no contestara tardaría ~4 s por paquete en vez de 1, o sea que un build se slows y **nunca se queda sin esperar**. El shim del banco pasa de `timeout.exe` a `ping.exe`: dejarlo viejo no daba rojo, daba un banco 9 s más lento sin decir nada |
+| este commit | §6.20: el auditor de `.bat` estaba anclado a dos raíces a la vez y la
+  equivocada era el cwd, de modo que `git ls-files` no veía los `.bat` de la raíz y el
+ Guard salía **con 0 sin haber mirado nada** —medido: con un `.bat` roto dentro, el mismo
+  verde—. No era teórico: `build.bat` llama a node con rutas relativas al directorio de
+  trabajo, que es lo que hace el banco de §6.16. Anclado a una sola raíz, y una lista
+  vacía ahora sale **con 1**, porque el código de salida es lo único que un `.bat` y una CI
+  pueden mirar. De paso queda **medido** que un guard dentro de `build.bat` llega a correr
+  aunque el script se haya caído: el `call` devuelve, y la caída se come el código de
+  detrás de la etiqueta, no el `call`. Mutaciones **3 de 3**; dos de ellas solo se ven
+  desde el árbol donde el fallo puede aparecer, que no es la raíz |
 | este commit | §6.18 (cont.): la espera de `run-plan.bat` pasa a ser una **subrutina** —`call :esperarServidor`, se sale con `goto :eof`, y el flujo principal salta por encima con `goto :finDelPaso2`— y `:OLLAMA_UP` desaparece. Ejecutado con shims `.exe`: con el servidor respondiendo **status 0** y pasos 3 y 4 alcanzados; con el servidor muerto **status 1** y sin llegar al paso 3. El arreglo introdujo un fallo que solo apareció al ejecutarlo: el `exit /b 1` del plazo salía del `call` y no del script, así que el flujo seguía y **se ponía a descargar el modelo contra un servidor muerto** con el mensaje de error puesto. Corregido propagando el fallo en quien llama |
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |

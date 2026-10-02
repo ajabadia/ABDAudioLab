@@ -49,6 +49,16 @@ import { execFileSync } from 'node:child_process';
 
 const NL = String.fromCharCode(10);
 
+
+// LA RAIZ DEL REPO, y no el CWD. Medido: `git ls-files` dentro de un
+// subdirectorio no ve los .bat de la raiz, y el auditor decia "no hay
+// .bat versionados" y salia con 0: un verde que no ha mirado un solo
+// fichero, y con un .bat roto dentro el mismo verde. build.bat llama a
+// node con rutas RELATIVAS al directorio de trabajo, asi que ese caso no
+// es teorico: es el banco de 6.16, que ejecuta el .bat de verdad con un
+// esqueleto como cwd. Un guard que no ve lo que tiene que mirar no es un guard.
+const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
 // Los .bat que hay en el arbol versionado. Se pregunta a git y no al disco: el
 // arbol de trabajo tiene cuatrocientos ficheros de CMake en build/ y ningun
 // .bat, y un `readdir` recursivo que se come build/ tarda mas que el analisis.
@@ -60,13 +70,22 @@ const NL = String.fromCharCode(10);
 const RUTAS = process.argv.slice(2).length
   ? process.argv.slice(2)
   : execFileSync('git', ['ls-files', '*.bat', '*.cmd'], {
+    cwd: RAIZ,
     encoding: 'utf8',
     maxBuffer: 8 * 1024 * 1024,
   }).split(NL).map((l) => l.trim()).filter(Boolean);
 
+// Y "no he encontrado nada" NO es "no hay nada que mirar". Con las
+// dos cosas en el mismo 0, una lista vacia --un repo sin .bat, un cwd
+// fuera del arbol, un `git ls-files` que falla-- se lee como un aprobado,
+// y un aprobado que no ha comprobado nada es peor que no tener guard:
+// ocupa el sitio del que avisa. Se distingue por el codigo, que es lo
+// unico que un .bat y una CI pueden mirar.
 if (RUTAS.length === 0) {
-  console.log('No hay .bat ni .cmd versionados.');
-  process.exit(0);
+  console.log('ROJO: no hay ningun .bat ni .cmd que auditar, y no he comprobado nada.');
+  console.log('Se ha preguntado a git dentro de ' + RAIZ + ', que es donde vive este script,');
+  console.log('no el directorio desde el que se ha llamado. Si esperabas .bat aqui, estan en otro sitio.');
+  process.exit(1);
 }
 
 const hallazgos = [];
@@ -108,7 +127,7 @@ const ES_ETIQUETA = (l) => /^:[A-Za-z]/.test(l.trim());
 const ES_SALTO = (l) => /^(goto|exit\s*\/b)/i.test(l.trim());
 
 for (const ruta of RUTAS) {
-  const bruto = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', ruta), 'utf8');
+  const bruto = readFileSync(resolve(RAIZ, ruta), 'utf8');
   const lineas = bruto.replace(/\r\n/g, NL).split(NL).map((l) => l.replace(/\r$/, ''));
   const prof = analizar(lineas);
 
