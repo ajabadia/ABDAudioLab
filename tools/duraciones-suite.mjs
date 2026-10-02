@@ -395,6 +395,22 @@ const FACTOR_POR_DEFECTO = 2;
 export const RUTA_BASE = join(raiz, 'tools', 'duraciones-referencia.json');
 
 /**
+ * La version del FORMATO de la referencia, no la del script. Se sube cuando un
+ * campo cambia lo que SIGNIFICA, no cuando aparece uno nuevo.
+ *
+ * La 2 es la de las rutas relativas al repositorio. La 1 guardaba la ruta
+ * ABSOLUTA de cada caso, y esa ruta lleva dentro el disco, el proyecto y el
+ * usuario, que no son los mismos en otra maquina: dos personas con el mismo
+ * codigo generaban dos referencias distintas, y el fichero commiteado no se
+ * podia leer de un lado a otro ni comparar entre maquinas.
+ *
+ * Una base de otra version NO se compara: sus campos pueden querer decir otra
+ * cosa, y compararlos daria diferencias que no existen. Se recusa y la vuelta
+ * siguiente regenera la referencia.
+ */
+export const VERSION_FORMATO = 2;
+
+/**
  * La identidad de la maquina que ha medido, para meterla en la referencia.
  *
  * No es adorno. Una referencia de duraciones es una foto del hardware que la
@@ -433,16 +449,14 @@ export function identidadDeLaMaquina() {
  */
 export function construirBase(duraciones, xml = '') {
   return {
-    // La version del FORMATO, no la del script. Se sube solo si cambia la forma
-    // de los campos, para que una base vieja se pueda recusar en vez de
-    // compararse con una nueva y dar diferencias inventadas.
-    //
-    // `maquina` NO sube la version, y el motivo es el que dice el comentario de
-    // arriba: la version se sube cuando un campo cambia lo que SIGNIFICA, no
-    // cuando aparece uno nuevo. Anadir un campo que no lee nadie mas no invalida
-    // las bases viejas, que siguen comparandose igual de bien. Subirla obligaria
-    // a regenerar cada referencia del mundo para poder seguir usandolas.
-    version: 1,
+    // La version del FORMATO, no la del script. La sube `VERSION_FORMATO`, que
+    // lleva escrito por que sube esta vez. `maquina` NO la subio, y el motivo
+    // es el de aqui al lado: la version se sube cuando un campo cambia lo que
+    // SIGNIFICA, no cuando aparece uno nuevo. Anadir un campo que no lee nadie
+    // mas no invalida las bases viejas, que siguen comparandose igual de bien.
+    // Subirla obligaria a regenerar cada referencia del mundo para poder seguir
+    // usandolas, y ese coste es justo el que solo se paga cuando toca.
+    version: VERSION_FORMATO,
     medidoEn: new Date().toISOString(),
     casos: duraciones.length,
     totalSegundos: Number(duraciones.reduce((a, d) => a + d.segundos, 0).toFixed(3)),
@@ -451,7 +465,7 @@ export function construirBase(duraciones, xml = '') {
     casos_: Object.fromEntries(
       duraciones.map((d) => [d.nombre, {
         s: Number(d.segundos.toFixed(4)),
-        f: d.fichero,
+        f: rutaDeRepositorio(d.fichero),
       }])
     ),
   };
@@ -525,8 +539,20 @@ export function leerBase(ruta = RUTA_BASE) {
 
     // Una base de otra version del FORMATO no se compara: sus campos pueden
     // querer decir otra cosa, y compararlos daria diferencias que no existen.
-    if (base?.version !== 1)
+    //
+    // Y se dice POR QUE en vez de devolver null en silencio, porque el silencio
+    // aqui se lee como "no hay referencia" y la diferencia entre las dos cosas
+    // es una: en un caso se regenera porque no hay nada, y en el otro se
+    // regenera porque lo que hay ya no se puede leer. Sin el aviso, quien
+    // regenera la referencia sin querer no sabe que ha cambiado el formato.
+    if (base?.version !== VERSION_FORMATO) {
+      if (Number.isInteger(base?.version))
+        console.error(`[referencia] ${ruta} es del formato ${base.version} y este tool `
+          + `escribe el ${VERSION_FORMATO}: se recusa en vez de compararse, y la vuelta `
+          + 'siguiente la regenera.');
+
       return null;
+    }
 
     return base;
   }
@@ -540,15 +566,58 @@ export function leerBase(ruta = RUTA_BASE) {
 }
 
 /**
+ * La ruta de un fichero de test tal y como la guarda la referencia: RELATIVA al
+ * repositorio, con `/`.
+ *
+ * Catch2 entrega la ruta ABSOLUTA, y esa lleva dentro el disco, el proyecto y el
+ * usuario. En un fichero commiteado eso son tres cosas que no son las mismas en
+ * otra maquina y que no dicen nada del test, asi que se quitan.
+ *
+ * No todo esta dentro del repo, y aqui no se disimula: de los 939 casos de la
+ * referencia, 875 son del repo y 64 son del hermano `ABDSharedCode`. Los del
+ * hermano salen como `../ABDSharedCode/...`, que sigue diciendo de donde vienen y
+ * ya no dice de quien es el disco. Lo que caiga en otro arbol --otro disco, otro
+ * usuario-- se deja como venia: no hay ruta relativa que diga la verdad y
+ * inventar una seria peor que guardar la ruta entera.
+ *
+ * Se hace con cadenas y no con `path.relative` a proposito, porque el tool
+ * tambien corre en Linux, donde un `relative` entre dos sistemas de ficheros
+ * distintos devuelve una ruta absoluta sin avisar.
+ *
+ * @param {string} fichero la ruta, como la deje el reporter de Catch2.
+ * @returns {string} la ruta relativa al repositorio, con `/`.
+ */
+export function rutaDeRepositorio(fichero) {
+  const bruto = String(fichero ?? '');
+
+  if (bruto === '')
+    return '(sin fichero)';
+
+  const normal = bruto.replace(/\\/g, '/');
+  const raizNormal = raiz.replace(/\\/g, '/').replace(/\/+$/, '');
+  const enraizado = normal.toLowerCase();
+  const base = raizNormal.toLowerCase();
+
+  if (enraizado.startsWith(base + '/'))
+    return normal.slice(raizNormal.length + 1);
+
+  const padre = raizNormal.slice(0, raizNormal.lastIndexOf('/'));
+
+  if (padre !== '' && enraizado.startsWith(padre.toLowerCase() + '/'))
+    return '../' + normal.slice(padre.length + 1);
+
+  return normal;
+}
+
+/**
  * La identidad de un fichero de test, sin la parte que cambia con la maquina.
  *
- * La referencia guarda la ruta ABSOLUTA de cada caso, porque hace falta saber de
- * donde viene. El problema es que esa ruta lleva el disco, el proyecto y el
- * usuario, y ninguno de los tres es igual en otra maquina. Comparar por ruta
- * entera hace que el renombrado —que se detecta justamente por el fichero— deje
- * de detectarse en cuanto se cambia de equipo, y entonces el mismo test sale a
- * la vez como nuevo y como ausente: dos avisos para un solo test, y el segundo
- * es falso.
+ * La referencia guarda la ruta RELATIVA de cada caso, porque hace falta saber de
+ * donde viene y la relativa basta. Aun asi el emparejamiento no la usa entera, y
+ * se queda solo con el nombre del fichero: comparar por ruta entera haria que un
+ * test movido de carpeta pareciese un test nuevo y otro ausente a la vez, dos
+ * avisos para un solo test, y el segundo falso. Con el nombre, un cambio de
+ * carpeta es un renombrado, que es lo que es.
  *
  * Aqui solo se queda el nombre del fichero, que en este repo es unico. Si
  * Alguna vez hubiera dos ficheros con el mismo nombre en carpetas distintas, este

@@ -29,7 +29,7 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, identidadDeLaMaquina, resumenMaquina, limiteDeReloj, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, rutaDeRepositorio, VERSION_FORMATO, identidadDeLaMaquina, resumenMaquina, limiteDeReloj, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -75,6 +75,22 @@ const rutaIncompatible = join(dirTEMP, 'base.json');
 writeFileSync(rutaIncompatible, JSON.stringify({ version: 99, casos_: { A: { s: 1, f: 'a' } } }), 'utf8');
 
 const NO_EXISTE_O_INCOMPATIBLE = rutaIncompatible;
+
+// El caso REAL de este cambio de formato: una referencia del FORMATO 1, que es
+// la que hay en el arbol hasta que se regenere. Tiene que recusarse, porque su
+// `f` significa otra cosa. Y tiene que DECIRLO, porque "no hay referencia" y "la
+// hay y no se puede leer" se arreglarfan de forma distinta, y en silencio las dos
+// se parecen: regenerar una referencia por accidente.
+const rutaV1 = join(dirTEMP, 'base-v1.json');
+writeFileSync(rutaV1, JSON.stringify({
+  version: 1,
+  casos_: { A: { s: 1, f: 'D:/x/tests/test_Q.cpp' } },
+}), 'utf8');
+
+const rutaV2 = join(dirTEMP, 'base-v2.json');
+writeFileSync(rutaV2, JSON.stringify(construirBase([
+  { nombre: 'A', fichero: 'src/tests/test_Q.cpp', segundos: 1 },
+])), 'utf8');
 
 const fallos = [];
 let total = 0;
@@ -214,7 +230,14 @@ comprobar('la base guarda los casos que se le pasan',
   Object.keys(base.casos_).length === 3);
 
 comprobar('la base lleva su version de formato, que es lo que se recusa si cambia',
-  base.version === 1);
+  base.version === VERSION_FORMATO);
+
+// El numero va aqui y no solo en el tool. Si la version viviera solo en el
+// tool, subirla no pondria en rojo nada y seria un cambio de formato que nadie
+// se ve venir. Comparar ademas contra lo que declara el tool comprueba el otro
+// lado: que escribe la que dice.
+comprobar('y el formato declarado es el 2, que es el de las rutas relativas al repo',
+  VERSION_FORMATO === 2);
 
 comprobar('la base guarda los filtros con los que se midio',
   Array.isArray(base.filtros));
@@ -249,7 +272,13 @@ comprobar('la identidad NO lleva usuario ni ruta del proyecto',
 comprobar('la base guarda la maquina que midio', base.maquina !== undefined);
 comprobar('y es la de ahora', base.maquina.sistema === MIA.sistema);
 
-comprobar('anadir la maquina NO sube la version del formato', base.version === 1);
+// `maquina` NO subio la version, y esa es la vara con la que se mide la de `f`:
+// ahi el campo cambio lo que SIGNIFICA y por eso subio. Lo que se comprueba aqui
+// no es el 1 ni el 2, es que el tool escribe la version que declara, porque un
+// `set` a mano que no case con la constante daria una base que el propio tool
+// se recusa a si mismo.
+comprobar('anadir la maquina NO fue lo que subio la version: escribe la que declara',
+  base.version === VERSION_FORMATO && typeof base.maquina === 'object');
 
 console.log('\nel informe dice si la referencia es de esta maquina');
 
@@ -380,6 +409,12 @@ console.log('\nuna referencia de otra version de formato se recusa, no se compar
 
 comprobar('una base con version distinta no se usa',
   leerBase(NO_EXISTE_O_INCOMPATIBLE) === null);
+
+comprobar('una base del FORMATO 1, que es la de las rutas absolutas, se recusa',
+  leerBase(rutaV1) === null);
+
+comprobar('y una del formato que declara este tool SI se usa',
+  leerBase(rutaV2) !== null);
 
 // ─────────────────────────────────────────────────────────────────────────
 // EL LIMITE DE RELOJ SE DERIVA DE LA REFERENCIA, Y POR QUE ESO MEJORA
@@ -602,6 +637,17 @@ const sinBase = correr([
 
 comprobar('sin referencia que comparar sale con 0', sinBase.codigo === 0);
 
+// Que la recusacion AVISE se comprueba por fuera, ejecutando el programa: por
+// dentro `leerBase` devuelve `null` y no se ve si ha dicho algo. Y tiene que
+// decirlo, porque quien regenerate una referencia sin querer tiene que poder
+// distinguir "no habia ninguna" de "la habia y era de otro formato".
+const conV1 = correr(['--xml', rutaEntero, '--base', rutaV1, '--solo-avisar']);
+
+comprobar('una referencia de formato viejo no rompe el analisis: sale con 0',
+  conV1.codigo === 0);
+comprobar('y AVISA de que formato era y de que se recusa',
+  conV1.salida.includes('formato 1') && conV1.salida.includes('se recusa'));
+
 // Y el 2, que es el codigo que mas se confunde con el 1 porque no dice nada
 // sobre tiempos: dice que NO SE HA MEDIDO. Fijarlo aqui es lo que impide que
 // derive a un 1 sin que nadie lo note, que es justo como paso con el resto de
@@ -727,6 +773,50 @@ comprobar('las barras invertidas tambien son separadores',
   claveDeFichero('D:\\x\\test_Q.cpp') === claveDeFichero('D:/x/test_Q.cpp'));
 comprobar('un caso sin fichero no rompe la comparacion',
   claveDeFichero(undefined) === '(sin fichero)');
+
+// ─────────────────────────────────────────────────────────────────────────
+// LA RUTA QUE SE GUARDA, Y POR QUE ES RELATIVA AL REPO
+//
+// El formato 1 guardaba la ruta ABSOLUTA que da Catch2, y con ella dentro iban
+// el disco, el proyecto y el usuario. La referencia esta commiteada: con la ruta
+// absoluta, dos maquinas con el mismo codigo generaban ficheros distintos y el
+// diff de la referencia decia cosas que no eran cambios de tiempo. En la
+// migracion de este formato se fueron 39.353 bytes, todos de disco y usuario.
+const RAIZ_REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+comprobar('un fichero del repo se guarda sin el disco, el proyecto ni el usuario',
+  rutaDeRepositorio(join(RAIZ_REPO, 'src', 'tests', 'test_Q.cpp')) === 'src/tests/test_Q.cpp');
+
+// 64 de los 939 casos de la referencia son del HERMANO `ABDSharedCode`, que esta
+// fuera del repo. No es un caso hipotetico: son casi siete de cada cien.
+comprobar('el hermano del repo sale como .., y sigue diciendo de donde viene',
+  rutaDeRepositorio(join(RAIZ_REPO, '..', 'ABDSharedCode', 'tests', 'test_Q.cpp'))
+    === '../ABDSharedCode/tests/test_Q.cpp');
+
+// Lo que no esta en este arbol no se relativiza, porque no hay ruta que diga la
+// verdad y fabricar una seria peor que guardar la que venia.
+comprobar('otro arbol se deja como venia, sin inventar una ruta relativa',
+  rutaDeRepositorio('C:/otro/disco/test_Q.cpp') === 'C:/otro/disco/test_Q.cpp');
+
+comprobar('un caso sin fichero sale con su marcador, no con una ruta vacia',
+  rutaDeRepositorio('') === '(sin fichero)'
+  && rutaDeRepositorio('(sin fichero)') === '(sin fichero)');
+
+comprobar('la base escribe la ruta YA relativa, no la que le pasaron',
+  construirBase([{ nombre: 'A', fichero: join(RAIZ_REPO, 'src', 'tests', 'test_Q.cpp'), segundos: 1 }])
+    .casos_.A.f === 'src/tests/test_Q.cpp');
+
+// Y el fichero commiteado, que es donde se nota de verdad. Si vuelve una ruta
+// absoluta, el problema ha vuelto, y no hace falta esperar a otra maquina para
+// enterarse: lo dice este test en el sitio donde se commitea.
+const rutasCommiteadas = Object.values(
+  JSON.parse(readFileSync(join(RAIZ_REPO, 'tools', 'duraciones-referencia.json'), 'utf8')).casos_)
+  .map((c) => c.f);
+
+comprobar('la referencia commiteada no tiene NI UNA ruta absoluta',
+  rutasCommiteadas.every((f) => !/^[A-Za-z]:/.test(f) && !f.startsWith('/')));
+comprobar('ni el nombre del proyecto ni el del usuario',
+  !rutasCommiteadas.some((f) => f.includes('ABDAudioLab') || f.includes('desarrollos')));
 
 // ─────────────────────────────────────────────────────────────────────────
 // LA REFERENCIA SE ESCRIBE ENTERA, O NO SE ESCRIBE

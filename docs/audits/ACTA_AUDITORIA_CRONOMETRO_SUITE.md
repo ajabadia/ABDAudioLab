@@ -428,6 +428,22 @@ El reparto de códigos de §6.1 tenía un hueco: las dos autocomprobaciones —e
 
 El `exit /b 3` aparece **una sola vez** en el fichero, y hay aserción para eso: un código repetido en dos sitios no es un código, son dos reglas que alguien va a cambiar por separado.
 
+## 6.12. La referencia guarda la ruta relativa al repositorio, y el formato pasa a 2
+
+La referencia guardaba en cada caso la ruta **ABSOLUTA** que le da Catch2, y con ella dentro iban el disco, el proyecto y el usuario: `D:/desarrollos/ABDSynths/ABDAudioLab/src/tests/...`. Tres cosas que no son las mismas en otra máquina y que no dicen nada del test. Y la referencia está **commiteada**, así que el efecto era concreto: dos personas con el mismo código generaban dos ficheros distintos, y el diff de la referencia decia cosas que no eran cambios de tiempo.
+
+**Ahora guarda la ruta relativa al repositorio**, con `/`. De los 939 casos, **875** quedan como `src/tests/...` y **64 como `../ABDSharedCode/...`**, que son los del repo hermano y no son un caso hipotético: son casi siete de cada cien. Los que no caen ni en el repo ni en su hermano **se dejan como venían**, porque ahí no hay ruta relativa que diga la verdad y fabricar una sería peor que guardar la entera. Lo que se fue de la referencia: **39.353 bytes**, todos de disco y de usuario.
+
+**La versión sube a 2, y esta vez sí.** La regla que el propio tool tenía escrita es que la versión sube cuando un campo cambia lo que **significa**, no cuando aparece uno nuevo — por eso `maquina` no la subió y no obligó a regenerar nada—. Aquí `f` cambia de significado: la misma cadena que antes era una ruta absoluta ahora es `../ABDSharedCode/...`. Comparar una base vieja con una nueva daría diferencias que no existen, que es justo para lo que existe el número.
+
+**La transición.** Una base de formato 1 **se recusa**: no se compara, y la vuelta siguiente regenera la referencia. Lo que se ha añadido es que **lo dice**. Antes un `return null` sin más, y el silencio ahí se lee como «no hay referencia», que es una cosa distinta de «la hay y no se puede leer»: se arreglan de forma distinta, y quien regenera sin querer no tenía forma de saber qué había pasado. Ahora el aviso nombra el formato que tenía, el que escribe este tool, y que se recusa. Está comprobado **por fuera**, ejecutando el programa, porque por dentro `leerBase` devuelve `null` y no se ve si ha dicho nada.
+
+**Lo que la migración NO toca, a propósito.** Ni los segundos ni `medidoEn`. La medición se hizo el día que dice que se hizo; cambiar su fecha para que cuadrase con el formato nuevo sería mentir sobre el momento de la medición, que es exactamente el dato que hace falta para leer una cifra de duraciones. Lo único que ha cambiado es cómo se **escribe** la ruta, y eso lo hace el propio tool con su propia función, no un script aparte: una copia de la regla en un script de un solo uso es una segunda regla.
+
+**La comparación no se entera.** `claveDeFichero` sigue quedándose con el nombre del fichero, y el motivo de fondo no cambia: comparar por ruta entera haría que un test movido de carpeta saliese a la vez como nuevo y como ausente, dos avisos para un solo test. Lo que cambia es su premisa, y eso está escrito en su comentario.
+
+Comprobado contra una vuelta real: **939 casos medidos contra 939 de la referencia**, sin recusar nada y con veredicto normal.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -475,6 +491,15 @@ El `exit /b 3` aparece **una sola vez** en el fichero, y hay aserción para eso:
 | §6.11: cronómetro con salida 1 (suite lenta) | **exit 0**, el aviso se queda |
 | §6.11: mutación, la rama vuelve a marcar `PERF_FATAL` | **3 en rojo** |
 | §6.11: mutación, la cola sale con 1 en vez de 3 | **4 en rojo** |
+| §6.12: `test_duraciones_suite.mjs` con el formato 2 y `rutaDeRepositorio` | **172 aserciones**, +12 |
+| §6.12: rutas que quedan en la referencia commiteada | **0 absolutas** de 939; 875 del repo, 64 `../ABDSharedCode` |
+| §6.12: bytes que se fueron de la referencia | 191.016 → **151.663** |
+| §6.12: base de formato 1 | **se recusa y lo dice**; el análisis sale con 0 |
+| §6.12: base del formato declarado | **se usa** |
+| §6.12: una vuelta real contra la referencia migrada | 939 medidos contra 939, sin recusar |
+| §6.12: segundos y `medidoEn` de la referencia | **sin tocar** |
+| §6.12: mutación, la base vuelve a escribir la ruta absoluta | **1 en rojo** |
+| §6.12: mutación, vuelve una ruta absoluta en la referencia commiteada | **2 en rojo** |
 
 ## 8. Commits
 
@@ -490,6 +515,8 @@ El `exit /b 3` aparece **una sola vez** en el fichero, y hay aserción para eso:
 | este commit | §6.8: cinco comprobaciones de `build.bat` que solo avisaban pasan a fallar el build, con un acumulador propio para las junctions y otro para el cronómetro. El acumulador nuevo ha nacido 40 líneas por debajo de los `call` que lo mueven — lo ha detectado la revisión de este commit, no el test, cuya aserción miraba la definición de la etiqueta en vez del `call` — y esa aserción está corregida. Se deja sin hacer fatal `Rastreado=SI`, que es la comprobación contestando de verdad |
 | este commit | §6.9: el flujo principal se caía dentro de `:crearEnlaceSiProcede` sin un `call` delante, de modo que `%2` y `%3` llegaban vacíos y `mklink /J "" ""` imprimía un enlace con la ruta vacía en cada build. Detrás venía el `goto :eof` de esa subrutina, que sin `call` termina el script y se llevaba la cola de `:end`, o sea el `exit /b 1` de los guards de §6.1 y §6.8. Añadido el `goto :end` que faltaba, y una aserción que prohíbe que una etiqueta de subrutina se alcance por caída |
 | este commit | §6.11: la autocomprobación del cronómetro en rojo sale con `exit /b 3` en vez de compartir el 1 con las junctions y con «no se ha medido», con acumulador propio (`SELFTEST_FATAL`) y guard propio en la cola, primero de los tres. El 1 del cronómetro sigue siendo solo aviso y el build sale con 0, con aserción que lo lee de la tabla de casos para que moverlo sea una decisión explícita. 77 aserciones |
+
+| este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 
