@@ -87,39 +87,39 @@ Veredictos Resultantes:
 
 ## 5. Certificación de CI Remoto — POST-5D.2 / POST-5D.3 / POST-5D.4
 
-**Fecha tag local:** 2026-09-29 18:49 CEST  
-**Fecha fix Gate 2:** 2026-09-29 19:16 CEST  
-**Estado CI remota:** ⏳ **PENDIENTE** — Run #6 en curso
+**Fecha tag local:** 2026-09-29 18:49 CEST<br>
+**Fecha certificación CI remota:** 2026-10-02 (Run #16 / ID 37014243068)<br>
+**Estado CI remota:** 🟢 **CERTIFICADA** — Run #16 / ID 37014243068, conclusión `success`
 
 | Elemento | Valor |
 |---|---|
 | **Tag cierre local** | `hito-audio-ab-5d-certified` → `23a5d20` |
+| **Tag certificación CI remota** | `hito-audio-ab-5d-certified-ci` → `31d7adb` |
+| **Commit CI certificado** | `31d7adbaf88acddd520e9eace7f5ad6c59da3978` |
 | **Fix Gate 2 (POST-5D.4)** | `50900f6` — `ci(qa): fix Gate 2 -- add --allow-running-no-tests` |
 | **Acta incidente** | `b4c3f6e` — `docs(acta): record Gate 2 CI incident` |
-| **SHA ABDSharedCode pinnado** | `a0cdaf1` — `feat(hwid): integrate strict endpoint safety (HITO-SHARED-SYNC)` |
-| **Workflow** | `.github/workflows/audio-ab-5d-ci.yml` — 6 gates configurados |
+| **SSOT contractual (`ABDSharedAssets`)** | `065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c` |
+| **SHA ABDSharedCode pinnado** | `21c0a60` — `ref: 21c0a60c1efd5aac6a6cedcc57725f601a3ce14a` |
+| **Workflow** | `.github/workflows/audio-ab-5d-ci.yml` — 1 Preflight Ubuntu + 1 Timings Ubuntu + 7 Gates Windows |
 | **Repositorio** | `https://github.com/ajabadia/ABDAudioLab` |
 
 > [!IMPORTANT]
-> **Desfase tag / CI:** El tag `hito-audio-ab-5d-certified` apunta a `23a5d20`, anterior al fix `50900f6`.  
-> Si Run #6 termina verde, la evidencia CI corresponde al commit `50900f6`, no al commit etiquetado.  
-> Se creará un tag adicional `hito-audio-ab-5d-certified-ci` apuntando al commit exactamente validado por CI.  
-> El tag original **no se mueve** — documenta el cierre local, no el cierre CI.
+> **Desfase tag local / tag CI:** El tag `hito-audio-ab-5d-certified` apunta a `23a5d20`, correspondiente al cierre local original.
+> El tag inmutable `hito-audio-ab-5d-certified-ci` apunta a `31d7adbaf88acddd520e9eace7f5ad6c59da3978`, correspondiente a la validación completa en CI remota (Run #16).
+> Ambos tags representan hitos complementarios e inmutables: el cierre local y la certificación reproducible en CI.
 
 ---
 
 ### Historial de runs de CI
 
-| Run | SHA | Resultado | Causa |
-|---|---|---|---|
-| #1 | `d588fca` | ❌ failure | Generator MSVC no detectado |
-| #2 | `dfc2c67` | ❌ failure | WebView2 no instalado |
-| #3 | `8f63869` | ❌ failure | NuGet URL inválida |
-| #4 | `004bc1b` | ❌ failure | Checkout multi-repo fallido |
-| #5 | `657052a` | ❌ failure | Gate 2: `[diagnostics]` → 0 tests → exit code 1 |
-| #6 | `50900f6` | ❌ failure | Gate 6: fallo en baseline `~[ves]` por dependencias de rutas absolutas codificadas (`D:/desarrollos/...`) |
-| #7 | `6e8484c` | ❌ failure | Gates 1–5 verdes; Gate 6 falló en contratos/cuarentena por checkout remoto de `ABDSharedAssets` desfasado respecto a la verdad local (resuelto en POST-5D.6) |
-| #8 | *(en preparación)* | ⏳ pendiente | Incidente POST-5D.6: Publicación de SSOT contractual y pin inmutable (`9a99cbb`) |
+| Runs | Resultado | Causa o evidencia |
+|---|---|---|
+| #1–#5 | ❌ Failure | Bootstrap de CI: generador MSVC, WebView2, NuGet, checkout multi-repo y Gate 2 vacío |
+| #6 | ❌ Failure | Gate 6: rutas personales y CWD no herméticos |
+| #7 | ❌ Failure | Gate 6: SSOT contractual remota desfasada |
+| #8 | ❌ Failure | Preflight contractual: recurso ABDEep no versionado en la ruta esperada |
+| #9–#15 | ❌ Failure / diag. progresivo | Red/FetchContent, higiene documental, estabilidad JUCE GUI y refinamientos de telemetría; sin drift de evidencia 5D |
+| #16 | ✅ Success | Preflight Ubuntu, Suite Timings, Windows build y Gates 1–7 verdes |
 
 ---
 
@@ -147,16 +147,34 @@ Veredictos Resultantes:
 
 ---
 
-### Condición de cierre remoto
+### Condición de cierre remoto — Cumplida
 
-Para declarar **"cerrado y sellado local y remotamente"**:
+Para declarar **"cerrado y sellado local y remotamente"**, se verificaron y cumplieron los siguientes criterios normativos:
 
 ```text
-Run #7:     status=completed / conclusion=success
-Gates 1-6:  todos success o skipped-por-diseño (nunca failure; Gate 6 100% verde sin bypass)
-Gate 2:     success con ejecución autorizada vacía (documentado arriba)
-Tag CI:     hito-audio-ab-5d-certified-ci → SHA validado por Run #7
-ACTA:       actualizada con SHA, run_id y fecha de Run #7 exitoso
+Run #16:
+status=completed / conclusion=success.
+
+Preflight contractual Ubuntu:
+success.
+
+Suite Timings Ubuntu:
+success.
+
+Windows build:
+success.
+
+Gates 1–7:
+success.
+
+Gate 2:
+success con ejecución vacía autorizada y documentada (filtro [diagnostics] sin tests).
+
+Tag CI:
+hito-audio-ab-5d-certified-ci → 31d7adbaf88acddd520e9eace7f5ad6c59da3978.
+
+SSOT:
+ABDSharedAssets → 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c.
 ```
 
 ---
@@ -220,6 +238,11 @@ Registrada aquí para que no se confunda "hermético" con "sin fallos":
 - **SHA remoto inmutable certificado**: `9a99cbbb5d001321395ab14c1bea94e954e9168f`.
 - **Pinning en CI**: Se fijó `ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f` en los dos pasos de checkout de `ABDSharedAssets` en `.github/workflows/audio-ab-5d-ci.yml`.
 - **Paridad contractual garantizada**: 40/40 contratos idénticos byte a byte entre SSOT y `ABDAudioLab/contracts/hardware`.
+
+> [!NOTE]
+> **Evolución del Pin Contractual:**
+> El pin `9a99cbbb5d001321395ab14c1bea94e954e9168f` fue una referencia intermedia de POST-5D.6.
+> La certificación definitiva Run #16 se ejecutó con el pin `065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c`, tras la corrección del generador de contratos ABDEep en `ABDSharedAssets`.
 
 ---
 
