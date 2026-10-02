@@ -476,6 +476,50 @@ Ciento noventa y seis ficheros que nadie tocó se frenaron por igual. Y hay un d
 
 **Lo que no se puede cerrar con los datos que hay.** Solo existe **una** vuelta anterior al commit del portapapeles, así que no se puede decir en qué minuto exacto cae el total. Da igual para la pregunta que se hizo —el commit responde por el 0,4 % y el resto no está donde se tocó código—, pero fechar la caída exigiría una vuelta más con el código viejo.
 
+## 6.14. El ruido de la máquina, medido al regenerar y guardado en la referencia
+
+El suelo absoluto de 1 s de §6.3 se decidió con unas cifras escritas **a mano** en el comentario de la constante: *«por debajo de 1 s: mediana ×1,11, p90 ×1,79, máximo ×3,38»*. El razonamiento era correcto y §6.13 lo confirma con tres vueltas, pero el número tenía la vida de un comentario: dentro de un año seguía diciendo ×3,38 con la máquina cambiada detrás, y nadie podría saber si el umbral seguía teniendo razón.
+
+**Ahora el ruido se mide y se guarda en la referencia.** `--guardar-referencia` corre la suite **DOS VUELTAS**: la primera da los tiempos que se guardan y la segunda contrasta con el mismo ejecutable y el mismo código. La diferencia entre las dos es el ruido de la máquina, y va **dentro** del fichero de referencia, en el bloque `ruido`, entre `maquina` y `casos_`.
+
+**Cómo se mide cada caso.** El factor es **la vuelta peor partida por la mejor**, no al revés: el ruido que importa es el que hace un caso *parecer peor* de lo que es, que es el que pone un falso rojo. Con la vuelta buena en el numerador el número grande sería el del caso más rápido medido nunca, que no dice nada. La simetría se ha comprobado: `ruidoDe(A, B)` y `ruidoDe(B, A)` dan exactamente los mismos factores, porque si dependieran de cuál se guarda, la misma medición daría dos ruidos distintos y solo uno estaría en la referencia.
+
+**Las dos bandas, y por qué están partidas por el umbral y no por la mediana.** Un único número no dice ninguna de las dos cosas que hay que decir:
+
+| Banda | Qué es | Para qué está |
+|---|---|---|
+| `bajoUmbral` | casos que en **ninguna** de las dos vueltas pasaron de 1 s | si su ruido está **dentro** del factor ×2, el umbral de 1 s está haciendo falta |
+| `sobreUmbral` | casos que en **ninguna** de las dos vueltas bajaron de 1 s | si su ruido **llega** al factor ×2, el margen se ha perdido y un caso puede ponerse rojo solo |
+
+Los que **cruzan** 1 s de una vuelta a la otra no cuentan en ninguna de las dos, y se dicen cuántos son. Meterlos en la de abajo sería justo la confusión que el umbral absoluto existe para evitar: un caso que pasa de 0,4 s a 1,2 s no es un caso rápido con ruido, es uno que ha pegado un salto.
+
+**Lo que se guarda, y lo que no.** Ni `medidoEn` ni los segundos se tocan, igual que en §6.12. **El ratio de cada caso NO se guarda**: es lo que más información tiene y lo que más pesa —casi 25 KB en un fichero commiteado— y **nada lo lee**, porque la comparación decide con el tiempo de ahora y no con el ruido de un caso concreto. Un número sin consumidor es un número que nadie sabrá reexplicar dentro de un año.
+
+**El formato sigue en 2, y esta vez es el caso interesante.** La regla escrita en el tool es que la versión sube cuando un campo cambia lo que **significa**, no cuando aparece uno nuevo. `ruido` es un campo que **sí se lee** —`resumenRuido` lo enseña al comparar—, pero lo que decide es si una referencia a la que le falta se puede comparar con las demás: **sí**, porque lo único que `ruido` describe es la máquina y las duraciones de los casos se leen igual. Una referencia vieja se compara exactamente igual y además avisa de que no dice cuánto se movía la máquina, que es lo que hay que decir en ese caso.
+
+**Lo que sale en cada comparación.** El bloque va pegado al de la máquina, y termina con el veredicto sobre el umbral, en las dos direcciones:
+
+- factor **dentro** del ruido de los casos de menos de 1 s → *«el umbral está haciendo falta»*.
+- ruido **menor** que el factor en esa banda → *«el umbral de 1 s está más alto de lo que el ruido de esta máquina pide»*.
+- ruido por encima de 1 s **llegando** al factor → *«el margen se ha perdido, y un caso puede ponerse rojo solo»*.
+
+Un aviso que sale aunque la comparación esté en verde es justo lo que hace que una constante sea auditable en vez de creída.
+
+**Con `--xml` no hay segunda vuelta, y la referencia se guarda sin el.** Un fichero no se puede volver a medir. No se **recusa** la referencia por eso: perder un dato medido por otro que no se ha podido medir sería tirar el bueno, y lo único que se pierde es el ruido, que se puede medir otro día. Se guarda sin el campo —sin `null`, porque una clave con `null` se lee como «se midió y no se movió nada», que es una afirmación— y **avisa** de que se ha guardado sin él.
+
+**Lo que NO se ha podido hacer todavía: el número.** La regeneración exige dos vueltas enteras, y **la suite que hay en el árbol hoy no termina**. Dos vueltas consecutivas, mismo binario (12:24, sin cambios durante la medición), dos muertes distintas:
+
+| Vuelta | Qué pasó | Qué dijo el cronómetro |
+|---|---|---|
+| 1.ª | **SIGSEGV** en `test_MeasurementFloatingWindow.cpp:108`, seccion *«el constructor se queda el contenido y la geometria que le pasan»*, cortado a los **585 de 939** casos | `medicion-incompleta`, código 1, *«ha terminado de forma anormal, con codigo 3221226525»* |
+| 2.ª | muerte temprana, **XML sin cerrar** antes de los 100 s | `medicion-incompleta`, código 1, *«le falta el cierre del documento»* |
+
+Aislado ese test **pasa** (33 aserciones con el filtro `[floating_window]`), así que la muerte depende del orden — Catch2 siembra el azar distinto en cada vuelta —. Es código **commiteado**: del crash no hay nada en el `working tree` de este hilo, y `test_MeasurementFloatingWindow.cpp` no lo toca ninguno de los ficheros modificados. Queda anotado aquí para el hilo que lo tenga delante.
+
+Las dos muertes son, de paso, la mejor demostración posible de los guards de §6.x: ninguna de las dos ha salido como «26 regresiones» ni como un verde. Sin ellos, un corte a los 585 casos habría producido una referencia de 354 casos menos y un `|` rojo decorativo.
+
+Por eso la referencia commiteada **sigue sin bloque `ruido`**, y las cinco comprobaciones que la vigilan están **aparcadas** en `tools/test_duraciones_suite.mjs`, con el cartel que dice qué hay que hacer para volverlas. Todo lo demás —el cálculo, el bloque, el informe y el camino sin segunda vuelta— está en verde y comprobable sin medir la suite.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -539,6 +583,21 @@ Ciento noventa y seis ficheros que nadie tocó se frenaron por igual. Y hay un d
 | §6.13: ficheros intactos que se aceleraron | ×0,47, ×0,54, ×0,55 — un cambio de código no puede |
 | §6.13: reparto de los 125,5 s | 37,4 s en los 5 primeros; el factor de la mediana explica ~71 s |
 | §6.13: tres vueltas posterior al commit | 150,0 / 163,1 / 176,4 s: 18 % de dispersión en la misma mañana |
+| §6.14: `test_duraciones_suite.mjs` con el ruido y las dos vueltas | **202 aserciones**, +30 |
+| §6.14: `test_build_bat_perf.mjs` sin tocar el `build.bat` | **77 aserciones**, sin cambios |
+| §6.14: `VERSION_FORMATO` después de añadir `ruido` | sigue en **2**, y la base sin `ruido` se usa igual |
+| §6.14: `ruido` sin haberlo medido | la clave **no aparece**; no hay `null` |
+| §6.14: `--xml --guardar-referencia`, de punta a punta | base **sin `ruido`** y aviso de por qué; sale con 0 |
+| §6.14: factor invertido (la buena partida por la mala) | **8 en rojo** |
+| §6.14: mutaciones del cálculo, del bloque y del veredicto | **7 de 7 en rojo** |
+| §6.14: banda de abajo metiendo al caso que cruza 1 s | **5 en rojo** |
+| §6.14: p90 interpolado en vez de medido | **1 en rojo** |
+| §6.14: suite con SIGSEGV a los 585 casos | `medicion-incompleta`, **1**, motivo con el código 3221226525 |
+| §6.14: suite muerta antes de cerrar el XML | `medicion-incompleta`, **1**, *«le falta el cierre»* |
+| §6.14: `test_MeasurementFloatingWindow` aislado | **pasa**, 33 aserciones: la muerte depende del orden |
+| §6.14: ejecutable durante las dos vueltas | **sin cambios**, las dos del mismo binario |
+| §6.14: línea del tool | 1377 → **1729** |
+| §6.14: comprobaciones sobre la referencia commiteada | **5 aparcadas**: la suite no termina y no se puede regenerar |
 
 ## 8. Commits
 
@@ -556,6 +615,8 @@ Ciento noventa y seis ficheros que nadie tocó se frenaron por igual. Y hay un d
 | este commit | §6.11: la autocomprobación del cronómetro en rojo sale con `exit /b 3` en vez de compartir el 1 con las junctions y con «no se ha medido», con acumulador propio (`SELFTEST_FATAL`) y guard propio en la cola, primero de los tres. El 1 del cronómetro sigue siendo solo aviso y el build sale con 0, con aserción que lo lee de la tabla de casos para que moverlo sea una decisión explícita. 77 aserciones |
 
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
+
+| este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 

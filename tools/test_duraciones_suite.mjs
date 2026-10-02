@@ -29,7 +29,7 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, rutaDeRepositorio, VERSION_FORMATO, identidadDeLaMaquina, resumenMaquina, limiteDeReloj, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, rutaDeRepositorio, VERSION_FORMATO, identidadDeLaMaquina, resumenMaquina, resumenRuido, ruidoDe, percentil, limiteDeReloj, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -308,6 +308,220 @@ comprobar('y tambien avisa si solo cambian los nucleos',
 const aviso = resumenMaquina({ maquina: { ...MIA, nucleos: 1 } }).join('\n');
 comprobar('el aviso dice que la regresion puede ser de la maquina',
   aviso.includes('puede ser la maquina'));
+
+// ─────────────────────────────────────────────────────────────────────────
+// EL RUIDO DE LA MAQUINA, QUE ES LA RAZON DEL UMBRAL DE UN SEGUNDO
+//
+// El umbral de `UMBRAL_ABSOLUTO_S` empezo siendo un numero con un comentario que
+// decia de donde salia: «por debajo de 1 s el ruido entre dos vueltas llega a
+// x3,38». Ese comentario era verdad el dia que se escribio y lo siguió siendo
+// mientras nadie lo mirara, que es justo lo que no pasa nunca.
+//
+// Asi que el ruido se MEDE al escribir la referencia —dos vueltas del mismo
+// codigo— y se guarda DENTRO de ella, al lado de los tiempos a los que
+// explica. Y en cada comparacion sale al lado del umbral, que es lo que le
+// convierte en una constante auditable en algo puesto a ojo.
+//
+// Lo que se mide es el factor de cada caso, la vuelta PEOR partida por la
+// mejor: el ruido que importa es el que hace un caso parecer peor de lo que es,
+// que es el que pone un falso rojo. Con la vuelta buena en el numerador el
+// numero grande seria el del caso mas rapido medido nunca, que no dice nada.
+
+console.log('\nel ruido de la maquina se mide con dos vueltas y se guarda');
+
+// El percentil, que es la pieza de la que sale el p90. Se fija por el metodo
+// del rango mas cercano a proposito: el p90 es un dato que existe, no un punto
+// entre dos datos. Con una lista de tres, la diferencia es entre «el p90 es el
+// maximo», que es lo unico que se puede decir de tres medidas, y un numero con
+// decimales que no esta medido en ninguna parte.
+comprobar('el percentil no necesita la lista ordenada',
+  percentil([3, 1, 2], 50) === 2);
+
+comprobar('el maximo es el percentil 100, y el minimo el 0',
+  percentil([3, 1, 2], 100) === 3 && percentil([3, 1, 2], 0) === 1);
+
+comprobar('una lista vacia no tiene percentil, y eso NO es un cero',
+  percentil([], 90) === null);
+
+// Las dos vueltas. Los nombres se emparejan entre vueltas, que es lo unico que
+// se puede hacer: un test que no salio en la vuelta dos no tiene contra que
+// contrastarse.
+const VUELTA1 = [
+  { nombre: 'igual', fichero: 'v.cpp', segundos: 0.1 },
+  { nombre: 'se duplica', fichero: 'v.cpp', segundos: 0.1 },
+  { nombre: 'se cuadruplica', fichero: 'v.cpp', segundos: 0.1 },
+  { nombre: 'lento y estable', fichero: 'v.cpp', segundos: 6 },
+  { nombre: 'cruza el segundo', fichero: 'v.cpp', segundos: 0.4 },
+  { nombre: 'medido como cero', fichero: 'v.cpp', segundos: 0 },
+  { nombre: 'solo en la primera', fichero: 'v.cpp', segundos: 5 },
+];
+
+const VUELTA2 = [
+  { nombre: 'igual', fichero: 'v.cpp', segundos: 0.11 },
+  { nombre: 'se duplica', fichero: 'v.cpp', segundos: 0.2 },
+  { nombre: 'se cuadruplica', fichero: 'v.cpp', segundos: 0.4 },
+  { nombre: 'lento y estable', fichero: 'v.cpp', segundos: 6.6 },
+  { nombre: 'cruza el segundo', fichero: 'v.cpp', segundos: 1.2 },
+  { nombre: 'medido como cero', fichero: 'v.cpp', segundos: 0 },
+  { nombre: 'solo en la segunda', fichero: 'v.cpp', segundos: 9 },
+];
+
+const RUIDO = ruidoDe(VUELTA1, VUELTA2);
+
+comprobar('el ruido dice cuantas vueltas se han medido', RUIDO.vueltas === 2);
+
+comprobar('y cuantos casos se han emparejado de los que habia',
+  RUIDO.casos === 7 && RUIDO.emparejados === 5);
+
+// Un caso que solo salio en una vuelta no tiene contra que medirse, y uno que
+// midio cero en las dos tampoco: dividir por cero da un infinito que se lleva
+// por delante el maximo de su banda. Los dos se CUENTAN, porque una exclusion
+// que no se ve es una exclusion que no se puede auditar.
+comprobar('un caso que no esta en la segunda vuelta no se empareja',
+  RUIDO.emparejados === 5 && RUIDO.casos === 7);
+
+comprobar('uno medido como cero se descarta, y se dice cuantos',
+  RUIDO.descartados === 1);
+
+// La banda de abajo son los casos que en NINGUNA de las dos vueltas pasaron de
+// un segundo. Los factores van 1,1 / 2,0 / 4,0, asi que la mediana cae en el
+// factor x2 —justo el que usa la comparacion— y el p90 en el mas alto.
+comprobar('la banda de abajo son los que no pasaron de 1 s en ninguna vuelta',
+  RUIDO.bajoUmbral.casos === 3);
+
+comprobar('y su mediana es el factor que se ve en el caso del medio',
+  RUIDO.bajoUmbral.factorMediano === 2);
+
+comprobar('su p90 sale de un caso medido, no de uno interpolado',
+  RUIDO.bajoUmbral.factorP90 === 4);
+
+comprobar('un caso que CRUZA el segundo no se mete en la banda de abajo',
+  ruidoDe([{ nombre: 'cruzador', fichero: 'v.cpp', segundos: 0.4 }],
+    [{ nombre: 'cruzador', fichero: 'v.cpp', segundos: 1.2 }])
+    .bajoUmbral.casos === 0);
+
+// El caso que cruza el segundo no vale ni para la banda de abajo ni para la de
+// arriba: si se metiera en la de abajo, su ruido —un salto de x3— se contaria
+// como el ruido de los casos rapidos, que es justo la confusion que el umbral
+// absoluto existe para evitar.
+comprobar('ni en la de arriba, porque a veces baja de 1 s',
+  RUIDO.sobreUmbral.casos === 1 && RUIDO.sobreUmbral.factorMaximo === 1.1);
+
+comprobar('la banda de arriba solo trae el caso que no bajo nunca de 1 s',
+  RUIDO.sobreUmbral.casos === 1 && RUIDO.sobreUmbral.factorMediano === 1.1);
+
+// Que el factor sea simetrico importa porque las dos vueltas son el mismo
+// codigo: si el numero dependiera de cual se guardara, la misma medicion
+// daría dos ruidos distintos y solo uno estaria en la referencia.
+comprobar('el ruido no depende de que vuelta se guarde',
+  ruidoDe(VUELTA2, VUELTA1).factorMediano === RUIDO.factorMediano
+    && ruidoDe(VUELTA2, VUELTA1).bajoUmbral.casos === RUIDO.bajoUmbral.casos);
+
+// El ruido va dentro de la referencia, al lado de la maquina que lo movio.
+const baseConRuido = construirBase(VUELTA1, '', RUIDO);
+
+comprobar('la referencia guarda el ruido que se ha medido',
+  baseConRuido.ruido !== undefined
+    && baseConRuido.ruido.factorP90 === RUIDO.factorP90);
+
+// Y si no se ha medido, el campo NO aparece. Un `ruido: null` se lee como «se
+// midio y no se movio nada», que es una afirmacion, y es mentira.
+comprobar('sin ruido medido el campo no se escribe, en vez de escribir null',
+  !('ruido' in construirBase(VUELTA1)));
+
+// El informe. Sin referencia no hay nada que decir, y una referencia sin ruido
+// —con `--xml`, o de antes de que el campo existiera— DICE que no lo tiene, que
+// es distinto de callarse.
+comprobar('sin referencia no hay ruido que decir', resumenRuido(null).length === 0);
+
+comprobar('una referencia sin ruido avisa de que no lo dice',
+  resumenRuido({}).join('\n').includes('no dice cuanto se movio'));
+
+comprobar('y avisa de que el umbral se queda sin numero',
+  resumenRuido({}).join('\n').includes('sin un numero que lo respalde'));
+
+const informe = resumenRuido(baseConRuido, 2).join('\n');
+
+comprobar('el informe enseña las dos bandas, con su numero',
+  informe.includes('x4.00') && informe.includes('x1.10'));
+
+comprobar('y dice cuantos casos hay en cada una',
+  informe.includes('3 casos') && informe.includes('1 casos'));
+
+comprobar('los que cruzan 1 s se dicen, porque si no el recuento no cuadra',
+  informe.includes('1 caso(s) cruzaron'));
+
+// El numero al lado del umbral es lo que hace el umbral auditable: si el factor
+// esta DENTRO del ruido de la franja que el umbral descarta, el umbral esta
+// haciendo falta. Y si el ruido es MAS PEQUEÑO que el factor, el umbral esta mas
+// alto de lo que la maquina pide, que es un aviso que sale sin romperse nada.
+comprobar('con el factor dentro del ruido de abajo, el umbral esta justificado',
+  informe.includes('DENTRO del ruido'));
+
+comprobar('con ruido MAS PEQUEÑO que el factor, avisa de que el umbral sobra',
+  resumenRuido(construirBase(VUELTA1, '', ruidoDe(VUELTA1, [
+    ...VUELTA2,
+    { nombre: 'se cuadruplica', fichero: 'v.cpp', segundos: 0.11 },
+    { nombre: 'se duplica', fichero: 'v.cpp', segundos: 0.11 },
+  ])), 2).join('\n').includes('MAS ALTO de lo que el ruido'));
+
+// Y al reves: si el ruido de los casos de MAS de un segundo llega al factor,
+// el margen se ha perdido y un caso puede ponerse rojo solo. Eso no es ruido de
+// la maquina, es un guard que ya no distingue, y hay que decirlo aunque la
+// comparacion salga verde.
+comprobar('con el ruido de arriba dentro del factor, avisa de que no hay margen',
+  resumenRuido(construirBase(VUELTA1, '', ruidoDe(VUELTA1, [
+    ...VUELTA2,
+    { nombre: 'lento y estable', fichero: 'v.cpp', segundos: 30 },
+  ])), 2).join('\n').includes('margen se ha perdido'));
+
+comprobar('y con margen de sobra, lo dice',
+  informe.includes('hay margen'));
+
+// El factor con el que se compara es el que se le pasa, no el de por defecto:
+// quien sube el factor con `--factor` tiene que ver el aviso de este umbral
+// contra ESE factor, y no contra el otro.
+comprobar('el aviso del margen mira el factor que se le pasa',
+  !resumenRuido(baseConRuido, 1).join('\n').includes('hay margen'));
+
+console.log('\nla referencia commiteada lleva su ruido medido');
+
+// ─────────────────────────────────────────────────────────────────────────
+// PENDIENTE DE DEVOLVER, Y POR QUE NO PUEDE ESTAR AQUI AHORA
+//
+// El fichero que se commitea es donde esto se decide de verdad: si el bloque
+// `ruido` no esta dentro, el umbral de un segundo vuelve a ser un numero con un
+// comentario al lado, y este cambio no habra servido para nada. Estas cinco
+// comprobaciones vuelven en cuanto la referencia se regenere.
+//
+// POR QUE NO ESTAN AHORA. La regeneracion mide DOS VUELTAS de la suite, y la
+// suite que hay en el arbol hoy peta de forma dependiente del orden: una vuelta
+// muere con SIGSEGV en `test_MeasurementFloatingWindow.cpp:108` (codigo
+// 3221226525) y otra muere antes de cerrar el XML. Sin vuelta entera no hay
+// referencia que guardar, y escribir un bloque `ruido` a mano seria inventar la
+// medicion que este cambio existe para no tener que inventar.
+//
+// Lo que se puede comprobar sin medir —el calculo, el bloque, el informe y el
+// camino sin segunda vuelta— esta mas arriba, en verde.
+//
+// QUE HAY QUE HACER: `node tools/duraciones-suite.mjs --guardar-referencia` con
+// una suite que termine, y quitar el cartel de este bloque.
+//
+//   const COMITEADA = JSON.parse(readFileSync(
+//     join(dirname(fileURLToPath(import.meta.url)), '..', 'tools',
+//       'duraciones-referencia.json'), 'utf8'));
+//
+//   comprobar('la referencia commiteada trae el ruido de la maquina que la midio',
+//     typeof COMITEADA.ruido === 'object' && COMITEADA.ruido !== null);
+//   comprobar('medido con dos vueltas, que es lo unico que lo hace un ruido',
+//     COMITEADA.ruido?.vueltas === 2);
+//   comprobar('y con las dos bandas, que son las que justifican el umbral',
+//     COMITEADA.ruido?.bajoUmbral?.casos > 0 && COMITEADA.ruido?.sobreUmbral?.casos > 0);
+//   comprobar('los numeros del ruido son numeros, no nulos',
+//     COMITEADA.ruido?.bajoUmbral?.factorP90 > 1
+//       && COMITEADA.ruido?.sobreUmbral?.factorP90 > 1);
+//   comprobar('el ruido por encima de 1 s no llega al factor que decide una regresion',
+//     COMITEADA.ruido?.sobreUmbral?.factorMaximo < FACTOR);
 
 const cmp = compararConBase([
   { nombre: 'A', fichero: 'x.cpp', segundos: 3.6 },
@@ -875,6 +1089,21 @@ comprobar('el mensaje de referencia guardada lleva la ruta entera',
 
 comprobar('y no solo el nombre del fichero',
   guardada.salida.includes(join(dirTEMP, 'viva.json')));
+
+// Con `--xml` NO hay segunda vuelta que correr: lo que hay es un fichero, y un
+// fichero no se puede volver a medir. La referencia se guarda igual —perderla por
+// no tener ruido seria tirar un dato medido por otro que no se ha podido medir—
+// pero SIN el bloque `ruido`, y diciendo por que. Es el camino que se puede
+// probar de punta a punta sin medir la suite dos veces, que son seis minutos.
+comprobar('con --xml la referencia se guarda SIN ruido, no con ruido a cero',
+  !('ruido' in (baseEscrita ?? {})));
+
+comprobar('y AVISA de que se ha guardado sin el, y de por que',
+  guardada.salida.includes('SIN el ruido de la maquina')
+    && guardada.salida.includes('XML ya capturado'));
+
+comprobar('y dice que el umbral se queda sin numero',
+  guardada.salida.includes('sigue sin un numero que lo respalde'));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EL CONTRATO DE LA LINEA DE VEREDICTO

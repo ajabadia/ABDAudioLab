@@ -50,6 +50,14 @@
  *   node tools/duraciones-suite.mjs --umbral 10       # mas tolerante
  *   node tools/duraciones-suite.mjs --base otra.json  # compara con otra
  *   node tools/duraciones-suite.mjs --xml salida.xml  # usa un XML ya capturado
+ *   node tools/duraciones-suite.mjs --guardar-referencia   # mide DOS vueltas
+ *
+ * `--guardar-referencia` corre la suite DOS VUELTAS, y no por capricho: la
+ * primera da los tiempos y la segunda mide cuanto se mueve la maquina con el
+ * MISMO codigo. Ese ruido se guarda en la referencia (`ruido`) y sale en cada
+ * comparacion al lado del umbral, que es lo que le da una razon a un numero
+ * puesto a ojo. Con `--xml` no hay segunda vuelta que correr —un fichero no se
+ * puede volver a medir— y la referencia se guarda sin el, avisando.
  *
  * Sale con 0 si nada supera el umbral, y con 1 si algo lo supera. Con
  * `--solo-avisar` sale con 0 siempre: para cuando uno solo quiere el informe.
@@ -385,6 +393,19 @@ export function resumen(duraciones, umbral = UMBRAL_POR_DEFECTO) {
  * El RECUENTO sigue saliendo, que es lo que dice cuantos hay; lo que no sale es
  * una lista de nombres de tests que duran menos que un segundo, que en un
  * fichero de duraciones no aporta nada.
+ *
+ * ── Y DE DONDE SALEN ESAS CIFRAS, QUE YA NO ESTAN PUESTAS A OJO ──
+ *
+ * Los numeros de arriba salieron de comparar dos vueltas A MANO, y un numero
+ * medido a mano y anotado en un comentario no se vuelve a medir nunca: dentro
+ * de un ano el comentario seguira diciendo x3,38 y la maquina habra cambiado,
+ * sin que nada avise de que el comentario se quedo anticuado.
+ *
+ * Por eso al escribir la referencia se miden DOS VUELTAS y el ruido va DENTRO
+ * de ella, en `ruido`, y `resumenRuido` lo enseña en cada comparacion al lado
+ * del factor. Asi el 1 de aqui no es una constante CREIDA: es una constante que
+ * se puede auditar contra el numero que salio en la maquina que la midio, y si
+ * un dia el ruido medido deja de dar la razon, el aviso lo dice.
  */
 const UMBRAL_ABSOLUTO_S = 1;
 
@@ -438,6 +459,141 @@ export function identidadDeLaMaquina() {
 }
 
 /**
+ * Un percentil de una lista de numeros, por el metodo del rango mas cercano.
+ *
+ * Se elige ese metodo y no el de interpolar porque no inventa un valor que
+ * nadie midio: el p90 es el noventavo dato de la lista ordenada, y no un punto
+ * entre dos. Con 939 casos la diferencia es de centesimas —da igual—, pero con
+ * una lista de tres la diferencia es entre «el p90 es el maximo», que es lo
+ * unico que se puede decir de tres medidas, y un numero con dos decimales que
+ * no esta en ninguna parte.
+ *
+ * @param {number[]} numeros la lista, da igual en que orden venga.
+ * @param {number} p el percentil, de 0 a 100.
+ * @returns {number|null} `null` si la lista esta vacia, que es un dato que no
+ * existe y no un cero.
+ */
+export function percentil(numeros, p) {
+  if (numeros.length === 0)
+    return null;
+
+  const ordenados = [...numeros].sort((a, b) => a - b);
+  const i = Math.min(ordenados.length - 1,
+    Math.max(0, Math.ceil((p / 100) * ordenados.length) - 1));
+
+  return ordenados[i];
+}
+
+/** Un factor a dos decimales, que es toda la precision que se puede leer. */
+function factorRedondeado(valor) {
+  return valor === null ? null : Number(valor.toFixed(2));
+}
+
+/**
+ * El ruido de la maquina: cuanto se mueve cada caso entre DOS VUELTAS del
+ * MISMO codigo.
+ *
+ * El factor de un caso es la MAYOR de las dos duraciones partida por la menor,
+ * que es lo mismo que decir «cuantas veces mas tardo la vuelta que tardo la
+ * otra». Se toma en ese orden, y no con la division al reves, porque el ruido
+ * que importa es el que hace un caso parecer PEOR de lo que es, que es el que
+ * pone un falso rojo. Con la vuelta buena en el numerador, el numero grande
+ * seria el del caso mas rapido que se ha medido nunca, que no dice nada.
+ *
+ * POR QUE SE MIDE AL GUARDAR Y NO DESPUES. Un ruido que se mide una vez y se
+ * anota en un comentario deja de ser verdad sin que nada avise. Guardandolo en
+ * la referencia, el numero viaja con los tiempos a los que explica y cada
+ * comparacion lo puede volver a enseñar.
+ *
+ * Y POR QUE EN LA REFERENCIA, Y NO EN UN FICHERO AL LADO. Un numero del ruido
+ * sin los tiempos de al lado no se puede comprobar: queda en su propio fichero y
+ * la proxima vez que se mire ya no se sabe si era de esta medicion o de la
+ * anterior.
+ *
+ * LAS DOS BANDAS, Y POR QUE ESTAN PARTIDAS POR EL UMBRAL Y NO POR LA MEDIANA.
+ * La banda de abajo son los casos que en NINGUNA de las dos vueltas pasaron de
+ * un segundo, que son justo los que el umbral absoluto descarta: si el ruido de
+ * esa banda esta dentro del factor x2, el umbral esta haciendo falta; y si el
+ * ruido de la de arriba llega al factor, el margen se ha perdido y el guard
+ * puede ponerse rojo solo. Sin el corte, un unico numero no dice ninguna de las
+ * dos cosas.
+ *
+ * Lo que NO va dentro: el ratio de cada caso. Es lo que mas informacion tiene y
+ * lo que mas pesa —casi 25 KB en un fichero que se commitea— y nada lo lee: la
+ * comparacion decide con el tiempo de ahora, no con el ruido de un caso
+ * concreto. Anadirlo sin un consumidor seria guardar un numero que nadie va a
+ * mirar y que un dia nadie sabra reexplicar.
+ *
+ * @param {{nombre: string, segundos: number}[]} primera la vuelta que se guarda.
+ * @param {{nombre: string, segundos: number}[]} segunda la vuelta de contraste.
+ * @returns {object} el bloque `ruido` de la referencia.
+ */
+export function ruidoDe(primera, segunda) {
+  const porNombre = new Map();
+
+  for (const d of segunda)
+    porNombre.set(d.nombre, d.segundos);
+
+  const pares = [];
+  let comunes = 0;
+
+  for (const d of primera) {
+    if (!porNombre.has(d.nombre))
+      continue;
+
+    comunes += 1;
+
+    const otro = porNombre.get(d.nombre);
+
+    // Un caso que mide cero en alguna de las dos vueltas NO tiene ratio:
+    // dividir por cero da un infinito que se lleva por delante el maximo de su
+    // banda, y un maximo contaminado acaba justificando un umbral que no se ha
+    // medido. Se dejan fuera y se CUENTAN, porque una exclusion que no se ve
+    // es una exclusion que no se puede auditar.
+    if (!(d.segundos > 0) || !(otro > 0))
+      continue;
+
+    pares.push({
+      factor: Math.max(d.segundos, otro) / Math.min(d.segundos, otro),
+      // Para partir por el umbral se mira el PEOR y el MEJOR de las dos vueltas,
+      // no la que se guarda y no su mediana. Lo que hace falta es no meter en
+      // la banda de abajo un caso que en una vuelta se fue de un segundo: ese
+      // caso va a entrar en la comparacion cuando el tiempo nuevo pase de 1 s,
+      // y su ruido no es el de los casos rapidos, es el de uno que ha pegado un
+      // salto. Los que cruzan el segundo de una vuelta a la otra se quedan fuera
+      // de las dos bandas, y `resumenRuido` dice cuantos son.
+      maximo: Math.max(d.segundos, otro),
+      minimo: Math.min(d.segundos, otro),
+    });
+  }
+
+  const banda = (subconjunto) => {
+    const factores = subconjunto.map((p) => p.factor);
+
+    return {
+      casos: factores.length,
+      factorMediano: factorRedondeado(percentil(factores, 50)),
+      factorP90: factorRedondeado(percentil(factores, 90)),
+      factorMaximo: factorRedondeado(percentil(factores, 100)),
+    };
+  };
+
+  const todo = banda(pares);
+
+  return {
+    vueltas: 2,
+    casos: primera.length,
+    emparejados: pares.length,
+    descartados: comunes - pares.length,
+    factorMediano: todo.factorMediano,
+    factorP90: todo.factorP90,
+    factorMaximo: todo.factorMaximo,
+    bajoUmbral: banda(pares.filter((p) => p.maximo < UMBRAL_ABSOLUTO_S)),
+    sobreUmbral: banda(pares.filter((p) => p.minimo >= UMBRAL_ABSOLUTO_S)),
+  };
+}
+
+/**
  * Vuelca las duraciones al formato de referencia.
  *
  * @param {{nombre: string, fichero: string, segundos: number}[]} duraciones
@@ -445,9 +601,13 @@ export function identidadDeLaMaquina() {
  * midio. Sin esto, una referencia no dice si se midio con la maquina descargada
  * o con diez compilaciones en paralelo, y esa diferencia explica todas las
  * regresiones falsas.
+ * @param {object|null} [ruido] lo que devuelve `ruidoDe`: cuanto se movio la
+ * maquina con el mismo codigo. Va `null` cuando no se ha medido —con `--xml` no
+ * hay segunda vuelta— y en ese caso el campo NO se escribe, porque un `null`
+ * se lee como «se midio y dio cero» y no como «no se midio».
  * @returns {object} el objeto que se escribe en disco.
  */
-export function construirBase(duraciones, xml = '') {
+export function construirBase(duraciones, xml = '', ruido = null) {
   return {
     // La version del FORMATO, no la del script. La sube `VERSION_FORMATO`, que
     // lleva escrito por que sube esta vez. `maquina` NO la subio, y el motivo
@@ -456,12 +616,27 @@ export function construirBase(duraciones, xml = '') {
     // mas no invalida las bases viejas, que siguen comparandose igual de bien.
     // Subirla obligaria a regenerar cada referencia del mundo para poder seguir
     // usandolas, y ese coste es justo el que solo se paga cuando toca.
+    //
+    // `ruido` NO la subio tampoco, y es el caso interesante: un campo que SI se
+    // lee, porque `resumenRuido` lo ensea al comparar. Lo que decide es si al
+    // que le falta se le puede comparar con el: se puede, porque lo unico que
+    // `ruido` describe es la maquina, y las duraciones de los casos se leen
+    // igual. Una referencia vieja sin `ruido` se compara como siempre y ademas
+    // avisa de que no dice cuanto se movia la maquina, que es justo lo que hay
+    // que decir en ese caso. El dia que un campo de la referencia cambie lo que
+    // un caso significa, la sube; ese dia no es hoy.
     version: VERSION_FORMATO,
     medidoEn: new Date().toISOString(),
     casos: duraciones.length,
     totalSegundos: Number(duraciones.reduce((a, d) => a + d.segundos, 0).toFixed(3)),
     filtros: FILTROS,
     maquina: identidadDeLaMaquina(),
+    // El ruido va ENTRE la maquina y los casos, al lado de lo que lo explica.
+    // `maquina` dice de donde vino la medicion y `ruido` cuanto se movio; los
+    // dos son la foto, y los casos son el dato. Se escribe con un condicional
+    // para que el campo NO aparezca cuando no se ha medido: una clave con `null`
+    // se lee como «se midio y no se movio nada», que es una afirmacion.
+    ...(ruido === null ? {} : { ruido }),
     casos_: Object.fromEntries(
       duraciones.map((d) => [d.nombre, {
         s: Number(d.segundos.toFixed(4)),
@@ -519,6 +694,89 @@ export function resumenMaquina(base) {
   if (guardado.sistema !== actual.sistema || guardado.nucleos !== actual.nucleos) {
     lineas.push('NO es la misma maquina. Las duraciones son comparables en orden de magnitud, no al detalle:');
     lineas.push('una regresion aqui puede ser la maquina, y no un cambio en la suite.');
+  }
+
+  return lineas;
+}
+
+/**
+ * El ruido que midio la maquina de la referencia, al lado del umbral que explica.
+ *
+ * Es un aviso y no un fallo, por la misma razon que el de la maquina: el ruido
+ * es de la maquina, no del codigo, y a nadie le sirve que se ponga en rojo por
+ * el ruido de otra maquina.
+ *
+ * Lo que hace es dejar de tratar el segundo como un numero puesto a ojo. Un
+ * umbral sin numero al lado se acepta por costumbre y se acaba culpando a tests
+ * que solo se mueven, y cuando algo se pone en rojo de verdad ya no hay quien
+ * sepa si ese umbral era razonable. Aqui el umbral se mira contra la banda que
+ * lo justifica: si el factor x2 esta DENTRO del ruido de los casos de menos de
+ * 1 s, el umbral esta haciendo falta; si el ruido de los casos de mas de 1 s
+ * llega al factor, el margen se ha perdido y eso hay que decirlo aunque no
+ * rompa nada.
+ *
+ * @param {object|null} base la referencia, o `null` si no hay.
+ * @param {number} factor el factor contra el que se compara.
+ * @returns {string[]} lineas para imprimir.
+ */
+export function resumenRuido(base, factor = FACTOR_POR_DEFECTO) {
+  const lineas = [];
+
+  if (base === null)
+    return lineas;
+
+  const ruido = base.ruido;
+
+  // Una referencia sin el campo se genero con `--xml`, o antes de que el campo
+  // existiera. Decirlo es mejor que no decir nada: el silencio se lee como «esta
+  // maquina no se mueve», que es justo lo que no se sabe.
+  if (ruido === undefined || ruido === null) {
+    lineas.push('La referencia no dice cuanto se movio la maquina: se genero sin medir una segunda vuelta.');
+    lineas.push(`El umbral de ${UMBRAL_ABSOLUTO_S} s sigue sin un numero que lo respalde.`);
+    return lineas;
+  }
+
+  const num = (v) => (typeof v === 'number' ? v.toFixed(2) : '?');
+  const banda = (etiqueta, b) => (b.casos === 0
+    ? `  ${etiqueta}: ningun caso`
+    : `  ${etiqueta}: mediana x${num(b.factorMediano)}, p90 x${num(b.factorP90)}, maximo x${num(b.factorMaximo)}   (${b.casos} casos)`);
+
+  lineas.push(`${ruido.vueltas} vueltas del mismo codigo, el mismo dia: ${ruido.emparejados} de ${ruido.casos} casos emparejados.`);
+
+  if (ruido.descartados > 0)
+    lineas.push(`${ruido.descartados} caso(s) miden cero en alguna vuelta y quedan fuera: sin los dos tiempos no hay ratio.`);
+
+  lineas.push('');
+  lineas.push(banda(`por debajo de ${UMBRAL_ABSOLUTO_S} s`, ruido.bajoUmbral));
+  lineas.push(banda(`por encima de ${UMBRAL_ABSOLUTO_S} s`, ruido.sobreUmbral));
+
+  const cruzados = ruido.emparejados - ruido.bajoUmbral.casos - ruido.sobreUmbral.casos;
+
+  if (cruzados > 0)
+    lineas.push(`  ${cruzados} caso(s) cruzaron 1 s de una vuelta a la otra, y no cuentan en ninguna de las dos.`);
+
+  lineas.push('');
+
+  const bajo = ruido.bajoUmbral;
+
+  if (bajo.casos > 0 && typeof bajo.factorP90 === 'number') {
+    if (bajo.factorP90 >= factor) {
+      lineas.push(`El factor x${factor} esta DENTRO del ruido de los casos de menos de ${UMBRAL_ABSOLUTO_S} s (p90 x${num(bajo.factorP90)}):`);
+      lineas.push('por eso esos casos no se comparan.');
+    }
+    else {
+      lineas.push(`El ruido de los casos de menos de ${UMBRAL_ABSOLUTO_S} s llega a x${num(bajo.factorP90)} y el factor es x${factor}:`);
+      lineas.push(`el umbral de ${UMBRAL_ABSOLUTO_S} s esta MAS ALTO de lo que el ruido de esta maquina pide.`);
+    }
+  }
+
+  const sobre = ruido.sobreUmbral;
+
+  if (sobre.casos > 0 && typeof sobre.factorMaximo === 'number') {
+    if (sobre.factorMaximo < factor)
+      lineas.push(`Por encima de ${UMBRAL_ABSOLUTO_S} s el maximo es x${num(sobre.factorMaximo)} y el factor x${factor} esta fuera: hay margen.`);
+    else
+      lineas.push(`POR ENCIMA de ${UMBRAL_ABSOLUTO_S} s el ruido llega a x${num(sobre.factorMaximo)} y el factor es x${factor}: el margen se ha perdido, y un caso de mas de ${UMBRAL_ABSOLUTO_S} s puede ponerse rojo solo.`);
   }
 
   return lineas;
@@ -607,6 +865,48 @@ export function rutaDeRepositorio(fichero) {
     return '../' + normal.slice(padre.length + 1);
 
   return normal;
+}
+
+/**
+ * La segunda vuelta, que es la que mide el ruido de la maquina.
+ *
+ * El limite de reloj es el de la referencia VIEJA, y no el de lo que acaba de
+ * medirse, por un motivo concreto: la primera vuelta acaba de pasar ese limite
+ * con esta suite y esta maquina, y la segunda es la misma suite unos minutos
+ * despues. Si ese limite sirve para la primera, sirve para la segunda, y medirlo
+ * con el total recien medido haria que el corte de la segunda vuelta dependiera
+ * de un dato que todavia no esta escrito en ninguna parte.
+ *
+ * Que la segunda vuelta falle NO es motivo para no guardar la referencia. La
+ * primera es buena y perderla porque la segunda se ha colgado seria tirar un
+ * dato medido por un dato que no se ha podido medir; lo que se pierde es el
+ * ruido, y el ruido se puede medir otro dia.
+ *
+ * @param {{nombre: string, segundos: number}[]} duraciones la vuelta que se va a
+ * guardar, para poder contrastarla caso a caso.
+ * @param {string[]} paraCatch los argumentos de Catch2, los mismos.
+ * @param {object|null} base la referencia previa, de la que sale el limite.
+ * @returns {{ruido: object|null, motivo: string|null}}
+ */
+function medirSegundaVuelta(duraciones, paraCatch, base) {
+  console.error('');
+  console.error('SEGUNDA VUELTA, para medir cuanto se mueve la maquina con el');
+  console.error('mismo codigo. Tarda lo mismo que la primera: no es un cuelgue.');
+
+  const captura = capturarXml(paraCatch, base);
+
+  if (captura.xml === null)
+    return { ruido: null, motivo: `la segunda vuelta ${captura.motivo}` };
+
+  if (xmlTruncado(captura.xml))
+    return { ruido: null, motivo: 'el XML de la segunda vuelta esta truncado' };
+
+  const segunda = leerDuraciones(captura.xml);
+
+  if (segunda.length === 0)
+    return { ruido: null, motivo: 'la segunda vuelta no ha medido ni un caso' };
+
+  return { ruido: ruidoDe(duraciones, segunda), motivo: null };
 }
 
 /**
@@ -1108,6 +1408,16 @@ function main(argumentos) {
   const indiceBase = argumentos.indexOf('--base');
   const rutaBase = indiceBase >= 0 ? argumentos[indiceBase + 1] : RUTA_BASE;
 
+  // Se filtran las banderas y SUS VALORES para que un `--base otra.json` no le
+  // pase la `otra.json` a Catch2, que lo interpretaria como un filtro de test
+  // sin ningun caso detras y mediria cero sin decir por que.
+  //
+  // Se calcula aqui y no donde se corre la suite porque el bloque que guarda la
+  // referencia necesita los MISMOS argumentos para la segunda vuelta: filtrarlos
+  // otra vez en el sitio de usarlos seria un segundo sitio donde se pueden
+  // colar por una bandera nueva.
+  const paraCatch = paraCatchDe(argumentos);
+
   // La referencia se lee ANTES de correr nada, y no por ordenar: el limite de
   // reloj de la vuelta se deriva de su total, asi que hace falta tenerla en la
   // mano para lanzar el proceso. Leerla aqui en vez de mas abajo no es un
@@ -1147,11 +1457,6 @@ function main(argumentos) {
     }
 
     console.error('Midiendo la suite. Tarda unos minutos; no es un cuelgue.');
-    // Se filtran las banderas y SUS VALORES para que un `--base otra.json` no le
-    // pase el `otra.json` a Catch2, que lo interpretaria como un filtro de test
-    // sin ningun caso detras y mediria cero sin decir por que.
-    const paraCatch = paraCatchDe(argumentos);
-
     const captura = capturarXml(paraCatch, base);
 
     if (captura.xml === null)
@@ -1231,7 +1536,29 @@ function main(argumentos) {
     // Guardar y comparar a la vez daria un verde de comparacion contra uno
     // mismo, que no compara nada. Por eso la referencia que se acaba de escribir
     // NO es la que se usa para comparar en esta misma vuelta.
-    const base2 = construirBase(duraciones, xml);
+    //
+    // Y se mide una SEGUNDA vuelta antes de escribir, que es lo que hace esto
+    // caro —el doble— y lo que no es opcional: el ruido de la maquina es la
+    // razon por la que existe el umbral de un segundo, y un numero medido a
+    // mano y anotado en un comentario deja de ser verdad en silencio.
+    let ruido = null;
+    let motivoSinRuido = null;
+
+    if (indiceXml >= 0) {
+      // Con `--xml` no hay segunda vuelta que correr: lo que hay es un fichero, y
+      // un fichero no se puede volver a medir. La referencia se guarda igual —
+      // perderla por no tener ruido seria tirar un dato medido por otro que no se
+      // ha podido medir— y se dice que se ha guardado sin el.
+      motivoSinRuido = 'viene de un XML ya capturado, y un XML no se puede volver a medir';
+    }
+    else {
+      const segunda = medirSegundaVuelta(duraciones, paraCatch, base);
+
+      ruido = segunda.ruido;
+      motivoSinRuido = segunda.motivo;
+    }
+
+    const base2 = construirBase(duraciones, xml, ruido);
 
     escribirEntero(rutaBase, `${JSON.stringify(base2, null, 2)}\n`);
     console.error('');
@@ -1240,6 +1567,17 @@ function main(argumentos) {
     // referencia que se acaba de escribir.
     console.error(`Referencia guardada en ${rutaBase}: ${duraciones.length} casos.`);
     console.error(`Medida en ${describeMaquina(base2.maquina)}.`);
+
+    if (ruido === null)
+      console.error(`SIN el ruido de la maquina: ${motivoSinRuido}. El umbral de ${UMBRAL_ABSOLUTO_S} s sigue sin un numero que lo respalde.`);
+    else {
+      console.error('');
+      console.error('LO QUE SE MUEVE ESTA MAQUINA');
+
+      for (const linea of resumenRuido(base2, factor))
+        console.error(linea);
+    }
+
     console.error('La siguiente vuelta comparara contra esta.');
     if (lentos > 0 && !soloAvisar)
       return con('lento', 1, { casos: duraciones.length, lentos, umbral });
@@ -1276,6 +1614,20 @@ function main(argumentos) {
       console.log('='.repeat(72));
 
       for (const linea of maquina)
+        console.log(linea);
+    }
+
+    // El ruido va al lado de la maquina porque es su continuacion: una dice de
+    // donde salio la medicion y el otro cuanto se movio esa medicion. Y va
+    // pegado al umbral, porque es el numero que le da la razon.
+    const ruido = resumenRuido(base, factor);
+
+    if (ruido.length > 0) {
+      console.log('');
+      console.log('LO QUE SE MUEVE ESTA MAQUINA');
+      console.log('='.repeat(72));
+
+      for (const linea of ruido)
         console.log(linea);
     }
 
