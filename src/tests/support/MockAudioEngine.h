@@ -80,11 +80,35 @@ public:
     {
         juce::ScopedNoDenormals noDenormals;
 
-        // 1. Procesar eventos MIDI entrantes con sample offset exacto
+        const int numChannels = buffer.getNumChannels();
+        const int numSamples = buffer.getNumSamples();
+
+        int currentSample = 0;
+
         for (const auto meta : midiMessages)
         {
+            const int samplePos = std::clamp(meta.samplePosition, 0, numSamples);
+
+            // Renderizar muestras previas con el estado activo hasta samplePos
+            while (currentSample < samplePos)
+            {
+                float s = 0.0f;
+                if (isPlaying_)
+                {
+                    s = static_cast<float>(std::sin(currentPhase_)) * (activeVelocity_ * 0.5f);
+                    currentPhase_ += phaseDelta_;
+                    if (currentPhase_ >= 2.0 * 3.14159265358979323846)
+                        currentPhase_ -= 2.0 * 3.14159265358979323846;
+                }
+
+                for (int ch = 0; ch < numChannels; ++ch)
+                    buffer.setSample(ch, currentSample, s);
+
+                ++currentSample;
+            }
+
+            // Procesar el evento MIDI en samplePos exacto
             auto msg = meta.getMessage();
-            int samplePos = meta.samplePosition;
 
             RecordedMidiEvent rec;
             rec.sampleOffset = currentLogicalSample_ + samplePos;
@@ -118,11 +142,8 @@ public:
             }
         }
 
-        const int numChannels = buffer.getNumChannels();
-        const int numSamples = buffer.getNumSamples();
-
-        // 2. Renderizar muestras senoidales deterministas
-        for (int i = 0; i < numSamples; ++i)
+        // Renderizar el resto del bloque hasta numSamples
+        while (currentSample < numSamples)
         {
             float s = 0.0f;
             if (isPlaying_)
@@ -134,9 +155,9 @@ public:
             }
 
             for (int ch = 0; ch < numChannels; ++ch)
-            {
-                buffer.setSample(ch, i, s);
-            }
+                buffer.setSample(ch, currentSample, s);
+
+            ++currentSample;
         }
 
         currentLogicalSample_ += numSamples;

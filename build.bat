@@ -106,6 +106,11 @@ if not exist "build\CMakeCache.txt" (
 set "BUILD_TARGET="
 set "IS_TEST_ONLY=0"
 set "RUN_PERF=0"
+rem Lo que el cronometro deja sin PODERSE FIAR. Distinto de que el cronometro
+rem tenga algo que decir: eso es un aviso, esto es no tener medicion. Se acumula
+rem aqui y se devuelve al final del script, porque los enlaces de la seccion de
+rem junctions se montan DESPUES del cronometro y salir aqui se los saltaria.
+set "PERF_FATAL=0"
 if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
     set "IS_TEST_ONLY=1"
@@ -203,6 +208,9 @@ if "!RUN_PERF!"=="1" (
                 echo [Error] A tool that fails its own tests does not get to say anything
                 echo [Error] about how long the suite takes. Fix it first:
                 echo [Error]   node tools\test_duraciones_suite.mjs
+                echo [Error] The build will FAIL at the end. An unchecked timing tool is
+                echo [Error] not a slow suite: it is a guard that is no longer guarding.
+                set "PERF_FATAL=1"
             ) else (
                 echo ==============================================================================
                 echo  Timing the suite. It takes minutes; that is not a hang.
@@ -243,9 +251,15 @@ if "!RUN_PERF!"=="1" (
                     echo [Error] was pointed at, is not where it was looking. There is no timing
                     echo [Error] above to read. The tool prints the full path it tried, right
                     echo [Error] before this line; that is the path to check.
+                    echo [Error] The build will FAIL at the end: no measurement is not a slow
+                    echo [Error] suite, and letting a build pass with the timing guard unable
+                    echo [Error] to run is how a gate stops being one without anyone saying so.
+                    set "PERF_FATAL=1"
                 ) else (
                     echo [Error] The timing tool exited with !PERF_EXIT!, a code it does not use.
                     echo [Error] That is a failure of the tool itself, not a slow suite.
+                    echo [Error] The build will FAIL at the end.
+                    set "PERF_FATAL=1"
                 )
             )
         )
@@ -338,4 +352,13 @@ echo           cmd /c rmdir "%~1"
 goto :eof
 
 :end
+:: El fallo se devuelve aqui y no en el bloque del cronometro, por el motivo que
+:: dice el comentario de PERF_FATAL: los enlaces se montan despues y salir antes
+:: se los saltaria. Un build que montase los enlaces a medias y ademas fallara
+:: dejaria el arbol peor que uno que no llego a empezar.
+if "!PERF_FATAL!"=="1" (
+    echo [Error] Build failed: the timing guard could not produce a measurement.
+    echo [Error] Nothing above this line is a performance result.
+    endlocal & exit /b 1
+)
 endlocal
