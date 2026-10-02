@@ -219,6 +219,8 @@ const SETLOCAL = LINEAS.find((l) => l.trim().toLowerCase() === 'setlocal enabled
   || 'setlocal EnableDelayedExpansion';
 const PERF_FATAL = LINEAS.find((l) => l.trim().toLowerCase() === 'set "perf_fatal=0"')
   || 'set "PERF_FATAL=0"';
+const SELFTEST_FATAL = LINEAS.find((l) => l.trim().toLowerCase() === 'set "selftest_fatal=0"')
+  || 'set "SELFTEST_FATAL=0"';
 
 console.log('\nlo que el banco ejecuta sale del build.bat, no de una copia');
 
@@ -238,7 +240,7 @@ const CASOS = [
   { ntest: 0, nbanco: 0, ncrono: 1, build: 0, muere: false, motivo: 'medido y algo que mirar' },
   { ntest: 0, nbanco: 0, ncrono: 2, build: 1, muere: true, motivo: 'no medido' },
   { ntest: 0, nbanco: 0, ncrono: 7, build: 1, muere: true, motivo: 'codigo que el tool no usa' },
-  { ntest: 1, nbanco: 0, ncrono: 0, build: 1, muere: true, motivo: 'el test del cronometro en rojo' },
+  { ntest: 1, nbanco: 0, ncrono: 0, build: 3, muere: true, motivo: 'el test del cronometro en rojo' },
   { ntest: 0, nbanco: 1, ncrono: 0, build: 1, muere: true, motivo: 'el test del reparto en rojo' },
 ];
 
@@ -251,7 +253,7 @@ try {
     const sinSustituir = [];
     let sustituciones = 0;
 
-    for (const l of [SETLOCAL, PERF_FATAL, 'set "RUN_PERF=1"', ...BLOQUE_PERF, ...COLA]) {
+    for (const l of [SETLOCAL, PERF_FATAL, SELFTEST_FATAL, 'set "RUN_PERF=1"', ...BLOQUE_PERF, ...COLA]) {
       const s = l.trim();
       const sangria = l.slice(0, l.length - l.trimStart().length);
 
@@ -360,6 +362,52 @@ try {
   rmSync(BANCO, { recursive: true, force: true });
 }
 
+console.log('\nla autocomprobacion del cronometro, con codigo propio');
+
+// Tres acumuladores y tres guard. El tercero lleva codigo propio porque es el
+// UNICO de los tres que significa que las OTRAS respuestas no son de fiar: si el
+// tool no pasa sus propios tests, cualquier medicion que hubiera dado queda sin
+// comprobar. Un 1 aqui diria "no he medido", que es cierto y no es lo que hay
+// que arreglar.
+const initSELF = LINEAS.find((l) => l.trim().toLowerCase() === 'set "selftest_fatal=0"');
+
+comprobar('build.bat tiene un acumulador propio para la autocomprobacion, inicializado a 0',
+  initSELF !== undefined);
+comprobar('y se inicializa ANTES del bloque del cronometro que lo marca',
+  initSELF !== undefined && LINEAS.indexOf(initSELF) < LINEAS.indexOf(BLOQUE_PERF[0]));
+
+// La rama se busca por su MENSAJE y no por el nombre de la variable: lo que se
+// comprueba es que ESA rama marque el acumulador nuevo y no el viejo. Con el
+// nombre seria tautologia, la asercion compararia una linea consigo misma.
+const RAMA_SELF = LINEAS.findIndex((l) => l.includes("timing tool's own tests are red"));
+
+comprobar('la rama que detecta la autocomprobacion en rojo existe',
+  RAMA_SELF > -1);
+comprobar('y marca SELFTEST_FATAL, no PERF_FATAL',
+  RAMA_SELF > -1
+  && LINEAS.slice(RAMA_SELF, RAMA_SELF + 12).some((l) => l.trim().toLowerCase() === 'set "selftest_fatal=1"')
+  && !LINEAS.slice(RAMA_SELF, RAMA_SELF + 12).some((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"'));
+
+const colaSELF = LINEAS.find((l) => l.trim() === 'if ' + Q + '!SELFTEST_FATAL!' + Q + '==' + Q + '1' + Q + ' (');
+
+comprobar('la cola tiene su propio guard para la autocomprobacion', colaSELF !== undefined);
+comprobar('y sale con 3, que no es el 1 de PERF_FATAL ni el de BUILD_FATAL',
+  colaSELF !== undefined
+  && LINEAS.slice(LINEAS.indexOf(colaSELF), LINEAS.indexOf(colaSELF) + 16)
+    .some((l) => l.includes('exit /b 3')));
+comprobar('el 3 aparece una sola vez: un codigo repetido en dos sitios son dos reglas',
+  LINEAS.filter((l) => l.includes('exit /b 3')).length === 1);
+
+// Y lo que NO se puede tocar, que es la otra mitad del encargo. El 1 del
+// cronometro sigue siendo una medicion que EXISTE y que dice algo malo: el build
+// avisa y sale con 0. El caso vive en la tabla de arriba, y esta asercion
+// existe para que cambiarlo sea una decision explicita y no un efecto colateral
+// de haber tocado el 3.
+const UNO_SOLO_AVISO = CASOS.find((c) => c.ncrono === 1);
+
+comprobar('el 1 del cronometro sigue siendo SOLO AVISO: el build sale con 0',
+  UNO_SOLO_AVISO !== undefined && UNO_SOLO_AVISO.build === 0 && UNO_SOLO_AVISO.muere === false);
+
 console.log('\nlas ramas del reparto, contadas en el build.bat');
 
 // Las ramas se buscan por FORMA y no por texto exacto. En batch el `if`
@@ -403,13 +451,19 @@ comprobar('build.bat no repite codigo en dos ramas',
 comprobar('build.bat tiene un else para los codigos que el tool no usa',
   BLOQUE_PERF.some((l) => l.trim() === ') else ('));
 
-// El numero de ramas que devuelven el fallo, y CUALES son. SIETE:
+// El numero de ramas que devuelven el fallo, y CUALES son. SEIS:
 //
 //     sin binario de tests          se pidio medir y no habia nada que medir
 //     sin node en el PATH           se pidio medir y no se podia medir
 //     el test del reparto en rojo    el build no sabe leer un resultado
-//     el test del cronometro rojo    el cronometro no sabe si mide
 //     el cronometro ha fallado      el cronometro no pudo terminar
+//     el codigo 2                   no se ha medido
+//     un codigo que el tool no usa   no se sabe que ha pasado
+//
+// La septima, "el test del cronometro en rojo", NO esta aqui: tiene su propio
+// acumulador y su propio codigo de salida, y se cuenta mas abajo. Que no se
+// contara antes no era un descuido de la cuenta: era que las dos cosas
+// comparten el mismo `set`, y por eso eran una sola rama.
 //     el codigo 2                   no se ha medido
 //     un codigo que el tool no usa   no se sabe que ha pasado
 //
@@ -426,8 +480,8 @@ comprobar('build.bat tiene un else para los codigos que el tool no usa',
 // ademas convence. De ahi la asercion de comillas, mas abajo.
 const marcasFallo = BLOQUE_PERF.filter((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"').length;
 
-comprobar('build.bat marca el fallo en 7 ramas, y son las que se han contado',
-  marcasFallo === 7);
+comprobar('build.bat marca el fallo en 6 ramas, y son las que se han contado',
+  marcasFallo === 6);
 
 comprobar('build.bat devuelve el fallo con exit /b 1 al final de la cola',
   COLA.some((l) => l.trim().toLowerCase() === 'endlocal & exit /b 1'));

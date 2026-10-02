@@ -120,6 +120,13 @@ rem de aqui es largo, y quien lee un log se para en el final.
 rem El de los junctions NO vive aqui: sus `call` estan mas ARRIBA, y por eso
 rem su acumulador tambien. Ver el comentario de su propio `set`.
 set "PERF_FATAL=0"
+rem Y una tercera clase, que no es la misma que ninguna de las dos: la
+rem autocomprobacion del cronometro en rojo. PERF_FATAL es "no he medido".
+rem Aqui el instrumento esta roto: sus propios tests fallan, de modo que no se
+rem ha medido Y no se creeria lo que se hubiera medido. Sale con codigo PROPIO
+rem --3-- para que quien solo mire el exit sepa cual de las dos cosas ha
+rem pasado, sin tener que leer el log entero.
+set "SELFTEST_FATAL=0"
 if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
     set "IS_TEST_ONLY=1"
@@ -259,9 +266,10 @@ set "PERF_FATAL=1"
                     echo [Error] A tool that fails its own tests does not get to say anything
                     echo [Error] about how long the suite takes. Fix it first:
                     echo [Error]   node tools\test_duraciones_suite.mjs
-                    echo [Error] The build will FAIL at the end. An unchecked timing tool is
-                    echo [Error] not a slow suite: it is a guard that is no longer guarding.
-                    set "PERF_FATAL=1"
+                    echo [Error] The build will FAIL with code 3 at the end, which is NOT
+                    echo [Error] the 1 of a slow suite. An unchecked timing tool is not a
+                    echo [Error] slow suite: it is a guard that is no longer guarding.
+                    set "SELFTEST_FATAL=1"
                 ) else (
                     echo ==============================================================================
                     echo  Timing the suite. It takes minutes; that is not a hang.
@@ -318,6 +326,22 @@ set "PERF_FATAL=1"
                     rem el codigo, que es lo que un pipeline sabe mirar. Lo que hace el
                     rem estado es que el log diga cual de las tres cosas que caben en un
                     rem 1 es la que ha pasado, en vez de repetir las tres.
+
+                    rem
+                    rem Y EL EXIT DE ESTE SCRIPT, QUE NO ES EL DEL TOOL. Son tres, y no son
+                    rem los mismos tres:
+                    rem
+                    rem   0 = todo se ha hecho, y el 1 del cronometro, si lo hubo, era un aviso.
+                    rem   1 = un chequeo no se ha podido hacer: las junctions, o el cronometro que
+                    rem       no ha producido medicion. No hay nada que leer de tiempos.
+                    rem   3 = la autocomprobacion del cronometro en rojo. Es el UNICO que quiere
+                    rem       decir que las OTRAS dos respuestas no son de fiar, asi que por eso
+                    rem       no comparte codigo con ellas.
+                    rem
+                    rem El 1 del cronometro NO aparece aqui, y esa es la parte que cuesta
+                    rem defender ante alguien con prisa: un 1 es una medicion que existe y que
+                    rem dice algo malo, y por eso avisa y sale con 0. Fallar por eso seria
+                    rem convertir el cronometro en un aviso que nadie escucha.
                     if "!PERF_ESTADO!"=="fallo-del-tool" (
                         echo [Error] THE TIMING TOOL ITSELF FAILED. This is not a performance result.
                         echo [Error] State: fallo-del-tool. The tool could not finish, and it
@@ -487,6 +511,20 @@ goto :eof
 :: lo que se imprime a partir de ahi es largo y quien lee un log se para en el
 :: final. Un build que montase los enlaces a medias y ademas fallara dejaria
 :: el arbol peor que uno que no llego a empezar.
+if "!SELFTEST_FATAL!"=="1" (
+    rem El primero de los tres, y no por orden de gravedad sino por otra cosa:
+    rem es el UNICO que significa que las otras respuestas no son de fiar. Si el
+    rem tool no pasa sus propios tests, cualquier medicion que hubiera dado queda
+    rem sin comprobar, y un 1 aqui no diria "no he medido" sino "no se que ha
+    rem pasado". Por eso lleva codigo propio y no comparte el 1.
+    echo [Error] Build failed: the timing tool failed its own self-check.
+    echo [Error] Its own tests are red, so the instrument is broken: it did not
+    echo [Error] measure the suite, and it would not have been believable if it had.
+    echo [Error] Exit code 3. The 1 of this build is a check that could not run or a
+    echo [Error] measurement that was not produced; the 3 is the tool not working.
+    echo [Error] Nothing above this line is a performance result.
+    endlocal & exit /b 3
+)
 if "!BUILD_FATAL!"=="1" (
     rem El motivo se dice aqui y no en el punto de fallo, por el mismo motivo
     rem que el de PERF_FATAL: las junctions se montan ANTES de aqui, asi que

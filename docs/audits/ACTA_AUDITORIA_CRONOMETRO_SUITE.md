@@ -407,6 +407,27 @@ El rango es 0,014–0,033 s. **No hay ningún 4,02 s en ningún sitio**, ni en l
 
 **Un hallazgo real que sale de mirar, y que no se toca.** `~MeasurementComparisonSession` guarda `DrainTimedOut` y lo notifica, y en la línea siguiente guarda `Destroyed` y lo notifica también: el estado final es siempre `Destroyed`, así que `SessionShutdownState::DrainTimedOut` no lo puede observar nadie. No es lo que se preguntó y no se ha cambiado; se anota porque el próximo que lea ese enumerado va a contar con un estado que no existe.
 
+## 6.11. La autocomprobación del cronómetro sale con código propio, y el 1 sigue siendo solo aviso
+
+El reparto de códigos de §6.1 tenía un hueco: las dos autocomprobaciones —el test del reparto y el del cronómetro— marcaban el mismo `PERF_FATAL` que el resto de fallos, de modo que un rojo de cualquiera de ellas salía con **1**, igual que una junction que no se pudo verificar o que un cronómetro que no produjo medición. Tres cosas distintas, un solo código.
+
+**El cambio.** La rama del cronómetro en rojo marca ahora un acumulador propio, `SELFTEST_FATAL`, y la cola tiene su propio guard con **`exit /b 3`**. El guard va **primero**, y no por orden de gravedad: es el único de los tres que significa que *las otras respuestas no son de fiar*. Si el tool no pasa sus propios tests, cualquier medición que hubiera dado queda sin comprobar, y un 1 ahí diría «no he medido», que es cierto y no es lo que hay que arreglar.
+
+**Por qué 3 y no el 1.** Porque el 1 de este build significa «un chequeo no se ha podido hacer», y eso sigue siendo exactamente lo que dice el 1: junctions que no se verificaron, o una medición que no se produjo. El 3 es otra clase: el instrumento está roto, no el build. Son dos razones distintas para mirar cosas distintas, y quien solo pueda mirar el exit debería poder elegir.
+
+**Lo que NO se toca, y es la otra mitad del encargo.** El **1 del cronómetro** —suite lenta, regresión contra la referencia, una vuelta que no terminó— sigue siendo un aviso y el build sale con **0**. No es que se haya decidido aquí: es que es la fila `ncrono: 1, build: 0` de la tabla de casos, y ahora hay una aserción que la lee de ahí y falla si alguien la mueve. Ese 1 es una medición que **existe** y que dice algo malo; fallar por él sería convertir el cronómetro en el aviso que nadie escucha, que es exactamente lo que este build evita desde §6.1.
+
+**El test del reparto se queda en 1, y es una decisión visible, no un olvido.** Es otra clase: el test del cronómetro falla cuando **el cronómetro** no funciona, y el del reparto cuando falla la **comprobación de este build**. Lo primero es un instrumento roto; lo segundo es un chequeo de este build en rojo, que es lo que el 1 ya dice. Pasar el segundo a 3 también sería defendible, y es el siguiente paso natural si algún dia molesta — pero no se ha hecho porque no se ha pedido, y porque el código 3 significa una cosa concreta.
+
+**Las aserciones.** Ocho nuevas, y dos de ellas son las quesostienen el encargo: que la rama marque `SELFTEST_FATAL` y no `PERF_FATAL`, y que el 1 del cronómetro siga saliendo con 0. La primera se busca por el **mensaje** de la rama y no por el nombre de la variable, porque con el nombre sería tautología. Se ha comprobado que muerde con dos mutaciones:
+
+| Mutación | Aserciones en rojo |
+|---|---|
+| La rama vuelve a marcar `PERF_FATAL` | **3** |
+| La cola sale con 1 en vez de con 3 | **4** |
+
+El `exit /b 3` aparece **una sola vez** en el fichero, y hay aserción para eso: un código repetido en dos sitios no es un código, son dos reglas que alguien va a cambiar por separado.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -448,6 +469,12 @@ El rango es 0,014–0,033 s. **No hay ningún 4,02 s en ningún sitio**, ni en l
 | §6.10: el caso en la corrida más lenta (301,5 s de suite, 26 regresiones) | 0,020 s: no se movió |
 | §6.10: la regla vigente contra un 4,02 s | `despues` ≥ 1 s y ratio x251 → **ya se marcaría** |
 | §6.10: el caso que el suelo de 1 s deja pasar a propósito | 0,033 s = x2,04, por debajo del segundo |
+| §6.11: `test_build_bat_perf.mjs` con el código propio | **77 aserciones**, +8 |
+| §6.11: autocomprobación del cronómetro en rojo | **exit 3**, antes 1 |
+| §6.11: el test del reparto en rojo | **exit 1**, sin cambios |
+| §6.11: cronómetro con salida 1 (suite lenta) | **exit 0**, el aviso se queda |
+| §6.11: mutación, la rama vuelve a marcar `PERF_FATAL` | **3 en rojo** |
+| §6.11: mutación, la cola sale con 1 en vez de 3 | **4 en rojo** |
 
 ## 8. Commits
 
@@ -462,6 +489,7 @@ El rango es 0,014–0,033 s. **No hay ningún 4,02 s en ningún sitio**, ni en l
 | este commit | §6.7: el cronómetro imprime una línea de veredicto legible por máquina (seis estados, un solo punto de emisión), un fallo del tool sale con 2 en vez de 1, y `build.bat` lee el estado. El banco del reparto deja de colgarse: emparejamiento por prefijo, las llamadas sin sustituir se nombran, timeout de 40 s por caso y cerrojo de instancia única |
 | este commit | §6.8: cinco comprobaciones de `build.bat` que solo avisaban pasan a fallar el build, con un acumulador propio para las junctions y otro para el cronómetro. El acumulador nuevo ha nacido 40 líneas por debajo de los `call` que lo mueven — lo ha detectado la revisión de este commit, no el test, cuya aserción miraba la definición de la etiqueta en vez del `call` — y esa aserción está corregida. Se deja sin hacer fatal `Rastreado=SI`, que es la comprobación contestando de verdad |
 | este commit | §6.9: el flujo principal se caía dentro de `:crearEnlaceSiProcede` sin un `call` delante, de modo que `%2` y `%3` llegaban vacíos y `mklink /J "" ""` imprimía un enlace con la ruta vacía en cada build. Detrás venía el `goto :eof` de esa subrutina, que sin `call` termina el script y se llevaba la cola de `:end`, o sea el `exit /b 1` de los guards de §6.1 y §6.8. Añadido el `goto :end` que faltaba, y una aserción que prohíbe que una etiqueta de subrutina se alcance por caída |
+| este commit | §6.11: la autocomprobación del cronómetro en rojo sale con `exit /b 3` en vez de compartir el 1 con las junctions y con «no se ha medido», con acumulador propio (`SELFTEST_FATAL`) y guard propio en la cola, primero de los tres. El 1 del cronómetro sigue siendo solo aviso y el build sale con 0, con aserción que lo lee de la tabla de casos para que moverlo sea una decisión explícita. 77 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 
