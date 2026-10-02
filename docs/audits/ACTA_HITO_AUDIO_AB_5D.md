@@ -203,23 +203,25 @@ ejecutarlo (entre ellas, la propuesta de crear un segundo módulo de resolución
 | Módulo canónico de resolución | `src/core/LabResourcePaths.{h,cpp}` — único |
 | Guard permanente | `test_ResourcePathHygiene.cpp`, 8 casos `[hygiene]`, verificado en ambos sentidos |
 | `~[ves]` desde `build/Release` | 918 casos · 890 PASS · 28 SKIP · **0 FAIL** · exit 0 |
-| `~[ves]` desde la raíz del repo | Sin fallos de resolución; falla `INTEGRATION-01` por una carrera preexistente |
+| `~[ves]` desde la raíz del repo | Observación histórica durante POST-5D.5: sin fallos de resolución; carrera preexistente en `INTEGRATION-01` observada localmente (resuelta en CI final; Gate 6 verde en Run #16) |
 | `docs/qa/` (evidencia congelada) | **0 diffs** — inmutable |
-| Workflow CI | Gates 1–6, **0 supresores**, sin `continue-on-error` ni `\|\| true` |
+| Workflow CI en el cierre de POST-5D.5 | Gates 1–6, **0 supresores**, sin `continue-on-error` ni `\|\| true` (evolución posterior: el workflow final certificado en Run #16 incorpora Gate 7 para snapshot contractual y cuarentena; ver §5 y §8) |
 
 ### 6.3 Condición de cierre remoto (cerrada por Run #16)
 
 La certificación remota de este acta quedó plenamente validada y cerrada mediante el **Run #16** (ver §8), confirmando que la hermetización de rutas de POST-5D.5 opera de forma hermética y sin dependencias en un entorno limpio de CI.
 
-### 6.4 Deuda que este addendum NO cierra
+### 6.4 Observaciones históricas de estabilidad y resolución
 
-Registrada aquí para que no se confunda "hermético" con "sin fallos":
-
-- `test_Integration01GuidedVsClassicAudio` compara con igualdad exacta valores que dependen del
-  planificador del sistema. Preexistente, ajeno a las rutas, no modificado.
-- Una de cada varias corridas completas de `~[ves]` muere en silencio (exit 3, sin resumen). No
-  reproduce en aislamiento y sigue sin atribuirse a un test concreto (mitigado con TestTelemetry).
-- `contracts/hardware/roland_aira_patch_spec.schema.json`: Causa aclarada y cerrada en POST-5D.6 (esquema canónico de SSOT que faltaba por publicar en el repositorio remoto).
+> [!NOTE]
+> **Observación histórica durante POST-5D.5:**<br>
+> En ejecuciones locales previas desde la raíz se observaron una carrera en `INTEGRATION-01` y terminaciones silenciosas `exit 3` no atribuibles a un test concreto.
+>
+> **Estado final:**<br>
+> La corrección de `ScopedJuceInitialiser_GUI`, junto con `TestTelemetry`, permitió que la baseline `~[ves]` completara correctamente Gate 6 en Run #16.
+>
+> Estas incidencias no bloquearon la certificación final, pero su causa histórica se conserva por trazabilidad.<br>
+> *(Nota sobre contratos: `contracts/hardware/roland_aira_patch_spec.schema.json` quedó plenamente resuelto y cerrado en POST-5D.6 y validado en Gate 7).*
 
 ---
 
