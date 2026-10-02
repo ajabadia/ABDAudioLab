@@ -159,15 +159,17 @@ Criterio de severidad usado: **ALTO** puede producir un resultado falso o perder
 
 ## 6. Lo que queda abierto
 
-### 6.1 El código de salida ya es honesto, y no hay nadie escuchando
+### 6.1 El código de salida es honesto, y `build.bat` ya lo hace suyo
 
-Es lo más importante que sale de esta auditoría y no es un fallo de la herramienta. Los arreglos de `078b2aa` y `cf17e42` hacen que el programa salga con **1** cuando la medición no sirve. Sus tres consumidores hacen los tres lo mismo:
+Se escribió abierto y se ha cerrado **a medias**, que es la parte honesta del titular. Los arreglos de `078b2aa` y `cf17e42` hacen que el programa salga con **1** cuando la medición no sirve, y `93c47cd` le añadió el **2** de *no medido*. Sus tres consumidores ya no hacen los tres lo mismo:
 
-- La CI marca el paso `continue-on-error: true` y termina con `exit 0`. Está escrito que es a propósito, porque un rojo permanente por culpa del tiempo de una máquina es peor que no mirar. **Correcto, y sigue siendo cierto.**
-- `build.bat` guarda `PERF_EXIT`, distingue sus clases (`[Info]` para 0, `[Warn]` para 1, `[Error]` para 2 —*no se midió*— y para cualquier código que el tool no use), y **no lo propaga a su propio código de salida**: el script termina en `:end / endlocal`.
+- La CI marca el paso `continue-on-error: true` y termina con `exit 0`. Está escrito que es a propósito, porque un rojo permanente por culpa del tiempo de una máquina es peor que no mirar. **Correcto para el 1. No para el 2**, que es un problema de entorno y no de lentitud, pero la CI sigue tragándose los dos.
+- `build.bat` guarda `PERF_EXIT`, distingue sus cuatro clases (`[Info]` para 0, `[Warn]` para 1, `[Error]` para 2 y para cualquier código que el tool no use), y **sí propaga el fallo a su propio código de salida**. También falla cuando el test propio del cronómetro sale en rojo: un tool que no se autocomprueba ya no está vigilando nada, y dejarlo pasar es cómo una puerta deja de ser puerta sin que nadie lo diga.
 - Solo quien lo lanza a mano lo lee.
 
-Consecuencia honesta: el guard ahora es fiable **cuando alguien lo mira**, y no hay ninguna puerta automática que se ponga roja por un cuelgue de la suite. Cerrar eso es una decisión de proyecto, no un arreglo: implica elegir qué significa «una medición incompleta» en un pipeline donde el resto de los pasos sí son puerta.
+La decisión que hace que el fallo llegue entero es **dónde** se devuelve. `PERF_FATAL` se acumula durante el bloque del cronómetro y el `exit /b 1` está en la cola de `:end`, no donde se detecta, porque los enlaces de junctions se montan después: salir ahí los saltaría y dejaría el árbol peor que uno que no llegó a empezar.
+
+Lo que **queda abierto** es la CI, y no es un arreglo de código: un 2 —el binario de tests o el XML que se le apunto no estaba donde se buscaba— deja hoy la pipeline verde igual que un 1. Qué significa eso en un pipeline donde el resto de los pasos sí son puerta es una decisión de proyecto, y aquí no se ha tomado. Lo que sí es puerta ya, en todas partes, es la autocomprobación: `Self-check the Timing Tool` corre sin `continue-on-error` y `build.bat` ejecuta `test_duraciones_suite.mjs` antes de medir.
 
 ### 6.2 El límite de reloj era un tope nominal — CORREGIDO, ahora sale de la referencia
 
@@ -253,6 +255,8 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 | §6.3: señal intacta, caso real de 6,15 s fingido a ×2,5 | **sale como regresión** |
 | §6.3: ruido intacto, caso real de 0,22 s fingido a ×2,5 | **no sale** |
 | Suite completa tras §6.3 | **939 casos, 890 pasados, 0 fallos, 49 saltados**, 2 m 56 s |
+| §6.1: `build.bat` con el cronómetro en 0 / 1 / 2 / 7 | **exit 0 / 0 / 1 / 1** |
+| §6.1: `build.bat` con el test del cronómetro en rojo | **exit 1**, y sin anunciar una medición que no pidió |
 | Fichero de la herramienta | 554 líneas → 964 |
 
 ## 8. Commits
@@ -263,6 +267,7 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 | `cf17e42` | Los cuatro hallazgos de esta acta |
 | `78e238f` | §6.3: el umbral absoluto de 1 s. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. Los ficheros son los de WS-1 y el cambio es el descrito en §6.3. |
 | `93c47cd` | `build.bat` distingue el código 2 de entorno del 1 de rendimiento, y fija el contrato en la cabecera del tool |
+| `4b9199c` | §6.1: `build.bat` falla el build con un 2 y con un código que el tool no usa, y solo avisa con un 1. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear en el árbol de trabajo junto a su propio arreglo de `MockAudioEngine`, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. El fichero es el de WS-1 y el cambio es el descrito en §6.1. |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 
