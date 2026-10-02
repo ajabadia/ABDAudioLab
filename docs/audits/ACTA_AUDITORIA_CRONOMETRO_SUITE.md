@@ -380,6 +380,33 @@ Es decir que todo lo de §6.1 y §6.8 —los códigos de salida, el 2 del cronó
 
 **La aserción que lo fija** no ejecuta nada, porque no hay nada que ejecutar: mira el texto. Toda etiqueta de subrutina tiene que tener delante una línea ejecutable que salte (`goto` o `exit /b`); comentarios, `rem` y blancos no cuentan, porque batch se los salta. Se ha comprobado que muerde: quitando el `goto :end` de una copia, se ponen rojas dos.
 
+## 6.10. `Measurement UI Panels`: de 0,02 s a 4,02 s, y por qué no lleva guard
+
+La pregunta era si ese salto entre vueltas era una regresión del caso. No lo es, y conviene dejar escrito por qué, porque el número `4,02` es el que aparece en §6.1 y en el propio comentario de `identidadDeLaMaquina()` como la razón de meter la máquina en la referencia. Es el mismo hecho mirado desde el otro lado.
+
+**Lo que hace el caso.** `Measurement UI Panels: Safe construction and lifecycle draining` son dos secciones que construyen un panel y lo destruyen. No hay E/S, ni esperas, ni bucles de mensajes, ni dispositivo de audio: `MeasurementAudioPlayerComponent` solo crea un `AudioThumbnail`, un `TransportSource` y un temporizador de 25 Hz. Lo único dinámico es el `juce::ThreadPool(4)` de la sesión, cuyo destructor tiene un tope de `removeAllJobs(true, 3000)`. **Ese tope no se alcanza aquí**, porque en este test no se encola ningún job: `addJob` solo se llama desde la carga de contenedores, y este caso no carga ninguno. No hay, en el código recorrido, nada que pueda costar cuatro segundos.
+
+**Las cinco mediciones que hay en el disco, todas del mismo caso:**
+
+| Medición | Caso | Sección larga |
+|---|---|---|
+| referencia (`duraciones-referencia.json`) | **0,016 s** | — |
+| `%TEMP%/dur.xml`, 10-01 18:27 | 0,020 s | 0,015 s |
+| `build/duraciones-medicion.xml`, 10-02 00:55 | 0,014 s | 0,011 s |
+| `build/medicion-actual.xml`, 10-02 07:53 | 0,016 s | 0,012 s |
+| `build/medicion-actual2.xml`, 10-02 07:58 | **0,033 s** | 0,027 s |
+| `build/medicion-final.xml`, 10-02 08:17 | 0,016 s | 0,013 s |
+
+El rango es 0,014–0,033 s. **No hay ningún 4,02 s en ningún sitio**, ni en las mediciones ni en la historia de la referencia, que solo tiene dos commits. En la corrida más lenta que hay (`dur.xml`, 301,5 s de suite frente a los 176,4 s de la referencia, con 26 regresiones) este caso midió 0,020 s: no se movió.
+
+**Qué es el 4,02 entonces.** Una medida de la máquina. La suite entera de esa vuelta iba 1,7 veces más lenta, y un caso de 16 ms con la maquina ocupada es la primera enmagnificarse, porque su ratio es el mayor de todos aunque su coste absoluto sea de los más bajos. Eso es justo lo que mide el campo `maquina`: que `4,02` no dice nada del test.
+
+**Por qué no se ha añadido un guard, y no por pereza.** El guard ya existe y ya dispararía. La regla es: se salta el caso si `despues < 1 s`, y con lo que queda se marca si `ratio >= 2`. Con 4,02 s sobre una referencia de 0,016 s son **x251**, y el informe lo escribiría tal cual. Añadir un umbral propio para este caso sería añadir una segunda regla que dice lo mismo con un número peor.
+
+**Y este caso es, de hecho, el ejemplo de por qué el suelo de 1 s existe.** `medicion-actual2` da 0,033 s contra 0,016: **x2,04**, por encima del factor. No se marca, y está bien que no se marque: está por debajo del segundo, y §6.3 midió que por debajo de 1 s la dispersión entre vueltas llega a x3,38. Un umbral propio para este caso tendría que ser o bien menor que 0,033 s —y entonces marcaría ruido— o bien mayor que 4 s —y entonces no marcaría nada—.
+
+**Un hallazgo real que sale de mirar, y que no se toca.** `~MeasurementComparisonSession` guarda `DrainTimedOut` y lo notifica, y en la línea siguiente guarda `Destroyed` y lo notifica también: el estado final es siempre `Destroyed`, así que `SessionShutdownState::DrainTimedOut` no lo puede observar nadie. No es lo que se preguntó y no se ha cambiado; se anota porque el próximo que lea ese enumerado va a contar con un estado que no existe.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -417,6 +444,10 @@ Es decir que todo lo de §6.1 y §6.8 —los códigos de salida, el 2 del cronó
 | §6.9: con `PERF_FATAL=1`, a mano y llegando al final | antes **exit 0** y sin cola → ahora **exit 1** con los dos `[Error]` de la cola |
 | §6.9: `test_build_bat_perf.mjs` con la regla de alcance | **69 aserciones**, +3 |
 | §6.9: esa aserción quitando el `goto :end` de una copia | **2 en rojo** |
+| §6.10: `Measurement UI Panels` en cinco mediciones en disco | 0,014–0,033 s; **ninguna de 4,02 s** |
+| §6.10: el caso en la corrida más lenta (301,5 s de suite, 26 regresiones) | 0,020 s: no se movió |
+| §6.10: la regla vigente contra un 4,02 s | `despues` ≥ 1 s y ratio x251 → **ya se marcaría** |
+| §6.10: el caso que el suelo de 1 s deja pasar a propósito | 0,033 s = x2,04, por debajo del segundo |
 
 ## 8. Commits
 
