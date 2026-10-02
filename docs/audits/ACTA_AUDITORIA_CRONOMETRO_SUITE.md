@@ -444,6 +444,38 @@ La referencia guardaba en cada caso la ruta **ABSOLUTA** que le da Catch2, y con
 
 Comprobado contra una vuelta real: **939 casos medidos contra 939 de la referencia**, sin recusar nada y con veredicto normal.
 
+## 6.13. Los 301 s y los 176 s: por qué el total se movió tanto, y por qué no fue el portapapeles
+
+La pregunta era si la bajada del total de la suite —de 301,5 s a 176,4 s— venía del commit `8a19dd9`, que quita `SystemClipboard` de dos tests, o de ruido de medición. **Es ruido de medición, y el portapapeles no tiene nada que ver.**
+
+**Lo que aporta el commit del portapapeles, medido.** Son los cuatro datos que lo desmontan:
+
+| Caso | Vuelta lenta | Vuelta rápida | Ahorro |
+|---|---|---|---|
+| `Smoke Test Paso 4 (UI): Recorrido Automatizado` | 0,26 s | 0,10 s | 0,16 s |
+| `Smoke Test Paso 4 (UI): Recorrido Manual Analógico` | 0,42 s | 0,10 s | 0,32 s |
+| `ST-99: AutomatedMidi campaign` | 6,07 s | 6,07 s | 0,00 s |
+| `ST-100: ManualOperator campaign` | 6,32 s | 6,21 s | 0,11 s |
+
+**0,48 s de 125,5: el 0,4 %.** Y hay un detalle que lo hace más claro: la otra mitad de ese commit **subió** timeouts (`8000` → `15000` ms, y el tope del bucle de ST-100 de 200 a 500 vueltas), y ST-99 y ST-100 no se movieron. Esos timeouts nunca se alcanzan; se tocaron por si acaso, no porque fueran a fallar.
+
+**Y lo decisivo: el frenado no está donde se ha tocado el código.** Agrupando por fichero de origen, y separando lo que `c6010cd` tocó de lo que no tocó nada:
+
+| | Ficheros | Casos | Mediana de sus medianas |
+|---|---|---|---|
+| `test_MeasurementFloatingWindow.cpp`, **tocado** | 1 | 1 | **×2,04** |
+| Todo lo demás, **sin tocar** | 196 | 926 | **×1,34** |
+
+Ciento noventa y seis ficheros que nadie tocó se frenaron por igual. Y hay un dato que cierra la puerta del todo: **hay ficheros intactos que se ACELERARON** —`test_TargetProfileLegacyConsumerParity.cpp` a ×0,47, `test_Parity01GuidedVsClassic.cpp` a ×0,54, `test_AudioABTolerancePolicy5D.cpp` a ×0,55. Un cambio de código no acelera un fichero que no ha tocado, y menos por la mitad. Eso solo lo hace la máquina, o las condiciones en las que se midió.
+
+**La forma del conjunto lo dice también.** La mediana de los 927 casos comunes es ×1,31, el p75 ×2,62 y el p90 ×9,89; el 32 % va a ×2 o más y el 62 % a ×1,1 o más. Los cinco casos con más delta se llevan 37,4 s —el 30 % de los 125— y no tienen relación entre sí: una ventana flotante, un informe HTML, un panel de medición, un benchmark de sintetizador y un modelo de latencia. Un cambio de código hace un delta **localizado**; esto es un factor común con cola, que es la firma de una máquina ocupada. Y esa vuelta fue la que el cronómetro marcó con **26 regresiones** repartidas por tests sin relación entre sí.
+
+**El reparto de los 125,5 s**, sobre los 927 casos comunes —los 12 casos nuevos de la vuelta rápida suman 0,3 s y no mueven nada—: los cinco primeros se llevan 37,4 s, y aplicar el factor de la mediana a todo explica unos 71 s. El resto queda en la cola, en casos sueltos.
+
+**Lo que esto no es.** No es una medición mejor ni peor: la vuelta de 176,4 s es la que está en la referencia, y se ha vuelto a medir tres veces con 150,0, 163,1 y 176,4 s. El 18 % de dispersión **entre tres vueltas de la misma mañana** es el mismo fenómeno que esto, y es la razón por la que §6.3 puso el suelo absoluto de 1 s y por la que la referencia lleva el campo `maquina`. Esta sección no añade ninguna regla: confirma las dos que ya había.
+
+**Lo que no se puede cerrar con los datos que hay.** Solo existe **una** vuelta anterior al commit del portapapeles, así que no se puede decir en qué minuto exacto cae el total. Da igual para la pregunta que se hizo —el commit responde por el 0,4 % y el resto no está donde se tocó código—, pero fechar la caída exigiría una vuelta más con el código viejo.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -500,6 +532,13 @@ Comprobado contra una vuelta real: **939 casos medidos contra 939 de la referenc
 | §6.12: segundos y `medidoEn` de la referencia | **sin tocar** |
 | §6.12: mutación, la base vuelve a escribir la ruta absoluta | **1 en rojo** |
 | §6.12: mutación, vuelve una ruta absoluta en la referencia commiteada | **2 en rojo** |
+| §6.13: aportación de `8a19dd9` (portapapeles + timeouts) | **0,48 s de 125,5**, el 0,4 % |
+| §6.13: ST-99 / ST-100, los timeouts que ese commit subió | 6,07 → 6,07 s y 6,32 → 6,21 s: nunca se alcanzan |
+| §6.13: ficheros **tocados** por `c6010cd` | 1 fichero, 1 caso, mediana **×2,04** |
+| §6.13: ficheros que **nadie tocó** | 196 ficheros, 926 casos, mediana **×1,34** |
+| §6.13: ficheros intactos que se aceleraron | ×0,47, ×0,54, ×0,55 — un cambio de código no puede |
+| §6.13: reparto de los 125,5 s | 37,4 s en los 5 primeros; el factor de la mediana explica ~71 s |
+| §6.13: tres vueltas posterior al commit | 150,0 / 163,1 / 176,4 s: 18 % de dispersión en la misma mañana |
 
 ## 8. Commits
 
