@@ -29,10 +29,12 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <Catch2TestRun name="ABDAudioLab_Tests.exe">
@@ -273,6 +275,180 @@ console.log('\nel umbral por defecto sale de la medicion, no de un ojo');
 comprobar('el umbral por defecto son 8 s', UMBRAL === 8);
 
 comprobar('el factor por defecto es 2', FACTOR === 2);
+
+// ─────────────────────────────────────────────────────────────────────────
+// UNA MEDICION QUE NO HA TERMINADO NO ES UNA MEDICION
+//
+// El fallo que se cerro aqui no era de los lentos: era que un `spawnSync` que no
+// acababa devolvia su `stdout` a secas, y ese stdout es un XML cortado por la
+// mitad. Cada `<TestCase>` que le cabe esta entero, asi que el parser no tenia
+// nada que decir: leia 187 casos de 927, informaba «740 de la referencia no
+// estan», y salia con 0. Un pipeline leia un verde de una medicion que no habia
+// medido el 80 % de los tests.
+
+console.log('\nel resultado del spawn se mira, no solo su salida');
+
+const LIMITE = Object.assign(new Error('spawnSync ETIMEDOUT'), { code: 'ETIMEDOUT' });
+const DESBORDE = Object.assign(new Error('spawnSync ENOBUFS'), { code: 'ENOBUFS' });
+
+comprobar('un cuelgue por agotar el limite de reloj se nombra como cuelgue',
+  falloDeSpawn({ status: null, signal: 'SIGTERM', error: LIMITE }).includes('min'));
+
+comprobar('un desborde del buffer se distingue del cuelgue: es escribir de mas',
+  falloDeSpawn({ status: null, signal: null, error: DESBORDE }).includes('MB'));
+
+comprobar('una muerte por senal se dice con cual ha sido',
+  falloDeSpawn({ status: null, signal: 'SIGSEGV', error: null }).includes('SIGSEGV'));
+
+comprobar('un error de arranque se enseña, no se traga',
+  falloDeSpawn({ status: null, signal: null, error: { code: 'ENOENT', message: 'no such file' } }).includes('no such file'));
+
+comprobar('un codigo de Windows que no es de Catch2 se da por muerte inesperada',
+  falloDeSpawn({ status: 3221225477, signal: null, error: null }).includes('3221225477'));
+
+// Y el caso que NO es un fallo del cronometro, que es el que mas costararia
+// equivocar: Catch2 sale con el numero de casos fallidos, de modo que un 3 es
+// una suite con tres tests rojos, que se cronometra igual de bien. Confundirlo
+// con una muerte haria que cualquier rojo de la suite se informara como «esta
+// medicion no vale», que es un aviso que teaches a no mirar.
+comprobar('una suite con tests rojos NO es un fallo del cronometro',
+  falloDeSpawn({ status: 3, signal: null, error: null }) === null);
+
+comprobar('una suite terminada bien no da ningun fallo',
+  falloDeSpawn({ status: 0, signal: null, error: null }) === null);
+
+comprobar('un spawn que no dice ni status ni motivo se da por no terminado',
+  falloDeSpawn({ status: null, signal: null, error: null }) !== null);
+
+console.log('\nun documento sin su cierre esta truncado, y se nota');
+
+comprobar('el XML entero NO esta truncado', xmlTruncado(XML) === false);
+comprobar('un XML cortado por la mitad SI esta truncado', xmlTruncado(XML.slice(0, 200)));
+comprobar('un XML vacio esta truncado', xmlTruncado(''));
+// El cierre que se mira es el de verdad. Pedir `</Catch>` haria que NINGUN
+// documento pareciera truncado —el fallo esta en el otro sentido, pero es el
+// mismo— y el guard pasaria siempre sin comprobar nada.
+comprobar('el cierre que se busca es el que emite Catch2, con la version dentro',
+  xmlTruncado('</Catch>') && !xmlTruncado('</Catch2TestRun>'));
+
+console.log('\nla cuenta de casos se comprueba contra la referencia, no se supone');
+
+const medidos = leerDuraciones(XML);
+const baseMedida = construirBase(medidos);
+
+comprobar('una medicion que cubre la referencia cuadra',
+  cuadraLaCuenta(medidos, baseMedida, 0).ok === true);
+
+// El caso del fallo: la referencia es la vuelta COMPLETA y la medicion se quedo
+// a medias. Medir menos de lo que hay no es un dato que comparar, es una
+// medicion que no se puede comparar.
+const referenciaMasLarga = construirBase([
+  ...medidos,
+  { nombre: 'Se quedó sin correr 1', fichero: 'z1.cpp', segundos: 9.0 },
+  { nombre: 'Se quedó sin correr 2', fichero: 'z2.cpp', segundos: 9.1 },
+  { nombre: 'Se quedó sin correr 3', fichero: 'z2.cpp', segundos: 9.2 },
+  { nombre: 'Se quedó sin correr 4', fichero: 'z3.cpp', segundos: 9.3 },
+]);
+
+const falta = cuadraLaCuenta(medidos, referenciaMasLarga, 4);
+
+comprobar('medir menos casos de los que tiene la referencia NO cuadra', falta.ok === false);
+comprobar('y dice cuantos faltan', falta.lineas.join('\n').includes('Faltan 4'));
+comprobar('y explica que una medicion incompleta no es una medicion lenta',
+  falta.lineas.join('\n').includes('no se ha medido'));
+
+// El caso que mas confunde, porque las dos cuentas cuadran: un caso nuevo tapa
+// el hueco de uno que no se ha medido, el total da igual, y sin esto el guard
+// diria que todo esta bien sobre una poblacion a la que le falta lo que tardaba.
+const compensado = cuadraLaCuenta([
+  ...medidos.slice(0, 3),
+  { nombre: 'Tapa1', fichero: 't1.cpp', segundos: 0.2 },
+  { nombre: 'Tapa2', fichero: 't2.cpp', segundos: 0.3 },
+], baseMedida, 2);
+
+comprobar('unos casos de mas NO compensan los que faltan', compensado.ok === false);
+comprobar('y lo dice aunque el total cuadre',
+  compensado.lineas.join('\n').includes('aunque el total cuadre'));
+
+comprobar('con casos de mas y ninguno ausente, cuadra',
+  cuadraLaCuenta([...medidos, { nombre: 'Nuevo', fichero: 'n.cpp', segundos: 0.4 }],
+    baseMedida, 0).ok === true);
+
+// Una referencia que no cuadra consigo misma no sirve para contar lo que falta:
+// diria que estan todos aqui los que no estan en ninguna parte.
+const incoherente = cuadraLaCuenta(medidos, { casos: 99, casos_: baseMedida.casos_ }, 0);
+
+comprobar('una referencia que no cuadra consigo misma no pasa', incoherente.ok === false);
+comprobar('y lo dice en vez de contar lo que falta',
+  incoherente.lineas.join('\n').includes('99 casos y tiene 5'));
+
+comprobar('sin referencia no hay cuenta que comprobar',
+  cuadraLaCuenta(medidos, null, 0).ok === true);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Y EL CODIGO DE SALIDA, QUE ES LO QUE LEE UN PIPELINE
+//
+// Todo lo anterior son funciones puras: se pueden probar sin lanzar nada. Pero
+// el fallo que se cerro no estaba en las funciones, estaba en el codigo con el
+// que salia el programa, y eso solo se comprueba ejecutando el programa. Un
+// informe puede avisar y aun asi salir con 0, que es lo que hacia que un
+// cuelgue se viera como un informe.
+
+const rutaScript = join(dirname(fileURLToPath(import.meta.url)), 'duraciones-suite.mjs');
+
+function correr(args) {
+  const r = spawnSync(process.execPath, [rutaScript, ...args], { encoding: 'utf8' });
+
+  return { codigo: r.status, salida: `${r.stdout ?? ''}${r.stderr ?? ''}` };
+}
+
+const rutaBaseMedida = join(dirTEMP, 'base-medida.json');
+const rutaEntero = join(dirTEMP, 'entero.xml');
+const rutaCorto = join(dirTEMP, 'corto.xml');
+const rutaSinUno = join(dirTEMP, 'sin-uno.xml');
+const rutaSinCasos = join(dirTEMP, 'sin-casos.xml');
+
+writeFileSync(rutaBaseMedida, `${JSON.stringify(baseMedida, null, 2)}\n`, 'utf8');
+writeFileSync(rutaEntero, XML, 'utf8');
+writeFileSync(rutaCorto, XML.slice(0, Math.floor(XML.length / 2)), 'utf8');
+writeFileSync(rutaSinUno, XML.replace(/\s*<TestCase name="Nueve coma nueve"[\s\S]*?<\/TestCase>/, ''), 'utf8');
+writeFileSync(rutaSinCasos, '<?xml version="1.0"?>\n<Catch2TestRun name="x">\n</Catch2TestRun>\n', 'utf8');
+
+// `--solo-avisar` en todas: sin el, un caso de 12.5 s sale con 1 por lento, y
+// entonces el codigo no distingue una cosa de la otra. Lo que se comprueba aqui
+// es que ese flag, que silencia los avisos de lentitud, NO silance un XML sin
+// cerrar ni una cuenta que no cuadra.
+const entero = correr(['--xml', rutaEntero, '--base', rutaBaseMedida, '--solo-avisar']);
+
+comprobar('un XML entero y a la medida sale con 0', entero.codigo === 0);
+
+const corto = correr(['--xml', rutaCorto, '--base', rutaBaseMedida, '--solo-avisar']);
+
+comprobar('un XML TRUNCADO sale con 1 (antes salia con 0)', corto.codigo === 1);
+comprobar('y lo dice como truncado, no como «faltan casos»',
+  corto.salida.includes('EL XML ESTA TRUNCADO'));
+
+const sinUno = correr(['--xml', rutaSinUno, '--base', rutaBaseMedida, '--solo-avisar']);
+
+comprobar('un XML entero al que le falta un caso de la referencia sale con 1',
+  sinUno.codigo === 1);
+comprobar('y avisa de que la medicion no cubre la referencia',
+  sinUno.salida.includes('no cubre la referencia entera'));
+
+const sinCasos = correr(['--xml', rutaSinCasos, '--base', rutaBaseMedida, '--solo-avisar']);
+
+comprobar('un XML entero con cero casos sale con 1, no con un verde vacio',
+  sinCasos.codigo === 1);
+
+// Y que el camino bueno siga siendo el bueno: sin base no hay nada que
+// comprobar, y eso no es un fallo. La ruta apunta a un sitio que no existe a
+// proposito: sin `--base` se usaria la referencia de verdad, que tiene 927
+// casos, y un XML de 5 se saldria con 1 — no por estar mal, sino porque aqui no
+// se puede medir la suite entera.
+const sinBase = correr([
+  '--xml', rutaEntero, '--solo-avisar', '--base', join(dirTEMP, 'no-existe.json')]);
+
+comprobar('sin referencia que comparar sale con 0', sinBase.codigo === 0);
 
 console.log('\n' + '='.repeat(64));
 console.log(fallos.length === 0

@@ -195,7 +195,8 @@ if "!RUN_PERF!"=="1" (
                 echo [Info] Suite timings: no slow test, no regression vs reference.
             ) else (
                 echo [Warn] Suite timings reported something. See the table above.
-                echo [Warn] Exit code !PERF_EXIT! - 1 = slow test or a regression.
+                echo [Warn] Exit code !PERF_EXIT! - 1 = slow test, regression, or unfinished run.
+                echo [Warn] An unfinished run means truncated XML or missing reference cases.
             )
         )
     )

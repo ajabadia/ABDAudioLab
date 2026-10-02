@@ -38,10 +38,10 @@
  * ─────────────────────────────────────────────────────────────────────────
  * EL UMBRAL, Y POR QUE ESTA EN EL ARGUMENTO Y NO CONSTANTE
  *
- * Un umbral fijo aqui seria un numero sin razon: 5 s es太快 para una suite de
- * audio y demasiado lento para una de texto, y no hay un valor que valga para
- * los dos. Ademas, en una maquina con diez compilaciones en paralelo, TODO va
- * lento, y un umbral fijo pondria en rojo veinte tests que estan bien.
+ * Un umbral fijo aqui seria un numero sin razon: 5 s es demasiado rapido para una
+ * suite de audio, y demasiado lento para una de texto: no hay un valor que
+ * valga para los dos. Ademas, en una maquina con diez compilaciones en paralelo,
+ * TODO va lento, y un umbral fijo pondria en rojo veinte tests que estan bien.
  *
  * ─────────────────────────────────────────────────────────────────────────
  * USO
@@ -77,6 +77,16 @@ const FILTROS = ['~[integration-01]', '~*PluginHost*'];
 
 /** Tiempo de reloj que se concede a la suite antes de darla por colgada. */
 const LIMITE_MS = 20 * 60 * 1000;
+
+/**
+ * Cuanto se deja que escriba la suite antes de cortar su salida.
+ *
+ * El limite de reloj y este son el mismo fallo por dos caminos distintos, y por
+ * eso los dos se comprueban: los dos cortan la salida a medias, y una salida a
+ * medias se lee igual que una entera porque `leerDuraciones` no mira el final
+ * del documento.
+ */
+const MAX_BUFFER_MB = 256;
 
 /**
  * Umbral por defecto, en segundos.
@@ -413,6 +423,8 @@ export function resumenBase(cmp) {
       lineas.push(`  ... y ${lentos.length - 15} mas`);
   }
 
+  // Avisar de los ausentes y seguir como si nada es lo que hacia que este
+  // fallo pasara inadvertido. Ahora la misma linea sale con codigo 1, en `main`.
   if (cmp.ausentes > 0)
     lineas.push(`${cmp.ausentes} caso(s) de la referencia no estan en esta medicion.`);
 
@@ -427,17 +439,176 @@ const SIN_XML = 'SIN_XML_POR_DEFECTO';
 
 export const SIN_XML_MARCA = SIN_XML;
 
-/** Corre la suite capturando el XML con duraciones. */
+// ─────────────────────────────────────────────────────────────────────────
+// QUE UNA MEDICION TRUNCADA NO SE PAREZCA A UNA MEDICION ENTERA
+//
+// Todo este bloque se apoya en una idea: un XML cortado por la mitad NO se
+// distingue de uno entero mirando los `<TestCase>`, porque los que le caben
+// estan completos. `leerDuraciones` los lee sin quejarse, el recuento sale mas
+// corto que el de la referencia, y el informe parece un informe — con 740 casos
+// de menos y sin decir por que. Asi se produjo el fallo que esto tapa: un
+// cuelgue de la suite se informaba como «la referencia tiene mas casos que esta
+// medicion» y se salia con 0, que es la peor forma de fallar, porque un verde.
+//
+// Por eso se mira el resultado del spawn y no solo su salida, y por eso se
+// comprueba que el documento este cerrado: el mismo defecto tiene que verse
+// tambien en el XML que alguien guardo hace dias, que es por donde se cuela si
+// la comprobacion se deja solo en el camino de correr la suite.
+
+/**
+ * El cierre del documento que emite Catch2.
+ *
+ * Es `</Catch2TestRun>` y no `</Catch>`, porque el nombre de la etiqueta raiz
+ * lleva la version del reporter dentro. Buscar el cierre equivocado haria que
+ * NINGUN documento pareciera truncado, que es justo el fallo que esto tapa.
+ */
+const CIERRE_XML = '</Catch2TestRun>';
+
+/**
+ * Si un documento se ha cortado antes de cerrarse.
+ *
+ * Se mira el final del documento y no si el numero de casos cuadra con el de la
+ * referencia, porque son dos preguntas distintas y las dos se hacen: esta dice
+ * «el fichero esta entero», y `cuadraLaCuenta` dice «estos son todos los que
+ * había». Un XML truncado a tres cuartos tiene la mitad de los casos y el
+ * documento sin cerrar; uno entero al que un filtro mal escrito deja fuera la
+ * mitad tambien sale con la mitad, pero se puede comparar con lo que se tenga.
+ *
+ * @param {string} xml el documento entero.
+ * @returns {boolean} `true` si le falta el cierre.
+ */
+export function xmlTruncado(xml) {
+  return !xml.includes(CIERRE_XML);
+}
+
+/**
+ * El fallo de un `spawnSync` que no se ve mirando su salida.
+ *
+ * Devuelve `null` cuando el proceso ha terminado por su cuenta, y el motivo
+ * cuando no. Va separado del `spawnSync` para poder probarlo sin lanzar nada:
+ * un fallo que solo se reproduce colgando la suite es un fallo que no se
+ * comprueba nunca.
+ *
+ * Lo unico delicado es el codigo de salida: Catch2 sale con el numero de casos
+ * fallidos, de modo que 1 a 255 es una suite con tests rojos, que se cronometra
+ * igual de bien. Lo que no es Catch2 es un 3221225477 —un Access Violation de
+ * Windows—, ni un `status: null` con senal, ni un error de Node.
+ *
+ * @param {object} r lo que devuelve `spawnSync`.
+ * @returns {string|null} por que no ha terminado, o `null` si ha terminado.
+ */
+export function falloDeSpawn(r) {
+  const codigo = r?.error?.code;
+
+  // El caso principal. El corte por reloj deja la salida puesta, y sin mirar
+  // aqui el XML truncado se analiza como si fuera una medicion buena.
+  if (codigo === 'ETIMEDOUT')
+    return `no ha terminado en ${LIMITE_MS / 60000} min y se ha matado al agotar el limite`;
+
+  // El mismo fallo por el otro lado: escribir de mas tambien corta la salida, y
+  // tambien deja un XML que parece entero hasta el final.
+  if (codigo === 'ENOBUFS')
+    return `ha escrito mas de los ${MAX_BUFFER_MB} MB del buffer y se ha cortado la salida`;
+
+  if (r?.signal)
+    return `ha terminado por la senal ${r.signal}`;
+
+  if (r?.error)
+    return `no se ha podido lanzar: ${r.error.message}`;
+
+  // Por encima de 255 no es un numero de tests fallidos: es una muerte
+  // inesperada, y el XML que deja detras esta a medias tambien.
+  if (typeof r?.status === 'number' && (r.status < 0 || r.status > 255))
+    return `ha terminado de forma anormal, con codigo ${r.status}`;
+
+  // `status: null` sin senal ni error no deberia pasar. Si pasa, es que el
+  // proceso no ha terminado y nadie sabe por que, y ante eso la postura que
+  // sale cara es decir que no ha terminado: es el fallo que se cuela por alto.
+  if (r?.status === null || r?.status === undefined)
+    return 'no ha informado de como ha terminado';
+
+  return null;
+}
+
+/**
+ * Corre la suite capturando el XML con duraciones, o diciendo por que no hay.
+ *
+ * @param {string[]} args los argumentos que se pasan a Catch2.
+ * @returns {{xml: string|null, motivo: string|null, salida: string}} el XML, o
+ * `null` con el motivo; `salida` siempre, porque es lo que hay que enseñar para
+ * entender por que.
+ */
 function capturarXml(args) {
   const r = spawnSync(SUITE, ['-r', 'xml', '-d', 'yes', ...args, ...FILTROS], {
     cwd: raiz,
     encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
+    maxBuffer: MAX_BUFFER_MB * 1024 * 1024,
     timeout: LIMITE_MS,
     windowsHide: true,
   });
 
-  return `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  const motivo = falloDeSpawn(r);
+
+  return { xml: motivo === null ? salida : null, motivo, salida };
+}
+
+/**
+ * Comprueba que la medicion cubra la referencia entera.
+ *
+ * Que el numero de casos no cuadre no es por si mismo un fallo: la referencia es
+ * de un dia y desde entonces la suite ha tenido tests nuevos. Lo que no puede
+ * pasar es que falten, porque entonces la comparacion de tiempos se hace sobre
+ * una poblacion mas pequena, y los que faltan no se eligen al azar: son
+ * precisamente los que no llegaron a correr, que son los que tardaban.
+ *
+ * @param {{nombre: string}[]} duraciones lo medido en esta vuelta.
+ * @param {object|null} base la referencia, o `null` si no hay.
+ * @param {number} ausentes los que `compararConBase` no ha visto.
+ * @returns {{ok: boolean, medidos: number, esperados: number, lineas: string[]}}
+ */
+export function cuadraLaCuenta(duraciones, base, ausentes) {
+  const medidos = duraciones.length;
+  const esperados = base?.casos ?? 0;
+  const lineas = [];
+
+  if (base === null)
+    return { ok: true, medidos, esperados: 0, lineas };
+
+  // Una referencia que no cuadra consigo misma no sirve para contar lo que falta:
+  // diria que estan todos aqui los que no estan en ninguna parte.
+  const guardados = Object.keys(base.casos_ ?? {}).length;
+
+  if (guardados !== esperados)
+    return {
+      ok: false,
+      medidos,
+      esperados,
+      lineas: [
+        `La referencia dice ${esperados} casos y tiene ${guardados}.`,
+        'No se puede saber cual falta. Se regenera con --guardar-referencia.',
+      ],
+    };
+
+  lineas.push(`Medidos ${medidos}, contra ${esperados} de la referencia.`);
+
+  if (medidos < esperados) {
+    lineas.push(`Faltan ${esperados - medidos} caso(s) para poder comparar.`);
+    lineas.push('Una medicion incompleta no dice que un test se haya puesto lento:');
+    lineas.push('dice que no se ha medido.');
+  }
+  else if (ausentes > 0) {
+    // Aqui el total puede cuadrar y aun asi faltar, que es el caso que mas
+    // confunde: se ha medido un caso nuevo para tapar el hueco de uno que no se
+    // ha medido. Un caso nuevo no tapa uno que falta — son mediciones distintas—,
+    // y por eso se sale con 1 aunque las cuentas den igual.
+    lineas.push(`${ausentes} caso(s) de la referencia no estan, aunque el total cuadre.`);
+    lineas.push('Un caso nuevo no tapa uno que falta: son mediciones distintas.');
+  }
+  else if (medidos > esperados)
+    lineas.push(`Sobran ${medidos - esperados}, y salen como casos nuevos.`);
+
+  return { ok: !(medidos < esperados || ausentes > 0), medidos, esperados, lineas };
 }
 
 function main(argumentos) {
@@ -455,6 +626,10 @@ function main(argumentos) {
   const FACTORES_INFORMADOS = [String(umbral), String(factor)];
 
   let xml;
+  // Por que no hay un XML entero, si es que no lo hay. Es `null` cuando si lo
+  // hay: un fallo y una captura sin casos se distinguen a proposito, porque solo
+  // el primero es un fallo.
+  let motivoCorte = null;
 
   if (indiceXml >= 0) {
     // Un XML ya capturado se analiza sin volver a correr la suite, que es lo
@@ -482,13 +657,61 @@ function main(argumentos) {
     const paraCatch = argumentos.filter((a) => !a.startsWith('--')
       && !FACTORES_INFORMADOS.includes(a));
 
-    xml = capturarXml(paraCatch);
+    const captura = capturarXml(paraCatch);
+
+    if (captura.xml === null)
+      motivoCorte = captura.motivo;
+    else
+      xml = captura.xml;
+
+    if (motivoCorte !== null) {
+      // Se enseña el final de la salida porque es donde esta el ultimo caso que
+      // llego a correr, y por lo tanto donde se ve en que test se quedo parado.
+      const cola = captura.salida.trimEnd().split('\n').slice(-15);
+
+      console.error('');
+      console.error(`LA SUITE NO HA TERMINADO: ${motivoCorte}.`);
+      console.error('Lo que salio de ella es una medicion incompleta, y no se analiza.');
+      console.error('');
+      console.error('Ultimas lineas de la salida:');
+      console.error(cola.join('\n'));
+      return 1;
+    }
+  }
+
+  // El documento sin cerrar esta truncado, y da igual por que se truncara: por
+  // un cuelgue, por una muerte inesperada, o porque el fichero que alguien
+  // guardo con `--xml` estaba a medias. La comprobacion va DESPUES de leer y no
+  // dentro de `capturarXml`, porque `--xml` es una puerta de entrada igual que
+  // correr la suite, y si solo se comprueba en la segunda, por la primera se
+  // cuela un XML truncado tan tranquilo.
+  //
+  // `--solo-avisar` no lo excusa, y no es una excepcion: ese flag silencia los
+  // avisos sobre lo RUIDO, y un XML sin cerrar no es ruido, es una medicion que
+  // no se puede creer. Un guard que se puede apagar con una bandera no es un
+  // guard.
+  if (xmlTruncado(xml)) {
+    console.error('');
+    console.error('EL XML ESTA TRUNCADO: le falta el cierre del documento.');
+    console.error('Un cuelgue de la suite se ve exactamente asi: los casos que le');
+    console.error('caben estan enteros, de modo que el XML parece bueno mientras no');
+    console.error('se mire el final. Se relanza la medicion entera.');
+    console.error(`Venia de: ${indiceXml >= 0 ? argumentos[indiceXml + 1] : 'la captura de esta vuelta'}.`);
+    return 1;
   }
 
   const duraciones = leerDuraciones(xml);
 
   for (const linea of resumen(duraciones, umbral))
     console.log(linea);
+
+  // Un XML entero con CERO casos dentro no es una suite rapida: es una medicion
+  // que no ha medido nada, y salir con 0 de ahi es un verde que no dice nada.
+  if (duraciones.length === 0) {
+    console.error('');
+    console.error('La medicion no tiene ni un caso. Sin casos no hay nada que comparar.');
+    return 1;
+  }
 
   const lentos = duraciones.filter((d) => d.segundos > umbral).length;
 
@@ -519,13 +742,37 @@ function main(argumentos) {
   }
   else {
     const cmp = compararConBase(duraciones, base, factor);
+    const cuenta = cuadraLaCuenta(duraciones, base, cmp.ausentes);
 
     for (const linea of resumenBase(cmp))
       console.log(linea);
 
-    if (cmp.regresiones.length > 0) {
+    if (cuenta.lineas.length > 0) {
+      console.log('');
+      console.log('LA CUENTA DE CASOS');
+      console.log('='.repeat(72));
+
+      for (const linea of cuenta.lineas)
+        console.log(linea);
+    }
+
+    // Los dos fallos se juntan ANTES de salir, para que una vuelta que tenga los
+    // dos no pueda tapar uno con el otro: se informa de los dos y se sale con 1.
+    const fallos = [];
+
+    if (cmp.regresiones.length > 0)
+      fallos.push(`${cmp.regresiones.length} caso(s) se han volcado o mas respecto a la referencia.`);
+
+    // Los ausentes salen con 1 tambien. Avisar de 740 casos que no se han medido
+    // y seguir con 0 es exactamente lo que hacia que un cuelgue se informara
+    // como un informe: el aviso estaba ahi, pero su codigo de salida decia que
+    // todo iba bien, y es el codigo de salida lo que lee un pipeline.
+    if (!cuenta.ok)
+      fallos.push('La medicion no cubre la referencia entera.');
+
+    if (fallos.length > 0) {
       console.error('');
-      console.error(`${cmp.regresiones.length} caso(s) se han volcado o mas respecto a la referencia.`);
+      console.error(fallos.join('\n'));
       console.error(`Referencia del ${base.medidoEn}, ${base.casos} casos.`);
       return 1;
     }
