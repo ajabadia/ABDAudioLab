@@ -1,24 +1,24 @@
 # ACTA FINAL DE CIERRE Y CERTIFICACIÓN — HITO-AUDIO-AB-5D
 ## Acceptance Matrix, Canonical Preset Validation and Dedicated CI Baseline
 
-**Fecha de cierre local:** 2026-09-29  
-**Fecha de certificación CI remota:** pendiente — Run #8 en preparación (ver §7)  
-**Hito Global:** HITO-AUDIO-AB-5D (Fases 5D.1 a 5D.9)  
-**Documento Rector:** `docs/audits/ACTA_HITO_AUDIO_AB_5D.md`  
-**Compilador:** MSVC 18.4.3 (Visual Studio 2026 Community) · Release x64  
-**Build Identity:** `Release x64 - MSVC 18.4.3 - Build #514`  
-**Policy de Tolerancias:** `audio-ab-5d-provisional-v1` (`sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57`)  
-**Baseline Canónica:** `audio-ab-5d-canonical-v1`  
-**Estado local:** 🟢 **CERRADO Y SELLADO LOCALMENTE (886 PASS / 0 FAIL)**  
-**Estado CI remota:** ⏳ **CERTIFICACIÓN PENDIENTE — Run #8 en preparación con SSOT inmutable (`9a99cbb`)**
+**Fecha de cierre local:** 2026-09-29<br>
+**Fecha de certificación CI remota:** 2026-10-02 (Run #16 / ID 37014243068)<br>
+**Hito Global:** HITO-AUDIO-AB-5D (Fases 5D.1 a 5D.9)<br>
+**Documento Rector:** `docs/audits/ACTA_HITO_AUDIO_AB_5D.md`<br>
+**Compilador:** MSVC 18.4.3 (Visual Studio 2026 Community) · Release x64<br>
+**Build Identity:** `Release x64 - MSVC 18.4.3 - Build #514`<br>
+**Policy de Tolerancias:** `audio-ab-5d-provisional-v1` (`sha256:7f45cbb662b66299b9cf2a70d9a6c924cfdd62479e0a0d6ee0bf0b1f83424d57`)<br>
+**Baseline Canónica:** `audio-ab-5d-canonical-v1`<br>
+**Estado local:** 🟢 **CERRADO Y SELLADO LOCALMENTE (886 PASS / 0 FAIL)**<br>
+**Estado CI remota:** 🟢 **CERRADO Y SELLADO REMOTAMENTE (Run #16 — Gates 1–7 PASS)**
 
 ---
 
 ## 1. Declaración Formal de Alcance y Cierre de Fases
 
-Se declara formalmente completado y sellado **localmente** el hito **HITO-AUDIO-AB-5D** tras la ejecución y certificación local sucesiva de sus nueve tareas atómicas.
+Se declara formalmente completado y sellado **local y remotamente** el hito **HITO-AUDIO-AB-5D** tras la ejecución y certificación local sucesiva de sus nueve tareas atómicas y la validación final en CI remota (Run #16).
 
-La certificación CI remota permanece pendiente del resultado exitoso del Run #6, conforme a los criterios definidos en la sección 5.
+La certificación CI remota ha quedado satisfecha y validada en su totalidad por Run #16, conforme a los criterios definidos en la sección 5 y 8.
 
 | Tarea | Denominación | Entregable Canónico | Estado |
 |:---:|---|---|:---:|
@@ -30,7 +30,7 @@ La certificación CI remota permanece pendiente del resultado exitoso del Run #6
 | **5D.6** | Policy de tolerancias por clase acústica (calibración v1) | `docs/qa/audio-ab-5d-tolerance-policy.md` | ✅ **CERTIFICADO** |
 | **5D.7** | Fixtures herméticas y pruebas unitarias de comparator/verdict | `test_AudioABComparatorAndVerdict5D.cpp` | ✅ **CERTIFICADO** |
 | **5D.8** | Matriz QA, revisión de deltas 44.1k/48k y aceptación software | `ACTA_HITO_AUDIO_AB_5D8_SOFTWARE_ACCEPTANCE.md` | ✅ **CERTIFICADO** |
-| **5D.9** | CI dedicado y congelación de baseline | `.github/workflows/audio-ab-5d-ci.yml` + manifest | 🟢 **CERTIFICADO LOCALMENTE** / ⏳ **CI REMOTA EN CURSO** |
+| **5D.9** | CI dedicado y congelación de baseline | `.github/workflows/audio-ab-5d-ci.yml` + manifest | 🟢 **CERTIFICADO LOCAL Y REMOTAMENTE** |
 
 ---
 
@@ -189,12 +189,9 @@ ejecutarlo (entre ellas, la propuesta de crear un segundo módulo de resolución
 | `docs/qa/` (evidencia congelada) | **0 diffs** — inmutable |
 | Workflow CI | Gates 1–6, **0 supresores**, sin `continue-on-error` ni `\|\| true` |
 
-### 6.3 Condición de cierre remoto (sin cambios)
+### 6.3 Condición de cierre remoto (cerrada por Run #16)
 
-La certificación remota de este acta **sigue pendiente** y requiere Run #7 verde en los Gates 1–6.
-POST-5D.5 elimina la causa conocida del fallo del Run #6; no lo cierra por sí mismo, porque exige
-ejecutar en un clon limpio. Hasta que ese Run exista, el estado remoto sigue siendo
-**PENDIENTE** y así debe leerse el encabezado de esta acta.
+La certificación remota de este acta quedó plenamente validada y cerrada mediante el **Run #16** (ver §8), confirmando que la hermetización de rutas de POST-5D.5 opera de forma hermética y sin dependencias en un entorno limpio de CI.
 
 ### 6.4 Deuda que este addendum NO cierra
 
@@ -226,25 +223,66 @@ Registrada aquí para que no se confunda "hermético" con "sin fallos":
 
 ---
 
-## 8. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
+## 8. Certificación CI Remota Definitiva — Run #16 (2026-10-02)
+
+Se declara formalmente la certificación remota reproducible del hito tras la ejecución exitosa de Run #16 en GitHub Actions:
+
+```text
+Certificación CI remota:
+Run #16 / ID 37014243068.
+
+Commit certificado:
+31d7adbaf88acddd520e9eace7f5ad6c59da3978.
+
+ABDSharedAssets pinneado:
+065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c.
+
+Resultado:
+Contract Preflight Ubuntu: success.
+Suite Timings Ubuntu: success.
+Windows build: success.
+Gates 1–7: success.
+
+Evidencia publicada:
+audio-ab-5d-qa-acceptance-reports.
+suite-timings.
+
+Estado final:
+CERRADO Y SELLADO LOCAL Y REMOTAMENTE.
+```
+
+### 8.1 Cierre formal de microhitos derivados
+
+```text
+POST-5D.5:
+Cerrado — hermetización de rutas.
+
+POST-5D.6:
+Cerrado — SSOT contractual publicada, pinneada
+y verificada remotamente.
+```
+
+Además, la corrección de `ScopedJuceInitialiser_GUI` en `test_MeasurementFloatingWindow` (commit `31d7adb`) eliminó el fallo en Gate 6 (`~[ves]`), permitiendo la finalización verde de la baseline global en un entorno Windows limpio.
+
+---
+
+## 9. Estado Global del Roadmap ([PLAN.md](../../PLAN.md))
 
 ```text
 HITO-AUDIO-AB-5D:
-  🟢 CERRADO LOCALMENTE (5D.1 a 5D.9 + 886 PASS / 0 FAIL).
+  🟢 CERRADO Y SELLADO LOCAL Y REMOTAMENTE.
   🏷️  Tag local: hito-audio-ab-5d-certified → 23a5d20
-  ❌ CI Remota: Run #6 FALLÓ en Gate 6 — causa: rutas absolutas (cerrada por POST-5D.5).
-  ❌ CI Remota: Run #7 FALLÓ en Gate 6 — causa: drift con SSOT remota desfasada (cerrada por POST-5D.6).
-  ⏳ CI Remota: Run #8 PENDIENTE — SSOT fijada de forma inmutable a 9a99cbb.
-  🔒 Tag CI:    pendiente resultado Run #8.
+  🏷️  Tag CI:    hito-audio-ab-5d-certified-ci → 31d7adb
+  ✅ CI Remota: Run #16 SUCCESS (ID 37014243068). Gates 1–7 PASS.
 
 POST-5D.5 (hermeticidad de rutas):
   🟢 CERRADO. 0 rutas personales en src/. Guard [hygiene] verificado.
 
 POST-5D.6 (SSOT contractual y pin inmutable):
-  🟢 CERRADO. ABDSharedAssets publicado (9a99cbb); 40/40 contratos; pin en CI.
+  🟢 CERRADO. ABDSharedAssets publicado y pinneado a 065ca6c; 40/40 contratos; Gates 1–7 verde.
 
 Bloqueados (inviolables):
-  - D2.7B: Banco físico metrológico.
+  - D2.7B: Banco físico metrológico (requerido banco físico).
   - HITO-10V1 / VES: Boot headless no demostrado.
   - MIDI físico: 0 bytes autorizados.
   - ExportReadiness: Blocked permanente.
