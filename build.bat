@@ -8,7 +8,7 @@ echo ===========================================================================
 :: Terminate running instance if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
 taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
-timeout /t 1 /nobreak >nul 2>nul
+ping -n 2 127.0.0.1 >nul 2>nul
 
 :: 1. Detect Visual Studio Environment using vswhere
 where cl.exe >nul 2>nul

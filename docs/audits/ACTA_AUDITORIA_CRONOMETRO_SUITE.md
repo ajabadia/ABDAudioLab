@@ -751,6 +751,41 @@ Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la prop
 
 `tools/auditar-bats.mjs` **no está conectado a nada**. Es una herramienta que se ejecuta a mano, y una herramienta así se queda vieja sin que nadie se entere: el `build.bat` ya ejecuta sus dos tests antes de cronometrar (§6.11), y ahí es donde este cabría. No se ha conectado porque es otro cambio en `build.bat` y esta sección era una auditoría.
 
+## 6.19. `timeout /t` no espera cuando no hay consola, y en CI no hay consola
+
+No es un fallo de layout y no es de la familia de §6.18: es de entorno. Pero estaba en la lista de cosas que no se habían medido, así que se mide.
+
+**Medido, con la entrada redirigida** —que es lo que hace un runner, un agente y este mismo banco de §6.16—, pidiendo 2 segundos:
+
+| Espera | Medido | Estado |
+|---|---|---|
+| `timeout /t 2 /nobreak` | **92 ms** | **125** |
+| `waitfor /t 2` | **86 ms** | 1 |
+| `ping -n 3 127.0.0.1` | **2.066 ms** | 0 |
+| `powershell Start-Sleep 2` | 1.041 ms (medición inservible, §abajo) | 0 |
+
+`timeout` no espera **menos**: no existe. Con la entrada redirigida se rinde con un error y sigue, de modo que el segundo que `build.bat` pone al principio —para que la aplicación recién cerrada suelte sus ficheros— **no existía** en exactamente los sitios donde más hace falta. Y en `run-plan.bat` eran los dos segundos de cada vuelta de la espera de Ollama.
+
+### La elección, y por qué la dirección del fallo importa
+
+`ping -n N+1 127.0.0.1` es el que funciona, y hay que decir qué pasa cuando **no** funciona, porque es lo que decide si el arreglo es una mejora o un intercambio de problemas:
+
+```
+ping -n 3 127.0.0.1  >nul 2>nul    2.066 ms   status 0   loopback, responde
+ping -n 3 192.0.2.1  >nul 2>nul   13.861 ms   status 1   TEST-NET, no responde
+ping -n 3 -w 1 203... >nul 2>nul    3.508 ms   status 1   ruta muerta con -w 1
+```
+
+Si la loopback no contestara, `ping` tardaría **más**: ~4 s por paquete en vez de 1, medido. O sea que el build se slows y **nunca se queda sin esperar**. Un shim que a veces no espera es peor que uno que no shim, porque no hay forma de distinguirlo de que ya no haga falta esperar.
+
+`Start-Sleep` garantiza el tiempo pero cuesta el arranque de PowerShell en cada llamada, y el banco de §6.16 lo mide **a través del PATH**: un ejecutable más es un shim más que mantener. Su medición aquí está además **rota** —`cmd /c` se come las comillas de `-Command` y `Start-Sleep -Seconds` se queda sin el número—, y eso se deja dicho en vez de dar por buena una cifra que no lo está.
+
+### El shim del banco cambia de nombre
+
+`build.bat` espera un segundo al empezar y el banco de §6.16 shimea ese ejecutable para que **once casos no paguen once segundos**. Con la espera cambiada, el shim cambia de `timeout.exe` a `ping.exe`. Dejar el viejo no habría dado rojo: habría dado un banco **9 s más lento** sin decir nada, que es el modo de fallo más caro que hay.
+
+**Una línea en cada `.bat`, 148 y 202 aserciones en verde.**
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -864,6 +899,12 @@ Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la prop
 | §6.18: ejecutado, servidor respondiendo | **status 0**, pasos 3 y 4 alcanzados |
 | §6.18: ejecutado, servidor muerto | **status 1**, el paso 3 **no** se alcanza |
 | §6.18: el `exit /b 1` de la subrutina sin propagar | imprimía el error y **seguía descargando el modelo** |
+| §6.19: `timeout /t 2` con la entrada redirigida | **92 ms** para 2 s pedidos, status 125 |
+| §6.19: `waitfor /t 2` con la entrada redirigida | **86 ms**, status 1 |
+| §6.19: `ping -n 3 127.0.0.1` | **2.066 ms**, status 0 |
+| §6.19: `ping -n 3` contra una ruta muerta | **13.861 ms**: el fallo va hacia un build más lento |
+| §6.19: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
+| §6.19: `test_build_bat_perf.mjs` | **148 aserciones**, sin cambios |
 
 ## 8. Commits
 
@@ -883,6 +924,7 @@ Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la prop
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
+| este commit | §6.19: `timeout /t` **no espera cuando no hay consola** —medido, 92 ms para 2 s pedidos— y en CI no hay consola. En `build.bat` era el segundo que se le da a la aplicación recién cerrada para que suelte los ficheros; en `run-plan.bat`, los dos segundos de cada vuelta de la espera de Ollama. Cambiado a `ping -n N+1 127.0.0.1`, que espera 2,066 ms y sale con 0. La dirección del fallo importa y está medida: si la loopback no contestara tardaría ~4 s por paquete en vez de 1, o sea que un build se slows y **nunca se queda sin esperar**. El shim del banco pasa de `timeout.exe` a `ping.exe`: dejarlo viejo no daba rojo, daba un banco 9 s más lento sin decir nada |
 | este commit | §6.18 (cont.): la espera de `run-plan.bat` pasa a ser una **subrutina** —`call :esperarServidor`, se sale con `goto :eof`, y el flujo principal salta por encima con `goto :finDelPaso2`— y `:OLLAMA_UP` desaparece. Ejecutado con shims `.exe`: con el servidor respondiendo **status 0** y pasos 3 y 4 alcanzados; con el servidor muerto **status 1** y sin llegar al paso 3. El arreglo introdujo un fallo que solo apareció al ejecutarlo: el `exit /b 1` del plazo salía del `call` y no del script, así que el flujo seguía y **se ponía a descargar el modelo contra un servidor muerto** con el mensaje de error puesto. Corregido propagando el fallo en quien llama |
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |

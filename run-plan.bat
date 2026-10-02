@@ -65,7 +65,7 @@ goto :finDelPaso2
 :: Esperar hasta OLLAMA_TIMEOUT_SEC segundos a que responda
 set /a WAIT=0
 :WAIT_LOOP
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 curl -s --max-time 2 "%OLLAMA_API_BASE%/api/version" >nul 2>&1
 if not errorlevel 1 goto :eof
 set /a WAIT+=2

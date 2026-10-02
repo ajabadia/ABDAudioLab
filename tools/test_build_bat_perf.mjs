@@ -221,8 +221,10 @@ console.log('\nlas cuatro clases del cronometro, cada una a su sitio');
 //                  codigo y redirige su salida a nul, de modo que solo hace
 //                  falta que devuelva el control: sin esto el test mataria la
 //                  aplicacion que alguien tenga abierta.
-//   timeout.exe    lo mismo. El build espera un segundo al empezar, y aqui eso no
-//                  es lo que se prueba.
+//   ping.exe       lo mismo. El build espera un segundo al empezar --con un
+//                  `ping -n 2 127.0.0.1` y no con un `timeout /t`, que con la
+//                  entrada redirigida no espera-- y aqui eso no es lo que se
+//                  prueba.
 //
 // Y `node` NO lleva shim, y esa es la parte buena. El build lo llama como
 // `node tools\algo.mjs`, RELATIVO al directorio de trabajo, de modo que el
@@ -241,7 +243,7 @@ const SHIMS = [
     porque: 'tiene que salir con 0 o el build no llega al cronometro',
   },
   { nombre: 'taskkill.exe', porque: 'sin esto el test mata la app de quien lo corre' },
-  { nombre: 'timeout.exe', porque: 'sin esto cada caso espera un segundo de mas' },
+  { nombre: 'ping.exe', porque: 'sin esto cada caso espera un segundo de mas' },
   // El mas importante de los cuatro y el mas facil de no pensar. El build
   // arranca con `where cl.exe`: si lo encuentra se lo salta todo y se va
   // directo a junctions. Aqui eso no es solo una prueba de menos: medido, un
