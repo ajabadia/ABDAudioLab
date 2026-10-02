@@ -813,6 +813,116 @@ comprobar('y la de los junctions salta a la cola, no se come el flujo',
   ULTIMA_EJECUTABLE(ETIQUETAS.find(([l]) => l === ':crearEnlaceSiProcede')[1])
     === 'goto :end');
 
+// ── EL HUECO ENTERO, Y NO SOLO LA LINEA DE ANTES ──
+//
+// Lo de arriba mira UNA linea: la de justo antes de la etiqueta. Es una regla
+// fuerte, y aun asi deja el resto del hueco sin vigilar. Entre ese salto y la
+// etiqueta puede haber mas lineas ejecutables, y esas lineas se ejecutan.
+//
+// LA FORMA DE LA REGLA, Y POR QUE NO ES "MAS DE UNA". El hueco entre el fin de
+// un flujo y la etiqueta siguiente tiene cuatro estados posibles, y solo uno es
+// un build:
+//
+//   0 ejecutables   se CAE dentro de la etiqueta. Es el fallo de 6.9: por ahi
+//                   entran %1, %2 y %3 --el modo del build y dos vacios--, y el
+//                   `goto :eof` de la subrutina sin `call` delante termina el
+//                   script entero.
+//   1, y no es el    El salto falta y lo que hay es otra cosa. El mismo fallo,
+//   salto           con la baja de la senal.
+//   1 que es el     Lo unico que se acepta: el salto, y nada detras.
+//   salto
+//   mas de 1        Codigo despues de un salto que ya no hace falta. Eso es
+//                   CODIGO MUERTO y no lo ve ni este test: un `echo` entre dos
+//                   `goto :end` no se ejecuta nunca. Se deja escrito porque es
+//                   la unica casilla que la regla no cubre, y un invariante
+//                   con un agujero sin nombrar es peor que uno sin.
+//
+// Asi que "mas de una linea ejecutable" deja en verde los dos primeros, que son
+// justo el fallo. Lo que se comprueba es que el hueco SEA el salto y nada mas.
+const PROFUNDIDAD = [];
+
+{
+  let nivel = 0;
+
+  // `rem` y `echo` no se cuentan, con la misma convencion que `bloqueDesde`:
+  // cmd no los ejecuta, asi que un parentesis de un texto no abre un bloque.
+  // Con otra convencion las dos medidas no hablarian el mismo idioma.
+  for (const l of LINEAS) {
+    if (/^\s*(rem\s|echo )/i.test(l)) {
+      PROFUNDIDAD.push(nivel);
+      continue;
+    }
+
+    nivel += (l.match(/\(/g) || []).length;
+    nivel -= (l.match(/\)/g) || []).length;
+    PROFUNDIDAD.push(nivel);
+  }
+}
+
+// El hueco: las ejecutables que hay entre el salto mas cercano y la etiqueta.
+// Se camina hacia atras y se para en el primer salto de la RAIZ del flujo. Un
+// `goto` dentro de un `if (...)` NO para la cuenta: detras suyo el flujo sigue
+// igual, y el `)` que cierra el bloque es justo lo que hay que contar.
+const HUECO = (i) => {
+  const dentro = [];
+
+  for (let k = i - 1; k >= 0; k -= 1) {
+    if (/^:[A-Za-z]/.test(LINEAS[k].trim()))
+      break;
+
+    const t = LINEAS[k].trim();
+
+    if (!t || t.startsWith('::') || /^rem\b/i.test(t))
+      continue;
+
+    dentro.push([k + 1, t]);
+
+    if (PROFUNDIDAD[k] === 0 && /^(goto|exit\s*\/b)/i.test(t))
+      break;
+  }
+
+  return dentro.reverse();
+};
+
+const HUECOS = ETIQUETAS.map(([nombre, i]) => [nombre, HUECO(i)]);
+
+// El hueco limpio es una sola linea y es el salto. Ni cero --que es caerse
+// dentro-- ni mas de una, que es codigo de mas.
+const HUECOS_SUCIOS = HUECOS.filter(([, h]) =>
+  h.length !== 1 || !/^(goto|exit\s*\/b)/i.test(h[0][1]));
+
+comprobar('entre el fin de cada flujo y la etiqueta siguiente no hay ni una linea ejecutable de mas',
+  HUECOS_SUCIOS.length === 0);
+
+// Y el del final del flujo principal por su nombre, que es el que se rompio en
+// 6.9 y el que mas se toca al anadir secciones al final del script. Se cuenta
+// en el mensaje para que el rojo diga cuantos sobran y no solo que sobran.
+const [NOMBRE_PRIMERA, HUECO_PRIMERO] = HUECOS[0];
+
+// El recuento va ACOTADO. Un hueco roto puede ser enorme --si el `goto` de en
+// medio desaparece, la cuenta se va hasta el principio del fichero-- y un rojo
+// que escupe doscientas lineas no es un rojo: es ruido que esconde al que hay
+// que leer. Se enseñan las primeras y el numero, que es lo que dice la verdad.
+const CUANTAS_SE_VEN = 5;
+
+function resumenDe(h) {
+  if (h.length === 0)
+    return 'no hay ninguna';
+
+  const primeras = h.slice(0, CUANTAS_SE_VEN).map(([n, t]) => n + ': ' + t).join(' | ');
+  const resto = h.length - CUANTAS_SE_VEN;
+
+  return (resto > 0 ? primeras + ` | ... y ${resto} linea(s) mas` : primeras)
+    + `  (${h.length} en total)`;
+}
+
+comprobar(`el hueco antes de ${NOMBRE_PRIMERA} es solo el salto: ${resumenDe(HUECO_PRIMERO)}`,
+  HUECO_PRIMERO.length === 1 && HUECO_PRIMERO[0][1] === 'goto :end');
+
+for (const [nombre, h] of HUECOS)
+  if (h.length !== 1 || !/^(goto|exit\s*\/b)/i.test(h[0][1]))
+    console.log(`          ${nombre}: ${resumenDe(h)}`);
+
 // ── Las comillas ──
 //
 // La asercion mas tonta del fichero y la que mas ha costado: siete lineas

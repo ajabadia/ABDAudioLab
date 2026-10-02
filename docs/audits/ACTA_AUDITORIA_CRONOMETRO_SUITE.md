@@ -629,6 +629,44 @@ La primera es la que justifica el cambio y la que el banco de fragmentos **no po
 
 `146 aserciones`, todas en verde, en **1 m 25 s** para los once casos. Dos pasadas seguidas con la salida idéntica línea a línea: un banco que depende de la máquina no sirve para vigilar un contrato.
 
+## 6.17. El hueco entre un salto y la etiqueta siguiente se cuenta entero
+
+§6.9 añadió la regla de que ninguna etiqueta de subrutina se alcance por caída, y la regla era correcta pero miraba **una sola línea**: la de justo antes de la etiqueta. Es una regla fuerte y aun así deja el resto del hueco sin vigilar. Esta sección cuenta el hueco entero, y el motivo por el que tiene que ser más estricta de lo que parece.
+
+### El hueco tiene cuatro estados, y solo uno es un build
+
+| Ejecutables en el hueco | Qué es |
+|---|---|
+| **0** | se **cae** dentro de la etiqueta. Es el fallo de §6.9 |
+| 1, y no es el salto | el salto falta y lo que hay es otra cosa. El mismo fallo |
+**1, y es el salto** | **lo único que se acepta** |
+| más de 1 | detrás del salto no puede haber nada ejecutable sin que sea **código muerto**; delante del salto está el cuerpo de la subrutina, que es código de verdad |
+
+Las dos primeras casillas son **el mismo fallo de §6.9**, y las dos quedan en verde con la regla de «más de una línea ejecutable». Por eso la comprobación no es un umbral sino una forma: **el hueco tiene que SER el salto y nada más**.
+
+Y esa cuarta casilla explica por qué el conteo se hace **hacia atrás desde la etiqueta y parando en el salto**, y no contando todo lo que hay entre dos etiquetas: entre `:crearEnlaceSiProcede` y `:avisarSiEsEnlace` hay treinta y una líneas ejecutables, y son el cuerpo de la subrutina. Lo que se cuenta es lo que hay **detrás** del salto, y eso tiene que ser cero.
+
+### Lo que aporta y no aportaba
+
+**La profundidad de paréntesis.** Un `goto` dentro de un `if (...)` no protege lo que viene detrás: el flujo sigue igual y el `)` que cierra el bloque es una línea más en el hueco. El salto tiene que estar en la **raíz** de un bloque. La cuenta se para en el primer salto de raíz y sigue de largo con el que está dentro, que es exactamente el error que hay que cazar.
+
+**El recuento en el mensaje**, acotado a cinco líneas más el total. Sin el tope, el rojo escupe doscientas líneas cuando el hueco roto se va hasta el principio del fichero —que es lo que pasa si desaparece el `goto` de en medio—, y un rojo de doscientas líneas no es un rojo: es ruido que esconde al que hay que leer.
+
+**Medido en el `build.bat` de hoy.** Los tres huecos son de una línea y son el salto: `428: goto :end`, `508: goto :eof` y `533: goto :eof`. El recuento de paréntesis cuadra a cero, que es la condición para que la profundidad signifique algo.
+
+### Las cuatro mutaciones, y una que TIENE que quedar en verde
+
+| Mutación | Resultado |
+|---|---|
+| la subrutina se queda sin su `goto :eof` | **2 rojos** |
+| el `goto :eof` metido dentro de un `if` que no se cumple | **2 rojos** |
+| una línea suelta antes de `:end` | **2 rojos** |
+| **control negativo**: una sentencia más en el cuerpo de la subrutina, antes de su `goto :eof` | **148 en verde**, y bien |
+
+La cuarta es la que hace que las otras tres signifiquen algo. Una sentencia en el cuerpo de la subrutina, justo antes del `goto :eof`, **se ejecuta** en cada build que llega ahí y no es un defecto: es una sentencia más del cuerpo. La regla da verde y es lo correcto, y por eso va en la lista de mutaciones y no fuera de ella: un invariante con un límite sin nombrar y sin medir es peor que uno que no existe.
+
+**148 aserciones**, todas en verde.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -724,6 +762,13 @@ La primera es la que justifica el cambio y la que el banco de fragmentos **no po
 | §6.16: un caso con y sin el shim de `cl.exe` | **17 s → 1,2 s** |
 | §6.16: caso que se pasa de 40 s con la maquina ocupada | 4 de 11, banco entero en rojo sin que el `.bat` cambiara |
 | §6.16: mutaciones del arreglo de §6.15 y de layout | **4 de 4 en rojo** (53, 8, 49, 13) |
+| §6.17: hueco de cada etiqueta del `build.bat` de hoy | **1 línea y es el salto** en las tres: 428, 508, 533 |
+| §6.17: recuento de paréntesis del `build.bat` | cuadra a **0** |
+| §6.17: `test_build_bat_perf.mjs` | **148 aserciones**, +2 |
+| §6.17: subrutina sin su `goto :eof` | **2 rojos** |
+| §6.17: `goto :eof` dentro de un `if` que no se cumple | **2 rojos** |
+| §6.17: línea suelta antes de una etiqueta | **2 rojos** |
+| §6.17: control negativo, una sentencia más en el cuerpo | **verde**, y es lo correcto |
 
 ## 8. Commits
 
@@ -743,6 +788,7 @@ La primera es la que justifica el cambio y la que el banco de fragmentos **no po
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
+| este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
 
