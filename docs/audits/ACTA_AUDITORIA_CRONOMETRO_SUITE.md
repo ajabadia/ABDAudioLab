@@ -578,6 +578,57 @@ for /f "tokens=3 delims=:,{} " %%c in ("findstr /b /c:"ABD-VEREDICTO " "!PERF_LO
 
 El log entero está en `build/registro.txt` y el código en `build/codigo.txt` (ignorado por git). Y las cuatro mutaciones que se han probado sobre el arreglo —quitar otra vez la comilla, cambiar el token, borrar la rama, dejar de mirar el estado— dan **8, 8, 32 y 32 aserciones en rojo**.
 
+## 6.16. El banco ejecuta el `build.bat` entero, y por eso ve los fallos de layout
+
+§6.15 arreglo el `build.bat` con un build de verdad y luego lo **comprobó** con un banco que reensamblaba sus fragmentos. Las dos cosas son verdad a la vez y por eso esta sección existe: **el arreglo se hizo con un build, y la red que lo protege sigue sin ser un build.**
+
+Un banco de fragmentos pega el bloque del cronómetro con su cola de `:end` y ejecuta eso. Es el `build.bat` de verdad y no lo es: se ejecutan las líneas que el test le da, en el orden que el test quiere, en un `.bat` que el test ha escrito. **Un fallo de layout no se puede ver ahí**, porque al pegar no hay bloque donde el parser pueda equivocarse. Lo que §6.15 encontró era exactamente eso: unas comillas mal cerradas *dentro* de un `if/else`, donde cmd las empareja cruzando líneas, el `for /f` deja de ejecutar el `findstr` y busca un fichero. Al pegar ese bloque no hay bloque alrededor.
+
+### Lo que se sustituye, y lo que no se toca
+
+Aquí **no se ejecuta ni una línea del `build.bat` reescrita**. Se ejecuta el fichero del árbol, con sus bloques y con las líneas que tiene alrededor. Lo único que se cambia es el entorno:
+
+| | Qué | Por qué |
+|---|---|---|
+| `cl.exe` | fichero que no es un ejecutable | el build arranca con `where cl.exe`; con él se salta la búsqueda de Visual Studio. Medido: un caso pasa de **17 s a 1,2 s**, y el banco deja de depender de lo que tenga instalado el equipo |
+| `cmake.exe` | una copia de `attrib.exe` | tiene que **salir con 0** o el build dice `[Error] Build failed` y no llega al cronómetro. Imprime una línea inútil, y esa línea se comprueba en vez de esconderse |
+| `taskkill.exe` | fichero que no es un ejecutable | sin él el test mata la aplicación que alguien tenga abierta |
+| `timeout.exe` | fichero que no es un ejecutable | el build espera un segundo al empezar, y eso no es lo que se prueba |
+| `node` | **no lleva shim** | el build lo llama como `node tools\algo.mjs`, relativo al directorio de trabajo, así que el esqueleto lleva sus propios `tools/` con tres stubs |
+
+Que el esqueleto traiga `tools/` tiene una consecuencia buena: el stub de `test_build_bat_perf.mjs` **no es este fichero**, de modo que el build no puede meterse en un bucle de bancos que se llamen entre sí.
+
+El esqueleto es un `CMakeCache.txt` y un `ABDAudioLab_Tests.exe` de mentira, más un `ABDSharedAssets` de mentira al lado —lo que ve `SHARED_ASSETS`— para que la sección de junctions **se ejecute de verdad y no se salte**. Con esa sección dentro, cada caso pasa por el principio entero del fichero: los junctions, la compilación y el cronómetro. Y el `.bat` se ejecuta desde la raíz del repositorio, porque su `%~dp0` es lo que hace que `git ls-files` diga la verdad sobre `contracts/hardware` en vez de responder que no hay git.
+
+### Tres cosas que no se supieron al escribirlo, y que costaron una tarde
+
+**Un shim tiene que ser un `.exe`.** Con un shim `.cmd` invocado por su **nombre** desde el `PATH` y sin `call` delante, cmd **termina el script que lo llama**: no devuelve el control y su código de salida pasa a ser el del build entero. Medido: el build se paraba tras el cartel de cabecera, con código 0 y tres líneas de salida, y el banco daba 41 rojos de 135 aserciones. Y no lo reproduce invocar el shim por ruta explícita, que es justo lo que lo hace difícil de encontrar.
+
+**Las junctions de verdad no se pueden borrar.** El esqueleto dejaba `assets/models` y `assets/brands` sin crear para que el build los montara con `mklink`. Junction de verdad significa que un `rmSync(recursive)` o un `rmdir /s /q` posterior puede llevarse por delante el contenido de a donde apunta. La solución es más aburrida y mejor: **se crean de verdad**, y la comprobación `if exist` del propio build los deja como están sin llegar a `mklink`. El único path que se deja sin crear es `contracts\hardware`, que es el vigilado —ese es el que tiene que llegar a `git` y decir que está versionado—.
+
+**El `timeout` de 40 s era del banco de fragmentos y aquí no vale.** Con el shim de `cl.exe` puesto un caso va de **1 s a 20 s** según lo que haya haciendo la máquina. Con 40 s caían de vez en cuando cuatro casos del banco y ponían en rojo el banco entero sin que el `.bat` hubiera cambiado. El límite son **150 s**, y sigue siendo la diferencia entre un rojo y un cuelgue: lo que se cuelga no es un build lento, es una llamada a `node` que el esqueleto no ha sustituido y que está midiendo la suite de verdad, que son minutos.
+
+### Lo que muerde, y lo que no
+
+Cuatro mutaciones de `build.bat`: las dos de §6.15 que el arreglo dejó vivas y dos más que son fallos de layout puros. La de §6.15 que **no** se puede aplicar es la de la comilla, y merece una línea propia:
+
+El arreglo de §6.15 **no fue poner la comilla de cierre**. Fue cambiar `""` por `"` dentro del `findstr`, que es lo que rompía el emparejamiento. El `set "PERF_ESTADO=%%~c` sigue sin comilla de cierre desde entonces, y funciona: está al final de la línea, y lo que se rompió antes era el emparejamiento de comillas **dentro del bloque**, no el del `set`. Es una de esas cosas raras de batch que no se corrigen, y por eso el banco no la vigila: no hay nada que vigilar.
+
+Las cuatro que sí se aplican:
+
+| Mutación | Rojos |
+|---|---|
+| `setlocal enabledelayedexpansion` → `setlocal` | **53** |
+| `tokens=3` → `tokens=2` | **8** |
+| rama `medicion-incompleta` borrada entera | **49** |
+| la línea del `for /f` borrada | **13** |
+
+La primera es la que justifica el cambio y la que el banco de fragmentos **no podía ver**: los `!VAR!` dejan de expandirse, el bloque entero del cronómetro no se ejecuta nunca, y el banco de fragmentos pegaba el `setlocal` **con** expansión retardada en su propio `.bat`, así que se ponía en verde con ese defecto.
+
+### El resultado
+
+`146 aserciones`, todas en verde, en **1 m 25 s** para los once casos. Dos pasadas seguidas con la salida idéntica línea a línea: un banco que depende de la máquina no sirve para vigilar un contrato.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -666,6 +717,13 @@ El log entero está en `build/registro.txt` y el código en `build/codigo.txt` (
 | §6.15: casos por estado que antes no se probaban | **6 nuevos**: ok, lento, regresion, sin-medir, fallo-del-tool, medicion-incompleta |
 | §6.15: mutaciones del arreglo | **4 de 4 en rojo** (8, 8, 32, 32) |
 | §6.15: línea del tool | 570 líneas, **ASCII puro, CRLF puro** |
+| §6.16: `test_build_bat_perf.mjs` ejecutando el fichero entero | **146 aserciones**, +12, en 1 m 25 s |
+| §6.16: dos pasadas seguidas con la maquina ocupada | salida **identica linea a linea** |
+| §6.16: shim `.cmd` invocado por su nombre sin `call` | **termina el script**: 3 lineas y codigo 0 |
+| §6.16: junctions de verdad en el esqueleto | `rmSync` recursivo falla con **EPERM** y puede borrar el origen |
+| §6.16: un caso con y sin el shim de `cl.exe` | **17 s → 1,2 s** |
+| §6.16: caso que se pasa de 40 s con la maquina ocupada | 4 de 11, banco entero en rojo sin que el `.bat` cambiara |
+| §6.16: mutaciones del arreglo de §6.15 y de layout | **4 de 4 en rojo** (53, 8, 49, 13) |
 
 ## 8. Commits
 
@@ -685,6 +743,7 @@ El log entero está en `build/registro.txt` y el código en `build/codigo.txt` (
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
+| este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.

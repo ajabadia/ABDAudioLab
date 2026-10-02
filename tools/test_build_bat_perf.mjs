@@ -19,39 +19,58 @@
  * donde ya se mira solo: la suite de tests.
  *
  * ---------------------------------------------------------------------------
- * POR QUE NO SE REIMPLEMENTA build.bat
+ * ---------------------------------------------------------------------------
+ * POR QUE SE EJECUTA EL FICHERO ENTERO, Y NO UNA COPIA DE SU LOGICA
  *
- * Una copia de la logica en JavaScript estaria en verde mientras el .bat
- * hiciera otra cosa, que es justo el fallo que se quiere evitar. Asi que esto
- * no reimprime el reparto: EXTRAE del build.bat commiteado el bloque del
- * cronometro y la cola de :end, los pega en el MISMO orden en que se ejecutan
- * y ejecuta eso de verdad. Lo unico que se sustituye son las tres cosas que
- * hacen que un banco no pueda correr solo:
+ * Una copia de la logica en JavaScript estaria en verde mientras el .bat hiciera
+ * otra cosa, que es justo el fallo que se quiere evitar. Y pegar el bloque del
+ * cronometro con su cola de :end es mucho mas que eso, pero aun asi se deja
+ * cosas por el camino: LOS FALLOS DE LAYOUT.
  *
- *     - el `if not exist` del binario de tests, por uno que mira un senuelo,
- *       para que el test no dependa de que haya compilado nada y no pueda dar
- *       un verde falso por cortocircuito;
- *     - la llamada al test del cronometro, por un `cmd /c exit N`;
- *     - la llamada al cronometro, por un `cmd /c exit N`.
+ * Un fallo de layout no depende de lo que dice una linea sino de lo que hay a su
+ * alrededor. El medido: `set "PERF_ESTADO=%%e` sin la comilla de cierre, DENTRO
+ * de un bloque if/else. cmd empareja las comillas cruzando lineas, el `for /f`
+ * deja de ejecutar el `findstr` y busca un fichero, el estado se queda en
+ * `desconocido` y la rama que separa un cronometro roto de una suite lenta no
+ * puede dispararse nunca. El banco de fragmentos daba todo eso por bueno,
+ * porque al pegar el bloque no hay bloque donde el parser pueda equivocarse.
  *
- * Todo lo demas --el `if not exist`, el `where node`, los cuatro mensajes, el
- * `set "PERF_FATAL=1"`, el `exit /b 1` de la cola-- es el texto del build.bat.
+ * Pegar mas lineas tampoco lo arregla: al pegar se pegan lineas sueltas y se
+ * pierde el sitio donde estaban. Asi que aqui se ejecuta el FICHERO, con su
+ * estructura de bloques y con las lineas que tiene alrededor, y no se toca ni
+ * un byte de el.
  *
  * ---------------------------------------------------------------------------
- * POR QUE LA COLA DE :end VA EN EL BANCO
+ * LO QUE SE SUSTITUYE, Y POR QUE NO HACE FALTA TOCAR NADA
  *
- * Porque ahi esta el `exit /b 1`, que es la parte que no es evidento: el
- * fallo se acumula en PERF_FATAL durante el cronometro y se devuelve al
- * final, despues de que se hayan montado los enlaces de junctions. Si el banco
- * solo pegase el bloque, probaria una cosa que el build no hace.
+ * Un build de verdad mata procesos, compila, cronometra la suite y ejecuta este
+ * mismo test. Las cuatro cosas se sustituyen por un shim en el PATH, que es
+ * donde cmd busca los programas antes que en ningun otro sitio. Y `node` NO
+ * lleva shim, y esa es la parte buena: el build lo llama como `node tools\algo.mjs`
+ * RELATIVO al directorio de trabajo, de modo que el esqueleto lleva sus propios
+ * `tools/` con tres stubs que contestan lo que el caso pide. El node de verdad
+ * los ejecuta y el codigo de salida es el que el stub devuelve.
  *
- * La seccion de junctions NO se pega, y es a proposito: no toca PERF_FATAL y
- * montarla crearia enlaces de verdad en el arbol del repositorio. Lo que ha
- * cambiado es la propagacion del fallo, y eso es lo que se prueba.
+ * Que el esqueleto traiga `tools/` tiene una consecuencia buena: el stub de
+ * `test_build_bat_perf.mjs` NO es este fichero, de modo que el build no puede
+ * meterse en un bucle de bancos que se llamen entre si.
+ *
+ * El esqueleto es lo que hace que el build no dependa de nada de lo que hay
+ * alrededor: ni de que este compilado, ni de que el hermano de assets exista.
+ * Un `CMakeCache.txt` y un `ABDAudioLab_Tests.exe` de mentira evitan el
+ * `if not exist` del binario, y un `ABDSharedAssets` de mentira al lado es lo
+ * que ve `SHARED_ASSETS`, para que la seccion de junctions se ejecute DE VERDAD
+ * y no se salte. Con esa seccion dentro, cada caso pasa por el principio entero
+ * del fichero, que es justo lo que el banco de fragmentos se saltaba entero.
+ *
+ * Y el `%~dp0` del git se sigue resolviendo al repositorio de verdad, porque el
+ * .bat que se ejecuta vive ahi: es lo que permite que `git ls-files` diga la
+ * verdad sobre `contracts/hardware` en vez de responder que no hay git. Por eso
+ * la copia que se hace para mutar va en la RAIZ y no donde quede la mutacion.
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 // CERROJO DE INSTANCIA UNICA.
@@ -100,53 +119,9 @@ function comprobar(descripcion, condicion) {
   }
 }
 
-// Un `if not exist` que apunta a un exe de senuelo. Sin el, el banco se
-// cortocircuitaba por la rama de "no hay binario que cronometrar" cada vez que
-// no hubiera nada compilado, y daba verde en los seis casos sin haber comprobado
-// ninguno. Un verde falso en un test que existe para cazar verdes falsos, y el
-// peor sitio posible para que uno se cuele: en un `if not exist`, que no
-// avisa de nada cuando no se cumple lo que uno cree que se cumple.
-const SENUELO = join(BANCO, 'SUITE.exe');
-
-// Las llamadas a node que hay que sustituir por su codigo de salida. En tabla
-// y no encadenadas en el bucle porque van a crecer: cuando entre una tercera, el
-// caso nuevo es una fila mas y no una rama mas.
-//
-// POR PREFIJO, Y NO CON IGUALDAD. Una fila dice con que PREFIJO empieza la linea
-// del build.bat, no cual es la linea exacta. Con `===` basta con que alguien
-// redirija la salida, anyada una bandera o cambie unas comillas para que el
-// emparejamiento falle, y entonces el banco no sustituye y ejecuta el cronometro
-// DE VERDAD: cinco minutos por caso, seis casos, y un test que se cuelga en vez
-// de ponerse rojo. Un banco que ejecuta lo que deberia estar sustituyendo deja
-// de ser un banco sin avisar, y eso es exactamente la clase de fallo que este
-// test existe para cazar.
-//
-// El prefijo va con el espacio justo despues de la ruta, de modo que
-// `duraciones-suite.mjs` no empareja con un `duraciones-suite.mjs-otro.mjs` que
-// se inventara manana.
-// La fila guarda la ruta SECA. Lo que viene justo despues se comprueba
-// aparte, y puede ser un separador o nada: con el separador dentro del
-// prefijo, una linea que se acaba en la ruta no empareja, porque no hay
-// nada despues con lo que casarlo. Y el separador no es cosmetico, es lo
-// que impide que `duraciones-suite.mjs` case con un
-// `duraciones-suite.mjs-otro.mjs` que alguien se invente manana.
-const SEPARADORES = [" ", "	", ">"];
-
-const LLAMADAS_NODE = [
-  { ruta: 'node tools\\test_duraciones_suite.mjs', codigo: 'ntest' },
-  { ruta: 'node tools\\test_build_bat_perf.mjs', codigo: 'nbanco' },
-  { ruta: 'node tools\\duraciones-suite.mjs', codigo: 'ncrono' },
-];
-
-function esLlamadaDe(s, fila) {
-  if (!s.startsWith(fila.ruta))
-    return false;
-
-  const resto = s.slice(fila.ruta.length);
-
-  return resto === "" || SEPARADORES.includes(resto[0]);
-}
-
+// La frase que cierra el build cuando no hay medicion. Se comprueba que es la
+// ULTIMA linea que dice algo, y no solo que este en la salida: que se anuncie
+// el fallo al final es la mitad del contrato de la cola de :end.
 // La frase que cierra el build cuando no hay medicion. Se comprueba que es la
 // ULTIMA linea que dice algo, y no solo que este en la salida: que se anuncie
 // el fallo al final es la mitad del contrato de la cola de :end.
@@ -211,210 +186,359 @@ function colaDesde(etiqueta) {
 const BLOQUE_PERF = bloqueDesde('if ' + Q + '!RUN_PERF!' + Q + '==' + Q + '1' + Q + ' (');
 const COLA = colaDesde(':end');
 
-// El preambulo se extrae tambien, y no se escribe a mano. `PERF_FATAL` nace en
-// la linea 113, fuera del bloque del cronometro; si el banco se lo pusiera
-// el, el test seguiria en verde con el `set` borrado de build.bat, que es
-// justo el cambio que este test existe para ver.
-const SETLOCAL = LINEAS.find((l) => l.trim().toLowerCase() === 'setlocal enabledelayedexpansion')
-  || 'setlocal EnableDelayedExpansion';
-const PERF_FATAL = LINEAS.find((l) => l.trim().toLowerCase() === 'set "perf_fatal=0"')
-  || 'set "PERF_FATAL=0"';
-const SELFTEST_FATAL = LINEAS.find((l) => l.trim().toLowerCase() === 'set "selftest_fatal=0"')
-  || 'set "SELFTEST_FATAL=0"';
+// El preambulo NO se pega en ningun sitio. Antes se copiaba aqui, y con el
+// banco entero no hace falta: el build de verdad ejecuta su propio
+// `setlocal` y sus propios `set`, de modo que comprobarlos es comprobar que
+// estan donde tienen que estar, no que un pegado los conserve.
 
-console.log('\nlo que el banco ejecuta sale del build.bat, no de una copia');
-
-comprobar('build.bat tiene el setlocal de expansion retardada', SETLOCAL.startsWith('setlocal enabledelayedexpansion'));
+comprobar('build.bat tiene el setlocal de expansion retardada',
+  LINEAS.some((l) => l.trim().toLowerCase() === 'setlocal enabledelayedexpansion'));
 comprobar('build.bat inicializa PERF_FATAL a 0 antes del cronometro',
-  LINEAS.indexOf(PERF_FATAL) < LINEAS.indexOf(BLOQUE_PERF[0]));
+  LINEAS.some((l) => l.trim().toLowerCase() === 'set "perf_fatal=0"')
+  && LINEAS.findIndex((l) => l.trim().toLowerCase().startsWith('set "perf_fatal=0'))
+  < LINEAS.indexOf(BLOQUE_PERF[0]));
 comprobar('el banco ha encontrado el bloque del cronometro y la cola de :end',
   BLOQUE_PERF.length > 40 && COLA.length > 3);
-
 console.log('\nlas cuatro clases del cronometro, cada una a su sitio');
 
-// ntest = codigo del test del cronometro. nbanco = codigo del test de este
-// reparto de codigos. ncrono = codigo del cronometro. build = lo que tiene que
-// salir del build. muere = si el build tiene que terminar en fallo.
-// estado = lo que dice la linea de veredicto, si el caso la trae.
+// ────────────────────────────────────────────────────────────────────────,// ────────────────────────────────────────────────────────────────────────// LOS SHIMS, Y POR QUE NO SON LO QUE UN ESCRIBE PRIMERO
 //
-// Y ESTA SEGUNDA COLUMNA ES LA QUE FALTABA, y no es un adorno: sin ella el
-// banco sustituye la llamada al cronometro por un `cmd /c exit N`, que no
-// imprime NADA, de modo que la linea de veredicto no llega al temporal y el
-// estado se queda siempre en `desconocido`. Con esa columna sola, la rama por
-// ESTADO --la que decide si una medicion que no llego a terminar es un aviso o
-// un fallo-- no se probaba nunca, y no por una suposicion: el codigo 1 con el
-// estado a `desconocido` daba verde, que es justo lo que hacia un build de
-// verdad con la suite muerta en el 62 % del recorrido.
+// Un shim tiene que ser un `.exe`, y eso no es un capricho. Medido: un `.cmd`
+// que el build invoca por su NOMBRE, encontrado en el PATH y sin `call`
+// delante, TERMINA el script que lo llama. No devuelve el control, y su codigo
+// de salida pasa a ser el del build entero. Con un `.cmd` de shim, el build se
+// paraba tras el cartel de cabecera, con codigo 0, y no hacia ni una linea mas.
+//
+// Y no puede ser un `.exe` de mentira, porque `cmake` tiene que SALIR CON 0: si
+// sale con otra cosa, el build dice [Error] Build failed y se va antes de
+// cronometrar. Asi que hay tres formas y cada una tapa un caso:
+//
+//   cmake.exe      una copia de attrib.exe. Se busca un ejecutable que acepte
+//                  cualquier argumento, salga con 0 y no toque nada; de los que se
+//                  han probado, ese es el unico. Imprime una linea de error
+//                  inutil, y esa linea se comprueba en vez de esconderse.
+//   taskkill.exe   un fichero que no es un ejecutable. Al build no le importa su
+//                  codigo y redirige su salida a nul, de modo que solo hace
+//                  falta que devuelva el control: sin esto el test mataria la
+//                  aplicacion que alguien tenga abierta.
+//   timeout.exe    lo mismo. El build espera un segundo al empezar, y aqui eso no
+//                  es lo que se prueba.
+//
+// Y `node` NO lleva shim, y esa es la parte buena. El build lo llama como
+// `node tools\algo.mjs`, RELATIVO al directorio de trabajo, de modo que el
+// esqueleto lleva sus propios `tools/` con tres stubs que contestan lo que el
+// caso pide. El node de verdad ejecuta los stubs, el codigo de salida es el que
+// el stub devuelve, y el veredicto lo imprime el stub por stdout, que es donde el
+// build lo recoge con `type` y lo lee despues con `findstr`.
+//
+// Que el esqueleto traiga `tools/` tiene una consecuencia buena: el stub de
+// `test_build_bat_perf.mjs` NO es este fichero, de modo que el build no puede
+// meterse en un bucle de bancos que se llamen entre si.
+const SHIMS = [
+  {
+    nombre: 'cmake.exe',
+    de: 'attrib.exe',
+    porque: 'tiene que salir con 0 o el build no llega al cronometro',
+  },
+  { nombre: 'taskkill.exe', porque: 'sin esto el test mata la app de quien lo corre' },
+  { nombre: 'timeout.exe', porque: 'sin esto cada caso espera un segundo de mas' },
+  // El mas importante de los cuatro y el mas facil de no pensar. El build
+  // arranca con `where cl.exe`: si lo encuentra se lo salta todo y se va
+  // directo a junctions. Aqui eso no es solo una prueba de menos: medido, un
+  // caso pasaba de 1,2 s a 17 s por buscar Visual Studio, y con el limite de
+  // 40 s del banco habia casos que SE COLGABAN sin haber hecho nada malo. El
+  // banco tiene que depender de este .bat y de node, no de lo que tenga
+  // instalado el equipo donde se corre.
+  { nombre: 'cl.exe', porque: 'sin esto se busca Visual Studio, y el banco depende de el' },
+];
+
+// Los stubs. Tabla y no ifs, por lo mismo que los shims: anadir uno nuevo es
+// anadir una fila. Cada uno deja su nombre en un rastro, que es lo que permite
+// comprobar que los tres se han llamado y que no se ha llamado ninguno mas.
+const STUBS = [
+  { nombre: 'test_duraciones_suite.mjs', salida: 'ABD_TEST_TOOL' },
+  { nombre: 'test_build_bat_perf.mjs', salida: 'ABD_TEST_BANCO' },
+  { nombre: 'duraciones-suite.mjs', cronometro: true },
+];
+
+// El esqueleto. Es lo que hace que el build no dependa de nada de lo que hay
+// alrededor: ni de que este compilado, ni de que el hermano de assets exista, ni
+// de que haya un node de verdad al que poder llamar.
+function montarBanco(etiqueta) {
+  const raiz = join(BANCO, etiqueta);
+  const cwd = join(raiz, 'caso');
+  const shims = join(raiz, 'shims');
+  const tools = join(cwd, 'tools');
+  const rastro = join(raiz, 'rastro.txt');
+
+  // SHARED_ASSETS es '..\ABDSharedAssets' relativo al directorio de trabajo, asi
+  // que el hermano va al lado del caso. Sin el, el build se salta la seccion de
+  // junctions entera y no se prueba nada de ella.
+  const hermano = join(raiz, 'ABDSharedAssets');
+
+  mkdirSync(join(cwd, 'build', 'Release'), { recursive: true });
+  mkdirSync(shims, { recursive: true });
+  mkdirSync(tools, { recursive: true });
+  // El hermano tiene que EXISTIR, porque el build se salta la seccion entera
+  // si no. Lo que hay dentro da igual: no se llega a enlazar nada.
+  mkdirSync(hermano, { recursive: true });
+
+  // Y estos dos se crean de verdad para que el build NO llegue a `mklink`: su
+  // comprobacion `if exist` los deja como estan. Es lo que evita que el banco
+  // monte junctions de verdad, que un borrado recursivo despues no sabe quitar
+  // sin llevarse por delante el contenido de a donde apuntan. El unico path que
+  // se deja sin crear es `contracts\hardware`, que es el vigilado: ese es el que
+  // tiene que llegar a git y decir que esta versionado.
+  mkdirSync(join(cwd, 'assets', 'models'), { recursive: true });
+  mkdirSync(join(cwd, 'assets', 'brands'), { recursive: true });
+
+  // El CMakeCache evita la configuracion y el exe de mentira evita la rama de
+  // "no hay binario que cronometrar", que cortocircuitearia el banco entero.
+  writeFileSync(join(cwd, 'build', 'CMakeCache.txt'), 'banco');
+  writeFileSync(join(cwd, 'build', 'Release', 'ABDAudioLab_Tests.exe'), '');
+  writeFileSync(rastro, '');
+
+  for (const shim of SHIMS) {
+    if (shim.de) {
+      // Una COPIA y no un enlace: un enlace a System32 seria un shim que depende
+      // de lo que la limpieza hiciese con build/, que es justo la carpeta donde
+      // vive.
+      copyFileSync(join(process.env.SystemRoot || 'C:/Windows', 'System32', shim.de),
+        join(shims, shim.nombre));
+    }
+    else
+      writeFileSync(join(shims, shim.nombre), 'esto no es un ejecutable');
+  }
+
+  for (const stub of STUBS)
+    writeFileSync(join(tools, stub.nombre), stub.cronometro ? stubDelCronometro() : stubDe(stub), 'utf8');
+
+  return { raiz, cwd, shims, rastro };
+}
+
+// El stub de los dos tests: contesta con el codigo del caso y anota que se ha
+// llamado.
+function stubDe(stub) {
+  return [
+    `import { appendFileSync } from 'node:fs';`,
+    ``,
+    `appendFileSync(process.env.ABD_RASTRO, ${Q}${stub.nombre}${Q} + String.fromCharCode(10));`,
+    `process.exit(Number(process.env.${stub.salida}));`,
+    ``,
+  ].join(LF);
+}
+
+// Y una cuarta forma, que es la que mas ha costado: la comilla simple. El
+// veredicto es JSON, y el JSON lleva comillas DOBLES dentro, asi que un
+// literal de JavaScript con comillas dobles no se puede escribir con comillas
+// dobles. Con la doble a pelo el stub salia con el literal cortado en la
+// primera de dentro, el node de verdad se caia antes de imprimir nada, y el
+// banco se daba verde con el cronometro sin ejecutar.
+const S = String.fromCharCode(39);
+
+// El stub del cronometro. Imprime el veredicto por stdout, que es donde el build
+// redirige con `>"!PERF_LOG!"` antes de buscarlo con `findstr`. Y sale con el
+// codigo que el caso pide, que es lo que decide el reparto.
+function stubDelCronometro() {
+  return [
+    `import { appendFileSync } from 'node:fs';`,
+    ``,
+    `appendFileSync(process.env.ABD_RASTRO, ${S}duraciones-suite.mjs${S} + String.fromCharCode(10));`,
+    ``,
+    `if (process.env.ABD_SIN_VEREDICTO !== ${S}1${S})`,
+    `  console.log(${S}ABD-VEREDICTO {"estado":"${S} + process.env.ABD_CRONO_ESTADO`,
+    `    + ${S}","codigo":${S} + process.env.ABD_CRONO_SALIDA + ${S}}${S});`,
+    ``,
+    `process.exit(Number(process.env.ABD_CRONO_SALIDA));`,
+    ``,
+  ].join(LF);
+}
+
+// El .bat que se ejecuta. Sin ABD_BUILD_BAT es el del arbol, sin copiar. Con el,
+// una COPIA EN LA RAIZ, y no donde quede la mutacion: %~dp0 es donde el build
+// pregunta a git por contracts/hardware, y esa pregunta solo tiene respuesta
+// buena dentro del repositorio. Ejecutar la copia en otro sitio no daria un
+// fallo: daria OTRO resultado, que es peor.
+function batDe(etiqueta) {
+  if (!process.env.ABD_BUILD_BAT)
+    return { ruta: RUTA_BAT, copia: null };
+
+  const copia = join(RAIZ, 'build.bat.banco-' + etiqueta + '.bat');
+
+  copyFileSync(RUTA_BAT, copia);
+
+  return { ruta: copia, copia };
+}
+
+// ntest = codigo del test del cronometro. nbanco = codigo del test de este
+// reparto. ncrono = codigo del cronometro. build = lo que tiene que salir.
+// muere = si el build tiene que terminar en fallo. estado = lo que dice la linea
+// de veredicto, si el caso la trae. sinVeredicto = el tool se rompe antes de
+// imprimir nada, y el build no puede inventarse un estado.
+//
+// Las dos degradadas van en la misma tabla y no aparte porque son clases del
+// mismo reparto y del mismo mecanismo: un 1 sin veredicto avisa y un 2 sin
+// veredicto falla, porque el codigo es lo unico que queda.
 const CASOS = [
-  { ntest: 0, nbanco: 0, ncrono: 0, build: 0, muere: false, motivo: 'medido y nada que decir' },
-  { ntest: 0, nbanco: 0, ncrono: 1, build: 0, muere: false, motivo: 'medido y algo que mirar' },
-  { ntest: 0, nbanco: 0, ncrono: 2, build: 1, muere: true, motivo: 'no medido' },
-  { ntest: 0, nbanco: 0, ncrono: 7, build: 1, muere: true, motivo: 'codigo que el tool no usa' },
-  { ntest: 1, nbanco: 0, ncrono: 0, build: 3, muere: true, motivo: 'el test del cronometro en rojo' },
-  { ntest: 0, nbanco: 1, ncrono: 0, build: 1, muere: true, motivo: 'el test del reparto en rojo' },
-  { ntest: 0, nbanco: 0, ncrono: 0, estado: 'ok', build: 0, muere: false, motivo: 'el veredicto dice ok' },
-  { ntest: 0, nbanco: 0, ncrono: 1, estado: 'lento', build: 0, muere: false, motivo: 'el veredicto dice lento' },
+  { ntest: 0, nbanco: 0, ncrono: 0, estado: 'ok', build: 0, muere: false, motivo: 'medido y nada que decir' },
+  { ntest: 0, nbanco: 0, ncrono: 1, estado: 'lento', build: 0, muere: false, motivo: 'medido y algo que mirar' },
   { ntest: 0, nbanco: 0, ncrono: 1, estado: 'regresion', build: 0, muere: false, motivo: 'el veredicto dice regresion' },
-  { ntest: 0, nbanco: 0, ncrono: 2, estado: 'sin-medir', build: 1, muere: true, motivo: 'el entorno no esta' },
+  { ntest: 0, nbanco: 0, ncrono: 2, estado: 'sin-medir', build: 1, muere: true, motivo: 'no medido' },
+  { ntest: 0, nbanco: 0, ncrono: 7, estado: 'ok', build: 1, muere: true, motivo: 'codigo que el tool no usa' },
+  { ntest: 1, nbanco: 0, ncrono: 0, estado: 'ok', build: 3, muere: true, motivo: 'el test del cronometro en rojo' },
+  { ntest: 0, nbanco: 1, ncrono: 0, estado: 'ok', build: 1, muere: true, motivo: 'el test del reparto en rojo' },
   { ntest: 0, nbanco: 0, ncrono: 2, estado: 'fallo-del-tool', build: 1, muere: true, motivo: 'el cronometro se rompio' },
   // La que hace que esto valga: el 1 de una medicion que NO llego a terminar es
   // la misma clase que el 1 de una regresion, y no pueden acabar igual.
   { ntest: 0, nbanco: 0, ncrono: 1, estado: 'medicion-incompleta', build: 1, muere: true, motivo: 'la medicion no llego a terminar' },
+  { ntest: 0, nbanco: 0, ncrono: 1, sinVeredicto: true, build: 0, muere: false, motivo: 'sin veredicto y el codigo es 1' },
+  { ntest: 0, nbanco: 0, ncrono: 2, sinVeredicto: true, build: 1, muere: true, motivo: 'sin veredicto y el codigo es 2' },
 ];
 
-// El helper que hace de cronometro en los casos CON estado: escribe una linea
-// de veredicto de verdad en el temporal que el build lee, y sale con el codigo
-// que le toca. La ruta del temporal es la del propio build.bat (`%TEMP%\abdl_perf.txt`)
-// y no una inventada aqui: si se pusiera otra, el banco probaria un build que
-// no existe.
-//
-// Y el `>` va ANTES del `echo` a proposito: es la forma de vaciar el temporal y
-// escribir en el. Si se hiciera al reves, cada caso acumularia el veredicto del
-// anterior en el mismo fichero y `findstr` se encontraria con varios.
-function helperDe(etiqueta, estado, codigo) {
-  const ruta = join(BANCO, `veredicto-${etiqueta}.bat`);
+// El orden REAL en que el build llama a node. Vive al lado de la tabla y no
+// dentro de ella porque describe al .bat, no a los stubs: si el build cambia
+// el orden, esto es lo que se pone rojo.
+const ORDEN = ['test_build_bat_perf.mjs', 'test_duraciones_suite.mjs', 'duraciones-suite.mjs'];
 
-  writeFileSync(ruta, '@echo off\r\n'
-    + `> "%TEMP%\\abdl_perf.txt" echo ABD-VEREDICTO {"estado":"${estado}","codigo":${codigo}}\r\n`
-    + `exit /b ${codigo}\r\n`, 'utf8');
-
-  return ruta;
-}
+const COPIAS = [];
 
 try {
   mkdirSync(BANCO, { recursive: true });
-  writeFileSync(SENUELO, '');
 
   for (const c of CASOS) {
-    const cuerpo = [];
-    const sinSustituir = [];
-    let sustituciones = 0;
-    // El estado va en la etiqueta porque hay tres casos con el mismo codigo de
+    // El estado va en la etiqueta porque hay dos casos con el mismo codigo de
     // cronometro y distinto estado, y con la etiqueta de antes se pisarian.
-    const etiqueta = `t${c.ntest}-c${c.ncrono}${c.estado ? '-' + c.estado : ''}`;
+    const etiqueta = 't' + c.ntest + '-b' + c.nbanco + '-c' + c.ncrono
+      + (c.estado ? '-' + c.estado : '')
+      + (c.sinVeredicto ? '-sinveredicto' : '');
+    const { raiz, cwd, shims, rastro } = montarBanco(etiqueta);
+    const { ruta: bat, copia } = batDe(etiqueta);
 
-    for (const l of [SETLOCAL, PERF_FATAL, SELFTEST_FATAL, 'set "RUN_PERF=1"', ...BLOQUE_PERF, ...COLA]) {
-      const s = l.trim();
-      const sangria = l.slice(0, l.length - l.trimStart().length);
+    if (copia)
+      COPIAS.push(copia);
 
-      // El `if not exist` del binario real mira uno que este banco crea, para
-      // que la rama que se prueba sea la de medir y no la de "no hay nada".
-      if (s.startsWith('if not exist') && s.includes('ABDAudioLab_Tests.exe')) {
-        cuerpo.push(`${sangria}if not exist "${SENUELO}" (`);
-        sustituciones += 1;
-      } else {
-        const llamada = LLAMADAS_NODE.find((x) => esLlamadaDe(s, x));
+    // `perf` y no nada: sin el, `RUN_PERF` se queda a 0 y el bloque entero del
+    // cronometro -- con sus ramas y su lectura del veredicto -- no se ejecuta
+    // nunca. El banco pasaria en verde sin haber llegado a la mitad que
+    // comprueba, y lo que hace es precisamente ejecutar esa mitad.
+    const r = spawnSync('cmd', ['/c', bat, 'perf'], {
+      cwd,
+      encoding: 'utf8',
+      // El limite no es una prudencia, es la diferencia entre un rojo y un
+      // cuelgue. Lo que se cuelga aqui no es un build lento: es una llamada a
+      // node que el esqueleto no ha sustituido y que esta midiendo la
+      // suite de verdad, que son minutos. Y tiene que ser amplio: medido, un
+      // caso va de 1 s a 20 s con la maquina ocupada, asi que 40 s --lo que
+      // bastaba para el banco de fragmentos-- caia de vez en cuando y ponia
+      // en rojo un banco entero sin que el .bat hubiera cambiado.
+      timeout: 150000,
+      env: {
+        ...process.env,
+        PATH: shims + ';' + process.env.PATH,
+        ABD_RASTRO: rastro,
+        ABD_TEST_TOOL: String(c.ntest),
+        ABD_TEST_BANCO: String(c.nbanco),
+        ABD_CRONO_SALIDA: String(c.ncrono),
+        ABD_CRONO_ESTADO: c.estado || 'ok',
+        ABD_SIN_VEREDICTO: c.sinVeredicto ? '1' : '0',
+      },
+    });
 
-        if (llamada) {
-          cuerpo.push(`${sangria}${llamada.codigo === 'ncrono' && c.estado
-            ? `call "${helperDe(etiqueta, c.estado, c.ncrono)}"`
-            : `cmd /c exit ${c[llamada.codigo]}`}`);
-          sustituciones += 1;
-        } else {
-          // Una llamada a node que no esta en la tabla no se sustituye, y sin
-          // esto se EJECUTA de verdad: el banco deja de ser un banco y el test
-          // se cuelga en vez de ponerse rojo. Se apunta y se deja pasar, y la
-          // asercion del conteo de abajo dice cual ha sido.
-          if (s.startsWith('node '))
-            sinSustituir.push(l.trim());
-
-          cuerpo.push(l);
-        }
-      }
-    }
-
-    const banco = join(BANCO, `${etiqueta}.bat`);
-
-    // CRLF a proposito: un .bat con finales LF en Windows se come la primera
-    // linea de cada bloque, y el banco probaria otra cosa que no es build.bat.
-    writeFileSync(banco, '@echo off\r\n' + cuerpo.join('\r\n') + '\r\n', 'utf8');
-
-    // La ruta va ABSOLUTA y SIN comillas propias. Node entrecomilla un
-    // argumento que lleva barras, y cmd.exe busca entonces el fichero con
-    // las comillas dentro: el banco no se ejecuta, y status nulo con stdout
-    // vacio se lee como un fallo cualquiera. Cuatro casos rojos que eran del
-    // arnes y no del reparto, que es la confusion que este test no puede permitirse.
-    // El timeout no es una prudencia, es la diferencia entre un rojo y un
-    // cuelgue. Lo que el banco hace es ejecutar unas pocas lineas de batch, y
-    // eso no tarda 40 s: si tarda, lo que se ha colgado es una llamada a node
-    // que el banco no ha sustituido y que ahora esta corriendo de verdad. Sin
-    // este limite, eso son cinco minutos por caso y seis casos, sin decir nada
-    // en ningun momento. Con el limite, un rojo que dice el caso y el motivo.
-    const r = spawnSync('cmd', ['/c', banco], { cwd: RAIZ, encoding: 'utf8', timeout: 40000 });
     const salida = (r.stdout || '').split(LF).filter((x) => x.trim());
     const ultima = salida.length ? salida[salida.length - 1].trim() : '';
+    const llamado = readFileSync(rastro, 'utf8').split(LF).filter((x) => x.trim());
 
-    // `signal` es SIGTERM cuando salta el timeout, y entonces el banco no ha
-    // terminado: no se ha ejecutado entero. Se comprueba por separado porque un
-    // banco a medias puede haber impreso cosas y parecer que ha ido bien.
-    comprobar(`${etiqueta}: el banco termina dentro del limite, sin colgarse`,
-      !r.signal);
+    // signal es SIGTERM cuando salta el timeout, y entonces el build no ha
+    // terminado. Se comprueba aparte porque un build a medias puede haber
+    // impreso cosas y parecer que ha ido bien.
+    comprobar(etiqueta + ': el build termina dentro del limite, sin colgarse', !r.signal);
 
-    comprobar(`${etiqueta}: el banco se ha ejecutado de verdad`,
-      !r.error && salida.length > 0);
-
-    // El mensaje lleva el nombre de lo que no se sustituyo, y no solo el numero.
-    // El caso que de verdad importa no es que falte una de las de la tabla: es
-    // que alguien anada una llamada a node NUEVA y no la anada a la tabla. Con
-    // un conteo a secas el rojo dice "3" y no dice cual; con el nombre, dice que
-    // anadir. Y es un rojo y no un cuelgue: sin esto, esa llamada se ejecutaria
-    // de verdad y el test se quedaria cinco minutos sin decir nada.
-    comprobar(`${etiqueta}: el banco sustituye el exe y las ${LLAMADAS_NODE.length} llamadas a node`
-      + (sinSustituir.length ? `; sin sustituir: ${sinSustituir.join(' | ')}` : ''),
-    sustituciones === LLAMADAS_NODE.length + 1);
-    comprobar(`${etiqueta}: ninguna llamada a node se queda sin sustituir`,
-      sinSustituir.length === 0);
-
-    // Si se ha colgado, lo probable es que una llamada se haya ejecutado de
-    // verdad. Se dice, porque el sintoma de un banco mal construido y el de un
-    // build lento son el mismo: no termina.
     if (r.signal)
-      comprobar(`${etiqueta}: el banco se ha COLGADO, no ha tardado. Si una llamada a`
-        + ' node no esta en LLAMADAS_NODE, se ejecuta de verdad y esto no termina nunca',
+      comprobar(etiqueta + ': el build se ha COLGADO. Sin stubs, el cronometro de'
+        + ' verdad se estaria midiendo la suite entera: cinco minutos por caso',
       false);
 
-    comprobar(`${etiqueta}: ${c.motivo} -> el build sale con ${c.build}`,
+    // ESTA ES LA ASERCION QUE JUSTIFICA EL BANCO ENTERO, y las tres partes son
+    // puntos distintos del fichero: los junctions del principio, la compilacion
+    // en medio y el cronometro al final. El fallo de 6.15 estaba en la tercera, y
+    // no por lo que decia la linea sino por el bloque de if/else que la rodeaba,
+    // que es exactamente lo que no se conserva al pegar lineas sueltas.
+    comprobar(etiqueta + ': el FICHERO ENTERO se ejecuta, no un reensamblado',
+      !r.error
+      && salida.some((x) => x.includes('NO se enlaza'))
+      && salida.some((x) => x.includes('Build Successful')));
+
+    comprobar(etiqueta + ': y llega al cronometro cuando los dos tests pasan',
+      c.ntest || c.nbanco || salida.some((x) => x.includes('Timing the suite')));
+
+    // El orden de las llamadas lo pone el build.bat y no esta tabla, que esta
+    // en otro orden: este test se llama PRIMERO, antes que la autocomprobacion
+    // del cronometro, porque el reparto de codigos es la promesa que sostiene
+    // a la otra. Con los dos en rojo no se llega al cronometro; con el segundo
+    // en rojo se llega a los dos primeros y no al tercero.
+    const esperado = c.nbanco !== 0
+      ? ORDEN.slice(0, 1)
+      : c.ntest !== 0
+        ? ORDEN.slice(0, 2)
+        : ORDEN;
+
+    // Que los stubs se hayan llamado es lo que prueba que el cronometro se
+    // ha ejecutado de verdad, y que no se ha llamado ninguno mas es lo que
+    // atrapa una llamada nueva a node: sin esto pasaria desapercibida, porque el
+    // build no avisa de lo que no entiende.
+    comprobar(etiqueta + ':' + (esperado.length === ORDEN.length
+      ? ' el cronometro y sus dos tests se han ejecutado de verdad'
+      : ' se ha parado en el primer node en rojo, ANTES de medir')
+      + ' [' + esperado.join(' | ') + ']',
+      llamado.join(' | ') === esperado.join(' | '));
+
+    // El ruido del shim de cmake se comprueba en vez de esconderse: si manana
+    // shimea otra cosa y deja tres lineas, el rojo lo dice aqui y no en el
+    // informe de un caso que fallara por otra cosa.
+    comprobar(etiqueta + ': el shim de cmake deja el ruido que se espera, ni uno mas',
+      salida.filter((x) => x.includes('Formato de par')).length === 1);
+
+    comprobar(etiqueta + ': ' + c.motivo + ' -> el build sale con ' + c.build,
       r.status === c.build);
-    comprobar(`${etiqueta}: ${c.motivo} -> ${c.muere ? 'anuncia el fallo' : 'no anuncia fallo'}`,
+    comprobar(etiqueta + ': ' + c.motivo + ' -> ' + (c.muere ? 'anuncia el fallo' : 'no anuncia fallo'),
       ultima.includes(CIERRE_FALLO) === c.muere);
 
-    // El fallo tiene que ser lo ULTIMO que se dice. Si aparece antes, el
-    // cierre se ha colado dentro del bloque del cronometro y el build se
-    // saltaria los junctions, que es justo por lo que el fallo vive en :end.
-    comprobar(`${etiqueta}: el fallo se dice al final y no en medio`,
+    // El fallo tiene que ser lo ULTIMO que se dice. Si aparece antes, el cierre
+    // se ha colado dentro del bloque del cronometro y el build se saltaria los
+    // junctions, que es justo por lo que el fallo vive en :end.
+    comprobar(etiqueta + ': el fallo se dice al final y no en medio',
       salida.findIndex((x) => x.includes(CIERRE_FALLO)) === (c.muere ? salida.length - 1 : -1));
 
     // Ni cronometro ni reparto se autocomprueban, asi que ninguno de los dos
-    // puede decir nada de la duracion de la suite. Anunciarse midiendo sin
-    // haber medido es el verde falso con forma de cronometro.
-    if (c.ntest) {
-      comprobar(`${etiqueta}: con el test del cronometro en rojo no se anuncia una medicion`,
+    // puede decir nada de la duracion de la suite. Anunciarse midiendo sin haber
+    // medido es el verde falso con forma de cronometro.
+    if (c.ntest || c.nbanco)
+      comprobar(etiqueta + ': con un test en rojo no se anuncia una medicion',
         !salida.some((x) => x.includes('Timing the suite')));
-    }
 
-    if (c.nbanco) {
-      comprobar(`${etiqueta}: con el test del reparto en rojo no se anuncia una medicion`,
-        !salida.some((x) => x.includes('Timing the suite')));
-    }
-
-    if (c.estado) {
-      // El banco pone un veredicto de verdad y el build tiene que LEERLO. Si la
-      // extraccion se rompe, el estado se queda en `desconocido` y el build no se
-      // entera: por eso lo que se comprueba es que no aparezca `desconocido`, y
-      // no que salga el estado bueno. Un `desconocido` con una linea de veredicto
-      // presente en el temporal es el fallo entero, y es lo que se vio en un
-      // build de verdad: el estado nunca se leyo y la rama de `fallo-del-tool`
-      // no podia dispararse.
-      comprobar(`${etiqueta}: el build lee el estado del veredicto y no se queda en desconocido`,
+    if (c.estado && !c.sinVeredicto) {
+      // El stub imprime un veredicto de verdad y el build tiene que LEERLO. Si la
+      // extraccion se rompe, el estado se queda en desconocido y el build no se
+      // entera: por eso lo que se comprueba es que no aparezca desconocido, y no
+      // que salga el estado bueno.
+      comprobar(etiqueta + ': el build lee el estado del veredicto y no se queda en desconocido',
         !salida.some((x) => x.includes('State: desconocido')));
 
-      comprobar(`${etiqueta}: y el estado que lee es el que dice el veredicto`,
-        !c.estadoOculto && !salida.some((x) => x.includes('State: ') && !x.includes(`State: ${c.estado}`)));
+      comprobar(etiqueta + ': y el estado que lee es el que dice el veredicto',
+        !salida.some((x) => x.includes('State: ') && !x.includes('State: ' + c.estado)));
     }
 
-    rmSync(banco, { force: true });
+    if (c.sinVeredicto)
+      comprobar(etiqueta + ': sin veredicto el estado se queda en desconocido y se dice',
+        salida.some((x) => x.includes('State: desconocido'))
+        || !salida.some((x) => x.includes('State: ')));
+
+    rmSync(raiz, { recursive: true, force: true });
   }
 } finally {
+  for (const copia of COPIAS)
+    rmSync(copia, { force: true });
+
   rmSync(BANCO, { recursive: true, force: true });
 }
 
@@ -659,9 +783,11 @@ console.log('\nel flujo principal no puede CAER dentro de una subrutina');
 // entera de :end, o sea el `exit /b 1` de los dos guards. Medido: con
 // PERF_FATAL=1 puesto, el script salia con 0 y sin imprimir nada de la cola.
 //
-// El banco no lo veia porque no ejecuta el script: se reensambla sus propios
-// fragmentos en el orden correcto, que es justo el orden que faltaba aqui.
-// Asi que esta asercion es sobre el texto del fichero, no sobre una corrida.
+// El banco no lo veia porque no ejecutaba el script: se reensamblaba sus
+// propios fragmentos en el orden correcto, que es justo el orden que faltaba
+// aqui. Con el fichero entero esta asercion sigue siendo sobre el TEXTO, y no
+// por precaucion sino porque un `goto` que falta no se ve ejecutando el build:
+// lo que se veria es el sintoma de mas adelante, la cola que no imprime.
 const ETIQUETAS = LINEAS
   .map((l, i) => [l.trim(), i])
   .filter(([l]) => /^:[A-Za-z]/.test(l));
