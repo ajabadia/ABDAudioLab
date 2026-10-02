@@ -29,8 +29,8 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -449,6 +449,180 @@ const sinBase = correr([
   '--xml', rutaEntero, '--solo-avisar', '--base', join(dirTEMP, 'no-existe.json')]);
 
 comprobar('sin referencia que comparar sale con 0', sinBase.codigo === 0);
+
+console.log('\nel valor de una bandera NO llega a Catch2 como filtro de test');
+
+// Un valor suelto es indistinguible de un filtro de test, y un filtro que no
+// nombra a nadie hace que la suite mida CERO casos sin decir por que. Lo que
+// pasaba con `--base otra.json` era eso: la ruta se colaba entre los argumentos,
+// la suite no encontraba los casos, y el cronometro informaba de que no habia
+// cronometrado nada. Un cronometro que no mide nada y uno que no encuentra nada
+// se quedan igual de callados.
+const conTodo = ['--umbral', '10', '--factor', '3', '--base', 'otra.json',
+  '~[integration-01]', '~*PluginHost*'];
+
+comprobar('el valor de --base NO se pasa a Catch2',
+  !paraCatchDe(conTodo).includes('otra.json'));
+
+comprobar('el valor de --umbral NO se pasa a Catch2',
+  !paraCatchDe(conTodo).includes('10'));
+
+comprobar('el valor de --factor NO se pasa a Catch2',
+  !paraCatchDe(conTodo).includes('3'));
+
+comprobar('los filtros de test SI se pasan, que para eso estan',
+  paraCatchDe(conTodo).join(' ').includes('~[integration-01]'));
+
+comprobar('ninguna bandera llega a Catch2',
+  paraCatchDe(conTodo).every((a) => !a.startsWith('--')));
+
+// Una bandera que no viene no rompe nada, que es la mitad de por que la lista
+// puede ser una lista y no una cuenta de posiciones fijas.
+comprobar('sin banderas con valor, los filtros pasan tal cual',
+  paraCatchDe(['~[integration-01]', 'UnTest']).join(' ')
+    === '~[integration-01] UnTest');
+
+comprobar('una bandera sin valor detras no se come el filtro que sigue',
+  paraCatchDe(['--solo-avisar', 'UnTest']).includes('UnTest'));
+
+console.log('\nel renombrado se reconoce en otra maquina, y sale UNA vez');
+
+// La referencia guarda rutas absolutas, que llevan el disco, el proyecto y el
+// usuario. En otra maquina no coinciden, y con comparar por ruta entera el
+// renombrado —que se detecta por el fichero— dejaba de detectarse: el mismo
+// test salia como nuevo Y como ausente. Dos avisos para un test, y el segundo
+// era mentira.
+const RUTA_A = 'D:/trabajo/ABDSynths/ABDAudioLab/src/tests/test_Y.cpp';
+const RUTA_B = '/home/b/ABDSynths/ABDAudioLab/src/tests/test_Y.cpp';
+
+const baseRenombrado = construirBase([
+  { nombre: 'lento de y', fichero: RUTA_A, segundos: 3 },
+  { nombre: 'corto de y', fichero: RUTA_A, segundos: 0.2 },
+]);
+
+const medidoRenombrado = compararConBase([
+  { nombre: 'lento de y RENOMBRADO', fichero: RUTA_B, segundos: 3.1 },
+  { nombre: 'corto de y', fichero: RUTA_B, segundos: 0.2 },
+], baseRenombrado);
+
+comprobar('el renombrado no sale como test nuevo', medidoRenombrado.nuevos.length === 0);
+
+comprobar('ni como test desaparecido', medidoRenombrado.ausentes === 0);
+
+// Y el efecto util de emparejarlo: si ademas se ha puesto lento, se ve. Con el
+// emparejamiento roto el tiempo anterior era el de otro test o no habia ninguno.
+comprobar('un renombrado que se ha puesto lento se ve como regresion',
+  compararConBase([
+    { nombre: 'lento de y RENOMBRADO', fichero: RUTA_B, segundos: 9.0 },
+    { nombre: 'corto de y', fichero: RUTA_B, segundos: 0.2 },
+  ], baseRenombrado).regresiones.some((r) => r.nombre === 'lento de y RENOMBRADO'));
+
+comprobar('y sale marcado como renombrado',
+  compararConBase([
+    { nombre: 'lento de y RENOMBRADO', fichero: RUTA_B, segundos: 9.0 },
+    { nombre: 'corto de y', fichero: RUTA_B, segundos: 0.2 },
+  ], baseRenombrado).regresiones.every((r) => r.renombrado === true));
+
+// Un test de verdad nuevo en un fichero que ya tiene muchos tests NO se
+// empareja con ninguno: los demas ya estan vistos, y no queda nadie libre.
+const baseLlena = construirBase([
+  { nombre: 'A', fichero: RUTA_A, segundos: 1 },
+  { nombre: 'B', fichero: RUTA_A, segundos: 2 },
+]);
+
+comprobar('un test de verdad nuevo en un fichero ya visto sigue siendo nuevo',
+  compararConBase([
+    { nombre: 'A', fichero: RUTA_B, segundos: 1 },
+    { nombre: 'B', fichero: RUTA_B, segundos: 2 },
+    { nombre: 'C NUEVO', fichero: RUTA_B, segundos: 0.5 },
+  ], baseLlena).nuevos.length === 1);
+
+// Y dos renombrados en el MISMO fichero: no hay forma de saber cual es cual, y se
+// empareja por el tiempo anterior mas parecido. Un renombrado no cambia cuanto
+// tarda el test, y esa es la unica pista que queda.
+const baseDos = construirBase([
+  { nombre: 'lento', fichero: RUTA_A, segundos: 9 },
+  { nombre: 'corto', fichero: RUTA_A, segundos: 0.2 },
+]);
+
+const dosRenombrados = compararConBase([
+  { nombre: 'corto NUEVO NOMBRE', fichero: RUTA_B, segundos: 0.25 },
+  { nombre: 'lento NUEVO NOMBRE', fichero: RUTA_B, segundos: 9.5 },
+], baseDos);
+
+comprobar('dos renombrados en el mismo fichero no dejan ninguno ausente',
+  dosRenombrados.ausentes === 0);
+comprobar('ni se toman por tests nuevos', dosRenombrados.nuevos.length === 0);
+comprobar('y cada uno se compara con SU tiempo, no con el del otro',
+  dosRenombrados.regresiones.length === 0
+    || dosRenombrados.regresiones.every((r) => r.factor < 2));
+
+comprobar('la clave de un fichero no depende de la maquina',
+  claveDeFichero(RUTA_A) === claveDeFichero(RUTA_B));
+comprobar('y se queda con el nombre, no con la carpeta',
+  claveDeFichero('D:/x/y/z/test_Q.cpp') === 'test_Q.cpp');
+comprobar('las barras invertidas tambien son separadores',
+  claveDeFichero('D:\\x\\test_Q.cpp') === claveDeFichero('D:/x/test_Q.cpp'));
+comprobar('un caso sin fichero no rompe la comparacion',
+  claveDeFichero(undefined) === '(sin fichero)');
+
+// ─────────────────────────────────────────────────────────────────────────
+// LA REFERENCIA SE ESCRIBE ENTERA, O NO SE ESCRIBE
+//
+// `writeFileSync` trunca el destino antes de escribir. Si el proceso muere a
+// mitad —un corte, un antivirus, dos cronometros a la vez— lo que queda es un
+// JSON truncado, y `leerBase` no puede leerlo. Peor: no duele, porque `leerBase`
+// avisa y sigue como si no hubiera referencia. Lo que se pierde no es la
+// referencia nueva, que se regenera, sino la VIEJA, que era la unica.
+//
+// Se comprueba por fuera porque por dentro no se ve: se guarda una referencia
+// encima de otra que ya existe y se mira si la nueva ha llegado entera y si la
+// carpeta se ha quedado sin temporales. Que la sustitucion funcione en Windows es
+// justo lo que hay que mirar: `renameSync` usa `MOVEFILE_REPLACE_EXISTING`, y si
+// no lo hiciera, el renombrado fallaria con el destino ya ahi.
+
+console.log('\nla referencia se escribe sin dejar ni un temporal detras');
+
+const rutaBaseViva = join(dirTEMP, 'viva.json');
+writeFileSync(rutaBaseViva, '{ esto no es una referencia', 'utf8');
+
+const guardada = correr([
+  '--xml', rutaEntero, '--solo-avisar', '--guardar-referencia', '--base', rutaBaseViva]);
+
+comprobar('guardar la referencia sale con 0', guardada.codigo === 0);
+
+let baseEscrita = null;
+
+try {
+  baseEscrita = JSON.parse(readFileSync(rutaBaseViva, 'utf8'));
+}
+catch (e) {
+  // Se deja en `null` y el fallo se ve en la comprobacion de abajo, que es mas
+  // util que un error aqui a mitad del fichero de test.
+}
+
+comprobar('la referencia escrita se puede leer entera', baseEscrita !== null);
+comprobar('y tiene los casos de la medicion', baseEscrita?.casos === 5);
+
+// El renombrado por encima de un fichero que ya existe es el caso que
+// distingue un temporal bien puesto de uno que solo funciona en vacio.
+comprobar('la escritura SUSTITUYE una referencia previa, no se niega a hacerlo',
+  typeof baseEscrita?.medidoEn === 'string');
+
+comprobar('no queda ningun temporal en la carpeta',
+  readdirSync(dirTEMP).every((f) => !f.includes('.tmp')));
+
+console.log('\nlos mensajes dicen DONDE se ha mirado, no solo QUE');
+
+// Un `basename` en un mensaje de error es un mensaje inutil: «no esta la suite
+// compilada en: ABDAudioLab_Tests.exe» no dice donde se ha buscado, y hay dos
+// `build/Release` en juego. Con `--base` pasa lo mismo y con mas motivo, porque
+// esa ruta la elige quien llama y puede estar en cualquier parte.
+comprobar('el mensaje de referencia guardada lleva la ruta entera',
+  guardada.salida.includes(rutaBaseViva));
+
+comprobar('y no solo el nombre del fichero',
+  guardada.salida.includes(join(dirTEMP, 'viva.json')));
 
 console.log('\n' + '='.repeat(64));
 console.log(fallos.length === 0

@@ -48,15 +48,21 @@
  *
  *   node tools/duraciones-suite.mjs                    # mide y avisa
  *   node tools/duraciones-suite.mjs --umbral 10       # mas tolerante
+ *   node tools/duraciones-suite.mjs --base otra.json  # compara con otra
  *   node tools/duraciones-suite.mjs --xml salida.xml  # usa un XML ya capturado
  *
  * Sale con 0 si nada supera el umbral, y con 1 si algo lo supera. Con
  * `--solo-avisar` sale con 0 siempre: para cuando uno solo quiere el informe.
+ *
+ * `--solo-avisar` silencia lo RUIDO, y no lo demas. Una medicion que no ha
+ * terminado —un cuelgue, un XML sin cerrar, casos de la referencia que no se han
+ * medido— sale con 1 con ese flag puesto: no es ruido, es una medicion que no se
+ * puede creer, y un guard que se apaga con una bandera no es un guard.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, rmSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { dirname, join, basename } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const aqui = dirname(fileURLToPath(import.meta.url));
@@ -74,6 +80,48 @@ const SUITE = join(raiz, 'build', 'Release', 'ABDAudioLab_Tests.exe');
 // de una suite RECORTADA y no el de la completa. Un tiempo que no se puede
 // comparar con el de la vuelta anterior no sirve para nada.
 const FILTROS = ['~[integration-01]', '~*PluginHost*'];
+
+// ─────────────────────────────────────────────────────────────────────────
+// LAS BANDERAS QUE LLEVAN UN VALOR, Y POR QUE HAY QUE MANTENER LA LISTA
+//
+// Un valor suelto no es un filtro de test: es el valor de una bandera. Pero para
+// Catch2 es indistinguible de un filtro, y un filtro que no nombra a ningun test
+// hace que la suite no mida NADA. Lo que pasaba con `--base otra.json` era
+// exactamente eso: el valor se colaba entre los argumentos, la suite corria sin
+// encontrar los casos, y el cronometro informaba de que no habia cronometrado
+// nada. Sin que se viera, porque un cronometro que no mide nada y un cronometro
+// que no encuentra nada se quedan igual de callados.
+//
+// La lista es declarativa y vive junto a las banderas que se leen en `main`, no
+// repartida por ahi como estaba antes: anadir una bandera nueva es anadir una
+// linea. Un valor se cuela aqui con una consecuencia visible —cero casos
+// medidos—, que es justo por lo que no puede quedarse invisible.
+
+/** Las banderas cuyo valor detras NO es un filtro de test. */
+const BANDERAS_CON_VALOR = ['--umbral', '--factor', '--base', '--xml'];
+
+/**
+ * Los argumentos que se le pasan a Catch2: ni banderas, ni sus valores.
+ *
+ * Lo que no empieza por `--` se le pasa tal cual, porque un filtro de test
+ * legitimo empieza por el nombre o por `~`. Los valores de las banderas se
+ * quitan por lista, no por posicion, porque una bandera puede no venir.
+ *
+ * @param {string[]} argumentos los argumentos de la linea de ordenes.
+ * @returns {string[]} lo que Catch2 debe recibir.
+ */
+export function paraCatchDe(argumentos) {
+  const valores = new Set();
+
+  for (const bandera of BANDERAS_CON_VALOR) {
+    const i = argumentos.indexOf(bandera);
+
+    if (i >= 0 && argumentos[i + 1] !== undefined)
+      valores.add(argumentos[i + 1]);
+  }
+
+  return argumentos.filter((a) => !a.startsWith('--') && !valores.has(a));
+}
 
 /** Tiempo de reloj que se concede a la suite antes de darla por colgada. */
 const LIMITE_MS = 20 * 60 * 1000;
@@ -310,6 +358,32 @@ export function leerBase(ruta = RUTA_BASE) {
 }
 
 /**
+ * La identidad de un fichero de test, sin la parte que cambia con la maquina.
+ *
+ * La referencia guarda la ruta ABSOLUTA de cada caso, porque hace falta saber de
+ * donde viene. El problema es que esa ruta lleva el disco, el proyecto y el
+ * usuario, y ninguno de los tres es igual en otra maquina. Comparar por ruta
+ * entera hace que el renombrado —que se detecta justamente por el fichero— deje
+ * de detectarse en cuanto se cambia de equipo, y entonces el mismo test sale a
+ * la vez como nuevo y como ausente: dos avisos para un solo test, y el segundo
+ * es falso.
+ *
+ * Aqui solo se queda el nombre del fichero, que en este repo es unico. Si
+ * Alguna vez hubiera dos ficheros con el mismo nombre en carpetas distintas, este
+ * emparejamiento los confundiria, y se veria como un renombrado que empareja con
+ * el test equivocado. Es la unica suposicion de toda la comparacion, asi que
+ * conviene que siga siendo cierta.
+ *
+ * @param {string} fichero la ruta, como la deje el reporter de Catch2.
+ * @returns {string} el nombre del fichero, con `/` en vez de `\`.
+ */
+export function claveDeFichero(fichero) {
+  const segmentos = String(fichero ?? '').replace(/\\/g, '/').split('/').filter(Boolean);
+
+  return segmentos.length === 0 ? '(sin fichero)' : segmentos[segmentos.length - 1];
+}
+
+/**
  * Compara una medicion contra la referencia.
  *
  * @param {{nombre: string, fichero: string, segundos: number}[]} duraciones
@@ -326,35 +400,77 @@ export function compararConBase(duraciones, base, factor = FACTOR_POR_DEFECTO) {
     return { regresiones, nuevos, ausentes: 0, factor };
 
   const previos = base.casos_ ?? {};
+
+  // Una LISTA de nombres por fichero, no uno. Uno valia mientras cada test
+  // estuviera en su propio fichero, y dejo de valer en cuanto un fichero tuvo
+  // dos: el segundo se emparejaba con el tiempo del primero —el que hubiera
+  // aparecido antes en la referencia—, y una regresion se comparaba con el
+  // historial de otro test. Con la lista, cada nombre se empareja una vez.
   const porFichero = new Map();
 
   for (const [nombre, dato] of Object.entries(previos)) {
-    if (!porFichero.has(dato.f))
-      porFichero.set(dato.f, nombre);
+    const clave = claveDeFichero(dato.f);
+
+    if (!porFichero.has(clave))
+      porFichero.set(clave, []);
+
+    porFichero.get(clave).push(nombre);
   }
 
-  // Los nombres de la base que se han visto en esta medicion, para que el
-  // recuento de ausentes NO cuente dos veces un test renombrado. Sin esto, un
-  // renombrado sale como regresion (correcto) Y como ausente (falso), que es la
-  // clase de ruido que hace que un informe deje de leerse: diria que se ha
-  // perdido un test que en realidad esta ahi con otro nombre.
+  // Los nombres de la referencia que ya se han emparejado con algo de esta
+  // medicion. Sirve para dos cosas: para que un renombrado no cuente dos veces,
+  // y para que un nombre no se gasta en dos casos medidos.
   const vistos = new Set();
+  const emparejados = [];
+  const sinEmparejar = [];
 
+  // ── Primera pasada: por nombre, que es el caso normal ──
   for (const d of duraciones) {
-    // Se busca por nombre y, si no esta, por fichero de origen: un test
-    // renombrado es el mismo test, y avisar de el como si fuera nuevo haria que
-    // el aviso seiera de ruido justo cuando hay un cambio de verdad que mirar.
-    const nombrePrevio = previos[d.nombre] !== undefined
-      ? d.nombre
-      : porFichero.get(d.fichero);
+    if (previos[d.nombre] === undefined) {
+      sinEmparejar.push(d);
+      continue;
+    }
 
-    if (nombrePrevio === undefined) {
+    vistos.add(d.nombre);
+    emparejados.push({ d, nombrePrevio: d.nombre });
+  }
+
+  // ── Segunda pasada: renombrados, decididos por el fichero de origen ──
+  //
+  // Un caso cuyo nombre no esta en la referencia puede ser un test nuevo o un
+  // test renombrado, y el fichero es lo que lo dice: si en ese fichero queda
+  // algun nombre de la referencia sin emparejar, ese es su nombre viejo.
+  //
+  // Marcarlo como emparejado es JUSTO lo que evita el aviso doble: antes, un
+  // caso sin pareja se empujaba a `nuevos` y se pasaba de largo, sin dejar rastro
+  // de que era el mismo test de antes. Salia «test nuevo» y «test desaparecido»
+  // para un solo test, y de los dos el segundo era mentira.
+  for (const d of sinEmparejar) {
+    const candidatos = (porFichero.get(claveDeFichero(d.fichero)) ?? [])
+      .filter((nombre) => !vistos.has(nombre));
+
+    if (candidatos.length === 0) {
       nuevos.push(d);
       continue;
     }
 
-    vistos.add(nombrePrevio);
+    // Con un solo candidato no hay duda. Con varios, se empareja con el tiempo
+    // anterior mas parecido: un renombrado no cambia cuanto tarda el test, y
+    // esa es la unica pista que queda cuando en un mismo fichero se han
+    // renombrado o borrado varios a la vez. Es una suposicion y el informe la
+    // senala: el renombrado sale marcado, y si el emparejamiento fuera erroneo se
+    // veria en el tiempo que aparece al lado.
+    const nombrePrevio = candidatos.length === 1
+      ? candidatos[0]
+      : candidatos.reduce((mejor, nombre) => (
+        Math.abs(previos[nombre].s - d.segundos)
+          < Math.abs(previos[mejor].s - d.segundos) ? nombre : mejor));
 
+    vistos.add(nombrePrevio);
+    emparejados.push({ d, nombrePrevio });
+  }
+
+  for (const { d, nombrePrevio } of emparejados) {
     const antes = previos[nombrePrevio].s;
     const despues = d.segundos;
 
@@ -531,6 +647,49 @@ export function falloDeSpawn(r) {
 }
 
 /**
+ * Escribe un fichero sin dejar nunca a medias el que ya habia.
+ *
+ * `writeFileSync` abre el destino en modo truncado, de modo que si el proceso
+ * muere a mitad —un corte, un antivirus que se lleva el fichero por delante, dos
+ * cronometros corriendo a la vez— lo que queda es un JSON truncado. Y una
+ * referencia ilegible no duele: `leerBase` avisa y sigue como si no hubiera, de
+ * modo que lo que se pierde no es la referencia nueva, que se regenera, sino la
+ * VIEJA, que ya no esta en ninguna parte y era la unica que se tenia.
+ *
+ * Se escribe a un temporal y se renombra encima. En Windows el renombrado
+ * sustituye el destino porque Node usa `MOVEFILE_REPLACE_EXISTING`, y con eso el
+ * destino viejo esta entero o no esta: no hay un punto en el que se vea a medias.
+ *
+ * @param {string} ruta donde queda el fichero bueno.
+ * @param {string} contenido lo que lleva dentro.
+ */
+function escribirEntero(ruta, contenido) {
+  // El `pid` en el nombre evita que dos escrituras simultaneas se pisen el
+  // temporal una a otra. No es decorativo: el caso de dos cronometros a la vez
+  // es justo el que produce este fichero corrupto.
+  const temporal = `${ruta}.${process.pid}.tmp`;
+
+  try {
+    writeFileSync(temporal, contenido, 'utf8');
+    renameSync(temporal, ruta);
+  }
+  catch (e) {
+    // El temporal no se deja tirado: se acumula en la carpeta de tools con cada
+    // intento, y un JSON a medias con nombre de temporal confunde mas de lo que
+    // ayuda a encontrar.
+    try {
+      rmSync(temporal, { force: true });
+    }
+    catch {
+      // Si el temporal tampoco se puede borrar, el error que importa es el de
+      // antes: el de la escritura que no se ha podido completar.
+    }
+
+    throw e;
+  }
+}
+
+/**
  * Corre la suite capturando el XML con duraciones, o diciendo por que no hay.
  *
  * @param {string[]} args los argumentos que se pasan a Catch2.
@@ -622,9 +781,6 @@ function main(argumentos) {
   const indiceBase = argumentos.indexOf('--base');
   const rutaBase = indiceBase >= 0 ? argumentos[indiceBase + 1] : RUTA_BASE;
 
-  // Los valores que siguen a una bandera con valor, que NO son filtros de test.
-  const FACTORES_INFORMADOS = [String(umbral), String(factor)];
-
   let xml;
   // Por que no hay un XML entero, si es que no lo hay. Es `null` cuando si lo
   // hay: un fallo y una captura sin casos se distinguen a proposito, porque solo
@@ -645,17 +801,21 @@ function main(argumentos) {
   }
   else {
     if (!existsSync(SUITE)) {
-      console.error(`No esta la suite compilada en: ${basename(SUITE)}`);
+      // La ruta ENTERA, no el nombre del fichero. Si el binario no esta, lo que
+      // hace falta es saber DONDE se ha mirado, y `ABDAudioLab_Tests.exe` a
+      // secas no lo dice. Hay dos `build/Release` en juego —el que genera
+      // build.bat y el de una compilacion manual— y distinguirlos cuesta media
+      // hora de buscar el exe en el arbol equivocado.
+      console.error(`No esta la suite compilada en: ${SUITE}`);
       console.error('Se compila con:  build.bat tests');
       return 2;
     }
 
     console.error('Midiendo la suite. Tarda unos minutos; no es un cuelgue.');
-    // Se filtran las banderas y sus valores para que un `--factor 3` no le pase
-    // un `3` suelto a Catch2, que lo interpretaria como un filtro de test y
-    // mediria cero casos sin decir por que.
-    const paraCatch = argumentos.filter((a) => !a.startsWith('--')
-      && !FACTORES_INFORMADOS.includes(a));
+    // Se filtran las banderas y SUS VALORES para que un `--base otra.json` no le
+    // pase el `otra.json` a Catch2, que lo interpretaria como un filtro de test
+    // sin ningun caso detras y mediria cero sin decir por que.
+    const paraCatch = paraCatchDe(argumentos);
 
     const captura = capturarXml(paraCatch);
 
@@ -728,9 +888,12 @@ function main(argumentos) {
     // Guardar y comparar a la vez daria un verde de comparacion contra uno
     // mismo, que no compara nada. Por eso la referencia que se acaba de escribir
     // NO es la que se usa para comparar en esta misma vuelta.
-    writeFileSync(rutaBase, `${JSON.stringify(construirBase(duraciones, xml), null, 2)}\n`, 'utf8');
+    escribirEntero(rutaBase, `${JSON.stringify(construirBase(duraciones, xml), null, 2)}\n`);
     console.error('');
-    console.error(`Referencia guardada en ${basename(rutaBase)}: ${duraciones.length} casos.`);
+    // La ruta entera, por el mismo motivo que la de la suite: `--base` puede
+    // apuntar a cualquier parte, y un nombre a secas no dice donde ha quedado la
+    // referencia que se acaba de escribir.
+    console.error(`Referencia guardada en ${rutaBase}: ${duraciones.length} casos.`);
     console.error('La siguiente vuelta comparara contra esta.');
     return lentos > 0 && !soloAvisar ? 1 : 0;
   }
