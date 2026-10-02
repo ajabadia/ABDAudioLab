@@ -96,7 +96,6 @@ else()
       ABDScope
       GIT_REPOSITORY https://github.com/ajabadia/ABDScope.git
       GIT_TAG        0a296f3f3d161f65b41be4d02413ab858dddff55  # main @ 2026-09-22 — pinned for v2.1.0 release
-      GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(ABDScope)
 endif()
