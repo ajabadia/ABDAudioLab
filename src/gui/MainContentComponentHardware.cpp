@@ -477,6 +477,7 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
     if (contract == nullptr) return;
 
     gui::HardwareConnectionStatus connStatus = hardwareManager.selectHardware(hwId, funcId, audioEngine);
+    sessionCoordinator.setHardwareContext(&hardwareManager, hwId);
 
     juce::String funcName;
     for (const auto& fn : contract->functions)

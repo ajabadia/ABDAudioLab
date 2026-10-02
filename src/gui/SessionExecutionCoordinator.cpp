@@ -205,6 +205,9 @@ void SessionExecutionCoordinator::setTargetPluginInstance(juce::AudioPluginInsta
 
 void SessionExecutionCoordinator::silenceAllNotes()
 {
+    if (hardwareManager != nullptr)
+        sequencer.setHardwareController(hardwareManager->getActiveController());
+
     for (int ch = 1; ch <= 16; ++ch)
     {
         sequencer.getHardwareDispatcher().sendAllNotesOff(ch);

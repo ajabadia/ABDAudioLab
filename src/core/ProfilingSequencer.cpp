@@ -47,12 +47,9 @@ ProfilingSequencer::~ProfilingSequencer()
 
 void ProfilingSequencer::setHardwareController(hardware::IHardwareController* newHardware) noexcept
 {
-    if (newHardware != nullptr)
-    {
-        hardware = newHardware;
-        if (hardwareDispatcher != nullptr)
-            hardwareDispatcher->setHardwareController(newHardware);
-    }
+    hardware = newHardware;
+    if (hardwareDispatcher != nullptr)
+        hardwareDispatcher->setHardwareController(newHardware);
 }
 
 bool ProfilingSequencer::startSession(const ProfilingSession& session,

@@ -5,6 +5,7 @@
 #include "../gui/SoundIdCurvePlotter.h"
 #include "../audio/LabAudioEngine.h"
 #include "../hardware/MockHardwareController.h"
+#include "../core/HardwareManager.h"
 #include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
@@ -556,6 +557,97 @@ TEST_CASE("SessionExecutionCoordinator - Destructor Safety with Active Session",
 
         // Verify sequencer is safely stopped and not running
         REQUIRE_FALSE(sequencer.isRunningSession());
+    }
+}
+
+TEST_CASE("POST-5D.7 - Hardware Context Lifetime Safety", "[SessionExecutionCoordinator][POST-5D.7]")
+{
+    audio::LabAudioEngine audioEngine;
+    core::HardwareManager hwMgr;
+    hardware::MockHardwareController mockA;
+    hardware::MockHardwareController mockB;
+    core::ProfilingSequencer sequencer(audioEngine, mockA);
+    core::SessionManager sessionManager;
+    gui::SoundIdCurvePlotter curvePlotter;
+
+    gui::SessionExecutionCoordinator coordinator(sequencer, sessionManager, curvePlotter);
+    coordinator.setHardwareContext(&hwMgr, "initial_mock");
+
+    SECTION("Selecting target B after A updates sequencer to B and discards A")
+    {
+        sequencer.setHardwareController(&mockA);
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == &mockA);
+
+        sequencer.setHardwareController(&mockB);
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == &mockB);
+    }
+
+    SECTION("Passing nullptr to setHardwareController safely clears dispatcher and sequencer")
+    {
+        sequencer.setHardwareController(&mockA);
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == &mockA);
+
+        sequencer.setHardwareController(nullptr);
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == nullptr);
+
+        // silenceAllNotes with nullptr controller and cleared context must be a safe no-op
+        coordinator.setHardwareContext(nullptr, {});
+        coordinator.silenceAllNotes();
+        SUCCEED("silenceAllNotes succeeded without crash on nullptr hardware");
+        coordinator.setHardwareContext(&hwMgr, "initial_mock");
+    }
+
+    SECTION("silenceAllNotes dynamically refreshes from hardwareManager if available")
+    {
+        // Even if sequencer had null or stale hardware, silenceAllNotes syncs with activeController
+        sequencer.setHardwareController(nullptr);
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == nullptr);
+
+        coordinator.silenceAllNotes();
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == hwMgr.getActiveController());
+    }
+
+    SECTION("triggerStopSession safely queries getActiveController without dangling pointers")
+    {
+        core::ProfilingSession emptySession;
+        juce::File tempDir = abdaudiolab::test::scratchDir("Post5d7StopSafety");
+
+        coordinator.triggerStartSession(emptySession, tempDir, "stop_safety");
+        REQUIRE(coordinator.isRunningSession());
+
+        // Stop session must safely execute silenceAllNotes without crashing
+        coordinator.triggerStopSession();
+        REQUIRE_FALSE(coordinator.isRunningSession());
+        REQUIRE(sequencer.getHardwareDispatcher().getHardwareController() == hwMgr.getActiveController());
+    }
+
+    SECTION("triggerFreeCapture does not crash with null or active hardware")
+    {
+        core::HardwareContract contract;
+        contract.id = "TEST_FREE_HW";
+        contract.deviceType = "MOCK_DSP";
+        coordinator.initializeMeasurementSession(contract, "test_func", "sha256_mock_hash");
+        coordinator.setWorkspaceInteractionMode(measurement::WorkspaceInteractionMode::Free);
+
+        sequencer.setHardwareController(nullptr);
+        coordinator.triggerFreeCapture();
+        REQUIRE(coordinator.getCoordinatorState() == measurement::CoordinatorState::Capturing);
+    }
+
+    SECTION("Rapid hardware switching does not cause use-after-free or crash")
+    {
+        for (int i = 0; i < 50; ++i)
+        {
+            auto testController = std::make_unique<hardware::MockHardwareController>();
+            sequencer.setHardwareController(testController.get());
+            coordinator.silenceAllNotes();
+
+            // Destroy controller and clear sequencer pointer
+            testController.reset();
+            sequencer.setHardwareController(nullptr);
+            coordinator.silenceAllNotes(); // safe no-op
+        }
+        SUCCEED("Rapid hardware switching completed without memory faults");
     }
 }
 

@@ -43,6 +43,25 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
         return;
     }
 
+    juce::String selectedHwId = drawer.getSelectedHardwareId();
+    juce::String selectedFuncId = drawer.getSelectedFunctionId();
+    const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
+
+    std::string modeStr = "MOCK_DSP";
+    std::string hwName = "MOCK_VA_SYNTH";
+
+    if (contract != nullptr)
+    {
+        modeStr = contract->deviceType;
+        hwName = contract->id;
+    }
+    else
+    {
+        audioEngine.setMockHardware(nullptr);
+    }
+
+    sessionCoordinator.setHardwareContext(&hardwareManager, selectedHwId);
+
     if (!resumeFromExisting)
     {
         // Silence any lingering active notes from previous session
@@ -63,25 +82,6 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
     }
 
     suiteList.setSessionRunning(true);
-
-    juce::String selectedHwId = drawer.getSelectedHardwareId();
-    juce::String selectedFuncId = drawer.getSelectedFunctionId();
-    const auto* contract = hardwareManager.findContractById(selectedHwId.toStdString());
-
-    std::string modeStr = "MOCK_DSP";
-    std::string hwName = "MOCK_VA_SYNTH";
-
-    if (contract != nullptr)
-    {
-        modeStr = contract->deviceType;
-        hwName = contract->id;
-    }
-    else
-    {
-        audioEngine.setMockHardware(nullptr);
-    }
-
-    sessionCoordinator.setHardwareContext(&hardwareManager, selectedHwId);
 
     core::ProfilingSession currentProfilingSession = buildProfilingSessionFromQueue(hwName, modeStr);
     juce::String baseName = juce::String(hwName) + "_" + selectedFuncId;
