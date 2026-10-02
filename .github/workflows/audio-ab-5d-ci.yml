@@ -56,13 +56,13 @@ jobs:
 
     steps:
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ABDAudioLab
           fetch-depth: 1
 
       - name: Checkout ABDSharedCode (Immutable Sibling Ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ajabadia/ABDSharedCode
           ref: 21c0a60c1efd5aac6a6cedcc57725f601a3ce14a
@@ -85,7 +85,7 @@ jobs:
       # un rojo por eso es un rojo que se ha ganado. Fijarlo aqui haria que este
       # check solo dijese lo que ya decia el CI de ABDSharedAssets.
       - name: Checkout ABDSharedAssets (contract origin)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ajabadia/ABDSharedAssets
           ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
@@ -93,7 +93,7 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout ABDScope (Immutable Sibling Ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ajabadia/ABDScope
           ref: 0a296f3f3d161f65b41be4d02413ab858dddff55
@@ -281,13 +281,13 @@ jobs:
       # El repo que se quiere vigilar, primero y con su PR entero: es el que
       # lleva los 40 contratos del snapshot.
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ABDAudioLab
           fetch-depth: 1
 
       - name: Checkout ABDSharedAssets (contract origin)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ajabadia/ABDSharedAssets
           ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
@@ -314,7 +314,7 @@ jobs:
           version: '10.25.0'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22.23.3'
 
@@ -365,12 +365,12 @@ jobs:
 
     steps:
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22.23.3'      # Y AQUI NO esta el auditor de los .bat, aunque es el sitio donde mas
       # aportaria por ser el rapido: este job lleva `continue-on-error: true` a
