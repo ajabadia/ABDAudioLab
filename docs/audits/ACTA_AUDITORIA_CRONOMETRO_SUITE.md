@@ -667,6 +667,64 @@ La cuarta es la que hace que las otras tres signifiquen algo. Una sentencia en e
 
 **148 aserciones**, todas en verde.
 
+## 6.18. La familia de la caída, auditada en los demás `.bat` del repositorio
+
+§6.9 encontró un fallo de layout en `build.bat` y §6.16 y §6.17 la vigilan. Ninguna de las dos miraba los demás scripts del repositorio, y hay **uno más**: `run-plan.bat`. La pregunta era si la misma familia de fallo —el flujo cayendo dentro de una subrutina, o el hueco de un salto— aparece en otra parte.
+
+**Herramienta: `tools/auditar-bats.mjs`.** Pregunta a `git ls-files` y audita lo que haya, así que un `.bat` nuevo entra sin tocar nada. Cinco reglas:
+
+| Regla | Qué caza |
+|---|---|
+| `CAIDA` / `HUECO` | lo de §6.9 y §6.17: detrás del salto que cierra un flujo no puede quedar ninguna línea ejecutable |
+| `ETIQUETA-EN-BLOQUE` | una etiqueta **dentro** de un `if (...)` |
+| `EOF-SUELTO` | un `goto :eof` en el flujo principal: no devuelve de nada, termina el script |
+| `CALL-INEXISTENTE` | un `call :x` sin `:x`, que ni cmd ni el script avisan |
+
+### Resultado
+
+**`build.bat`: limpio en las cinco.** **`run-plan.bat`: un hallazgo.**
+
+```
+ROJO  run-plan.bat:42  [ETIQUETA-EN-BLOQUE] :WAIT_LOOP: esta a 1 parentesis de profundidad
+```
+
+La etiqueta `:WAIT_LOOP` está dentro del `if errorlevel 1 (` del paso 2, y es el destino de un `goto` que sale de ese mismo bloque.
+
+**Lo que está medido y lo que no.** El `run-plan.bat` de verdad **no se ha ejecutado**: necesita Ollama, y el arnés de §6.16 lo corta en el paso 2 —un shim `.cmd` de `curl` invocado por su nombre **termina el script que lo llama**—. Lo que sí se ha medido es una **reproducción de la misma estructura**, con la variante A con la etiqueta dentro del bloque y la variante B con la etiqueta fuera: la B da el resultado correcto y la A no sale del bucle en 30 s. Lo que se lleva al fichero real es el **hecho estructural**, no el síntoma: una etiqueta alcanzada con el bloque abierto arrastra el paréntesis que falta. Cuál sería el síntoma aquí en concreto no está medido, y escribir un síntoma que no se ha visto es la forma corta de convertir una sospecha en un hallazgo.
+
+**No se ha tocado `run-plan.bat`.** Es el ejecutor del tándem y el hilo paralelo lo está usando: cambiarlo en caliente es exactamente el tipo de acción que se cruza entre workstreams. El arreglo es mover `:WAIT_LOOP` fuera del bloque y dejar el `goto` de vuelta, que es la variante B de la reproducción y da el mismo resultado sin el bucle eterno. Queda pendiente de decisión.
+
+### Dos falsos positivos que salieron de la propia regla de §6.17
+
+La primera versión del auditor aplicaba la regla del hueco a **todas** las etiquetas y daba tres hallazgos en `run-plan.bat`. Dos de ellos eran falsos, y el motivo es una suposición que §6.17 nunca explicito:
+
+> El hueco —lo que hay detrás del salto que cierra un flujo— solo importa para una etiqueta que se llama con `call`. Para una etiqueta a la que solo se llega con `goto`, **caer está bien**: es el punto de encuentro de un `if (...) else (...)`, y las dos ramas tienen que caer en el mismo sitio.
+
+`:OLLAMA_UP` está justo detrás del `)` que cierra el `if errorlevel 1 (...) else (...)` del paso 2. Llegar ahí cayendo es exactamente lo que tiene que pasar. Con la regla sin esa distinción salen dos rojos que no significan nada, y un rojo que no significa nada enseña a ignorar los rojos.
+
+La distinción está en el auditor y no en el banco de `build.bat`, porque **en `build.bat` las tres etiquetas son subrutinas `call`das** y la diferencia no se da. Es una limitación real de la regla de §6.17 que no se ve hasta que hay un segundo fichero.
+
+### El auditor se ha auditado a si mismo
+
+Cinco mutaciones de `build.bat`, una por regla, y la condición es que **la propia regla salte**, no que las demás callen:
+
+| Regla | Mutación | Rojos |
+|---|---|---|
+| `CAIDA` | una subrutina nueva al principio del fichero | 1 |
+| `HUECO` | `:crearEnlaceSiProcede` sin su `goto :eof` de la cola | 1 |
+| `ETIQUETA-EN-BLOQUE` | la etiqueta de una subrutina metida en un `if` | 3 (dos `ETIQUETA-EN-BLOQUE`, uno `HUECO`) |
+| `EOF-SUELTO` | el final del flujo principal salta a `:eof` | 1 |
+| `CALL-INEXISTENTE` | un `call` a una etiqueta inexistente | 1 |
+
+**5 de 5.** Y dos cosas que el ejercicio destapó y que están escritas en el fichero porque no se ven al leerlo:
+
+- **El auditor se quedaba mudo.** La comparación de nombres de etiqueta no llevaba el dos puntos en los dos lados, así que ninguna etiqueta se reconocía como subrutina, la regla del hueco no se aplicaba a ninguna y el auditor salía **verde con una subrutina que había perdido su `goto :eof`**. Lo detectó la mutación, no la lectura. Un auditor que se queda mudo no avisa de que se ha quedado mudo, y esa es justo la clase de fallo que este banco existe para cazar (§6.7).
+- **Dos mutaciones apuntaban a la línea equivocada.** La primera quitaba el `goto :eof` de la cola de `:avisarSiEsEnlace` y el auditor decía verde — bien dicho: el hueco que esa mutación rompe es el de `:end`, que es un punto de encuentro y no se comprueba. Una mutación que apunta mal no prueba nada, y que el auditor acierte no compensa.
+
+### Lo que no se ha hecho
+
+`tools/auditar-bats.mjs` **no está conectado a nada**. Es una herramienta que se ejecuta a mano, y una herramienta así se queda vieja sin que nadie se entere: el `build.bat` ya ejecuta sus dos tests antes de cronometrar (§6.11), y ahí es donde este cabría. No se ha conectado porque es otro cambio en `build.bat` y esta sección era una auditoría.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -769,6 +827,13 @@ La cuarta es la que hace que las otras tres signifiquen algo. Una sentencia en e
 | §6.17: `goto :eof` dentro de un `if` que no se cumple | **2 rojos** |
 | §6.17: línea suelta antes de una etiqueta | **2 rojos** |
 | §6.17: control negativo, una sentencia más en el cuerpo | **verde**, y es lo correcto |
+| §6.18: `.bat` versionados en el repositorio | **2**, y se auditan los que haya sin tocar el auditor |
+| §6.18: `build.bat` bajo las cinco reglas | **limpio** |
+| §6.18: `run-plan.bat` bajo las cinco reglas | **1 hallazgo**: `:WAIT_LOOP` a un paréntesis de profundidad |
+| §6.18: reproducción de la misma estructura, etiqueta dentro y fuera | la de fuera bien; la de dentro **no sale del bucle** en 30 s |
+| §6.18: falsos positivos de la regla del hueco sin la distinción `call` | **2**, los dos en `:OLLAMA_UP` |
+| §6.18: mutaciones del auditor, una por regla | **5 de 5** |
+| §6.18: auditor con una subrutina sin su `goto :eof` | antes **verde** por un dos puntos perdido → ahora rojo |
 
 ## 8. Commits
 
@@ -788,6 +853,7 @@ La cuarta es la que hace que las otras tres signifiquen algo. Una sentencia en e
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
 | este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
+| este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
