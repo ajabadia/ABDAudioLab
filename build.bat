@@ -290,7 +290,18 @@ set "PERF_FATAL=1"
                     rem veredicto; stderr se ha ido a la consola sin tocar, asi que los
                     rem mensajes de error se siguen viendo igual.
                     set "PERF_ESTADO=desconocido"
-                    for /f "tokens=1,2*" %%e in ('findstr /b /c:"ABD-VEREDICTO "" "!PERF_LOG!"") do set "PERF_ESTADO=%%e
+                    rem El estado va con %%~c y con `delims=:,{} `, y no con %%e ni con %%f.
+                    rem Los delims por defecto de `for /f` incluyen la COMA, asi que %%f se cortaba
+                    rem en el primer separador del JSON y %%e era el prefijo: ninguno de los dos era
+                    rem el estado. Con estos delims el token 3 de la linea de veredicto es el valor
+                    rem del campo estado, y %%~c le quita las comillas.
+
+                    rem Y la comilla de cierre del `set` es lo que hace que esto ocurra: sin ella cmd
+                    rem empareja las comillas cruzando lineas dentro de este bloque, el `for /f` deja
+                    rem de ejecutar el comando y busca un FICHERO llamado `findstr /b /c:...`. Medido:
+                    rem el estado se quedaba en desconocido en silencio, y con el estado muerto la
+                    rem rama de fallo-del-tool no podia dispararse nunca.
+                    for /f "tokens=3 delims=:,{} " %%c in ('findstr /b /c:"ABD-VEREDICTO " "!PERF_LOG!"') do set "PERF_ESTADO=%%~c
                     del "!PERF_LOG!" >nul 2>nul
                     rem
                     rem El codigo de salida del cronometro son TRES clases, no una. Antes
@@ -349,11 +360,26 @@ set "PERF_FATAL=1"
                         echo [Error] Do NOT read this as a slow suite: a slow suite would have
                         echo [Error] been measured. The build will FAIL at the end.
                         set "PERF_FATAL=1"
+                    ) else if "!PERF_ESTADO!"=="medicion-incompleta" (
+                    rem La clase que el codigo 1 esconde. El 1 del cronometro son DOS cosas que
+                    rem no se parecen: una medicion que EXISTE y dice que algo va mal, y una
+                    rem medicion que no llego a existir. Esta es la segunda, y por eso se decide
+                    rem por el ESTADO y no por el codigo: el estado es lo unico que las separa.
+                    rem
+                    rem Un build verde aqui no es un build que ha comprobado que la suite no se
+                    rem cuelga: es un build que no ha comprobado nada y dice que si.
+                        echo [Error] THE SUITE DID NOT FINISH. There is no measurement to read.
+                        echo [Error] State: medicion-incompleta. The tool says what stopped it, in
+                        echo [Error] the lines above: a hang, a crash, a truncated XML, or reference
+                        echo [Error] cases that were never measured.
+                        echo [Error] Do NOT read this as a slow suite and not as a regression: both
+                        echo [Error] of those need a measurement, and there is not one.
+                        echo [Error] The build will FAIL at the end.
+                        set "PERF_FATAL=1"
                     ) else if "!PERF_EXIT!"=="0" (
                         echo [Info] Suite timings: no slow test, no regression vs reference.
                     ) else if "!PERF_EXIT!"=="1" (
-                        echo [Warn] Suite timings: a slow test, a regression, or a run that did not finish.
-                        echo [Warn] See the table above. An unfinished run means truncated XML,
+                        echo [Warn] Suite timings: a slow test, or a regression vs reference.
                         echo [Warn] or reference cases that were not measured.
                         echo [Warn] State: !PERF_ESTADO!.
                     ) else if "!PERF_EXIT!"=="2" (

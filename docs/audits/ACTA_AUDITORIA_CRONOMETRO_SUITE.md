@@ -516,9 +516,67 @@ Un aviso que sale aunque la comparación esté en verde es justo lo que hace que
 
 Aislado ese test **pasa** (33 aserciones con el filtro `[floating_window]`), así que la muerte depende del orden — Catch2 siembra el azar distinto en cada vuelta —. Es código **commiteado**: del crash no hay nada en el `working tree` de este hilo, y `test_MeasurementFloatingWindow.cpp` no lo toca ninguno de los ficheros modificados. Queda anotado aquí para el hilo que lo tenga delante.
 
-Las dos muertes son, de paso, la mejor demostración posible de los guards de §6.x: ninguna de las dos ha salido como «26 regresiones» ni como un verde. Sin ellos, un corte a los 585 casos habría producido una referencia de 354 casos menos y un `|` rojo decorativo.
+Las dos muertes demuestran que los guards **del cronómetro** funcionan: se negó a analizar una medición incompleta, dio el motivo exacto y salió con 1.
+
+**Lo que esa frase no decía, y un build de verdad enseñó:** el **build** de esos mismos datos salía **verde**. El cronómetro avisa con un 1, y el 1 del cronómetro es un aviso; el build lo leía como «algo que mirar», imprimía un `[Warn]` y salía con **0**. Sin la cola de `:end`, sin un cartel de fallo y con el de `Build Successful` encima. Eso es §6.15, y es de lo que va esta sección: los guards de dentro sabían que la medición no existía, y los de fuera no lo escuchaban.
 
 Por eso la referencia commiteada **sigue sin bloque `ruido`**, y las cinco comprobaciones que la vigilan están **aparcadas** en `tools/test_duraciones_suite.mjs`, con el cartel que dice qué hay que hacer para volverlas. Todo lo demás —el cálculo, el bloque, el informe y el camino sin segunda vuelta— está en verde y comprobable sin medir la suite.
+
+## 6.15. Un build de verdad, con la suite muerta: la cola no imprimió y el build salió con 0
+
+Esta sección es la que faltaba en todo el acta, y no es un caso más: es la **medición del propio guard**. Todo lo anterior se ha comprobado con bancos de pruebas que reensamblan fragmentos de `build.bat`, y un banco no es un build. Un banco ejecuta las lineas que el test le da, en el orden que el test quiere, con las llamadas sustituidas. Un build de verdad ejecuta el fichero entero, con su parser de cmd y sus reglas de bloque. La diferencia resultó ser justo aquí.
+
+**El encargo:** ejecutar un `build.bat` completo de verdad y comprobar que la cola imprime y devuelve el código correcto. El resultado es que **no hacía ninguna de las dos cosas**, y por el motivo que menos se espera.
+
+| | Lo medido |
+|---|---|
+| Compilación | `Build Successful` (incremental, binario de las 12:54) |
+| Autocomprobación del cronómetro **dentro del build** | 77 + 202 aserciones en verde |
+| La suite | **SIGSEGV**, `3221226525`, cortada a los **585 de 939** casos |
+| El cronómetro | `{"estado":"medicion-incompleta","codigo":1}` |
+| **La cola de `:end`** | **0 líneas** |
+| **Código de salida del build** | **0** |
+
+Una suite que se muere en el 62 % del recorrido daba un build **verde**, con su cartel de `Build Successful` y sin una sola línea de fallo. Eso no es un build que ha comprobado que la suite termina: es un build que no ha comprobado nada y dice que sí.
+
+**El defecto A: una comilla que falta, y con ella la rama muerta desde §6.7.**
+
+En `build.bat:293` la línea termina en `set "PERF_ESTADO=%%e` **sin la comilla de cierre**. Esa lónea está dentro de un bloque `if/else`, y dentro de un bloque cmd empareja las comillas cruzando líneas: el `for /f` deja de ejecutar el comando y busca un **fichero** llamado `findstr /b /c:...`. En el log de verdad:
+
+""
+El sistema no puede encontrar el archivo "findstr /b /c:"ABD-VEREDICTO " "C:\Users\...\abdl_perf.txt"".
+[Warn] State: desconocido.
+""
+
+`PERF_ESTADO` se queda en `desconocido` **en silencio**, y con el estado muerto la rama `if "!PERF_ESTADO!"=="fallo-del-tool"` —la que §6.7 construyó para que el build distinguiera un cronómetro roto de una suite lenta— **es código muerto**: no puede dispararse nunca.
+
+Y **aunque la comilla estuviera puesta seguiría saliendo mal**, por dos motivos que se midieron uno a uno:
+
+- `%%e` con `tokens=1,2*` es el **prefijo**, no el estado.
+- `%%f` tampoco vale: los `delims` por defecto de `for /f` incluyen la **coma**, así que `%%f` salía truncado en el primer separador del JSON (`{"estado":"medicion-incompleta","codigo`).
+
+La forma que funciona es de una línea y se ha medido en las seis que puede tomar:
+
+""
+for /f "tokens=3 delims=:,{} " %%c in ("findstr /b /c:"ABD-VEREDICTO " "!PERF_LOG!"") do set "PERF_ESTADO=%%~c
+""
+
+**El defecto B: el código 1 no distingue «lento» de «no he medido».** Y esto **sigue abierto aunque se arregle A**: con el estado leído bien, `medicion-incompleta` cae igualmente en `else if "!PERF_EXIT!=="1"`, que solo avisa. El estado existe justo para cerrar ese hueco —un 1 que es una suite lenta y un 1 que es una medición que no existe— y el build no lo usaba para decidir. Ahora decide por el estado: `medicion-incompleta` es fatal, y `fallo-del-tool` (muerto desde §6.7) vuelve a existir.
+
+**Lo que no lo habría visto: el test.** La regla de comillas del test era `LINEAS.filter(l => l.trim().startsWith('set ') && ...)`, y la 293 empieza por `for /f ... do set "`. Veía **0** líneas sin cerrar donde el fichero tenía una. Ampliarla a «cualquier `set "` en la línea» no habría servido: **trece** líneas de `build.bat` tienen un número impar de comillas sin que pase nada, porque son **comentarios** con prosa entrecomillada —que cmd no ejecuta— y porque el `set` del `for` cierra en el fin de línea, que es lo que ha hecho siempre. Contar comillas no distingue un fallo de un comentario.
+
+**La regla que sí lo vigila es de comportamiento, y por eso es la que se ha añadido.** El banco sustituía la llamada al cronómetro por `cmd /c exit N`, que no imprime nada: la línea de veredicto no llegaba al temporal, el estado se quedaba siempre en `desconocido` y **la rama por estado no se probaba nunca**. No era una laguna teorica, era el mismo defecto A sin que nada se notara. Ahora los casos del banco llevan un `estado` y escriben un veredicto de verdad en el temporal que el build lee, y se comprueba que el build **lo lee**: si aparece `State: desconocido` con un veredicto presente, el rojo sale.
+
+**Comprobado con un segundo build completo, con la misma suite que peta:**
+
+| | Antes | Ahora |
+|---|---|---|
+| Estado leido del veredicto | `desconocido` | **`medicion-incompleta`** |
+| Rama que se toma | `[Warn]`, aviso | `[Error] THE SUITE DID NOT FINISH` |
+| Cola de `:end` | 0 líneas | **3 líneas de `[Error]`** |
+| Código de salida | **0** | **1** |
+
+El log entero está en `build/registro.txt` y el código en `build/codigo.txt` (ignorado por git). Y las cuatro mutaciones que se han probado sobre el arreglo —quitar otra vez la comilla, cambiar el token, borrar la rama, dejar de mirar el estado— dan **8, 8, 32 y 32 aserciones en rojo**.
 
 ## 7. Verificación
 
@@ -598,6 +656,16 @@ Por eso la referencia commiteada **sigue sin bloque `ruido`**, y las cinco compr
 | §6.14: ejecutable durante las dos vueltas | **sin cambios**, las dos del mismo binario |
 | §6.14: línea del tool | 1377 → **1729** |
 | §6.14: comprobaciones sobre la referencia commiteada | **5 aparcadas**: la suite no termina y no se puede regenerar |
+| §6.15: `build.bat perf` de verdad, cola de `:end` | **0 líneas**, y el build saló con **0** |
+| §6.15: la misma suite, con el arreglo | cola de **3 líneas de `[Error]`** y build con **1** |
+| §6.15: estado que lee el build | antes `desconocido` → ahora `medicion-incompleta` |
+| §6.15: `for /f` que extrae el estado, aislado | `["medicion-incompleta"]`; con la comilla quitada, `desconocido` |
+| §6.15: `%%f` en vez de `%%~c` | `{"estado":"medicion-incompleta","codigo`: truncado por la coma |
+| §6.15: líneas de `build.bat` con comillas impares | **13**, y **ninguna** es ejecutable: son comentarios |
+| §6.15: `test_build_bat_perf.mjs` con la columna `estado` | **134 aserciones**, +57 |
+| §6.15: casos por estado que antes no se probaban | **6 nuevos**: ok, lento, regresion, sin-medir, fallo-del-tool, medicion-incompleta |
+| §6.15: mutaciones del arreglo | **4 de 4 en rojo** (8, 8, 32, 32) |
+| §6.15: línea del tool | 570 líneas, **ASCII puro, CRLF puro** |
 
 ## 8. Commits
 
@@ -616,6 +684,7 @@ Por eso la referencia commiteada **sigue sin bloque `ruido`**, y las cinco compr
 
 | este commit | §6.12: la referencia guarda la ruta relativa al repositorio en vez de la absoluta —la del disco, el proyecto y el usuario—, y el formato pasa a 2 porque `f` cambia lo que significa. Una base de formato 1 se recusa y ahora lo dice, que es la diferencia entre «no hay referencia» y «la hay y no se puede leer». De los 939 casos, 875 quedan como `src/tests/...` y 64 como `../ABDSharedCode/...`; lo que no está en este árbol se deja como venía. Se fueron 39.353 bytes, y ni los segundos ni `medidoEn` se tocaron. 172 aserciones |
 
+| este commit | §6.15: la cola de `:end` no imprimia y el build salia con **0** con la suite muerta a mitad de la medicion, comprobado con un `build.bat perf` de verdad. Dos defectos: una comilla de cierre que faltaba en la línea que lee el estado, que hacia que el `for /f` no ejecutara el `findstr` y dejaba `PERF_ESTADO` en `desconocido` en silencio — con lo que la rama de `fallo-del-tool` de §6.7 era código muerto —, y que el código 1 no distinguiera «una suite lenta» de «una medición que no llegó a existir». Arreglados los dos: el estado se lee del veredicto con `tokens=3 delims=:,{} ` y `%%~c`, y `medicion-incompleta` decide por el estado y es fatal. El banco del test ahora escribe un veredicto de verdad y comprueba que el build lo lee, que es lo que faltaba y por lo que nadie lo vio: 134 aserciones |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.

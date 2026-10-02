@@ -235,6 +235,16 @@ console.log('\nlas cuatro clases del cronometro, cada una a su sitio');
 // ntest = codigo del test del cronometro. nbanco = codigo del test de este
 // reparto de codigos. ncrono = codigo del cronometro. build = lo que tiene que
 // salir del build. muere = si el build tiene que terminar en fallo.
+// estado = lo que dice la linea de veredicto, si el caso la trae.
+//
+// Y ESTA SEGUNDA COLUMNA ES LA QUE FALTABA, y no es un adorno: sin ella el
+// banco sustituye la llamada al cronometro por un `cmd /c exit N`, que no
+// imprime NADA, de modo que la linea de veredicto no llega al temporal y el
+// estado se queda siempre en `desconocido`. Con esa columna sola, la rama por
+// ESTADO --la que decide si una medicion que no llego a terminar es un aviso o
+// un fallo-- no se probaba nunca, y no por una suposicion: el codigo 1 con el
+// estado a `desconocido` daba verde, que es justo lo que hacia un build de
+// verdad con la suite muerta en el 62 % del recorrido.
 const CASOS = [
   { ntest: 0, nbanco: 0, ncrono: 0, build: 0, muere: false, motivo: 'medido y nada que decir' },
   { ntest: 0, nbanco: 0, ncrono: 1, build: 0, muere: false, motivo: 'medido y algo que mirar' },
@@ -242,7 +252,34 @@ const CASOS = [
   { ntest: 0, nbanco: 0, ncrono: 7, build: 1, muere: true, motivo: 'codigo que el tool no usa' },
   { ntest: 1, nbanco: 0, ncrono: 0, build: 3, muere: true, motivo: 'el test del cronometro en rojo' },
   { ntest: 0, nbanco: 1, ncrono: 0, build: 1, muere: true, motivo: 'el test del reparto en rojo' },
+  { ntest: 0, nbanco: 0, ncrono: 0, estado: 'ok', build: 0, muere: false, motivo: 'el veredicto dice ok' },
+  { ntest: 0, nbanco: 0, ncrono: 1, estado: 'lento', build: 0, muere: false, motivo: 'el veredicto dice lento' },
+  { ntest: 0, nbanco: 0, ncrono: 1, estado: 'regresion', build: 0, muere: false, motivo: 'el veredicto dice regresion' },
+  { ntest: 0, nbanco: 0, ncrono: 2, estado: 'sin-medir', build: 1, muere: true, motivo: 'el entorno no esta' },
+  { ntest: 0, nbanco: 0, ncrono: 2, estado: 'fallo-del-tool', build: 1, muere: true, motivo: 'el cronometro se rompio' },
+  // La que hace que esto valga: el 1 de una medicion que NO llego a terminar es
+  // la misma clase que el 1 de una regresion, y no pueden acabar igual.
+  { ntest: 0, nbanco: 0, ncrono: 1, estado: 'medicion-incompleta', build: 1, muere: true, motivo: 'la medicion no llego a terminar' },
 ];
+
+// El helper que hace de cronometro en los casos CON estado: escribe una linea
+// de veredicto de verdad en el temporal que el build lee, y sale con el codigo
+// que le toca. La ruta del temporal es la del propio build.bat (`%TEMP%\abdl_perf.txt`)
+// y no una inventada aqui: si se pusiera otra, el banco probaria un build que
+// no existe.
+//
+// Y el `>` va ANTES del `echo` a proposito: es la forma de vaciar el temporal y
+// escribir en el. Si se hiciera al reves, cada caso acumularia el veredicto del
+// anterior en el mismo fichero y `findstr` se encontraria con varios.
+function helperDe(etiqueta, estado, codigo) {
+  const ruta = join(BANCO, `veredicto-${etiqueta}.bat`);
+
+  writeFileSync(ruta, '@echo off\r\n'
+    + `> "%TEMP%\\abdl_perf.txt" echo ABD-VEREDICTO {"estado":"${estado}","codigo":${codigo}}\r\n`
+    + `exit /b ${codigo}\r\n`, 'utf8');
+
+  return ruta;
+}
 
 try {
   mkdirSync(BANCO, { recursive: true });
@@ -252,6 +289,9 @@ try {
     const cuerpo = [];
     const sinSustituir = [];
     let sustituciones = 0;
+    // El estado va en la etiqueta porque hay tres casos con el mismo codigo de
+    // cronometro y distinto estado, y con la etiqueta de antes se pisarian.
+    const etiqueta = `t${c.ntest}-c${c.ncrono}${c.estado ? '-' + c.estado : ''}`;
 
     for (const l of [SETLOCAL, PERF_FATAL, SELFTEST_FATAL, 'set "RUN_PERF=1"', ...BLOQUE_PERF, ...COLA]) {
       const s = l.trim();
@@ -266,7 +306,9 @@ try {
         const llamada = LLAMADAS_NODE.find((x) => esLlamadaDe(s, x));
 
         if (llamada) {
-          cuerpo.push(`${sangria}cmd /c exit ${c[llamada.codigo]}`);
+          cuerpo.push(`${sangria}${llamada.codigo === 'ncrono' && c.estado
+            ? `call "${helperDe(etiqueta, c.estado, c.ncrono)}"`
+            : `cmd /c exit ${c[llamada.codigo]}`}`);
           sustituciones += 1;
         } else {
           // Una llamada a node que no esta en la tabla no se sustituye, y sin
@@ -281,7 +323,6 @@ try {
       }
     }
 
-    const etiqueta = `t${c.ntest}-c${c.ncrono}`;
     const banco = join(BANCO, `${etiqueta}.bat`);
 
     // CRLF a proposito: un .bat con finales LF en Windows se come la primera
@@ -354,6 +395,21 @@ try {
     if (c.nbanco) {
       comprobar(`${etiqueta}: con el test del reparto en rojo no se anuncia una medicion`,
         !salida.some((x) => x.includes('Timing the suite')));
+    }
+
+    if (c.estado) {
+      // El banco pone un veredicto de verdad y el build tiene que LEERLO. Si la
+      // extraccion se rompe, el estado se queda en `desconocido` y el build no se
+      // entera: por eso lo que se comprueba es que no aparezca `desconocido`, y
+      // no que salga el estado bueno. Un `desconocido` con una linea de veredicto
+      // presente en el temporal es el fallo entero, y es lo que se vio en un
+      // build de verdad: el estado nunca se leyo y la rama de `fallo-del-tool`
+      // no podia dispararse.
+      comprobar(`${etiqueta}: el build lee el estado del veredicto y no se queda en desconocido`,
+        !salida.some((x) => x.includes('State: desconocido')));
+
+      comprobar(`${etiqueta}: y el estado que lee es el que dice el veredicto`,
+        !c.estadoOculto && !salida.some((x) => x.includes('State: ') && !x.includes(`State: ${c.estado}`)));
     }
 
     rmSync(banco, { force: true });
@@ -467,10 +523,12 @@ comprobar('build.bat tiene un else para los codigos que el tool no usa',
 //     el codigo 2                   no se ha medido
 //     un codigo que el tool no usa   no se sabe que ha pasado
 //
-// El 1 del cronometro NO esta, y esa es la parte que cuesta defender ante alguien
-// con prisa: un 1 es una medicion que existe y que dice algo malo, y un 2 es que
-// no hay medicion. Fallar por lo segundo es correcto; fallar por lo primero
-// convierte el cronometro en un aviso que nadie escucha.
+// El 1 del cronometro esta SOLO para una de sus dos clases. Un 1 es una medicion
+// que existe y que dice algo malo --un test lento, una regresion--, y eso avisa y
+// sale con 0, que es lo que hay que hacer: fallar por un test lento convierte el
+// cronometro en un aviso que nadie escucha. El otro 1, el de una medicion que no
+// llego a existir, NO es un aviso y por eso tiene su rama propia: se decide por el
+// estado, que es lo unico que separa las dos clases.
 //
 // SE CONTAN CON NOMBRE PORQUE EL NUMERO SOLO NO SIRVE. Estas ramas se cuentan
 // comparando la linea entera, y una linea `set "PERF_FATAL=1` sin la comilla de
@@ -478,10 +536,39 @@ comprobar('build.bat tiene un else para los codigos que el tool no usa',
 // Cuando se anadieron dos ramas, el test se puso verde con el numero viejo y con
 // dos guard invisible: un verde por el motivo equivocado no avisa de nada y
 // ademas convence. De ahi la asercion de comillas, mas abajo.
+//
+// Y POR QUE EL NUMERO DE COMILLAS NO PUEDE SER EL INVARIANTE. Trece lineas de
+// build.bat tienen un numero impar de comillas sin que pase nada: son comentarios
+// con prosa entrecomillada, que cmd no ejecuta, y el `set` del `for`, que cierra
+// en el fin de linea como ha cerrado siempre. Contar comillas no distingue un fallo
+// de un comentario. La regla que vigila esto es de COMPORTAMIENTO: el banco pone
+// un veredicto de verdad en el temporal y se comprueba que el build lo lee. Un
+// `desconocido` con el veredicto presente es el fallo entero, y es lo que se vio
+// en un build de verdad: la comilla que faltaba hacia que el `for` no ejecutara
+// el `findstr`, el estado se quedaba en desconocido y la rama de `fallo-del-tool`
+// no podia dispararse nunca.
 const marcasFallo = BLOQUE_PERF.filter((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"').length;
 
-comprobar('build.bat marca el fallo en 6 ramas, y son las que se han contado',
-  marcasFallo === 6);
+comprobar('build.bat marca el fallo en 7 ramas, y son las que se han contado',
+  marcasFallo === 7);
+
+// Y la rama nueva, buscada por su MENSAJE y no por el contador: el numero dice
+// que hay siete, y no cuales siete. Con una rama mas y el numero viejo, el test se
+// pondria verde sin que el fallo nuevo existiera nunca.
+const RAMA_INCOMPLETA = LINEAS.findIndex((l) => l.includes('THE SUITE DID NOT FINISH'));
+
+comprobar('la rama que detecta una medicion que no llego a terminar existe',
+  RAMA_INCOMPLETA > -1);
+
+comprobar('y decide por el ESTADO, no solo por el codigo',
+  RAMA_INCOMPLETA > -1
+  && LINEAS.slice(Math.max(0, RAMA_INCOMPLETA - 8), RAMA_INCOMPLETA)
+    .some((l) => l.includes('PERF_ESTADO') && l.includes('medicion-incompleta')));
+
+comprobar(`y marca PERF_FATAL, que es lo que hace que el build falle al final`,
+  RAMA_INCOMPLETA > -1
+  && LINEAS.slice(RAMA_INCOMPLETA, RAMA_INCOMPLETA + 16)
+    .some((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"'));
 
 comprobar('build.bat devuelve el fallo con exit /b 1 al final de la cola',
   COLA.some((l) => l.trim().toLowerCase() === 'endlocal & exit /b 1'));
