@@ -84,7 +84,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f
+          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
           path: ABDSharedAssets
           fetch-depth: 1
 
@@ -129,8 +129,9 @@ jobs:
           .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d]" -r console
 
       - name: Gate 6 — Global Non-VES Suite Baseline Verification
+        timeout-minutes: 15
         run: |
-          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console
+          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -s -r console -d yes
 
       # El snapshot y la cuarentena, con etiqueta propia y NO dentro de la suite
       # grande. `[contracts]` habria sido mas corto y habria arrastrado trece
@@ -140,6 +141,15 @@ jobs:
         run: |
           .\build\Release\ABDAudioLab_Tests.exe "[snapshot]" -r console
           .\build\Release\ABDAudioLab_Tests.exe "[quarantine]" -r console
+
+      - name: Upload Test Telemetry on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-telemetry-logs
+          path: |
+            ${{ runner.temp }}/abdaudiolab-tests/runner/
+          if-no-files-found: ignore
 
       # El cronometro, aqui y no en un job aparte, porque es el UNICO sitio donde
       # la suite esta compilada. En Ubuntu no compila —el proyecto es JUCE con
@@ -220,7 +230,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 9a99cbbb5d001321395ab14c1bea94e954e9168f
+          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
           path: ABDSharedAssets
           fetch-depth: 1
 
