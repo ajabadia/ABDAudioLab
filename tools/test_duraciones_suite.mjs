@@ -29,7 +29,7 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, PISO_DE_INTERES, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -199,10 +199,15 @@ console.log('\nla referencia se guarda y se compara');
 // una medicion real tarda cinco minutos por asercion. Lo que se prueba es la
 // COMPARACION, que no necesita que los tiempos sean reales sino que esten en la
 // relacion correcta entre ellos.
+//
+// Los tiempos van por encima del umbral absoluto a proposito. Este caso afirma
+// que triplicarse ES una regresion, y desde que el umbral quito el ruido por
+// debajo de un segundo, un 0,3 -> 0,9 s ya no lo es: un fixture por debajo
+// comprobaria otra cosa distinta de la que dice.
 const base = construirBase([
-  { nombre: 'A', fichero: 'x.cpp', segundos: 0.3 },
-  { nombre: 'B', fichero: 'y.cpp', segundos: 0.4 },
-  { nombre: 'C', fichero: 'z.cpp', segundos: 0.5 },
+  { nombre: 'A', fichero: 'x.cpp', segundos: 1.2 },
+  { nombre: 'B', fichero: 'y.cpp', segundos: 1.4 },
+  { nombre: 'C', fichero: 'z.cpp', segundos: 1.5 },
 ]);
 
 comprobar('la base guarda los casos que se le pasan',
@@ -215,8 +220,8 @@ comprobar('la base guarda los filtros con los que se midio',
   Array.isArray(base.filtros));
 
 const cmp = compararConBase([
-  { nombre: 'A', fichero: 'x.cpp', segundos: 0.9 },
-  { nombre: 'B renombrado', fichero: 'y.cpp', segundos: 1.2 },
+  { nombre: 'A', fichero: 'x.cpp', segundos: 3.6 },
+  { nombre: 'B renombrado', fichero: 'y.cpp', segundos: 4.2 },
   { nombre: 'NUEVO', fichero: 'n.cpp', segundos: 2.0 },
 ], base);
 
@@ -237,25 +242,70 @@ comprobar('un caso que no estaba en la base cuenta como nuevo',
 comprobar('un caso que ha desaparecido se cuenta como ausente',
   cmp.ausentes === 1);
 
-console.log('\ny el ruido de los tests de microsegundos no se confunde con una regresion');
+console.log('\nel umbral absoluto quita el ruido y no se lleva el senal por delante');
 
-// El piso existe por esto: sin el, duplicar el tiempo de un test de 0.1 ms
-// avisaria en cada vuelta, y un informe que avisa siempre deja de leerse.
-const baseMicro = construirBase([
-  { nombre: 'micro', fichero: 'm.cpp', segundos: PISO_DE_INTERES / 10 },
-  { nombre: 'normal', fichero: 'n.cpp', segundos: 0.5 },
+// ─────────────────────────────────────────────────────────────────────────
+// POR QUE EL FACTOR x2, SOLO, NO BASTABA
+//
+// Medida la suite consigo misma dos veces, con el mismo ejecutable y el mismo
+// codigo, 7 de 939 casos salen como regresion comparados consigo mismos. Ninguno
+// se ha retrasado: se han movido. Y el reparto de ese ruido dice donde esta el
+// limite: por debajo de un segundo el ratio entre vueltas llega a x3,38, y por
+// encima no pasa de x1,43. El factor x2 esta dentro de la banda de ruido y
+// fuera de la del senal, asi que no es ni demasiado sensible ni demasiado
+// insensible: es hipersensible donde no hay nada que ver.
+//
+// Estos casos comprueban las DOS esquinas, porque un umbral absoluto puesto en
+// el sitio equivocado tapa justo lo que hay que mirar.
+const baseRuido = construirBase([
+  { nombre: 'ruido que se cuadruplica', fichero: 'r1.cpp', segundos: 0.14 },
+  { nombre: 'ruido que se duplica justo', fichero: 'r2.cpp', segundos: 0.44 },
+  { nombre: 'lento de verdad', fichero: 'r3.cpp', segundos: 5 },
+  { nombre: 'cruza el segundo', fichero: 'r4.cpp', segundos: 0.4 },
+  { nombre: 'de la nada a dos segundos', fichero: 'r5.cpp', segundos: 0.05 },
 ]);
 
-const cmpMicro = compararConBase([
-  { nombre: 'micro', fichero: 'm.cpp', segundos: PISO_DE_INTERES / 5 },
-  { nombre: 'normal', fichero: 'n.cpp', segundos: 1.5 },
-], baseMicro);
+const cmpRuido = compararConBase([
+  { nombre: 'ruido que se cuadruplica', fichero: 'r1.cpp', segundos: 0.56 },
+  { nombre: 'ruido que se duplica justo', fichero: 'r2.cpp', segundos: 0.92 },
+  { nombre: 'lento de verdad', fichero: 'r3.cpp', segundos: 10.5 },
+  { nombre: 'cruza el segundo', fichero: 'r4.cpp', segundos: 1.2 },
+  { nombre: 'de la nada a dos segundos', fichero: 'r5.cpp', segundos: 2.0 },
+], baseRuido);
 
-comprobar('el que estaba por debajo del piso NO se avisa, aunque se haya duplicado',
-  !cmpMicro.regresiones.some((r) => r.nombre === 'micro'));
+const regresados = (cmp) => cmp.regresiones.map((r) => r.nombre);
 
-comprobar('el que estaba por encima del piso SI se avisa',
-  cmpMicro.regresiones.some((r) => r.nombre === 'normal'));
+comprobar('un caso que se cuadruplica POR DEBAJO de un segundo no es regresion',
+  !regresados(cmpRuido).includes('ruido que se cuadruplica'));
+
+comprobar('ni uno que se duplica justo por debajo del umbral',
+  !regresados(cmpRuido).includes('ruido que se duplica justo'));
+
+// Y las tres que SI tienen que salir. Una de ellas es la que un umbral puesto
+// solo sobre el tiempo de ANTES taparia, y es la mas grave de las tres.
+comprobar('un caso que se duplica estando ya en segundos SI es regresion',
+  regresados(cmpRuido).includes('lento de verdad'));
+
+comprobar('un caso que CRUZA el segundo se ve, aunque antes no contara',
+  regresados(cmpRuido).includes('cruza el segundo'));
+
+comprobar('y uno que pasa de 50 ms a 2 s tambien: de 0 a 2 es una regresion',
+  regresados(cmpRuido).includes('de la nada a dos segundos'));
+
+comprobar('son tres de los cinco, y no cuatro ni cinco',
+  cmpRuido.regresiones.length === 3);
+
+// El suelo de microsegundos que habia antes ya no hace falta como regla aparte:
+// un caso de 0,2 ms esta por debajo del umbral absoluto igual que cualquier otro,
+// asi que una sola regla cubre los dos casos.
+comprobar('un caso de microsegundos lo cubre la misma regla, sin regla aparte',
+  compararConBase([
+    { nombre: 'micro', fichero: 'm.cpp', segundos: 0.0002 },
+  ], construirBase([
+    { nombre: 'micro', fichero: 'm.cpp', segundos: 0.0001 },
+  ])).regresiones.length === 0);
+
+comprobar('el umbral absoluto son 1 s', UMBRAL_ABSOLUTO === 1);
 
 console.log('\nuna referencia que no se puede leer no rompe el analisis');
 

@@ -313,8 +313,39 @@ export function resumen(duraciones, umbral = UMBRAL_POR_DEFECTO) {
 // la ultima vez». Un test de 12 s puede ser normal, y avisar cada vuelta de el
 // cansa tanto que deja de leerse — que es como un rojo permanente se apaga.
 
-/** Por debajo de este tiempo, ningun cambio se considera una regresión. */
-const PISO_DE_INTERES_S = 0.05;
+/**
+ * Por debajo de este tiempo, un caso no se considera una regresión, por muy
+ * duplicado que se haya quedado.
+ *
+ * El número sale de medir la suite CONTIGO MISMA dos veces, porque un umbral
+ * puesto a ojo sale caro justo aquí: el factor x2 parece una regla y en la
+ * práctica es una lotería.
+ *
+ * Con el mismo ejecutable y el mismo código, dos vueltas seguidas, 7 de 939
+ * casos salen como regresión comparados consigo mismos. Ninguno se ha retrasado:
+ * se han movido. Y el reparto de ese ruido dice dónde está el límite:
+ *
+ *   por debajo de 1 s:  mediana x1,11, p90 x1,79, maximo x3,38. El factor x2
+ *                      esta DENTRO de esa banda.
+ *   por encima de 1 s:  mediana x1,13, p90 x1,28, maximo x1,43. El factor x2
+ *                      esta FUERA de esa, con margen.
+ *
+ * O sea que el factor no es ni demasiado sensible ni demasiado insensible: es
+ * hipersensible justo en la franja donde no hay nada que ver. Por eso el umbral
+ * no baja de un segundo aunque el factor se pueda subir, y por eso mira SOLO el
+ * tiempo de ahora y no el de antes: un caso que pasa de 50 ms a 2 s ha ido de 0 a
+ * 2, y eso es una regresión aunque su ratio sea de 40.
+ *
+ * Lo que quita, medido sobre los datos de hoy: 7 casos entre 0,06 y 0,87 s. Lo
+ * que deja pasar: una regresión de verdad llega a segundos, y ahí la desviación
+ * entre vueltas es de x1,43 como mucho.
+ *
+ * Y lo que hace con los casos nuevos: uno por debajo de un segundo no se lista.
+ * El RECUENTO sigue saliendo, que es lo que dice cuantos hay; lo que no sale es
+ * una lista de nombres de tests que duran menos que un segundo, que en un
+ * fichero de duraciones no aporta nada.
+ */
+const UMBRAL_ABSOLUTO_S = 1;
 
 /** Factor por el que se considera que un test se ha volcado. */
 const FACTOR_POR_DEFECTO = 2;
@@ -497,10 +528,12 @@ export function compararConBase(duraciones, base, factor = FACTOR_POR_DEFECTO) {
     const antes = previos[nombrePrevio].s;
     const despues = d.segundos;
 
-    // El piso evita el ruido de los tests que duran microsegundos: pasar de
-    // 0.0001 s a 0.0002 s es ruido, no una regresion, y si se avisa de eso
-    // el informe deja de tener señal.
-    if (antes < PISO_DE_INTERES_S || despues < PISO_DE_INTERES_S)
+    // El umbral absoluto, y solo sobre el tiempo de AHORA. Ponerlo tambien sobre
+    // el tiempo de antes taparia justo el caso que mas duele: un test que
+    // estaba por debajo del umbral y ha pasado por encima. El tiempo de antes no
+    // se filtra porque no dice si ahora el caso es un problema, y si se filtra,
+    // el que mas problema tiene es el que mas facil se deja de mirar.
+    if (despues < UMBRAL_ABSOLUTO_S)
       continue;
 
     const ratio = despues / antes;
@@ -552,8 +585,10 @@ export function resumenBase(cmp) {
   if (cmp.nuevos.length > 0) {
     lineas.push(`Casos nuevos, sin referencia (${cmp.nuevos.length}).`);
 
-    // Solo los que tardan: un caso nuevo de 0.01 s no es un dato que interese.
-    const lentos = cmp.nuevos.filter((n) => n.segundos >= PISO_DE_INTERES_S);
+    // Solo los que tardan: un caso nuevo por debajo del umbral absoluto no es un
+    // dato que interese en un fichero de duraciones. El recuento de `nuevos`
+    // sigue diciendo cuantos hay, que es lo que se necesita para saber si hay.
+    const lentos = cmp.nuevos.filter((n) => n.segundos >= UMBRAL_ABSOLUTO_S);
 
     for (const n of lentos.slice(0, 15))
       lineas.push(`  ${n.segundos.toFixed(2).padStart(7)} s  ${n.nombre}`);
@@ -983,6 +1018,6 @@ if (process.argv[1] && existsSync(process.argv[1])
 export const RUTA_SUITE = SUITE;
 export const FILTROS_POR_DEFECTO = FILTROS;
 export const UMBRAL = UMBRAL_POR_DEFECTO;
-export const PISO_DE_INTERES = PISO_DE_INTERES_S;
+export const UMBRAL_ABSOLUTO = UMBRAL_ABSOLUTO_S;
 export const FACTOR = FACTOR_POR_DEFECTO;
 export const BASE = RUTA_BASE;

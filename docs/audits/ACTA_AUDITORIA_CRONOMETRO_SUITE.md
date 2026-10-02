@@ -117,8 +117,10 @@ console.error(`Referencia guardada en ${basename(rutaBase)}: ${duraciones.length
 
 ```
 [C] mensaje = No esta la suite compilada en: ABDAudioLab_Tests.exe
-[C] ruta    = D:\desarrollos\ABDSynths\ABDAudioLab\build\Release\ABDAudioLab_Tests.exe
+[C] ruta    = D:\...\ABDAudioLab\build\Release\ABDAudioLab_Tests.exe
 ```
+
+La ruta va recortada porque este documento lo escanea `test_ResourcePathHygiene.cpp`, que prohibe citar la ruta de la maquina de nadie. Es el mismo criterio que aplica al resto de la suite: un documento que lleva la ruta del autor no es mas útil para el siguiente, y ese acta lo aprendio la vez que la escribio entera.
 
 **Por qué es BAJO y no más.** No produce ningún resultado falso: solo cuesta tiempo de diagnóstico. Un `basename` en un mensaje dice *qué* falta y no *dónde* se ha mirado, y aquí hay dos `build/Release` en juego —el que genera `build.bat` y el de una compilación a mano—, así que el nombre a secas invita a buscar el ejecutable en el árbol equivocado. Con `--base` el mismo defecto pesa más, porque esa ruta la elige quien llama y puede estar en cualquier parte.
 
@@ -171,12 +173,26 @@ Consecuencia honesta: el guard ahora es fiable **cuando alguien lo mira**, y no 
 
 `LIMITE_MS = 20 * 60 * 1000` (línea 127) son 1200 s. La última vuelta real midió 153,1 s de suite y la referencia suma 301,516 s. Un límite que está casi ocho veces por encima del trabajo esperado no es un límite: es un tope nominal, y un cuelgue real se descubre por el reloj del pipeline, no por esta herramienta. Lo que sí se ha hecho en `078b2aa` es que, cuando el límite se agota, el resultado no se confunda con una medición buena. Derivar el límite de la referencia lo dejaría en un número con razón.
 
-### 6.3 El factor ×2 señala ruido por debajo de un segundo
+### 6.3 El factor ×2 señalaba ruido por debajo de un segundo — CORREGIDO
 
-`PISO_DE_INTERES_S = 0.05` (línea 294) es el suelo de interés. La vuelta real de hoy, con el guard ya arreglado, da **7 regresiones** y todas están entre 0,06 y 0,52 s: de 0,12 a 0,52, de 0,19 a 0,44, de 0,20 a 0,87. Duplicar el tiempo de un caso de 120 ms no es una regresión de la que haya que preocuparse, y el acta de medición ya lo medía desde el otro lado: los casos que superan el factor 2 suman 0,1 s entre todos.
+Este punto se escribió abierto y se ha cerrado. Se conserva lo que se pensaba antes para que se vea la diferencia con lo que se midió después.
 
-Es decir: **el guard es insensible a lo que de verdad importa y sensível a lo que no importa**. Lo que importa —un caso que pasa de 9 a 18 s— lo ve; lo que no —ruido de scheduling— le pone un rojo. Lo que no se ha tocado es el umbral, porque subirlo es cambiar la política del guard y eso es una decisión, no un bug.
+**Lo que decía antes.** `PISO_DE_INTERES_S = 0.05` era el suelo de interés, y la vuelta real de las 07:0x daba **7 regresiones**, todas entre 0,06 y 0,87 s: de 0,12 a 0,52, de 0,19 a 0,44, de 0,20 a 0,87. Duplicar el tiempo de un caso de 120 ms no es una regresión, y el acta de medición ya lo medía desde el otro lado: los casos que superan el factor 2 suman 0,1 s entre todos. Es decir: el guard era hipersensible justo en la franja donde no hay nada que ver.
 
+**Lo que se ha medido para decidir el umbral, en vez de justificarlo.** La pregunta útil no era «¿son pequeños?» sino «¿se mueven solos?». Con el mismo ejecutable y el mismo código, dos vueltas seguidas, **7 de 939 casos salen como regresión comparados consigo mismos**. Ninguno se ha retrasado: se han movido. Y el reparto de ese ruido dice dónde está el límite:
+
+| Franja | Ratio vuelta a vuelta | Cuántos duplican (×2) |
+|--------|----------------------|------------------------|
+| Por debajo de 1 s | mediana ×1,11 · p90 ×1,79 · **máx ×3,38** | **7 de 118** |
+| Por encima de 1 s | mediana ×1,13 · p90 ×1,28 · **máx ×1,43** | **0 de 35** |
+
+El factor ×2 no era ni demasiado sensible ni demasiado insensible: estaba **dentro** de la banda de ruido por debajo de un segundo y **fuera** de la de arriba.
+
+**El arreglo.** Un umbral absoluto de 1 s además del factor: un caso solo es regresión si se ha duplicado **y** ahora tarda al menos un segundo. Sustituye a `PISO_DE_INTERES_S`, que queda sin uso porque el nuevo lo subsume — un caso de 0,2 ms está por debajo de un segundo igual que cualquier otro—. Con el umbral puesto, los 7 falsos positivos de la tabla desaparecen y **ninguno de los 35 casos de un segundo o más**.
+
+**Que no se lleve la señal por delante.** El umbral mira **solo el tiempo de ahora**, no el de antes. Si mirase los dos, taparía el caso más grave: uno que pasa de 50 ms a 2 s ha ido de 0 a 2, y eso es una regresión aunque su ratio sea de 40.
+
+Comprobado sobre datos reales, no sobre un ejemplo inventado. Se tomó un caso estable de la suite que hoy tarda 6,15 s y se fingió que antes tardaba 2,46 s —×2,5—: sale como regresión. El mismo truco sobre un caso estable de 0,22 s **no** sale, porque está por debajo del segundo. Y con la referencia intacta, 0 regresiones.
 ### 6.4 La referencia guarda rutas absolutas, y eso no se va a regenerar
 
 927 entradas con la ruta de la máquina que las midió, lo que la ata a un disco y a un usuario. `claveDeFichero` lo mitiga para el emparejado, y por eso §3.2 no se repite en otra máquina. Lo que **no** se arregla así es el resto: `construirBase` sigue grabando `f` tal cual, de modo que el fichero sigue sin ser portable y una comparación entre dos referencias de dos máquinas seguiría sin poder emparejar. Regenerarlo exigiría un `f` relativo al repositorio, que es un cambio de formato — y el formato tiene `version: 1` a propósito para que un cambio así se pueda **recusar en vez de compararse**.
