@@ -201,14 +201,28 @@ for (const ruta of RUTAS) {
   }
 
   // 4. :EOF SUELTO. `goto :eof` en el flujo principal termina el script: no hay
-  //    nada a lo que volver. Solo es correcto dentro de una subrutina, y solo si
-  //    la subrutina se llama con `call`.
+  //    nada a lo que volver. Solo es correcto DENTRO de una subrutina.
+  //
+  //    Y "dentro de una subrutina" se decide por la etiqueta `call`ada mas
+  //    cercana por encima, no por "hay alguna etiqueta antes". Medido: con la
+  //    regla anterior, un `goto :eof` del flujo principal que tuviera delante
+  //    una etiqueta de la que se sale con `goto` --un bucle, un punto de
+  //    encuentro-- pasaba sin que nadie lo mirase. El `goto :eof` es correcto
+  //    porque se llama con `call`; lo demas son puntos de encuentro y no
+  //   que no protegen nada.
   for (let i = 0; i < lineas.length; i += 1) {
     if (!/^goto\s+:eof\s*$/i.test(lineas[i].trim()))
       continue;
 
-    const dentroDeSubrutina = etiquetas.some((e) => e < i && prof[e] === 0
-      && !lineas.slice(e + 1, i).some((l, k) => ES_ETIQUETA(l) && prof[e + 1 + k] === 0));
+    let dentroDeSubrutina = false;
+
+    for (let e = i - 1; e >= 0; e -= 1) {
+      if (!ES_ETIQUETA(lineas[e]) || prof[e] !== 0)
+        continue;
+
+      dentroDeSubrutina = esSubrutina(e);
+      break;
+    }
 
     if (!dentroDeSubrutina)
       anotar(ruta, 'EOF-SUELTO', i + 1, 'goto :eof en el flujo principal: termina el script');
