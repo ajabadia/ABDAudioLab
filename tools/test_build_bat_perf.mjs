@@ -196,13 +196,109 @@ const COLA = colaDesde(':end');
 
 comprobar('build.bat tiene el setlocal de expansion retardada',
   LINEAS.some((l) => l.trim().toLowerCase() === 'setlocal enabledelayedexpansion'));
-comprobar('build.bat inicializa PERF_FATAL a 0 antes del cronometro',
-  LINEAS.some((l) => l.trim().toLowerCase() === 'set "perf_fatal=0"')
-  && LINEAS.findIndex((l) => l.trim().toLowerCase().startsWith('set "perf_fatal=0'))
-  < LINEAS.indexOf(BLOQUE_PERF[0]));
 comprobar('el banco ha encontrado el bloque del cronometro y la cola de :end',
   BLOQUE_PERF.length > 40 && COLA.length > 3);
-console.log('\nlas cuatro clases del cronometro, cada una a su sitio');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EL REPARTO DE CODIGOS, EN UNA TABLA QUE SE SACA DEL PROPIO .bat
+//
+// El reparto se contaba en tres sitios y los tres a mano: las ramas del
+// cronometro que tienen que existir, el numero de ramas que marca cada clase --
+// escrito como 7 y como 3--, y las colas de :end con su codigo. Anadir una
+// clase obligaba a escribirla en los tres, y el del medio era el que mas facil
+// se olvidaba: con una rama mas y el 7 de al lado el banco se ponia en
+// verde sin que el fallo nuevo existiera nunca.
+//
+// Los NOMBRES de las clases no estan escritos aqui: son los `set "X=0"` del
+// propio build.bat. Una clase nueva aparece en la tabla por escribir su `set`,
+// sus ramas y su cola, y este fichero no se toca. Y los codigos salen de cada
+// `exit /b`, no de un literal de al lado, asi que un codigo cambiado en el .bat
+// no puede quedarse viejo aqui.
+function motivoDeRama(i) {
+  for (let k = i - 1; k >= 0 && k >= i - 14; k -= 1) {
+    const m = LINEAS[k].trim().match(/^echo\s+\[(?:Error|Warn|Info)\]\s+(.*)$/i);
+
+    if (m)
+      return m[1].split(Q).join('').replace(/\.+$/, '').slice(0, 46);
+  }
+
+  return '(el .bat no dice por que)';
+}
+
+const nombresDeClase = (valor) => [...new Set(LINEAS
+  .map((l) => (l.trim().match(new RegExp('^set\\s+"([A-Z][A-Z0-9_]*FATAL)=' + valor + '"$', 'i')) || [])[1])
+  .filter(Boolean))];
+
+const REPARTO = nombresDeClase(0).map((clase) => {
+  const setDe = (v) => ('set ' + Q + clase + '=' + v + Q).toLowerCase();
+
+  const init = LINEAS.findIndex((l) => l.trim().toLowerCase() === setDe(0));
+
+  // La cola, y su BLOQUE entero. El bloque y no una ventana de lineas: una
+  // ventana depende de cuantos `rem` haya puesto detras quien escriba el
+  // mensaje, y eso no es un invariante. El codigo se lee del `exit /b` que esta
+  // ahi dentro.
+  const guarda = 'if ' + Q + '!' + clase + '!' + Q + '==' + Q + '1' + Q + ' (';
+  const cola = LINEAS.findIndex((l) => l.trim() === guarda);
+  const bloque = cola === -1 ? [] : bloqueDesde(guarda);
+
+  const iExit = bloque.findIndex((l) => /\bexit\s*\/b\s+\d+\s*$/i.test(l.trim()));
+  const codigo = iExit === -1 ? null : Number(bloque[iExit].trim().split(/\s+/).pop());
+
+  const ramas = [];
+
+  LINEAS.forEach((l, i) => {
+    if (l.trim().toLowerCase() === setDe(1))
+      ramas.push({ linea: i + 1, motivo: motivoDeRama(i) });
+  });
+
+  return { clase, init, cola, bloque, iExit, codigo, ramas };
+});
+
+const codigoDe = (clase) => {
+  const c = REPARTO.find((x) => x.clase === clase);
+  return c === undefined ? null : c.codigo;
+};
+
+console.log('\nlas clases del reparto, cada una a su sitio ('
+  + REPARTO.length + ', leidas del .bat)');
+
+for (const c of REPARTO) {
+  comprobar(`la clase ${c.clase} se inicializa a 0 antes de que su primera rama la use`,
+    c.init > -1
+    && (c.ramas.length === 0 || c.init < c.ramas[0].linea - 1)
+    && (c.cola === -1 || c.init < c.cola));
+
+  comprobar(`la clase ${c.clase} tiene su propia cola`,
+    c.cola > -1);
+
+  comprobar(`y sale con ${c.codigo}, que es lo que escribe su propio .bat`,
+    c.iExit > -1 && c.iExit === c.bloque.length - 2);
+
+  // El numero sale de la tabla y no de un literal puesto aqui. Lo que se
+  // comprueba es que exista al menos una rama; cuantas son lo dice el .bat, y
+  // el rotulo lo enseña para que un verde no esconda un recuento.
+  comprobar(`${c.clase} se marca en ${c.ramas.length} rama(s)`
+    + (c.ramas.length ? ': ' + c.ramas.map((r) => r.motivo).join(' | ') : ''),
+    c.ramas.length > 0);
+}
+
+// El cierre del circulo: toda variable _FATAL que el .bat ponga a 1 tiene que
+// tener cola. Sin esto, una clase nueva marcada y sin cola pasaria el banco
+// entero --se veria el `set`-- y nadie devolveria el fallo al final.
+for (const usada of nombresDeClase(1))
+  comprobar(`la clase ${usada} se marca en el .bat y tiene cola, que es quien devuelve el fallo`,
+    REPARTO.some((c) => c.clase === usada && c.cola > -1));
+
+// Un codigo de clase exclusiva escrito una sola vez en todo el .bat: dos
+// escrituras del mismo son dos reglas que se contradicen. El 1 se escapa a
+// proposito --las junctions y el cronometro comparten codigo a proposito-- asi
+// que no es un invariante general sino de las clases con codigo propio.
+comprobar('cada codigo de clase exclusiva lo escribe una sola vez en el .bat',
+  ['SELFTEST_FATAL', 'LAYOUT_FATAL'].every((c) => {
+    const n = codigoDe(c);
+    return n !== null && LINEAS.filter((l) => l.trim().endsWith('exit /b ' + n)).length === 1;
+  }));
 
 // ────────────────────────────────────────────────────────────────────────,// ────────────────────────────────────────────────────────────────────────// LOS SHIMS, Y POR QUE NO SON LO QUE UN ESCRIBE PRIMERO
 //
@@ -579,6 +675,11 @@ console.log('\nla autocomprobacion del cronometro, con codigo propio');
 // que arreglar.
 const initSELF = LINEAS.find((l) => l.trim().toLowerCase() === 'set "selftest_fatal=0"');
 
+// El `set`, la posicion y la cola de esta clase los comprueba la tabla del
+// reparto de arriba. Lo que queda aqui es lo que NO se deduce del nombre: que
+// el 3 sea suyo y no un PERF_FATAL renombrado, y que la rama que lo marca se
+// distinga por su motivo y no por el nombre de la variable, que seria
+// tautologia.
 comprobar('build.bat tiene un acumulador propio para la autocomprobacion, inicializado a 0',
   initSELF !== undefined);
 comprobar('y se inicializa ANTES del bloque del cronometro que lo marca',
@@ -601,10 +702,7 @@ const colaSELF = LINEAS.find((l) => l.trim() === 'if ' + Q + '!SELFTEST_FATAL!' 
 comprobar('la cola tiene su propio guard para la autocomprobacion', colaSELF !== undefined);
 comprobar('y sale con 3, que no es el 1 de PERF_FATAL ni el de BUILD_FATAL',
   colaSELF !== undefined
-  && LINEAS.slice(LINEAS.indexOf(colaSELF), LINEAS.indexOf(colaSELF) + 16)
-    .some((l) => l.includes('exit /b 3')));
-comprobar('el 3 aparece una sola vez: un codigo repetido en dos sitios son dos reglas',
-  LINEAS.filter((l) => l.includes('exit /b 3')).length === 1);
+  && codigoDe('SELFTEST_FATAL') === 3);
 
 // Y lo que NO se puede tocar, que es la otra mitad del encargo. El 1 del
 // cronometro sigue siendo una medicion que EXISTE y que dice algo malo: el build
@@ -699,10 +797,10 @@ comprobar('build.bat tiene un else para los codigos que el tool no usa',
 // en un build de verdad: la comilla que faltaba hacia que el `for` no ejecutara
 // el `findstr`, el estado se quedaba en desconocido y la rama de `fallo-del-tool`
 // no podia dispararse nunca.
-const marcasFallo = BLOQUE_PERF.filter((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"').length;
-
-comprobar('build.bat marca el fallo en 7 ramas, y son las que se han contado',
-  marcasFallo === 7);
+// El numero de ramas que marca el cronometro ya no esta escrito: sale de la
+// tabla de arriba, que las cuenta en el .bat. Aqui solo queda comprobar que la
+// rama de la medicion incompleta siga siendo la que marca PERF_FATAL, que es
+// una propiedad de esa rama y no del recuento.
 
 // Y la rama nueva, buscada por su MENSAJE y no por el contador: el numero dice
 // que hay siete, y no cuales siete. Con una rama mas y el numero viejo, el test se
@@ -778,10 +876,8 @@ for (const marca of NO_SE_COMPROBABA) {
     enMinusculas.some((l) => l.includes(marca.toLowerCase())));
 }
 
-const marcasBUILD = LINEAS.filter((l) => l.trim().toLowerCase() === 'set "build_fatal=1"').length;
-
-comprobar('build.bat marca BUILD_FATAL en 3 ramas: git mudo, mklink y junction vigilado',
-  marcasBUILD === 3);
+// Las ramas que marcan BUILD_FATAL las cuenta y las nombra la tabla del reparto
+// de arriba. No hay un 3 escrito aqui.
 
 // El que NO debe ser fatal. Si algun dia lo es, es que alguien ha tratado como
 // error tener la copia versionada, que es justo lo contrario de lo que quiere.
@@ -794,6 +890,9 @@ comprobar('un path que git rastrea NO es motivo de fallo: se avisa y se sigue',
 const colaBUILD = LINEAS.find((l) => l.trim() === 'if ' + Q + '!BUILD_FATAL!' + Q + '==' + Q + '1' + Q + ' (');
 
 comprobar('la cola falla cuando BUILD_FATAL esta a 1', colaBUILD !== undefined);
+// Que salga con 1 y que su exit sea el ultimo lo comprueba la tabla. Aqui queda
+// lo que el nombre no dice: que el motivo diga de las junctions y no del
+// cronometro, porque las junctions se montan ANTES de la cola.
 comprobar('y distingue el fallo del cronometro del fallo de los junctions',
   colaBUILD !== undefined
   && LINEAS.slice(LINEAS.indexOf(colaBUILD), LINEAS.indexOf(colaBUILD) + 12)

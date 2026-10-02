@@ -1315,6 +1315,75 @@ del cierre**.
 158 → **178**. Sumando: las nueve del caso, la del rango del bloque y las diez
 que llevaban desde §6.21 sin ejecutarse. Mutaciones **3 de 3**.
 
+## 6.25. El reparto de códigos, en una tabla que se saca del propio `build.bat`
+
+El reparto se contaba en tres sitios y los tres a mano. Añadir una clase obligaba
+a escribirla en los tres, y el del medio era el que más fácil se olvidaba:
+
+| Sitio | Qué tenía escrito |
+|---|---|
+| las ramas del cronómetro | los códigos que tienen que tener rama |
+| las ramas que marcan cada clase | **7** de `PERF_FATAL`, **3** de `BUILD_FATAL` |
+| las colas de `:end` | cada clase con su guard, su bloque y su `exit /b` |
+
+Un número escrito al lado de un recuento es un número que se queda viejo: con
+una rama nueva y el `7` de al lado, el banco se ponía en verde sin que el fallo
+nuevo existiera nunca. Es el peor modo de estar verde, y es el que este banco
+ha unsurto ya dos veces por lo mismo.
+
+### Ahora hay una tabla, y no está escrita en el test
+
+Los **nombres de las clases no están escritos en el banco**: son los
+`set "X=0"` del propio `build.bat`. Una clase nueva aparece en la tabla por
+escribir su `set`, sus ramas y su cola, y **el fichero de tests no se toca**.
+Los códigos tampoco están escritos: salen del `exit /b` que hay dentro de la
+cola de cada clase, así que un código cambiado en el `.bat` no puede quedarse
+viejo al lado.
+
+De la tabla salen todas las comprobaciones, y por clase son cuatro — se
+inicializa a 0 antes de que su primera rama la use, tiene cola, sale con el
+código que escribe su propio `.bat`, y se marca en al menos una rama — más dos
+globales: que toda variable `_FATAL` que el `.bat` ponga a 1 **tenga cola**, y
+que un código de clase exclusiva se escriba una sola vez en todo el fichero.
+
+**La segunda global es la que cierra el círculo.** Sin ella, una clase nueva
+marcada y sin cola pasaría el banco entero: se vería el `set` y no habría quien
+devolviera el fallo al final, que es exactamente el fallo que §6.9 y §6.21
+persiguen en otras formas.
+
+**Y el recuento ya no se compara con nada.** El número de ramas sale de la tabla
+y va en el rótulo del mensaje. Lo que se comprueba es que exista al menos una;
+cuántas son, lo dice el `.bat`. Por eso `7` y `3` han desaparecido del fichero,
+y también el «las cuatro clases», que ahora se cuenta desde lo leído.
+
+### Los motivos de cada rama salen del `.bat` también
+
+En el rótulo de cada rama sale el mensaje que el propio `.bat` imprime
+justo encima de marcarla, que es donde está escrito por qué se marca. Ponerlo
+en el test sería volver a escribir el reparto en un segundo fichero, que es
+justo lo que se quita. Y como se deriva, rotular una clase nueva no es un
+trabajo: lo escribe quien escribe la rama.
+
+### Lo que queda, y por qué queda
+
+Quedan las comprobaciones que **no** se deducen del nombre de una clase: que el
+`3` sea de la autocomprobación y no un `PERF_FATAL` renombrado, que la rama se
+distinga por su motivo y no por la variable —que sería tautología—, y que el
+motivo de `BUILD_FATAL` hable de las junctions y no del cronómetro. Esas son
+afirmaciones sobre el **significado** de una clase, y una tabla de nombres y
+códigos no las dice. Lo que ya no queda es ningún **recuento**.
+
+### Medido: añadir una clase no toca el banco
+
+Con la quinta clase metida en `build.bat` —su `set`, una rama y su cola con
+código 5— el banco pasa en verde con **200 aserciones**, cinco más que antes,
+**sin cambiar una sola línea del fichero de tests**. Es la respuesta al encargo,
+medida y no razonada.
+
+Y la misma clase **sin la cola** sale en rojo en exactamente la comprobación que
+tiene que verlo. Las dos mitas juntas son lo que separa una tabla generada de
+una tabla decorativa.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -1481,6 +1550,15 @@ que llevaban desde §6.21 sin ejecutarse. Mutaciones **3 de 3**.
 | §6.24: `test_build_bat_perf.mjs` | **178 aserciones** (antes 158) |
 | §6.24: `tools/auditar-bats.mjs` | sin cambios, sigue limpio |
 | §6.24: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
+| §6.25: las clases del reparto, leidas del `.bat` | **4**, y los nombres no estan escritos en el banco |
+| §6.25: los codigos de salida | salen del `exit /b` de cada cola: 1, 1, 3 y 4 |
+| §6.25: los recuentos que estaban escritos a mano | el `7` y el `3` **ya no estan** en el fichero |
+| §6.25: una clase nueva completa en el `.bat`, sin tocar el banco | **verde, 200 aserciones** (195 + 5 suyas) |
+| §6.25: la misma clase **sin cola** | **rojo**: «se marca en el .bat y tiene cola» |
+| §6.25: una clase marcada y sin cola, sin la comprobacion global | pasaria el banco entero: se veria el `set` y nadie devolveria el fallo |
+| §6.25: `test_build_bat_perf.mjs` | **195 aserciones** (antes 178) |
+| §6.25: `tools/auditar-bats.mjs` | sin cambios, sigue limpio |
+| §6.25: `test_duraciones_suite.mjs` | **202 aserciones**, sin cambios |
 
 ## 8. Commits
 
@@ -1518,6 +1596,7 @@ que llevaban desde §6.21 sin ejecutarse. Mutaciones **3 de 3**.
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
 | este commit | §6.16: el banco del reparto deja de reensamblar fragmentos y **ejecuta `build.bat` entero**. Cuatro shims en el `PATH` (`cl.exe`, `cmake.exe`, `taskkill.exe`, `timeout.exe`) y un esqueleto con `tools/` de stubs en vez de llamadas sustituidas por `cmd /c exit N`; el `.bat` se ejecuta desde la raíz del repo para que su `%~dp0` resuelva `git ls-files`. Con eso cada caso pasa por los junctions, la compilación y el cronómetro, y el banco ve por fin los fallos de layout: quitarle el `setlocal EnableDelayedExpansion` **no lo ve**, porque el banco de fragmentos pegaba esa línea en su propio `.bat`. Tres cosas que costaron una tarde y que quedan escritas en el acta: un shim tiene que ser `.exe` porque un `.cmd` invocado por su nombre **termina el script que lo llama**, las junctions de verdad no las quita un borrado recursivo sin llevarse el origen, y el shim de `cl.exe` se salta la búsqueda de Visual Studio y baja el caso de 17 s a 1,2 s. 146 aserciones, 4 de 4 mutaciones en rojo, dos pasadas idénticas |
 | este commit | §6.14: `--guardar-referencia` mide **dos vueltas** de la suite y guarda el ruido de la máquina en la propia referencia, en el bloque `ruido`, para que el suelo absoluto de 1 s deje de ser una constante creída y sea una constante auditable: cada comparación enseña las dos bandas —la que el umbral descarta y la que no— y dice si el factor está dentro del ruido de la primera y si el margen de la segunda se ha perdido. El formato **sigue en 2**: `ruido` describe la máquina, y una referencia a la que le falta se compara igual y avisa. El ratio por caso no se guarda porque nada lo lee. La referencia commiteada **sigue sin el bloque** —la suite del árbol no termina, y ver §6.14 y §6.23— y las cinco comprobaciones que lo vigilan quedan aparcadas en el test con el cartel que las devuelve. 202 aserciones |
+| este commit | §6.25: el reparto de códigos se cuenta en un solo sitio. Los nombres de las clases **no están escritos en el banco**: son los `set "X=0"` del propio `build.bat`, y los códigos salen del `exit /b` que hay dentro de cada cola. De una tabla derivada salen las cuatro comprobaciones por clase —se inicializa antes de su primera rama, tiene cola, sale con su código, y se marca en alguna rama— y dos globales: que toda variable `_FATAL` que se ponga a 1 tenga cola, y que un código de clase exclusiva se escriba una sola vez. El `7` y el `3` que se comparaban a mano **desaparecen del fichero**, y con ellos el «las cuatro clases»: el número sale de lo leído y va en el rótulo, y los motivos de cada rama salen del mensaje que el propio `.bat` imprime encima de marcarla. Quedan las comprobaciones que no se deducen del nombre —que el 3 sea de la autocomprobación y no un PERF_FATAL renombrado, y que el motivo de BUILD_FATAL hable de junctions— porque son afirmaciones de significado y una tabla de nombres no las dice. **Medido**: con una quinta clase metida en el `.bat` el banco pasa en verde con 200 aserciones sin tocar una línea del test, y la misma clase sin cola sale en rojo en la comprobación que tiene que verlo. 178 -> 195 |
 | este commit | §6.24: la rama de **«sin node en el PATH»** estaba **contada y no medida** en el banco: constaba entre las seis que se cuentan, y ninguna comprobacion la ejecutaba. Se mide quitando node del PATH entrada por entrada —con `existsSync`, no por nombre— y comprobandolo con `where node`, que es la misma pregunta que hace el `.bat`; el caso lleva un control delante para que un fallo al filtrar no de un verde que no ha medido nada. Nueve comprobaciones: el motivo, que no se anuncie medicion, que no se llame a ninguno de los cuatro stubs, el codigo de salida y las tres de la cola. **De paso: el `process.exit` estaba en la linea 983 con diez comprobaciones debajo**, la seccion entera de la cuarta clase de §6.21 sin ejecutarse nunca, y el banco contando un total que no era el comprobado. Al destaparlas, una sale en rojo y es del test: buscaba `exit /b 4` a 16 lineas del guard y esta en la 17. Ahora se comprueba el bloque, y que el `exit` sea el ultimo antes del cierre. 158 -> 178 aserciones, 3 de 3 mutaciones |
 | este commit | §6.23: **corrige** el diagnóstico de §6.14. No hubo un `SIGSEGV` en `test_MeasurementFloatingWindow.cpp:108`: el proceso se quedaba **vivo** con el hilo principal en `LpcReply`, esperando a que un driver MIDI de la máquina contestara, y el «caso culpable» era el último volcado del buffer del reporter. Localizado con una sonda a `winmm` sin JUCE —`midiOutOpen` del DeepMind12D no vuelve, mientras `waveOutOpen` responde en milisegundos— y medidos los doce benches del preflight uno a uno. Arreglo: los **tres** que abren un endpoint real llevan el tag `[.]` de Catch2, y ya no pueden tumbar la suite por defecto; el motivo queda escrito en el fichero. **La regeneración de la referencia sigue bloqueada** por el driver: reiniciar el dispositivo, `audiodg` y `AudioSrv` no lo liberan, y las cinco comprobaciones de `ruido` siguen aparcadas. 158 y 202 aserciones |
 
