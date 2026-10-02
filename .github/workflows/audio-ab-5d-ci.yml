@@ -153,7 +153,7 @@ jobs:
       - name: Gate 6 — Global Non-VES Suite Baseline Verification
         timeout-minutes: 15
         run: |
-          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -s -r console -d yes
+          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console -d yes
 
       # El snapshot y la cuarentena, con etiqueta propia y NO dentro de la suite
       # grande. `[contracts]` habria sido mas corto y habria arrastrado trece
