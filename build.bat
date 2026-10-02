@@ -1,4 +1,4 @@
-@echo off
+@echo off
 setlocal enabledelayedexpansion
 
 echo ==============================================================================
@@ -72,6 +72,13 @@ if /i "%1"=="clean" (
 :: somebody may have on purpose, mid-build, is not this script's call. The
 :: error is loud on purpose so it is visible before a broken build, and the
 :: repair is one command that is printed.
+rem Lo que un chequeo de esta seccion deja sin PODERSE FIAR. Se inicializa
+rem AQUI, antes de los `call` de mas abajo, y no junto a PERF_FATAL mas
+rem abajo: estos `call` se ejecutan ANTES de ahi. Un `set ...=0` puesto mas
+rem abajo BORRABA el fallo que estos acaban de marcar, y asi el guard de
+rem junctions era verde siempre. No es hipotetico: nacia en la linea 119.
+set "BUILD_FATAL=0"
+
 set "SHARED_ASSETS=..\ABDSharedAssets"
 if exist "!SHARED_ASSETS!" (
     call :avisarSiEsEnlace "contracts\hardware" "es una copia versionada que el preflight y el test de drift vigilan"
@@ -108,8 +115,10 @@ set "IS_TEST_ONLY=0"
 set "RUN_PERF=0"
 rem Lo que el cronometro deja sin PODERSE FIAR. Distinto de que el cronometro
 rem tenga algo que decir: eso es un aviso, esto es no tener medicion. Se acumula
-rem aqui y se devuelve al final del script, porque los enlaces de la seccion de
-rem junctions se montan DESPUES del cronometro y salir aqui se los saltaria.
+rem y se devuelve al final del script porque todo lo que se imprime a partir
+rem de aqui es largo, y quien lee un log se para en el final.
+rem El de los junctions NO vive aqui: sus `call` estan mas ARRIBA, y por eso
+rem su acumulador tambien. Ver el comentario de su propio `set`.
 set "PERF_FATAL=0"
 if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
@@ -175,21 +184,44 @@ if /i "%1"=="run" (
 
 :: ------------------------------------------------------------------ cronometro
 ::
-:: El tiempo de la suite se mide DESPUES de compilar, y solo si el binario esta:
-:: cronometrar una compilacion fallida no dice nada del rendimiento, dice del
-:: error, y el error ya se ha visto justo encima.
+:: El tiempo de la suite se mide DESPUES de compilar. Si la compilacion ha
+:: fallado, ni se cronometra ni se dice nada: el error ya se ha visto justo
+:: encima y volver a compilar por cronometrarlo solo daria otro numero.
 ::
-:: Se busca `node` porque el cronometro es el que es. Si no esta, se avisa y se
-:: sigue: medir el tiempo es una comprobacion MAS, no la unica, y un pipeline
-:: que se para porque no hay node se queda sin las comprobaciones de verdad.
+:: Se busca `node` porque el cronometro es el que es, y no se busca antes.
+::
+:: QUE PASA SI NO ESTA, QUE ANTES DE AQUI DECIA QUE SE AVISABA Y SE SEGUIA, Y
+:: YA NO ES ESO. En modo `perf` no hay node es un build que se pidio medir y
+:: no ha medido, y sale con codigo de fallo: es la misma clase de mentira que un
+:: 2 del cronometro, solo que se ve antes de empezar. Un build normal NO LLEGA
+:: aqui --todo este bloque corre solo con RUN_PERF-- asi que "sin node se salta
+:: el cronometro" sigue siendo cierto para el que no ha pedido medir. Lo que no
+:: es cierto es que pedirlo y no hacerlo salga con verde.
+::
+:: Igual con el binario de tests: si `perf` ha compilado y no hay exe, no es
+:: que no hubiera nada que medir, es que la compilacion no ha entregado lo que
+:: habia que medir. El fallo de compilacion ya se ha impreso justo encima.
 if "!RUN_PERF!"=="1" (
     if not exist "build\Release\ABDAudioLab_Tests.exe" (
-        echo [Warn] No hay binario de tests que cronometrar.
+        rem Un aviso aqui es un build que se pedia medir y no ha medido. El
+        rem binario se compila justo encima, asi que su ausencia no es "no habia
+        rem nada que medir": es que la compilacion no ha dejado lo que habia que
+        rem medir, y eso ya se ha informado arriba como fallo de compilacion.
+        echo [Error] `perf` was asked to time the suite and there is no binary.
+        echo [Error] It should have been built just above. Nothing was measured,
+        echo [Error] and that is not a performance result. The build will FAIL.
+        set "PERF_FATAL=1"
     ) else (
         where node >nul 2>nul
         if errorlevel 1 (
-            echo [Warn] No hay node en el PATH: se salta el cronometro.
-            echo [Warn] Se mide con:  node tools\duraciones-suite.mjs
+rem Sin node el cronometro no se puede ni intentar. El aviso decia "se salta"
+rem como si saltar fuera una opcion mas: en `perf` es la unica razon por la que
+rem se ha pedido este build, y un build que pide medir y no mide sale con el
+rem codigo de uno que no ha mirado. Un build normal no llega aqui: este bloque
+rem solo corre con RUN_PERF.
+echo [Error] `perf` needs node and there is none in PATH. Nothing was measured.
+echo [Error] Install Node 18+ or run `build.bat tests`. The build will FAIL.
+set "PERF_FATAL=1"
         ) else (
             rem
             rem EL CRONOMETRO SE COMPRUEBA A SI MISMO ANTES DE QUE SE LE CREA QUE
@@ -241,15 +273,15 @@ if "!RUN_PERF!"=="1" (
                     rem invocacion porque el cronometro tarda minutos, y una vuelta de
                     rem mas mediria otra vez: con otra carga, otro resultado y un
                     rem codigo de salida que se tiraria.
-                    set "PERF_LOG=%TEMP%\abdl_perf.txt
+                    set "PERF_LOG=%TEMP%\abdl_perf.txt"
                     node tools\duraciones-suite.mjs >"!PERF_LOG!"
-                    set "PERF_EXIT=!errorlevel!
+                    set "PERF_EXIT=!errorlevel!"
                     type "!PERF_LOG!"
                     rem El estado es la segunda palabra de la linea que empieza por el
                     rem prefijo. Lo que se captura es stdout, que es donde va el
                     rem veredicto; stderr se ha ido a la consola sin tocar, asi que los
                     rem mensajes de error se siguen viendo igual.
-                    set "PERF_ESTADO=desconocido
+                    set "PERF_ESTADO=desconocido"
                     for /f "tokens=1,2*" %%e in ('findstr /b /c:"ABD-VEREDICTO "" "!PERF_LOG!"") do set "PERF_ESTADO=%%e
                     del "!PERF_LOG!" >nul 2>nul
                     rem
@@ -292,7 +324,7 @@ if "!RUN_PERF!"=="1" (
                         echo [Error] said so. Its error and stack are in the log above.
                         echo [Error] Do NOT read this as a slow suite: a slow suite would have
                         echo [Error] been measured. The build will FAIL at the end.
-                        set "PERF_FATAL=1
+                        set "PERF_FATAL=1"
                     ) else if "!PERF_EXIT!"=="0" (
                         echo [Info] Suite timings: no slow test, no regression vs reference.
                     ) else if "!PERF_EXIT!"=="1" (
@@ -355,7 +387,10 @@ rem
 rem Y de ahi el segundo punto, que es el importante: si git no responde, NO se
 rem enlaza. "No se" no es "si": no saber si un path esta versionado no es un
 rem motivo para sustituirlo, porque el coste de equivocarse es un guard que
-rem miente en verde y el derangarse es un aviso.
+rem motivo para sustituirlo. Lo que se hace con esa duda es lo que ha cambiado: antes
+rem avisar y seguir, y ahora marcar el build como fallido. El enlace no se
+rem crea igual, que sigue siendo lo correcto; lo que no se sostiene es salir
+rem con verde sin haber podido hacer la comprobacion que lo protege.
 git -c safe.directory=* -C "%~dp0." ls-files -- "%~1" >"!LISTA!" 2>nul
 if not errorlevel 1 set "GitResponde=SI"
 for /f "usebackq delims=" %%f in ("!LISTA!") do set "Rastreado=SI"
@@ -364,9 +399,14 @@ del "!LISTA!" >nul 2>nul
 if exist "%~2" goto :eof
 
 if "!GitResponde!"=="NO" (
-    echo [Aviso] %~2 NO se enlaza: git no ha podido decir si esta versionado.
+    echo [Error] %~2 NO se enlaza: git no ha podido decir si esta versionado.
     echo         Se forego el enlace porque "no se" no es "si". Con git disponible:
     echo           git -c safe.directory=* -C "%~dp0." ls-files -- "%~1"
+    rem El enlace NO se crea, que es lo correcto. Lo que no lo es es seguir.
+    rem La comprobacion que protege el path versionado no se ha hecho, asi que
+    rem el build no puede decir que ese path este bien. Antes avisaba y seguia.
+    echo [Error] The check that protects this path did NOT run. The build will FAIL.
+    set "BUILD_FATAL=1"
     goto :eof
 )
 
@@ -385,7 +425,13 @@ rem habia podido crear, que era cierto pero no decia por que.
 for %%d in ("%~2") do if not exist "%%~dpd" mkdir "%%~dpd" 2>nul
 mklink /J "%~2" "%~3" >nul 2>nul
 if errorlevel 1 (
-    echo [Aviso] No se ha podido crear el enlace a %~2. Se sigue con una copia vacia.
+    echo [Error] Could not create the link to %~2.
+    rem El mensaje de antes decia "se sigue con una copia vacia", y no era
+    rem cierto: si no se ha enlazado no hay copia, ni vacia ni de otro tipo, y
+    rem el build sigue como si los assets estuvieran donde deben. Con assets
+    rem que no estan, todo lo que los mide compara contra nada.
+    echo [Error] The assets are NOT linked. The build will FAIL.
+    set "BUILD_FATAL=1"
 )
 goto :eof
 
@@ -401,11 +447,17 @@ rem estar, y por eso el segundo parametro dice que se rompe.
 if not exist "%~1" goto :eof
 fsutil reparsepoint query "%~1" >nul 2>nul
 if errorlevel 1 goto :eof
-echo [Aviso] %~1 YA es una junction, y %~2.
-echo         El build sigue, pero con un enlace no se esta comparando
-echo         nada: todo lo que vigila esa ruta se compara consigo mismo.
-echo         Para dejar de verlo:
+rem Aqui no hay fallo de comprobacion: el junction existe y el aviso es
+rem cierto. Lo que no es cierto es salir con verde. Todo lo que vigila esa
+rem ruta se compara consigo mismo y sale verde sin comprobar nada, que es la
+rem razon por la que esta rutina SOLO se llama para el path vigilado: en
+rem assets/models y assets/brands un junction es justo lo que tiene que haber
+rem ahi, y ahi no se llama nunca.
+echo [Error] %~1 YA is a junction, and %~2.
+echo         Everything that checks that path is comparing it with itself and
+echo         passing without checking. The build will FAIL. To undo it:
 echo           cmd /c rmdir "%~1"
+set "BUILD_FATAL=1"
 goto :eof
 
 :end
@@ -413,6 +465,16 @@ goto :eof
 :: dice el comentario de PERF_FATAL: los enlaces se montan despues y salir antes
 :: se los saltaria. Un build que montase los enlaces a medias y ademas fallara
 :: dejaria el arbol peor que uno que no llego a empezar.
+if "!BUILD_FATAL!"=="1" (
+    rem El motivo se dice aqui y no en el punto de fallo, por el mismo motivo
+    rem que el de PERF_FATAL: las junctions se montan ANTES de aqui, asi que
+    rem quien se entere de que algo fallo va a mirar el final del log.
+    echo [Error] Build failed: a check in this build did NOT run.
+    echo [Error] The links above could not be verified or created. Which check
+    echo [Error] did not run is printed above, where it failed.
+    echo [Error] Nothing above this line is a performance result.
+    endlocal & exit /b 1
+)
 if "!PERF_FATAL!"=="1" (
     echo [Error] Build failed: the timing guard could not produce a measurement.
     echo [Error] Nothing above this line is a performance result.

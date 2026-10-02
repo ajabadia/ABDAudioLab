@@ -403,27 +403,134 @@ comprobar('build.bat no repite codigo en dos ramas',
 comprobar('build.bat tiene un else para los codigos que el tool no usa',
   BLOQUE_PERF.some((l) => l.trim() === ') else ('));
 
-// El numero de ramas que devuelven el fallo, y CUALES son. Cuatro, y solo
-// cuatro:
+// El numero de ramas que devuelven el fallo, y CUALES son. SIETE:
 //
-//     el test del reparto de codigos en rojo  ->  no se sabe leer el cronometro
-//     el test del cronometro en rojo           ->  no se sabe si mide
-//     el codigo 2                              ->  no se ha medido
-//     un codigo que el tool no usa             ->  no se sabe que paso
+//     sin binario de tests          se pidio medir y no habia nada que medir
+//     sin node en el PATH           se pidio medir y no se podia medir
+//     el test del reparto en rojo    el build no sabe leer un resultado
+//     el test del cronometro rojo    el cronometro no sabe si mide
+//     el cronometro ha fallado      el cronometro no pudo terminar
+//     el codigo 2                   no se ha medido
+//     un codigo que el tool no usa   no se sabe que ha pasado
 //
-// El 1 NO esta, y esa es la parte que cuesta trabajo defender ante alguien con
-// prisa. Un 1 es una medicion que existe y que dice algo malo; un 2 es que no
-// hay medicion. Fallar por lo segundo es correcto y fallar por lo primero es
-// como un guard que se pone rojo por ir lento, que es un guard que nadie
-// escucha. El dia que ese 1 entre aqui, este numero pasa a 5 y el mensaje de
-// este test tiene que decir por que.
+// El 1 del cronometro NO esta, y esa es la parte que cuesta defender ante alguien
+// con prisa: un 1 es una medicion que existe y que dice algo malo, y un 2 es que
+// no hay medicion. Fallar por lo segundo es correcto; fallar por lo primero
+// convierte el cronometro en un aviso que nadie escucha.
+//
+// SE CONTAN CON NOMBRE PORQUE EL NUMERO SOLO NO SIRVE. Estas ramas se cuentan
+// comparando la linea entera, y una linea `set "PERF_FATAL=1` sin la comilla de
+// cierre --que en batch funciona igual, porque cmd es indulgente-- NO CUENTA.
+// Cuando se anadieron dos ramas, el test se puso verde con el numero viejo y con
+// dos guard invisible: un verde por el motivo equivocado no avisa de nada y
+// ademas convence. De ahi la asercion de comillas, mas abajo.
 const marcasFallo = BLOQUE_PERF.filter((l) => l.trim().toLowerCase() === 'set "perf_fatal=1"').length;
 
-comprobar('build.bat marca el fallo en 4 ramas: reparto rojo, test rojo, codigo 2 y codigo imposible',
-  marcasFallo === 4);
+comprobar('build.bat marca el fallo en 7 ramas, y son las que se han contado',
+  marcasFallo === 7);
 
 comprobar('build.bat devuelve el fallo con exit /b 1 al final de la cola',
   COLA.some((l) => l.trim().toLowerCase() === 'endlocal & exit /b 1'));
+
+// ── Los guards de junctions ──
+//
+// Los mismos que el cronometro, con el mismo patron: se acumulan y se devuelven
+// en la cola. Y con la misma excepcion que el `Rastreado=SI`, que NO es fatal y
+// por eso necesita su propia comprobacion en positivo: no sustituir un path que
+// git rastrea es la respuesta correcta, y hacerlo fatal seria fallar por tener
+// la copia buena.
+
+console.log('\nlas comprobaciones que antes solo avisaban, y ahora fallan');
+
+// El acumulador existe y arranca a 0, o el `if` de la cola compararia una
+// variable vacia contra "1" y no pasaria nunca.
+const initBUILD = LINEAS.find((l) => l.trim().toLowerCase() === 'set "build_fatal=0"');
+
+comprobar('build.bat tiene un acumulador propio para los junctions, inicializado a 0',
+  initBUILD !== undefined);
+// El orden importa y mira al LUGAR DONDE SE USA, que es el `call`, no la
+// definicion de la etiqueta. La asercion anterior miraba la definicion y por
+// eso daba verde con el acumulador 40 lineas por DEBAJO de los `call`: un
+// `set ...=0` debajo borra el fallo que las subrutinas acaban de marcar, y el
+// guard queda verde para siempre. Se comparan las dos ultimas lineas que
+// ejecutan estas subrutinas, que son las que mueven el acumulador.
+const ULTIMO_CALL = Math.max(
+  LINEAS.findIndex((l) => l.trim().toLowerCase().startsWith('call :avisarriesienlace')),
+  LINEAS.findIndex((l) => l.trim().toLowerCase().startsWith('call :crearenlacesiprocede')),
+);
+comprobar('y se inicializa ANTES del ultimo `call` que la marca, no despues',
+  initBUILD !== undefined && ULTIMO_CALL > -1 && LINEAS.indexOf(initBUILD) < ULTIMO_CALL);
+comprobar('y el cronometro NO lo usa: son dos guard distintos y no uno',
+  BLOQUE_PERF.every((l) => !l.toLowerCase().includes('build_fatal')));
+
+// Los cuatro que no se estaban haciendo. Se cuentan por su mensaje, que es lo
+// unico que sobrevive a que alguien reescriba el codigo de alrededor.
+// Tres mensajes que NO son tres ramas: los dos del mklink explican el mismo
+// fallo y salen del mismo `if`. Contarlos como dos seria contar un mensaje, no
+// un sitio donde se decide.
+const NO_SE_COMPROBABA = [
+  'the check that protects this path did not run',
+  'could not create the link to',
+  'is a junction, and',
+];
+
+// En minuscula las dos partes: el texto del build.bat empieza por mayuscula
+// porque va detras de un marcador, y comparar en minuscula contra minuscula no
+// casa nunca. Un test que no casa con lo que deberia no comprueba nada, y lo
+// enseña en rojo sin decir por que.
+const enMinusculas = LINEAS.map((l) => l.toLowerCase());
+
+for (const marca of NO_SE_COMPROBABA) {
+  comprobar(`build.bat avisa en rojo de "${marca}"`,
+    enMinusculas.some((l) => l.includes(marca.toLowerCase())));
+}
+
+const marcasBUILD = LINEAS.filter((l) => l.trim().toLowerCase() === 'set "build_fatal=1"').length;
+
+comprobar('build.bat marca BUILD_FATAL en 3 ramas: git mudo, mklink y junction vigilado',
+  marcasBUILD === 3);
+
+// El que NO debe ser fatal. Si algun dia lo es, es que alguien ha tratado como
+// error tener la copia versionada, que es justo lo contrario de lo que quiere.
+comprobar('un path que git rastrea NO es motivo de fallo: se avisa y se sigue',
+  LINEAS.some((l) => l.includes('NO se enlaza: git rastrea ficheros'))
+  && LINEAS.every((l) => !(l.includes('Rastreado') && l.includes('BUILD_FATAL=1'))));
+
+// La cola, y el orden: junctions se montan ANTES de la cola, asi que el aviso
+// tiene que decir que el fallo no es del cronometro.
+const colaBUILD = LINEAS.find((l) => l.trim() === 'if ' + Q + '!BUILD_FATAL!' + Q + '==' + Q + '1' + Q + ' (');
+
+comprobar('la cola falla cuando BUILD_FATAL esta a 1', colaBUILD !== undefined);
+comprobar('y distingue el fallo del cronometro del fallo de los junctions',
+  colaBUILD !== undefined
+  && LINEAS.slice(LINEAS.indexOf(colaBUILD), LINEAS.indexOf(colaBUILD) + 12)
+    .some((l) => l.includes('did NOT run')));
+comprobar('los dos guard se leen los dos, no uno o el otro',
+  LINEAS.filter((l) => l.includes('endlocal & exit /b 1')).length === 2);
+
+// ── Las comillas ──
+//
+// La asercion mas tonta del fichero y la que mas ha costado: siete lineas
+// `set "X"` se quedaron sin la comilla de cierre. Batch no se rompe por eso --lo
+// medido: con y sin comilla, `set` da el mismo valor-- pero el conteo de ramas
+// de arriba las cuenta comparando la linea entera, y dos de ellas eran
+// precisamente las ramas nuevas. El test se puso verde con el numero viejo y
+// dos guard invisible, que es el peor modo de estar verde.
+//
+// Se comprueba sobre LINEAS, que viene del fichero leido, y no sobre una copia
+// filtrada: el fallo es del fichero.
+
+console.log('\nlas comillas de los `set`, que en batch no rompen y aqui si cuentan');
+
+const setsImpares = LINEAS.filter((l) => l.trim().startsWith('set ') && l.split(Q).length % 2 === 0);
+
+comprobar('ninguna linea `set "..."` se queda sin la comilla de cierre',
+  setsImpares.length === 0);
+
+if (setsImpares.length > 0)
+  for (const l of setsImpares)
+    console.log(`          ${l.trim()}`);
+
 
 console.log('\n' + '='.repeat(64));
 console.log(fallos.length === 0

@@ -322,6 +322,38 @@ Las dos lecciones están en el banco, porque las dos costaron un rato:
 
 La última aserción de la tabla es la que más importa: **una llamada a node que no esté en `LLAMADAS_NODE` produce un rojo que la nombra**, no un cuelgue. Un test que se cuelga en vez de ponerse rojo es un test del que nadie se fía, porque no se sabe si falló o si solo va lento.
 
+## 6.8. Las comprobaciones que solo avisaban, y el criterio de cuándo avisar es un fallo
+
+El encargo era extender el tratamiento de códigos de salida —el de §6.1 y §6.7— al resto de comprobaciones de `build.bat`, que hasta aquí avisaban y nunca fallaban. Seis avisaban y ninguna fallaba. Cinco están ahora en la misma clase que el `2` del cronómetro, y la sexta se queda avisando a propósito.
+
+**El criterio, que es lo que hace falta para no pasarse de lejos: no poder hacer la comprobación es fatal; que la comprobación se haga y su respuesta sea «no» se avisa y se sigue.** La primera significa que el build no puede afirmar nada sobre un path que no ha mirado, y un build que afirma sin mirar es el mismo fallo que un guard que miente en verde. La segunda significa que el build ha preguntado y la respuesta es negativa, y esa respuesta es un estado legítimo del repositorio: el guion tiene algo que decir y lo dice.
+
+| Comprobación | Antes | Ahora | Por qué |
+|---|---|---|---|
+| `perf` sin binario de tests | `[Warn]` y sigue | `PERF_FATAL=1` | Se pidió medir y no hay nada medido. El fallo de compilación ya se había impreso justo encima |
+| `perf` sin node en el PATH | `[Warn] se salta el cronómetro` | `PERF_FATAL=1` | En `perf` el cronómetro no es *una* comprobación más: es la razón del build. Un build normal no llega a ese bloque, así que «sin node se salta» sigue siendo cierto para quien no ha pedido medir |
+| `git` no responde al preguntar si un path está versionado | `[Aviso]` y sigue | `BUILD_FATAL=1` | La pregunta era la que protege el path versionado, y no se ha podido hacer. El enlace tampoco se crea, que es lo correcto: lo que no se sostiene es salir con verde |
+| `mklink` falla | `[Aviso] se sigue con una copia vacía` | `BUILD_FATAL=1` | El mensaje anterior mentía: si no hay enlace no hay copia, ni vacía ni de otro tipo. Con los assets sin enlazar, todo lo que los mide compara contra nada |
+| El path vigilado ya es una junction | `[Aviso]` y sigue | `BUILD_FATAL=1` | El junction existe y el aviso es cierto; lo que no puede ser es el verde. Todo lo que vigila esa ruta se compara consigo mismo |
+| **`Rastreado=SI`: git dice que hay ficheros dentro | `[Aviso]` y sigue | **`[Aviso]` y sigue** | **Esta se deja como estaba, y es la que prueba que el criterio no es «todo pasa a fatal»** |
+
+Sobre la última fila, que es la única decisión de criterio y no un descuido: cuando git responde «sí, hay 40 ficheros versionados aquí», ha contestado **completo** a la pregunta que se le hizo. El guion existe para no sustituir con una junction un path que git vigila, y lo hace —no enlaza y dice por qué—. Fallar ahí convertiría en error de build un checkout normal en el que esas copias existen a propósito. La respuesta negativa no es un fallo de la comprobación: es la comprobación funcionando.
+
+**El fallo que esto destapó, y que es de la misma familia que todos los de esta acta: el acumulador nacía debajo de sus propios `call`.** `set "BUILD_FATAL=0"` se había puesto junto a `PERF_FATAL`, en la línea 119. Los `call :avisarSiEsEnlace` y `call :crearEnlaceSiProcede` que mueven ese acumulador estaban en las líneas 77-80, **cuarenta líneas antes**. Todo `BUILD_FATAL=1` se borraba en la 119 y el guard, recién escrito, era decorativo: exactamente el «guard que miente en verde» que esta sección describe en los demás. El acumulador se ha subido a la línea 80, justo antes del `if` que contiene los `call`, que han pasado a ser las líneas 84-87.
+
+El comentario que justificaba la posición antigua afirmaba que «los enlaces de la seccion de junctions se montan DESPUES del cronómetro», y es justo al revés: se montan antes. Esa frase es lo que inducía a colocar el acumulador donde no tocaba, así que también se ha corregido.
+
+**Y la aserción que tenía quearlo daba verde.** Comparaba la posición del `set` con la **definición** de la etiqueta (ahora la 367), que siempre cae después, en vez de con el **`call`** que la usa. Con el acumulador en su sitio malo daba verde. Ahora compara con la última línea que ejecuta esas subrutinas, y se ha comprobado que muerde: devuelto el acumulador a la línea 119, la aserción se pone roja.
+
+**Los dos guards, probados con el texto real y no con una paráfrasis.** Un banco ejecuta la subrutina tal cual está en `build.bat`, extraída del fichero, y exige el código de salida:
+
+| Entrada | Antes | Ahora |
+|---|---|---|
+| `PATH` sin git, `contracts/hardware` sin enlazar | verde | **exit 1** |
+| El path vigilado ya es una junction | verde | **exit 1** |
+
+Dos cosas de batch que el banco tuvo que aprender, y que están escritas porque las dos son trampas que se cobran un `exit=0` que parece verde: un `goto :eof` **fuera de un `call`** termina el script entero y se come la cola, así que las subrutinas tienen que ir **al final** del `.bat` generado; y un comentario `::` no es una etiqueta, aunque empiece por `:`. El primer banco fallaba con `exit=0` y ningún veredicto, y era el banco el que estaba mal.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -348,6 +380,13 @@ La última aserción de la tabla es la que más importa: **una llamada a node qu
 | §6.7: `test_build_bat_perf.mjs` tras el arreglo del banco | **54 aserciones**, y 43 s con una llamada sin sustituir |
 | §6.7: un fallo del cronómetro (`EISDIR` a media lectura) | antes `1` leido como lentitud → **ahora `2`, `fallo-del-tool`** |
 | §6.6: `build.bat` intacto tras el banco de mutación | **sí** |
+| §6.8: `test_build_bat_perf.mjs` con los guards de junctions | **66 aserciones**, +12 |
+| §6.8: comprobaciones que solo avisaban y ahora fallan | **5 de 5**, y 1 que sigue avisando a propósito |
+| §6.8: junctions con `git` mudo, sobre el texto real de `build.bat` | antes **verde** → ahora **exit 1** |
+| §6.8: el path vigilado ya es una junction | antes **verde** → ahora **exit 1** |
+| §6.8: el acumulador debajo de sus `call` (fallo encontrado al revisar) | aserción nueva **roja**; con el acumulador en su sitio, verde |
+| §6.8: mutaciones del reparto tras mover el acumulador | **7 mutaciones → 7 en rojo** |
+| §6.8: `test_duraciones_suite.mjs`, sin cambios en el tool | **160 aserciones**, en verde |
 
 ## 8. Commits
 
@@ -360,6 +399,7 @@ La última aserción de la tabla es la que más importa: **una llamada a node qu
 | `4b9199c` | §6.1: `build.bat` falla el build con un 2 y con un código que el tool no usa, y solo avisa con un 1. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear en el árbol de trabajo junto a su propio arreglo de `MockAudioEngine`, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. El fichero es el de WS-1 y el cambio es el descrito en §6.1. |
 | este commit | §6.6: el reparto de códigos pasa de un banco de un solo uso a `tools/test_build_bat_perf.mjs`, y `build.bat` lo ejecuta antes de cronometrar (42 aserciones). Con `*.bat text eol=crlf` en `.gitattributes`, que evita que el diff del build.bat sea el fichero entero cada vez que se toca |
 | este commit | §6.7: el cronómetro imprime una línea de veredicto legible por máquina (seis estados, un solo punto de emisión), un fallo del tool sale con 2 en vez de 1, y `build.bat` lee el estado. El banco del reparto deja de colgarse: emparejamiento por prefijo, las llamadas sin sustituir se nombran, timeout de 40 s por caso y cerrojo de instancia única |
+| este commit | §6.8: cinco comprobaciones de `build.bat` que solo avisaban pasan a fallar el build, con un acumulador propio para las junctions y otro para el cronómetro. El acumulador nuevo ha nacido 40 líneas por debajo de los `call` que lo mueven — lo ha detectado la revisión de este commit, no el test, cuya aserción miraba la definición de la etiqueta en vez del `call` — y esa aserción está corregida. Se deja sin hacer fatal `Rastreado=SI`, que es la comprobación contestando de verdad |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 
