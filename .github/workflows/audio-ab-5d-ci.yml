@@ -188,8 +188,15 @@ jobs:
       # medicion que no existe con forma de medicion. Despues se podria avisar,
       # pero el resultado ya habria quedado en el log, y hay quien lo lee sin mirar el
       # exit code. Antes, el rojo sale solo y no hay nada que leer por encima.
+      #
+      # Y aqui va el test del REPARTO DE CODIGOS, que es lo que traduce el
+      # codigo del cronometro en codigo de salida del build. Se autocomprueba
+      # en el mismo paso por lo mismo que el otro: si el reparto deriva, el
+      # cronometro mide bien y el build lo lee mal, y eso no se arregla avisando
+      # despues porque el resultado equivocado ya esta escrito.
       - name: Self-check the Timing Tool
         run: |
+          node tools/test_build_bat_perf.mjs
           node tools/test_duraciones_suite.mjs
 
       # El cronometro, aqui y no en un job aparte, porque es el UNICO sitio donde

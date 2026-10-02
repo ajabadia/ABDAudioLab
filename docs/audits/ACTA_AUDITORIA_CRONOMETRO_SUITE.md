@@ -239,6 +239,45 @@ La comparación avisa cuando la máquina no es la misma, y es un **aviso y no un
 
 Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.exe` hay que reconstruirlo antes de medir, y la herramienta no comprueba que el binario sea posterior al código. Medir con un binario viejo mide el defecto que se iba a arreglar.
 
+### 6.6 El reparto de códigos estaba en un banco de un solo uso — CORREGIDO
+
+Se cerró en `78e238f`… no: se escribió abierto aquí, porque es lo que faltaba después de cerrar §6.1. Cerrar §6.1 dejó el build leyendo bien el código del cronómetro, pero el reparto —qué código significa qué cosa— vivía en un banco de pruebas de un solo uso, es decir en la cabeza de quien lo escribió y en el commit que lo explicaba. **Un contrato de cuatro filas que solo existe en un commit es un contrato que puede derivar sin que nadie se entere.**
+
+Ahora está en [tools/test_build_bat_perf.mjs](../tools/test_build_bat_perf.mjs), y `build.bat` lo ejecuta antes de cronometrar. **42 aserciones.**
+
+**Lo que hace y por qué no reimplementa nada.** Una copia de la lógica del reparto en JavaScript estaría en verde mientras el `.bat` hiciera otra cosa, que es justo el fallo que se quiere evitar. El test **extrae del `build.bat` commiteado** el bloque del cronómetro y la cola de `:end`, los pega en el mismo orden en que se ejecutan y ejecuta eso de verdad. Sustituye solo tres cosas, las que impiden que un banco corra solo:
+
+| Lo que sustituye | Por qué |
+|---|---|
+| el `if not exist` del binario de tests | por uno que mira un señuelo, para que el test no dependa de que haya compilado nada |
+| `node tools\test_build_bat_perf.mjs` | por `cmd /c exit N` |
+| `node tools\test_duraciones_suite.mjs` | por `cmd /c exit N` |
+| `node tools\duraciones-suite.mjs` | por `cmd /c exit N` |
+
+La sección de junctions no se pega, y es a propósito: no toca `PERF_FATAL` y montarla crearía enlaces de verdad en el árbol.
+
+**Lo que no es evidente.** El preámbulo del banco —`setlocal` y `set "PERF_FATAL=0"`— también se extrae del fichero real, no se escribe en el test. Si el banco se los pusiera él, seguiría en verde con el `set` borrado de `build.bat`, que es exactamente el cambio que este test existe para ver.
+
+**Y el fallo se devuelve en la cola, que es la mitad del contrato.** El `exit /b 1` está en `:end`, después de los junctions. El banco pega la cola por eso, y comprueba que el mensaje de fallo sea la **última** línea que dice algo, no solo que esté en la salida.
+
+**Lo que se ha demostrado que detecta.** Un test que solo dice que el reparto es el de hoy no demuestra nada, porque puede estar comprobando una copia de sí mismo. Un banco de mutación rompe el reparto de siete maneras distintas y exige que el test se ponga rojo en las siete, diciendo la aserción correcta y no una cualquiera:
+
+| Mutación | Lo que se rompe |
+|---|---|
+| el 2 deja de fallar el build | un entorno roto vuelve a ser un build verde, en silencio |
+| el 1 pasa a fallar el build | "tu máquina va lenta" se lee como "tu build está roto" |
+| el `exit /b 1` sale de la cola | el build falla pero se salta los junctions |
+| la rama del 2 no existe | un 2 cae al `else` y pierde el mensaje |
+| el test del cronómetro en rojo no tumba el build | la puerta se queda muda |
+| el test del reparto en rojo no tumba el build | el reparto puede derivar sin que nadie se entere |
+| el `if not exist` del binario desaparece | el reparto se lee entero siempre, sin dispensa posible |
+
+Las siete se ven. Y una mutación que **no** se veía, que es la razón de que el banco este en `build/`: apuntar el `if not exist` a un exe inexistente **no** cortocircuita nada, porque el banco sustituye ese `if` por el suyo. Lo que lo cortocircuita es que el `if` no esté. Corregir eso es lo que convirtió la séptima mutación de decorativa en real.
+
+**Dos cosas que se han encontrado de paso.** El banco no detectaba nada porque Node entrecomilla un argumento que lleva barras y `cmd.exe` buscaba el fichero *con* las comillas dentro: `status` nulo y `stdout` vacío, que se leían como un fallo cualquiera. Y las ramas del `build.bat` se buscaban por una cadena armada a mano que no casaba, porque en batch el `if` cierra la comilla de la variable *antes* del `==`. Las dos se arreglan: con una comprobación de que el banco se ha ejecutado de verdad, y buscando las ramas por forma.
+
+**Lo que sigue abierto.** El `build.bat` no se puede mutar en un banco sin tocar el fichero real, así que el test acepta `ABD_BUILD_BAT` para apuntarse a una variante. El gancho está en el propio test, visible, y avisa en voz alta cuando se usa. El banco de mutación está en `build/`, que está ignorado: es andamiaje para demostrar que el test funciona, no algo que se commitee.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -256,8 +295,12 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 | §6.3: ruido intacto, caso real de 0,22 s fingido a ×2,5 | **no sale** |
 | Suite completa tras §6.3 | **939 casos, 890 pasados, 0 fallos, 49 saltados**, 2 m 56 s |
 | §6.1: `build.bat` con el cronómetro en 0 / 1 / 2 / 7 | **exit 0 / 0 / 1 / 1** |
+| §6.6: `test_build_bat_perf.mjs` | **42 aserciones, todas en verde** |
 | §6.1: `build.bat` con el test del cronómetro en rojo | **exit 1**, y sin anunciar una medición que no pidió |
+| §6.6: el mismo test con el test del reparto en rojo | **exit 1**, y sin anunciar una medición |
 | Fichero de la herramienta | 554 líneas → 964 |
+| §6.6: mutaciones del reparto que el test NO ve | **7 mutaciones → 7 en rojo** |
+| §6.6: `build.bat` intacto tras el banco de mutación | **sí** |
 
 ## 8. Commits
 
@@ -268,6 +311,7 @@ Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.
 | `78e238f` | §6.3: el umbral absoluto de 1 s. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. Los ficheros son los de WS-1 y el cambio es el descrito en §6.3. |
 | `93c47cd` | `build.bat` distingue el código 2 de entorno del 1 de rendimiento, y fija el contrato en la cabecera del tool |
 | `4b9199c` | §6.1: `build.bat` falla el build con un 2 y con un código que el tool no usa, y solo avisa con un 1. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear en el árbol de trabajo junto a su propio arreglo de `MockAudioEngine`, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. El fichero es el de WS-1 y el cambio es el descrito en §6.1. |
+| este commit | §6.6: el reparto de códigos pasa de un banco de un solo uso a `tools/test_build_bat_perf.mjs`, y `build.bat` lo ejecuta antes de cronometrar (42 aserciones). Con `*.bat text eol=crlf` en `.gitattributes`, que evita que el diff del build.bat sea el fichero entero cada vez que se toca |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 

@@ -1,4 +1,4 @@
-@echo off
+@echo off
 setlocal enabledelayedexpansion
 
 echo ==============================================================================
@@ -202,64 +202,84 @@ if "!RUN_PERF!"=="1" (
             rem no se puede deshacer la confianza en un resultado que salio de un
             rem tool que no funciona. Con un solo caso de rojo se pierde la
             rem medicion entera, y con el orden al reves solo se pierde el paso.
-            node tools\test_duraciones_suite.mjs
+            rem
+            rem EL REPARTO DE CODIGOS TAMBIEN SE COMPRUEBA A SI MISMO, y antes
+            rem que el cronometro. El build convierte el codigo del cronometro en
+            rem codigo de salida del build, y ese reparto son cuatro filas escritas
+            rem en un sitio: si derivan, el build deja de distinguir "tu maquina va
+            rem lenta" de "no he medido nada", y las dos cosas salen por el mismo
+            rem sitio. Un reparto que solo se lee no esta comprobado.
+            rem
+            rem Los dos tests van juntos porque son la misma promesa: que lo que dice
+            rem el cronometro sea lo que lee el build.
+            node tools\test_build_bat_perf.mjs
             if errorlevel 1 (
-                echo [Error] The timing tool's own tests are red. Nothing was measured.
-                echo [Error] A tool that fails its own tests does not get to say anything
-                echo [Error] about how long the suite takes. Fix it first:
-                echo [Error]   node tools\test_duraciones_suite.mjs
-                echo [Error] The build will FAIL at the end. An unchecked timing tool is
-                echo [Error] not a slow suite: it is a guard that is no longer guarding.
+                echo [Error] The build cannot be trusted to read a timing result. Its own
+                echo [Error] exit-code contract is red, so anything it says about the
+                echo [Error] suite is unverifiable. Fix it first:
+                echo [Error]   node tools\test_build_bat_perf.mjs
+                echo [Error] The build will FAIL at the end.
                 set "PERF_FATAL=1"
             ) else (
-                echo ==============================================================================
-                echo  Timing the suite. It takes minutes; that is not a hang.
-                echo ==============================================================================
-                node tools\duraciones-suite.mjs
-                set "PERF_EXIT=!errorlevel!"
-                rem
-                rem El codigo de salida del cronometro son TRES clases, no una. Antes
-                rem todo lo que no era 0 caia en el mismo `else`, y ahi conviven dos
-                rem cosas que no se parecen en nada:
-                rem
-                rem   0 = se midio, y no hay nada que decir.
-                rem   1 = se midio, y hay algo que mirar. Un test lento, una regresion
-                rem       contra la referencia, o una medicion que no llego a
-                rem       terminar --cuelgue, XML truncado, casos de la referencia que
-                rem       no se midieron--. La medicion existe y es la que dice algo.
-                rem   2 = NO SE MIDIO. El binario de tests o el XML que se le apunto no
-                rem       estaba donde se buscaba. Aqui no hay ningun resultado que
-                rem       leer, y por lo tanto tampoco hay ningun resultado de tiempos.
-                rem
-                rem Decir "tu suite no se ha puesto lenta" cuando no se ha medido nada
-                rem es un verde falso con forma de aviso, que es la clase de mentira
-                rem que un cronometro no deberia tener. Un 2 es un problema de entorno,
-                rem y se dice como tal para que nadie lo lea como lentitud.
-                rem
-                rem Lo que NO se puede distinguir desde aqui: un error del propio tool
-                rem sale con 1, porque es el codigo que Node usa para lo que no se
-                rem captura. Un 1 es, por lo tanto, "algo va mal", no "algo va lento".
-                if "!PERF_EXIT!"=="0" (
-                    echo [Info] Suite timings: no slow test, no regression vs reference.
-                ) else if "!PERF_EXIT!"=="1" (
-                    echo [Warn] Suite timings: a slow test, a regression, or a run that did not finish.
-                    echo [Warn] See the table above. An unfinished run means truncated XML,
-                    echo [Warn] or reference cases that were not measured.
-                ) else if "!PERF_EXIT!"=="2" (
-                    echo [Error] The suite was NOT timed. That is not a performance result.
-                    echo [Error] Exit 2 = the tool could not start: the test binary, or the XML it
-                    echo [Error] was pointed at, is not where it was looking. There is no timing
-                    echo [Error] above to read. The tool prints the full path it tried, right
-                    echo [Error] before this line; that is the path to check.
-                    echo [Error] The build will FAIL at the end: no measurement is not a slow
-                    echo [Error] suite, and letting a build pass with the timing guard unable
-                    echo [Error] to run is how a gate stops being one without anyone saying so.
+                node tools\test_duraciones_suite.mjs
+                if errorlevel 1 (
+                    echo [Error] The timing tool's own tests are red. Nothing was measured.
+                    echo [Error] A tool that fails its own tests does not get to say anything
+                    echo [Error] about how long the suite takes. Fix it first:
+                    echo [Error]   node tools\test_duraciones_suite.mjs
+                    echo [Error] The build will FAIL at the end. An unchecked timing tool is
+                    echo [Error] not a slow suite: it is a guard that is no longer guarding.
                     set "PERF_FATAL=1"
                 ) else (
-                    echo [Error] The timing tool exited with !PERF_EXIT!, a code it does not use.
-                    echo [Error] That is a failure of the tool itself, not a slow suite.
-                    echo [Error] The build will FAIL at the end.
-                    set "PERF_FATAL=1"
+                    echo ==============================================================================
+                    echo  Timing the suite. It takes minutes; that is not a hang.
+                    echo ==============================================================================
+                    node tools\duraciones-suite.mjs
+                    set "PERF_EXIT=!errorlevel!"
+                    rem
+                    rem El codigo de salida del cronometro son TRES clases, no una. Antes
+                    rem todo lo que no era 0 caia en el mismo `else`, y ahi conviven dos
+                    rem cosas que no se parecen en nada:
+                    rem
+                    rem   0 = se midio, y no hay nada que decir.
+                    rem   1 = se midio, y hay algo que mirar. Un test lento, una regresion
+                    rem       contra la referencia, o una medicion que no llego a
+                    rem       terminar --cuelgue, XML truncado, casos de la referencia que
+                    rem       no se midieron--. La medicion existe y es la que dice algo.
+                    rem   2 = NO SE MIDIO. El binario de tests o el XML que se le apunto no
+                    rem       estaba donde se buscaba. Aqui no hay ningun resultado que
+                    rem       leer, y por lo tanto tampoco hay ningun resultado de tiempos.
+                    rem
+                    rem Decir "tu suite no se ha puesto lenta" cuando no se ha medido nada
+                    rem es un verde falso con forma de aviso, que es la clase de mentira
+                    rem que un cronometro no deberia tener. Un 2 es un problema de entorno,
+                    rem y se dice como tal para que nadie lo lea como lentitud.
+                    rem
+                    rem Lo que NO se puede distinguir desde aqui: un error del propio tool
+                    rem sale con 1, porque es el codigo que Node usa para lo que no se
+                    rem captura. Un 1 es, por lo tanto, "algo va mal", no "algo va lento".
+                    if "!PERF_EXIT!"=="0" (
+                        echo [Info] Suite timings: no slow test, no regression vs reference.
+                    ) else if "!PERF_EXIT!"=="1" (
+                        echo [Warn] Suite timings: a slow test, a regression, or a run that did not finish.
+                        echo [Warn] See the table above. An unfinished run means truncated XML,
+                        echo [Warn] or reference cases that were not measured.
+                    ) else if "!PERF_EXIT!"=="2" (
+                        echo [Error] The suite was NOT timed. That is not a performance result.
+                        echo [Error] Exit 2 = the tool could not start: the test binary, or the XML it
+                        echo [Error] was pointed at, is not where it was looking. There is no timing
+                        echo [Error] above to read. The tool prints the full path it tried, right
+                        echo [Error] before this line; that is the path to check.
+                        echo [Error] The build will FAIL at the end: no measurement is not a slow
+                        echo [Error] suite, and letting a build pass with the timing guard unable
+                        echo [Error] to run is how a gate stops being one without anyone saying so.
+                        set "PERF_FATAL=1"
+                    ) else (
+                        echo [Error] The timing tool exited with !PERF_EXIT!, a code it does not use.
+                        echo [Error] That is a failure of the tool itself, not a slow suite.
+                        echo [Error] The build will FAIL at the end.
+                        set "PERF_FATAL=1"
+                    )
                 )
             )
         )

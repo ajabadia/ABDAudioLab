@@ -18,3 +18,16 @@
 # de linea de codigo no son el problema que estamos resolviendo, y cambiarlos
 # todos seria un diff enorme en plena refactorizacion.
 *.json text eol=lf
+
+# Los .bat, al contrario, tienen que ser CRLF y no por gusto: son ejecutados por
+# cmd.exe, que se come la primera linea de cada bloque si encuentra un LF. Un
+# .bat con finales LF en el arbol no es un .bat que funciona en otra maquina,
+# y el fallo aparece como "no se ejecuta el ultimo bloque", que no apunta al
+# fin de linea ni de lejos.
+#
+# Sin esto, en un repo con core.autocrlf=true los .bat se commitean con el CR
+# dentro y en uno con autocrlf=false se commitean sin el, de modo que el mismo
+# commit produce ficheros distintos en dos maquinas. Se declara aqui para que el
+# fin de linea del .bat sea una propiedad del repo y no de la config de quien
+# commitea.
+*.bat text eol=crlf
