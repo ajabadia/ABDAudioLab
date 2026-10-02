@@ -29,7 +29,7 @@
  *    poder compararlos con los que da Catch2 en consola.
  */
 
-import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
+import { leerDuraciones, resumen, construirBase, compararConBase, resumenBase, leerBase, falloDeSpawn, xmlTruncado, cuadraLaCuenta, paraCatchDe, claveDeFichero, identidadDeLaMaquina, resumenMaquina, UMBRAL_ABSOLUTO, FACTOR, UMBRAL } from './duraciones-suite.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -218,6 +218,67 @@ comprobar('la base lleva su version de formato, que es lo que se recusa si cambi
 
 comprobar('la base guarda los filtros con los que se midio',
   Array.isArray(base.filtros));
+
+// ─────────────────────────────────────────────────────────────────────────
+// LA MAQUINA QUE MIDIO, Y POR QUE NO SUBE LA VERSION DEL FORMATO
+//
+// Una referencia de duraciones es una foto del hardware que la hizo: dos vueltas
+// seguidas de esta suite dieron ratios de hasta x3,38 por debajo de un segundo,
+// y un caso puede pasar de 0,02 s a 4,02 s entre una vuelta y la siguiente sin
+// que la suite haya cambiado. Sin saber de donde salio la cifra, no se puede
+// leer bien.
+console.log('\nla referencia dice de que maquina salio');
+
+const MIA = identidadDeLaMaquina();
+
+comprobar('la identidad tiene sistema, nucleos, memoria y version de node',
+  typeof MIA.sistema === 'string' && typeof MIA.nucleos === 'number'
+  && typeof MIA.memoriaGb === 'number' && typeof MIA.node === 'string');
+
+comprobar('y son ESOS cuatro campos, ni uno mas',
+  Object.keys(MIA).length === 4
+  && ['sistema', 'nucleos', 'memoriaGb', 'node'].every((k) => k in MIA));
+
+// Lo que NO va dentro es tan importante como lo que si. El nombre de usuario y
+// la ruta del proyecto identifican a una persona, no hacen falta para saber si
+// la maquina es la misma, y en un fichero commiteo se acaban propagando a los
+// logs, a los artefactos y a los mensajes de error.
+comprobar('la identidad NO lleva usuario ni ruta del proyecto',
+  !JSON.stringify(MIA).includes('d:/') && !JSON.stringify(MIA).includes('desarrollos'));
+
+comprobar('la base guarda la maquina que midio', base.maquina !== undefined);
+comprobar('y es la de ahora', base.maquina.sistema === MIA.sistema);
+
+comprobar('anadir la maquina NO sube la version del formato', base.version === 1);
+
+console.log('\nel informe dice si la referencia es de esta maquina');
+
+comprobar('sin referencia no hay maquina que decir', resumenMaquina(null).length === 0);
+
+// Una base sin el campo se genero antes de que existiera. El silencio se leeria
+// como «las maquinas son iguales», que es justo lo que no se sabe.
+comprobar('una referencia vieja dice que no dice de que maquina salio',
+  resumenMaquina({}).join('\n').includes('no dice de que maquina salio'));
+
+comprobar('una referencia de esta maquina NO avisa',
+  !resumenMaquina({ maquina: MIA }).join('\n').includes('NO es la misma maquina'));
+
+comprobar('una referencia de otra maquina avisa, y avisa de las dos',
+  resumenMaquina({ maquina: { ...MIA, sistema: 'linux arm64' } }).join('\n')
+    .includes('NO es la misma maquina'));
+
+// Nucleos distintos en la misma plataforma tambien es otra maquina: es lo que
+// mas cambia el tiempo, y lo que mas veces se cuela en un runner de CI.
+comprobar('y tambien avisa si solo cambian los nucleos',
+  resumenMaquina({ maquina: { ...MIA, nucleos: MIA.nucleos * 2 } }).join('\n')
+    .includes('NO es la misma maquina'));
+
+// Y el aviso tiene que decir la verdad sobre lo que significa, no solo que hay
+// diferencia: comparar en otra maquina es legitimo, lo que no es es leerlo como
+// si el numero fuera del codigo.
+const aviso = resumenMaquina({ maquina: { ...MIA, nucleos: 1 } }).join('\n');
+comprobar('el aviso dice que la regresion puede ser de la maquina',
+  aviso.includes('puede ser la maquina'));
 
 const cmp = compararConBase([
   { nombre: 'A', fichero: 'x.cpp', segundos: 3.6 },

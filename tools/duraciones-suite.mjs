@@ -84,6 +84,7 @@
  */
 
 import { readFileSync, writeFileSync, renameSync, rmSync, existsSync } from 'node:fs';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -354,6 +355,33 @@ const FACTOR_POR_DEFECTO = 2;
 export const RUTA_BASE = join(raiz, 'tools', 'duraciones-referencia.json');
 
 /**
+ * La identidad de la maquina que ha medido, para meterla en la referencia.
+ *
+ * No es adorno. Una referencia de duraciones es una foto del hardware que la
+ * hizo: dos vueltas seguidas de esta suite dieron ratios de hasta x3,38 por
+ * debajo de un segundo, y una vuelta puede salir con un caso de 0,02 s y la
+ * siguiente con 4,02 s sin que la suite haya cambiado. Sin saber de que maquina
+ * salio una cifra, ese numero no se puede leer bien, y eso no se arregla
+ * mirando la cifra: se tiene que poder mirar de donde vino.
+ *
+ * Lo que NO va aqui, y es a proposito: el nombre de usuario y la ruta del
+ * proyecto. Los dos identifican a una persona y no hacen falta para saber si la
+ * maquina es la misma —sistema, nucleos y memoria bastan—, y un fichero
+ * commiteado que lleva el nombre de quien lo commiteo es una molestia que se
+ * acaba propagando a los logs, a los artefactos y a los mensajes de error.
+ *
+ * @returns {{sistema: string, nucleos: number, memoriaGb: number, node: string}}
+ */
+export function identidadDeLaMaquina() {
+  return {
+    sistema: `${process.platform} ${process.arch}`,
+    nucleos: os.cpus().length,
+    memoriaGb: Math.round(os.totalmem() / 1024 ** 3),
+    node: process.versions.node,
+  };
+}
+
+/**
  * Vuelca las duraciones al formato de referencia.
  *
  * @param {{nombre: string, fichero: string, segundos: number}[]} duraciones
@@ -368,11 +396,18 @@ export function construirBase(duraciones, xml = '') {
     // La version del FORMATO, no la del script. Se sube solo si cambia la forma
     // de los campos, para que una base vieja se pueda recusar en vez de
     // compararse con una nueva y dar diferencias inventadas.
+    //
+    // `maquina` NO sube la version, y el motivo es el que dice el comentario de
+    // arriba: la version se sube cuando un campo cambia lo que SIGNIFICA, no
+    // cuando aparece uno nuevo. Anadir un campo que no lee nadie mas no invalida
+    // las bases viejas, que siguen comparandose igual de bien. Subirla obligaria
+    // a regenerar cada referencia del mundo para poder seguir usandolas.
     version: 1,
     medidoEn: new Date().toISOString(),
     casos: duraciones.length,
     totalSegundos: Number(duraciones.reduce((a, d) => a + d.segundos, 0).toFixed(3)),
     filtros: FILTROS,
+    maquina: identidadDeLaMaquina(),
     casos_: Object.fromEntries(
       duraciones.map((d) => [d.nombre, {
         s: Number(d.segundos.toFixed(4)),
@@ -380,6 +415,59 @@ export function construirBase(duraciones, xml = '') {
       }])
     ),
   };
+}
+
+/**
+ * La identidad de la maquina en una frase, para no repetir el formato en dos
+ * sitios. Dos sitios que cada uno escriben su propia cadena divergen el dia que
+ * uno cambia y el otro no, y entonces los dos dicen cosas distintas sin que nada
+ * avise.
+ *
+ * @param {{sistema: string, nucleos: number, memoriaGb: number, node: string}} m
+ * @returns {string}
+ */
+function describeMaquina(m) {
+  return `${m.sistema}, ${m.nucleos} nucleos, ${m.memoriaGb} GB, node ${m.node}`;
+}
+
+/**
+ * De que maquina salio la referencia, y si esta es esa.
+ *
+ * Es un aviso y no un fallo. Medir en otra maquina es legitimo y hecho a
+ * menudo: lo que no es legitimo es hacerlo sin decirlo, porque entonces un
+ * numero que depende del hardware se lee como si dependiera del codigo. Un rojo
+ * por esto costaria mas de lo que informa —la maquina del otro siempre sera
+ * distinta de la tuya— y dejaria de mirarse.
+ *
+ * @param {object|null} base la referencia, o `null` si no hay.
+ * @returns {string[]} lineas para imprimir.
+ */
+export function resumenMaquina(base) {
+  const lineas = [];
+
+  if (base === null)
+    return lineas;
+
+  const guardado = base.maquina;
+
+  // Una base sin el campo se generó antes de que existiera. Decirlo es mejor
+  // que no decir nada: el silencio se lee como «las maquinas son iguales».
+  if (guardado === undefined) {
+    lineas.push('La referencia no dice de que maquina salio: se genero antes de que ese campo existiera.');
+    return lineas;
+  }
+
+  const actual = identidadDeLaMaquina();
+
+  lineas.push(`Referencia medida en ${describeMaquina(guardado)}.`);
+  lineas.push(`Esta maquina es ${describeMaquina(actual)}.`);
+
+  if (guardado.sistema !== actual.sistema || guardado.nucleos !== actual.nucleos) {
+    lineas.push('NO es la misma maquina. Las duraciones son comparables en orden de magnitud, no al detalle:');
+    lineas.push('una regresion aqui puede ser la maquina, y no un cambio en la suite.');
+  }
+
+  return lineas;
 }
 
 /**
@@ -946,12 +1034,15 @@ function main(argumentos) {
     // Guardar y comparar a la vez daria un verde de comparacion contra uno
     // mismo, que no compara nada. Por eso la referencia que se acaba de escribir
     // NO es la que se usa para comparar en esta misma vuelta.
-    escribirEntero(rutaBase, `${JSON.stringify(construirBase(duraciones, xml), null, 2)}\n`);
+    const base2 = construirBase(duraciones, xml);
+
+    escribirEntero(rutaBase, `${JSON.stringify(base2, null, 2)}\n`);
     console.error('');
     // La ruta entera, por el mismo motivo que la de la suite: `--base` puede
     // apuntar a cualquier parte, y un nombre a secas no dice donde ha quedado la
     // referencia que se acaba de escribir.
     console.error(`Referencia guardada en ${rutaBase}: ${duraciones.length} casos.`);
+    console.error(`Medida en ${describeMaquina(base2.maquina)}.`);
     console.error('La siguiente vuelta comparara contra esta.');
     return lentos > 0 && !soloAvisar ? 1 : 0;
   }
@@ -974,6 +1065,17 @@ function main(argumentos) {
       console.log('='.repeat(72));
 
       for (const linea of cuenta.lineas)
+        console.log(linea);
+    }
+
+    const maquina = resumenMaquina(base);
+
+    if (maquina.length > 0) {
+      console.log('');
+      console.log('LA MAQUINA DE LA REFERENCIA');
+      console.log('='.repeat(72));
+
+      for (const linea of maquina)
         console.log(linea);
     }
 

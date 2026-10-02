@@ -193,10 +193,21 @@ El factor ×2 no era ni demasiado sensible ni demasiado insensible: estaba **den
 **Que no se lleve la señal por delante.** El umbral mira **solo el tiempo de ahora**, no el de antes. Si mirase los dos, taparía el caso más grave: uno que pasa de 50 ms a 2 s ha ido de 0 a 2, y eso es una regresión aunque su ratio sea de 40.
 
 Comprobado sobre datos reales, no sobre un ejemplo inventado. Se tomó un caso estable de la suite que hoy tarda 6,15 s y se fingió que antes tardaba 2,46 s —×2,5—: sale como regresión. El mismo truco sobre un caso estable de 0,22 s **no** sale, porque está por debajo del segundo. Y con la referencia intacta, 0 regresiones.
-### 6.4 La referencia guarda rutas absolutas, y eso no se va a regenerar
+### 6.4 La referencia guarda rutas absolutas — REGENERADA, y con la máquina dentro
 
-927 entradas con la ruta de la máquina que las midió, lo que la ata a un disco y a un usuario. `claveDeFichero` lo mitiga para el emparejado, y por eso §3.2 no se repite en otra máquina. Lo que **no** se arregla así es el resto: `construirBase` sigue grabando `f` tal cual, de modo que el fichero sigue sin ser portable y una comparación entre dos referencias de dos máquinas seguiría sin poder emparejar. Regenerarlo exigiría un `f` relativo al repositorio, que es un cambio de formato — y el formato tiene `version: 1` a propósito para que un cambio así se pueda **recusar en vez de compararse**.
+Este punto también se escribió abierto y se ha cerrado a medias. Lo que se dijo antes se conserva al final, porque la parte que sigue en pie es la que importa.
 
+**Lo que se ha hecho.** La referencia se ha regenerado con la herramienta ya arreglada, y ahora lleva **la identidad de la máquina que la midió**: sistema, núcleo, memoria y versión de Node. Sin eso, una cifra de duraciones no se puede leer bien: dos vueltas seguidas de esta suite dieron ratios de hasta ×3,38 por debajo de un segundo, y un caso puede pasar de 0,02 s a 4,02 s entre vueltas sin que la suite haya cambiado.
+
+Lo que **no** va dentro, a propósito: el nombre de usuario y la ruta del proyecto. Identifican a una persona, no hacen falta para saber si la máquina es la misma —sistema, núcleos y memoria bastan— y en un fichero commiteado acaban propagándose a los logs, a los artefactos y a los mensajes.
+
+La comparación avisa cuando la máquina no es la misma, y es un **aviso y no un fallo**: medir en otra máquina es legítimo y se hace a menudo, y un rojo por eso costaría más de lo que informa.
+
+**El `version: 1` NO sube.** Añadir un campo no cambia lo que significan los campos viejos, y la versión existe para recusar una base cuyos campos significan otra cosa. Subirla obligaría a regenerar cada referencia del mundo para poder seguir usándolas.
+
+**Lo que sigue en pie, y es la parte que no se ha arreglado.** La referencia sigue guardando la ruta **absoluta** de cada caso. `claveDeFichero` lo mitiga para el emparejado —por eso §3.2 no se repite en otra máquina—, pero el fichero sigue sin ser portable: una comparación entre dos referencias de dos máquinas distintas seguiría sin poder emparejar. Arreglarlo de verdad es guardar `f` **relativo al repositorio**, que ningún lector actual necesita que sea absoluto. Es un cambio pequeño de código y grande de política, y por eso queda anotado y no hecho.
+
+*Lo que decía antes:* 927 entradas con la ruta de la máquina que las midió, lo que la ata a un disco y a un usuario. `claveDeFichero` lo mitiga para el emparejado. Lo que **no** se arregla así es el resto: `construirBase` seguía grabando `f` tal cual. Regenerarlo exigiría un `f` relativo al repositorio, que es un cambio de formato — y el formato tiene `version: 1` a propósito para que un cambio así se pueda **recusar en vez de compararse**.
 ### 6.5 El ejecutable puede estar viejo y la herramienta no lo dice
 
 Heredado del acta de medición y sin resolver: `build/Release/ABDAudioLab_Tests.exe` hay que reconstruirlo antes de medir, y la herramienta no comprueba que el binario sea posterior al código. Medir con un binario viejo mide el defecto que se iba a arreglar.
