@@ -1035,6 +1035,87 @@ comprueba antes de medir. Lo que sigue abierto:
 - El `SIGSEGV` de `test_MeasurementFloatingWindow.cpp:108` sigue igual: mata la
   suite al 62 % y bloquea la regeneración de la referencia de §6.14. Ver §6.14.
 
+## 6.22. El auditor entra en la CI, y el sitio donde NO puede ir se mide antes
+
+#### El hueco que se cierra
+
+El guard de §6.21 vive **dentro** del bloque `perf` de `build.bat`, así que solo
+corre cuando alguien pide medir. Eso quiere decir que un `build.bat` roto no se
+nota hasta un `build.bat perf`, y para entonces ya se ha esperado la suite
+entera. La CI era el sitio donde ese rojo tenía que salir antes.
+
+#### El sitio donde NO va, y por qué
+
+El primer impulso era ponerlo en los dos jobs que ya autocomproban el tool. El
+de Ubuntu es el rápido —no compila, y el rojo saldría en un minuto en vez de
+esperar al build de Windows— y el auditor es portable: solo llama a
+`git ls-files` y a `readFileSync`, no invoca `cmd` ni ejecuta nada de Windows.
+
+Así que se puso también ahí. Y estaba mal, por una cosa que no se ve leyendo el
+fichero:
+
+| job | `continue-on-error` |
+|---|---|
+| `audio-ab-5d-acceptance` (Windows) | — |
+| `contracts-preflight` | — |
+| **`suite-timings` (Ubuntu)** | **`true`** |
+
+Eso está **a nivel de job**, no de paso. No es lo mismo: el job entero se marca
+como no bloqueante y su rojo no puede parar la pipeline, por mucho que el paso no
+lo lleve. El paso nuevo cumplía la forma —el auditor se ejecutaba— y no la
+sustancia —su rojo llegaba—. Y era **peor que no ponerlo**: daba la sensación de
+que el `.bat` estaba vigilado en la CI cuando en realidad su rojo se perdía en un
+job marcado como informativo, que es justo el hueco que este commit viene a
+cerrar.
+
+Medido con el parseo del YAML, no leyendo el fichero. Los dos tests del cronómetro
+que ya estaban en ese job tienen el mismo problema y **no se tocan**: son de otro
+trabajo, y decidir que un job informativo pase a bloquear no es de este commit.
+Donde se iba el auditor queda escrito por qué no está.
+
+#### Y tampoco en Windows por casualidad
+
+Queda en el job de Windows, dentro del paso que ya llevaba la autocomprobación de
+los otros dos tools. Con una condición **medida**, porque el código de salida de
+un bloque `run` es el de la última orden que falla y de eso depende todo:
+
+| el auditor en la posición | el bloque sale con |
+|---|---|
+| **1** | **1 — el rojo llega** |
+| 2 | 0 — el rojo no llega |
+| 3 | 0 — el rojo no llega |
+
+Medido con las tres variantes de bloque —una orden por línea, `&&` y `;`— y sale
+igual en las tres. El bloque de la CI corre en pwsh, que corta en el primer fallo,
+de modo que allí la posición no cambia el resultado; pero **primero** sigue siendo
+lo correcto por dos razones que no son de shell:
+
+1. Si el `.bat` está roto, los dos tests de después están contando sobre un script
+   que no es el que se cree.
+2. El bloque queda legible en el mismo orden que la cadena de autocomprobación de
+   `build.bat`.
+
+#### Verificado de extremo a extremo
+
+El bloque se **leyó del workflow** y se ejecutó tal cual, con el repositorio
+intacto —que es lo que ve la CI—:
+
+- repositorio limpio → el bloque sale con **0**
+- con la caída de §6.9 metida en el `.bat` → el auditor sale con **1** y nombra
+  fichero y línea
+
+El YAML parsea, el paso no lleva `continue-on-error`, el CRLF del fichero se
+conserva, y el auditor queda en un solo job.
+
+#### El nombre del paso
+
+Se llamaba `Self-check the Timing Tool` y ya no era cierto: el tercer tool del
+paso audita `.bat`, que no tiene nada que ver con el cronómetro. El nombre de un
+paso es lo primero que se lee cuando algo falla, así que uno que no describe el
+contenido manda a mirar donde no está el fallo. Ahora es *Self-check: what this
+repo says about itself is true*, que es la promesa y no la lista —las listas se
+pudren—.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -1173,6 +1254,12 @@ comprueba antes de medir. Lo que sigue abierto:
 | §6.21: auditor de verdad sobre un .bat con la caida de §6.9 | **codigo 1** y el hallazgo nombrado, con fichero y linea |
 | §6.21: `test_build_bat_perf.mjs` | **158 aserciones** |
 | §6.21: `test_duraciones_suite.mjs` | **202 aserciones** |
+| §6.22: `continue-on-error` del job de ubuntu, por parseo del YAML | **a nivel de job**, asi que su rojo no puede parar la pipeline |
+| §6.22: el auditor en el paso de Windows, bloque leido del workflow | sale con **0** con el repo limpio |
+| §6.22: el mismo bloque con la caida de §6.9 en el .bat | el auditor sale con **1** y nombra fichero y linea |
+| §6.22: el rojo segun la posicion del auditor en el bloque | primero **llega**, segundo y tercero **no llegan** |
+| §6.22: lo mismo con `&&` y con `;` | **igual**: el rojo llega solo en primera posicion |
+| §6.22: el YAML tras el cambio | **parsea**, y el paso no lleva `continue-on-error` |
 
 ## 8. Commits
 
@@ -1204,6 +1291,7 @@ comprueba antes de medir. Lo que sigue abierto:
   detrás de la etiqueta, no el `call`. Mutaciones **3 de 3**; dos de ellas solo se ven
   desde el árbol donde el fallo puede aparecer, que no es la raíz |
 | este commit | §6.21: el build comprueba **que el propio .bat esta bien**, y es clase aparte con codigo **4**. Las cuatro clases no son la misma cosa --1 es no he medido, 3 es el instrumento roto, y 4 es el script que esta corriendo que no describe lo que ha pasado-- asi que el codigo de salida, que es lo unico que un .bat y una CI pueden mirar, es donde tiene que quedar la distincion. Va PRIMERO en la cadena: si el que decide como se lee el resultado esta roto, los tests que vienen detras estan contando sobre un script que no es el que se cree. **El guard cazo un defecto introducido en este mismo commit**: el `) else (` de la rama nueva dejo la cadena de parentesis sin cerrar y el auditor --que ahora corre dentro del build-- lo vio con 9 hallazgos, mientras que el .bat original sale limpio. Ejecutado de verdad, no solo leido. Dos cosas que solo salieron al ejecutar: `c.nlayout !== 0` es `true` en todos los casos sin la dimension porque `undefined !== 0`, y las cuatro colas de :end terminar de forma distinta hacia que el cierre dejara de ser la ultima linea justo en la clase nueva. 158 y 202 aserciones, 3 de 3 mutaciones |
+| este commit | §6.22: el auditor de los `.bat` entra en el paso de autocomprobacion de la CI, que era el hueco que quedaba de §6.21: el guard vivia DENTRO del bloque `perf` y solo corria si alguien pedia medir. Y el sitio donde **no** va esta medido antes de decidirlo: primero se puso tambien en el job de Ubuntu, que es el rapido y donde el auditor es portable --solo llama a `git ls-files` y `readFileSync`-- pero ese job lleva `continue-on-error: true` **a nivel de job**, no de paso, y eso hace que su rojo no pueda parar la pipeline. Cumplia la forma y no la sustancia, y era peor que no ponerlo: daba la sensacion de que el .bat estaba vigilado cuando su rojo se perdia en un job informativo. Medido con el parseo del YAML, no leyendo el fichero. La posicion dentro del bloque tambien esta medida: el rojo llega si el auditor va primero y no llega si va segundo o tercero, con las tres variantes de bloque. Verificado de extremo a extremo leyendo el bloque del workflow y ejecutandolo con el repo intacto: **0** limpio, **1** con la caida de §6.9. Los dos tests del cronometro del job de Ubuntu tienen el mismo limite y no se tocan: no es de este commit decidir que un job informativo pase a bloquear. El paso tambien cambia de nombre, porque `Self-check the Timing Tool` ya no describia lo que hace |
 | este commit | §6.18 (cont.): la espera de `run-plan.bat` pasa a ser una **subrutina** —`call :esperarServidor`, se sale con `goto :eof`, y el flujo principal salta por encima con `goto :finDelPaso2`— y `:OLLAMA_UP` desaparece. Ejecutado con shims `.exe`: con el servidor respondiendo **status 0** y pasos 3 y 4 alcanzados; con el servidor muerto **status 1** y sin llegar al paso 3. El arreglo introdujo un fallo que solo apareció al ejecutarlo: el `exit /b 1` del plazo salía del `call` y no del script, así que el flujo seguía y **se ponía a descargar el modelo contra un servidor muerto** con el mensaje de error puesto. Corregido propagando el fallo en quien llama |
 | este commit | §6.18: la familia de la caída de §6.9 auditada en los **demás** `.bat` del repositorio, con `tools/auditar-bats.mjs` y cinco reglas. `build.bat` sale limpio; `run-plan.bat` tiene `:WAIT_LOOP` **dentro** de un `if (...)`, y la reproducción de esa estructura no termina nunca: 22.858 vueltas en 30 s. **No se ha tocado `run-plan.bat`** porque es el ejecutor del tándem y lo está usando el hilo paralelo. Dos falsos positivos de la regla de §6.17 salen de aquí y quedan corregidos: el hueco solo se comprueba para etiquetas que se llaman con `call`, porque para un punto de encuentro `goto` **caer está bien**. Y el propio auditor se audita con cinco mutaciones, una por regla —5 de 5—, que destapan que se quedaba **verde con una subrutina sin su `goto :eof`** por un dos puntos perdido en una comparación de nombres |
 | este commit | §6.17: el hueco entre el fin de un flujo y la etiqueta siguiente se cuenta **entero**, y no solo la línea de justo antes. La forma de la regla importa y no es un umbral: **cero** ejecutables es la caída dentro de la etiqueta —el fallo de §6.9—, y uno que no sea el salto es el mismo fallo, así que las dos casillas quedan en verde con un «más de una línea ejecutable» y por eso lo que se comprueba es que el hueco **sea** el salto y nada más. Se cuenta hacia atrás desde la etiqueta parando en el primer salto de raíz, porque un `goto` dentro de un `if (...)` no protege lo que viene detrás. El recuento del fallo va acotado a cinco líneas y el total: sin el tope, un hueco roto se va hasta el principio del fichero y el rojo escupe doscientas líneas. 148 aserciones, tres mutaciones en rojo y una cuarta —una sentencia más en el cuerpo de la subrutina— en verde **y con razón**, que es lo que hace que las otras tres signifiquen algo |
