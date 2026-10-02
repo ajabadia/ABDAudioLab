@@ -234,8 +234,24 @@ if "!RUN_PERF!"=="1" (
                     echo ==============================================================================
                     echo  Timing the suite. It takes minutes; that is not a hang.
                     echo ==============================================================================
-                    node tools\duraciones-suite.mjs
-                    set "PERF_EXIT=!errorlevel!"
+                    rem La salida se captura a un temporal para poder leer el estado
+                    rem de la linea de veredicto, y se reimprime tal cual justo
+                    rem despues: el log del build tiene que ser el mismo de siempre,
+                    rem con la tabla y con los mensajes. Un temporal y no una segunda
+                    rem invocacion porque el cronometro tarda minutos, y una vuelta de
+                    rem mas mediria otra vez: con otra carga, otro resultado y un
+                    rem codigo de salida que se tiraria.
+                    set "PERF_LOG=%TEMP%\abdl_perf.txt
+                    node tools\duraciones-suite.mjs >"!PERF_LOG!"
+                    set "PERF_EXIT=!errorlevel!
+                    type "!PERF_LOG!"
+                    rem El estado es la segunda palabra de la linea que empieza por el
+                    rem prefijo. Lo que se captura es stdout, que es donde va el
+                    rem veredicto; stderr se ha ido a la consola sin tocar, asi que los
+                    rem mensajes de error se siguen viendo igual.
+                    set "PERF_ESTADO=desconocido
+                    for /f "tokens=1,2*" %%e in ('findstr /b /c:"ABD-VEREDICTO "" "!PERF_LOG!"") do set "PERF_ESTADO=%%e
+                    del "!PERF_LOG!" >nul 2>nul
                     rem
                     rem El codigo de salida del cronometro son TRES clases, no una. Antes
                     rem todo lo que no era 0 caia en el mismo `else`, y ahi conviven dos
@@ -255,21 +271,42 @@ if "!RUN_PERF!"=="1" (
                     rem que un cronometro no deberia tener. Un 2 es un problema de entorno,
                     rem y se dice como tal para que nadie lo lea como lentitud.
                     rem
-                    rem Lo que NO se puede distinguir desde aqui: un error del propio tool
-                    rem sale con 1, porque es el codigo que Node usa para lo que no se
-                    rem captura. Un 1 es, por lo tanto, "algo va mal", no "algo va lento".
-                    if "!PERF_EXIT!"=="0" (
+                    rem
+                    rem LO QUE ANTES NO SE PODIA DISTINGUIR, Y QUE AHORA SI. El codigo
+                    rem de salida son tres clases, y las tres estan aqui. Lo que antes
+                    rem no se podia distinguir era un fallo del PROPIO cronometro, que
+                    rem salia con 1 porque es lo que usa Node para lo que no captura, y
+                    rem se leia como una suite lenta: un fallo de herramienta anunciado
+                    rem como lentitud, que es la clase de mentira que este cronometro no
+                    rem deberia tener. El tool ahora lo distingue solo --sale con 2 y
+                    rem con estado fallo-del-tool-- asi que no cae en la rama de
+                    rem entorno, sino en la suya, que esta antes.
+                    rem
+                    rem El estado NO DECIDE el exit, solo lo explica. El exit lo decide
+                    rem el codigo, que es lo que un pipeline sabe mirar. Lo que hace el
+                    rem estado es que el log diga cual de las tres cosas que caben en un
+                    rem 1 es la que ha pasado, en vez de repetir las tres.
+                    if "!PERF_ESTADO!"=="fallo-del-tool" (
+                        echo [Error] THE TIMING TOOL ITSELF FAILED. This is not a performance result.
+                        echo [Error] State: fallo-del-tool. The tool could not finish, and it
+                        echo [Error] said so. Its error and stack are in the log above.
+                        echo [Error] Do NOT read this as a slow suite: a slow suite would have
+                        echo [Error] been measured. The build will FAIL at the end.
+                        set "PERF_FATAL=1
+                    ) else if "!PERF_EXIT!"=="0" (
                         echo [Info] Suite timings: no slow test, no regression vs reference.
                     ) else if "!PERF_EXIT!"=="1" (
                         echo [Warn] Suite timings: a slow test, a regression, or a run that did not finish.
                         echo [Warn] See the table above. An unfinished run means truncated XML,
                         echo [Warn] or reference cases that were not measured.
+                        echo [Warn] State: !PERF_ESTADO!.
                     ) else if "!PERF_EXIT!"=="2" (
                         echo [Error] The suite was NOT timed. That is not a performance result.
                         echo [Error] Exit 2 = the tool could not start: the test binary, or the XML it
                         echo [Error] was pointed at, is not where it was looking. There is no timing
                         echo [Error] above to read. The tool prints the full path it tried, right
                         echo [Error] before this line; that is the path to check.
+                        echo [Error] State: !PERF_ESTADO!.
                         echo [Error] The build will FAIL at the end: no measurement is not a slow
                         echo [Error] suite, and letting a build pass with the timing guard unable
                         echo [Error] to run is how a gate stops being one without anyone saying so.

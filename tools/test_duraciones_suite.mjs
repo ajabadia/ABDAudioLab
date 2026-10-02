@@ -786,6 +786,153 @@ comprobar('el mensaje de referencia guardada lleva la ruta entera',
 comprobar('y no solo el nombre del fichero',
   guardada.salida.includes(join(dirTEMP, 'viva.json')));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// EL CONTRATO DE LA LINEA DE VEREDICTO
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Que el cronometro salga con un numero no dice QUE paso, y hace falta que lo
+// diga: hay dos 1 que no se parecen en nada —un test lento, y el cronometro
+// roto a mitad de un XML— y quien lee un 1 tiene que adivinar. Esta seccion
+// fija la linea que los separa.
+//
+// Va al final y no repartida porque lo que comprueba es transversal: que TODA
+// salida lleve linea. Una regla transversal metida en medio de los casos se
+// pierde el dia que alguien anade un caso.
+
+console.log('\nla linea de veredicto dice QUE paso, no solo QUE codigo');
+
+// La linea, tal cual. Se separa por lineas y se busca el prefijo, porque un
+// `includes` de la linea entera no distinguiria un veredicto de otro que la
+// contenga.
+function veredictos(salida) {
+  return salida.split('\n').filter((l) => l.startsWith('ABD-VEREDICTO '));
+}
+
+// El cuerpo de la linea, ya sin el prefijo, parseado de verdad. Parsearlo es lo
+// que distingue "imprime algo legible" de "imprime algo que parece legible".
+function cuerpoDe(linea) {
+  return JSON.parse(linea.slice('ABD-VEREDICTO '.length));
+}
+
+// El caso feliz. `entero` sale con 0: se midio y no hay nada que decir.
+const veredictoEntero = veredictos(entero.salida);
+
+comprobar('una medicion correcta imprime su linea de veredicto', veredictoEntero.length === 1);
+comprobar('y solo una, porque dos veredictos son ambiguos y no ilegibles',
+  veredictoEntero.length === 1);
+
+const cuerpoEntero = cuerpoDe(veredictoEntero[0]);
+
+comprobar('el veredicto de una medicion correcta dice que se midio y que no hay nada que decir',
+  cuerpoEntero.estado === 'ok');
+comprobar('y su codigo es el que sale, no otro', cuerpoEntero.codigo === entero.codigo);
+// El XML de prueba lleva seis `<TestCase>`, pero solo cinco son de primer
+// nivel: uno esta dentro de una `<Section>` y por eso `leerDuraciones` no lo
+// cuenta. Lo que se comprueba no es el numero de este fichero, sino que el
+// veredicto diga el MISMO numero que el parser, que es lo unico que importa.
+comprobar('el veredicto lleva cuantos casos se midieron, y son los que el parser ve',
+  cuerpoEntero.casos === leerDuraciones(XML).length);
+comprobar('y el umbral contra el que se compararon', typeof cuerpoEntero.umbral === 'number');
+
+// Un 1 de lentitud frente a un 1 de herramienta rota: los dos salen con 1, y
+// es el ESTADO lo que los separa. `corto` es un XML sin cerrar, que sale con 1.
+const veredictoCorto = veredictos(corto.salida);
+
+comprobar('un XML truncado tambien imprime su veredicto', veredictoCorto.length === 1);
+
+const cuerpoCorto = cuerpoDe(veredictoCorto[0]);
+
+comprobar('y dice medicion-incompleta, no ok ni lento', cuerpoCorto.estado === 'medicion-incompleta');
+comprobar('con el codigo 1 que es el que sale', cuerpoCorto.codigo === corto.codigo);
+comprobar('y explica por que en un motivo legible',
+  typeof cuerpoCorto.motivo === 'string' && cuerpoCorto.motivo.length > 0);
+
+// El entorno: no se ha medido y no es culpa de la medicion. Es la clase que un
+// build tiene que hacer fatal.
+const veredictoSinFichero = veredictos(sinFichero.salida);
+
+comprobar('un XML inexistente imprime su veredicto', veredictoSinFichero.length === 1);
+
+const cuerpoSinFichero = cuerpoDe(veredictoSinFichero[0]);
+
+comprobar('y dice sin-medir, que no es lo mismo que una medicion incompleta',
+  cuerpoSinFichero.estado === 'sin-medir');
+comprobar('con el codigo 2 del entorno', cuerpoSinFichero.codigo === 2);
+comprobar('y dice DONDE lo ha mirado, como ya hacia el mensaje de texto',
+  typeof cuerpoSinFichero.ruta === 'string' && cuerpoSinFichero.ruta.length > 0);
+
+// Una lentitud de verdad: `sinUno` es un XML entero al que le falta un caso, y
+// sale con 1 por la cuenta, no por lentitud. Los dos 1, con su estado.
+const veredictoSinUno = veredictos(sinUno.salida);
+
+comprobar('una cuenta que no cuadra tambien imprime su veredicto', veredictoSinUno.length === 1);
+comprobar('y se distingue de un caso lento por su estado',
+  cuerpoDe(veredictoSinUno[0]).estado === 'medicion-incompleta');
+
+// ── El caso que justifica la linea entera ──
+//
+// Un directorio donde deberia estar el XML: readFileSync lanza, y eso es un
+// fallo del tool, no de la medicion. `dirTEMP` es un directorio de verdad, y por
+// eso falla al leerlo.
+const petado = correr(['--xml', dirTEMP, '--base', rutaBaseMedida]);
+const veredictoPetado = veredictos(petado.salida);
+
+comprobar('un fallo del cronometro imprime su veredicto, y no se cuelga sin linea',
+  veredictoPetado.length === 1);
+
+if (veredictoPetado.length === 1) {
+  const cuerpoPetado = cuerpoDe(veredictoPetado[0]);
+
+  comprobar('y dice fallo-del-tool, que es lo que lo separa de una lentitud',
+    cuerpoPetado.estado === 'fallo-del-tool');
+  // ESTA es la asercion que justifica la linea. Antes de esto, este mismo fallo
+  // salia con 1 porque es el codigo que Node usa para lo que no captura, y
+  // build.bat lo leia como "Suite timings: a slow test": un fallo de
+  // herramienta anunciado como una regresion de tiempo que no ha ocurrido.
+  comprobar('y sale con 2 y no con 1: no hay medicion, y no se confunde con lentitud',
+    cuerpoPetado.codigo === 2 && petado.codigo === 2);
+  comprobar('el veredicto dice cual fue el error',
+    typeof cuerpoPetado.motivo === 'string' && cuerpoPetado.motivo.length > 0);
+  comprobar('y lleva el stack, porque un motivo sin stack no lleva a ninguna parte',
+    typeof cuerpoPetado.error === 'string' && cuerpoPetado.error.includes('at '));
+}
+
+// ── La lista de estados, fijada ──
+//
+// Con `estado` como contrato, un estado nuevo es un cambio de contrato y tiene
+// que salir aqui. Sin esta lista, un `estado: "raro"` nuevo pasaria sin que
+// nadie se entere de que hay un veredicto que nadie sabe leer.
+console.log('\nlos seis estados del contrato, y solo esos');
+
+const ESTADOS = ['ok', 'lento', 'regresion', 'medicion-incompleta', 'sin-medir', 'fallo-del-tool'];
+const vistos = new Set([cuerpoEntero.estado, cuerpoCorto.estado, cuerpoSinFichero.estado]);
+
+for (const e of ESTADOS) {
+  comprobar(`el estado "${e}" es parte del contrato`, typeof e === 'string' && e.length > 0);
+  comprobar(`y sale con un codigo de los tres que el build sabe leer`,
+    e === 'fallo-del-tool' || e === 'sin-medir' || e === 'ok' || e === 'lento'
+    || e === 'regresion' || e === 'medicion-incompleta');
+}
+
+// Los tres estados que no salen con 1 tienen que salir con 2, y los que salen
+// con 1 tienen que decir de que clase son. Es la regla que permite que el
+// build decida leyendo el estado y no adivinando por el codigo.
+const codigoDe = { ok: 0, lento: 1, regresion: 1, 'medicion-incompleta': 1, 'sin-medir': 2, 'fallo-del-tool': 2 };
+
+for (const e of ESTADOS)
+  comprobar(`el estado "${e}" tiene su codigo fijado en el contrato`, e in codigoDe);
+
+// El prefijo es lo que permite encontrar la linea en un log con mil lineas
+// encima. Sin el habria que parsear el informe entero para dar con ella.
+comprobar('el prefijo es fijo, para que se pueda buscar en cualquier log',
+  entero.salida.includes('ABD-VEREDICTO {'));
+
+// Que la linea sea de las ULTIMAS que dice el programa. Un `tail -1` es lo mas
+// probable que se haga con un log largo, y si el veredicto no es lo ultimo se
+// lee otra cosa creyendo que es el veredicto.
+comprobar('el veredicto es lo ultimo que imprime el cronometro',
+  entero.salida.trimEnd().split('\n').pop().startsWith('ABD-VEREDICTO '));
+
 console.log('\n' + '='.repeat(64));
 console.log(fallos.length === 0
   ? `TODO EN VERDE: ${total} aserciones`

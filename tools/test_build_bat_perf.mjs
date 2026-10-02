@@ -53,6 +53,25 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+
+// CERROJO DE INSTANCIA UNICA.
+//
+// El banco escribe en `build/banco-perf-build`, asi que dos copias de este test
+// a la vez se pisan ese directorio: una lee el .bat a medio escribir, ninguna de
+// las dos puede terminar, y el sintoma es un cuelgue sin mensaje. El cerrojo no
+// es que seais paranoicos, es que el fallo de dos instancias escribiendo en el
+// mismo sitio no se parece a nada de lo que un cuelgue deberia ser.
+const CERRADO = 'ABD_BUILD_BAT_CERRADO';
+
+if (process.env[CERRADO]) {
+  console.error('ROJO  ya hay otra instancia de este test corriendo.');
+  console.error(`      se identifica con ${CERRADO}=${process.env[CERRADO]}`);
+  console.error('      Dos a la vez se escriben encima en el directorio del banco.');
+  process.exit(3);
+}
+
+process.env[CERRADO] = join(dirname(fileURLToPath(import.meta.url)), 'build_build_bat_perf.mjs');
+
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -90,14 +109,43 @@ function comprobar(descripcion, condicion) {
 const SENUELO = join(BANCO, 'SUITE.exe');
 
 // Las llamadas a node que hay que sustituir por su codigo de salida. En tabla
-// y no encadenadas en el bucle porque van a crecer: cuando entre una tercera,
-// el caso nuevo es una fila mas y no una rama mas. La clave de cada fila es la
-// linea EXACTA del build.bat.
+// y no encadenadas en el bucle porque van a crecer: cuando entre una tercera, el
+// caso nuevo es una fila mas y no una rama mas.
+//
+// POR PREFIJO, Y NO CON IGUALDAD. Una fila dice con que PREFIJO empieza la linea
+// del build.bat, no cual es la linea exacta. Con `===` basta con que alguien
+// redirija la salida, anyada una bandera o cambie unas comillas para que el
+// emparejamiento falle, y entonces el banco no sustituye y ejecuta el cronometro
+// DE VERDAD: cinco minutos por caso, seis casos, y un test que se cuelga en vez
+// de ponerse rojo. Un banco que ejecuta lo que deberia estar sustituyendo deja
+// de ser un banco sin avisar, y eso es exactamente la clase de fallo que este
+// test existe para cazar.
+//
+// El prefijo va con el espacio justo despues de la ruta, de modo que
+// `duraciones-suite.mjs` no empareja con un `duraciones-suite.mjs-otro.mjs` que
+// se inventara manana.
+// La fila guarda la ruta SECA. Lo que viene justo despues se comprueba
+// aparte, y puede ser un separador o nada: con el separador dentro del
+// prefijo, una linea que se acaba en la ruta no empareja, porque no hay
+// nada despues con lo que casarlo. Y el separador no es cosmetico, es lo
+// que impide que `duraciones-suite.mjs` case con un
+// `duraciones-suite.mjs-otro.mjs` que alguien se invente manana.
+const SEPARADORES = [" ", "	", ">"];
+
 const LLAMADAS_NODE = [
-  { linea: 'node tools\\test_duraciones_suite.mjs', codigo: 'ntest' },
-  { linea: 'node tools\\test_build_bat_perf.mjs', codigo: 'nbanco' },
-  { linea: 'node tools\\duraciones-suite.mjs', codigo: 'ncrono' },
+  { ruta: 'node tools\\test_duraciones_suite.mjs', codigo: 'ntest' },
+  { ruta: 'node tools\\test_build_bat_perf.mjs', codigo: 'nbanco' },
+  { ruta: 'node tools\\duraciones-suite.mjs', codigo: 'ncrono' },
 ];
+
+function esLlamadaDe(s, fila) {
+  if (!s.startsWith(fila.ruta))
+    return false;
+
+  const resto = s.slice(fila.ruta.length);
+
+  return resto === "" || SEPARADORES.includes(resto[0]);
+}
 
 // La frase que cierra el build cuando no hay medicion. Se comprueba que es la
 // ULTIMA linea que dice algo, y no solo que este en la salida: que se anuncie
@@ -200,6 +248,7 @@ try {
 
   for (const c of CASOS) {
     const cuerpo = [];
+    const sinSustituir = [];
     let sustituciones = 0;
 
     for (const l of [SETLOCAL, PERF_FATAL, 'set "RUN_PERF=1"', ...BLOQUE_PERF, ...COLA]) {
@@ -212,12 +261,19 @@ try {
         cuerpo.push(`${sangria}if not exist "${SENUELO}" (`);
         sustituciones += 1;
       } else {
-        const llamada = LLAMADAS_NODE.find((x) => x.linea === s);
+        const llamada = LLAMADAS_NODE.find((x) => esLlamadaDe(s, x));
 
         if (llamada) {
           cuerpo.push(`${sangria}cmd /c exit ${c[llamada.codigo]}`);
           sustituciones += 1;
         } else {
+          // Una llamada a node que no esta en la tabla no se sustituye, y sin
+          // esto se EJECUTA de verdad: el banco deja de ser un banco y el test
+          // se cuelga en vez de ponerse rojo. Se apunta y se deja pasar, y la
+          // asercion del conteo de abajo dice cual ha sido.
+          if (s.startsWith('node '))
+            sinSustituir.push(l.trim());
+
           cuerpo.push(l);
         }
       }
@@ -235,15 +291,45 @@ try {
     // las comillas dentro: el banco no se ejecuta, y status nulo con stdout
     // vacio se lee como un fallo cualquiera. Cuatro casos rojos que eran del
     // arnes y no del reparto, que es la confusion que este test no puede permitirse.
-    const r = spawnSync('cmd', ['/c', banco], { cwd: RAIZ, encoding: 'utf8' });
+    // El timeout no es una prudencia, es la diferencia entre un rojo y un
+    // cuelgue. Lo que el banco hace es ejecutar unas pocas lineas de batch, y
+    // eso no tarda 40 s: si tarda, lo que se ha colgado es una llamada a node
+    // que el banco no ha sustituido y que ahora esta corriendo de verdad. Sin
+    // este limite, eso son cinco minutos por caso y seis casos, sin decir nada
+    // en ningun momento. Con el limite, un rojo que dice el caso y el motivo.
+    const r = spawnSync('cmd', ['/c', banco], { cwd: RAIZ, encoding: 'utf8', timeout: 40000 });
     const salida = (r.stdout || '').split(LF).filter((x) => x.trim());
     const ultima = salida.length ? salida[salida.length - 1].trim() : '';
+
+    // `signal` es SIGTERM cuando salta el timeout, y entonces el banco no ha
+    // terminado: no se ha ejecutado entero. Se comprueba por separado porque un
+    // banco a medias puede haber impreso cosas y parecer que ha ido bien.
+    comprobar(`${etiqueta}: el banco termina dentro del limite, sin colgarse`,
+      !r.signal);
 
     comprobar(`${etiqueta}: el banco se ha ejecutado de verdad`,
       !r.error && salida.length > 0);
 
-    comprobar(`${etiqueta}: el banco sustituye el exe y las ${LLAMADAS_NODE.length} llamadas a node (${LLAMADAS_NODE.length + 1})`,
-      sustituciones === LLAMADAS_NODE.length + 1);
+    // El mensaje lleva el nombre de lo que no se sustituyo, y no solo el numero.
+    // El caso que de verdad importa no es que falte una de las de la tabla: es
+    // que alguien anada una llamada a node NUEVA y no la anada a la tabla. Con
+    // un conteo a secas el rojo dice "3" y no dice cual; con el nombre, dice que
+    // anadir. Y es un rojo y no un cuelgue: sin esto, esa llamada se ejecutaria
+    // de verdad y el test se quedaria cinco minutos sin decir nada.
+    comprobar(`${etiqueta}: el banco sustituye el exe y las ${LLAMADAS_NODE.length} llamadas a node`
+      + (sinSustituir.length ? `; sin sustituir: ${sinSustituir.join(' | ')}` : ''),
+    sustituciones === LLAMADAS_NODE.length + 1);
+    comprobar(`${etiqueta}: ninguna llamada a node se queda sin sustituir`,
+      sinSustituir.length === 0);
+
+    // Si se ha colgado, lo probable es que una llamada se haya ejecutado de
+    // verdad. Se dice, porque el sintoma de un banco mal construido y el de un
+    // build lento son el mismo: no termina.
+    if (r.signal)
+      comprobar(`${etiqueta}: el banco se ha COLGADO, no ha tardado. Si una llamada a`
+        + ' node no esta en LLAMADAS_NODE, se ejecuta de verdad y esto no termina nunca',
+      false);
+
     comprobar(`${etiqueta}: ${c.motivo} -> el build sale con ${c.build}`,
       r.status === c.build);
     comprobar(`${etiqueta}: ${c.motivo} -> ${c.muere ? 'anuncia el fallo' : 'no anuncia fallo'}`,

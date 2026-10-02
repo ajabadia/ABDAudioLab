@@ -972,6 +972,62 @@ export function cuadraLaCuenta(duraciones, base, ausentes) {
   return { ok: !(medidos < esperados || ausentes > 0), medidos, esperados, lineas };
 }
 
+// ── La linea de veredicto ──
+//
+// QUE ES. Una sola linea, con prefijo fijo y el cuerpo en JSON, que dice que
+// ha pasado. Va a stdout, no a stderr, porque lo legible por maquina que solo
+// aparece cuando algo va a stderr no lo lee nadie: stdout es lo que un
+// `| grep` y lo que un pipeline capturan sin pedirlo.
+//
+// POR QUE HACE FALTA, Y QUE ESTA ROMPIENDO. El cronometro sale hoy con un
+// numero, y un numero no dice QUE paso. Hay dos 1 que no se parecen en nada:
+// "un test se ha puesto lento" y "el propio cronometro ha petado a mitad de un
+// XML". Quien lee un 1 tiene que adivinar, y el que adivina mal se
+// desconecta. Peor: un fallo del tool sale con 1 porque es lo que usa Node
+// para lo que no captura, de modo que build.bat anunciaba "Suite timings: a
+// slow test" cuando el cronometro estaba roto. Un fallo de herramienta
+// anunciado como lentitud es la clase de mentira que este cronometro no
+// deberia tener, y por eso aqui se arregla.
+//
+// LOS SEIS ESTADOS, Y POR QUE SON SEIS Y NO TRES.
+//
+//   ok                  se midio y no hay nada que decir.
+//   lento                se midio y hay casos por encima del umbral.
+//   regresion            se midio y hay casos que se han volcado o mas que
+//                        respecto a la referencia.
+//   medicion-incompleta  se empezo a medir y no hay resultado creible: la suite
+//                        no ha terminado, el XML esta truncado, no hay casos,
+//                        o la medicion no cubre la referencia entera.
+//   sin-medir            no se ha medido y no es culpa de la medicion: el
+//                        binario o el XML no estaban donde se buscaban.
+//   fallo-del-tool       el cronometro ha fallado. No es lentitud, y sale con
+//                        2 para que no se pueda leer como tal.
+//
+// `medicion-incompleta` y `sin-medir` estan separadas a proposito: la primera
+// es un problema de la medicion y la segunda del entorno, y quien decide si
+// algo tiene que ser puerta necesita saber cual de las dos es.
+//
+// UN SOLO PUNTO DE EMISION. main() devuelve este descriptor en vez de un
+// numero, y el envoltorio emite. Si main emitiera la linea, un camino que la
+// emite y despues falla al escribirla dejaria dos lineas, y dos lineas de
+// veredicto no son legibles por maquina: son ambiguas. Con un unico punto de
+// emision hay cero o una, por construccion, y eso no se puede comprobar con
+// un test porque no se puede romper.
+function con(estado, codigo, extra) {
+  return { estado, codigo, ...(extra || {}) };
+}
+
+// El prefijo va con espacio y no con dos puntos: el cuerpo es JSON y un
+// `:` delante haria dudar de donde empieza. El JSON se aplana a una linea
+// porque una linea legible por maquina tiene que ser una linea de verdad.
+const PREFIJO_VEREDICTO = 'ABD-VEREDICTO ';
+
+function emitirVeredicto(descriptor) {
+  const cuerpo = JSON.stringify(descriptor).replace(/[\r\n]+/g, ' ');
+
+  console.log(PREFIJO_VEREDICTO + cuerpo);
+}
+
 function main(argumentos) {
   const indice = argumentos.indexOf('--umbral');
   const umbral = indice >= 0 ? Number(argumentos[indice + 1]) : UMBRAL_POR_DEFECTO;
@@ -1002,7 +1058,8 @@ function main(argumentos) {
 
     if (!existsSync(ruta)) {
       console.error(`No existe el fichero XML: ${ruta}`);
-      return 2;
+
+      return con('sin-medir', 2, { motivo: 'el XML que se le apunto no existe', ruta });
     }
 
     xml = readFileSync(ruta, 'utf8');
@@ -1016,7 +1073,8 @@ function main(argumentos) {
       // hora de buscar el exe en el arbol equivocado.
       console.error(`No esta la suite compilada en: ${SUITE}`);
       console.error('Se compila con:  build.bat tests');
-      return 2;
+
+      return con('sin-medir', 2, { motivo: 'la suite no esta compilada', ruta: SUITE });
     }
 
     console.error('Midiendo la suite. Tarda unos minutos; no es un cuelgue.');
@@ -1043,7 +1101,8 @@ function main(argumentos) {
       console.error('');
       console.error('Ultimas lineas de la salida:');
       console.error(cola.join('\n'));
-      return 1;
+
+      return con('medicion-incompleta', 1, { motivo: motivoCorte, casos: 0 });
     }
   }
 
@@ -1065,7 +1124,11 @@ function main(argumentos) {
     console.error('caben estan enteros, de modo que el XML parece bueno mientras no');
     console.error('se mire el final. Se relanza la medicion entera.');
     console.error(`Venia de: ${indiceXml >= 0 ? argumentos[indiceXml + 1] : 'la captura de esta vuelta'}.`);
-    return 1;
+
+    return con('medicion-incompleta', 1, {
+      motivo: 'el XML esta truncado, le falta el cierre del documento',
+      casos: 0,
+    });
   }
 
   const duraciones = leerDuraciones(xml);
@@ -1078,7 +1141,8 @@ function main(argumentos) {
   if (duraciones.length === 0) {
     console.error('');
     console.error('La medicion no tiene ni un caso. Sin casos no hay nada que comparar.');
-    return 1;
+
+    return con('medicion-incompleta', 1, { motivo: 'la medicion no tiene ningun caso', casos: 0 });
   }
 
   const lentos = duraciones.filter((d) => d.segundos > umbral).length;
@@ -1108,7 +1172,10 @@ function main(argumentos) {
     console.error(`Referencia guardada en ${rutaBase}: ${duraciones.length} casos.`);
     console.error(`Medida en ${describeMaquina(base2.maquina)}.`);
     console.error('La siguiente vuelta comparara contra esta.');
-    return lentos > 0 && !soloAvisar ? 1 : 0;
+    if (lentos > 0 && !soloAvisar)
+      return con('lento', 1, { casos: duraciones.length, lentos, umbral });
+
+    return con('ok', 0, { casos: duraciones.length, lentos: 0, umbral, referencia: 'guardada' });
   }
 
   if (base === null) {
@@ -1161,7 +1228,23 @@ function main(argumentos) {
       console.error('');
       console.error(fallos.join('\n'));
       console.error(`Referencia del ${base.medidoEn}, ${base.casos} casos.`);
-      return 1;
+
+      // Los dos fallos posibles se separan, porque son dos preguntas: si se han
+      // volcado casos es una regresion de tiempo, y si la medicion no cubre la
+      // referencia entera no hay regresion que comparar porque falta la mitad
+      // de lo que se iba a mirar.
+      return cmp.regresiones.length > 0
+        ? con('regresion', 1, {
+            casos: duraciones.length,
+            regresiones: cmp.regresiones.length,
+            ausentes: cuenta.ausentes,
+            referencia: base.medidoEn,
+          })
+        : con('medicion-incompleta', 1, {
+            casos: duraciones.length,
+            ausentes: cuenta.ausentes,
+            motivo: 'la medicion no cubre la referencia entera',
+          });
     }
   }
 
@@ -1169,16 +1252,51 @@ function main(argumentos) {
     console.error('');
     console.error(`${lentos} caso(s) por encima de ${umbral} s. Sale con 1 para que un`);
     console.error('pipeline lo vea, aunque el suite haya pasado.');
-    return 1;
+
+    return con('lento', 1, { casos: duraciones.length, lentos, umbral });
   }
 
-  return 0;
+  return con('ok', 0, { casos: duraciones.length, lentos: 0, umbral });
+}
+
+// El envoltorio, y el unico sitio del fichero que emite el veredicto.
+//
+// El try/catch es lo que convierte una excepcion no controlada en un veredicto
+// con nombre. Antes de esto, petar a mitad de un XML salia con 1, que es lo que
+// usa Node para lo que no captura, y quien leia ese 1 se enteraba de una
+// regresion de tiempo que no existe. El mensaje va entero y sin recortar, que un
+// stack trace truncado es una pista que no lleva a ninguna parte.
+//
+// El 2 y no el 1 es la decision: "no he medido nada" es exactamente lo que ha
+// pasado, y es la clase que build.bat ya sabe hacer fatal. Asi que el arreglo no
+// necesita tocar el build, y el fallo de una herramienta deja de vestirse de
+// lentitud sin cambiar una sola linea de las que lo reparten.
+function ejecutar(argumentos) {
+  let descriptor;
+
+  try {
+    descriptor = main(argumentos);
+  } catch (e) {
+    console.error('');
+    console.error('EL CRONOMETRO HA FALLADO. Esto no es una regresion de tiempo.');
+  console.error('No hay medicion que leer, y sale con 2 para que no se confunda');
+  console.error('con un caso lento. El error entero va debajo:');
+  console.error(e && e.stack ? e.stack : e);
+    descriptor = con('fallo-del-tool', 2, {
+      motivo: String(e && e.message ? e.message : e).split('\n')[0],
+      error: String(e && e.stack ? e.stack : e).split('\n').slice(0, 6).join(' | '),
+    });
+  }
+
+  emitirVeredicto(descriptor);
+
+  return descriptor.codigo;
 }
 
 // Solo cuando se ejecuta como programa. Importado desde un test, no.
 if (process.argv[1] && existsSync(process.argv[1])
     && process.argv[1].replace(/\\/g, '/').endsWith('duraciones-suite.mjs'))
-  process.exit(main(process.argv.slice(2)));
+  process.exit(ejecutar(process.argv.slice(2)));
 
 // El ejecutable, para el test.
 export const RUTA_SUITE = SUITE;
@@ -1187,3 +1305,4 @@ export const UMBRAL = UMBRAL_POR_DEFECTO;
 export const UMBRAL_ABSOLUTO = UMBRAL_ABSOLUTO_S;
 export const FACTOR = FACTOR_POR_DEFECTO;
 export const BASE = RUTA_BASE;
+export { con, PREFIJO_VEREDICTO, emitirVeredicto, ejecutar };

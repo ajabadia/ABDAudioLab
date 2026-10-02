@@ -278,6 +278,50 @@ Las siete se ven. Y una mutación que **no** se veía, que es la razón de que e
 
 **Lo que sigue abierto.** El `build.bat` no se puede mutar en un banco sin tocar el fichero real, así que el test acepta `ABD_BUILD_BAT` para apuntarse a una variante. El gancho está en el propio test, visible, y avisa en voz alta cuando se usa. El banco de mutación está en `build/`, que está ignorado: es andamiaje para demostrar que el test funciona, no algo que se commitee.
 
+### 6.7 El código de salida no decía QUÉ pasó — CORREGIDO, ahora hay una línea de veredicto
+
+Es la laguna que quedaba abierta dentro de §6.1 y que solo se ve al escribir el reparto: **un número no dice qué pasó**. Hay dos `1` que no se parecen en nada —un test que se ha puesto lento, y el cronómetro que ha petado a mitad de un XML— y quien lee un `1` tiene que adivinar.
+
+Lo peor no era teórico. **Un fallo no controlado en Node sale con `1`**, porque es el código que usa para lo que no captura, de modo que `build.bat` anunciaba literalmente `Suite timings: a slow test` con el cronómetro roto encima. Un fallo de herramienta anunciado como lentitud es la clase de mentira que un cronómetro no debería tener.
+
+Ahora el cronómetro imprime **una línea de veredicto**, una sola, con prefijo fijo y el cuerpo en JSON:
+
+```
+ABD-VEREDICTO {"estado":"fallo-del-tool","codigo":2,"motivo":"EISDIR: illegal operation on a directory, read","error":"..."}
+```
+
+Va a **stdout** y no a stderr, porque lo legible por máquina que solo aparece cuando algo va a stderr no lo lee nadie. Y es la **última** línea que imprime el programa, para que un `tail -1` la encuentre.
+
+**Los seis estados, y por qué son seis y no tres:**
+
+| `estado` | Qué es | `codigo` |
+|---|---|---|
+| `ok` | se midió y no hay nada que decir | 0 |
+| `lento` | se midió y hay casos por encima del umbral | 1 |
+| `regresion` | se midió y hay casos volcados o ausentes frente a la referencia | 1 |
+| `medicion-incompleta` | se empezó a medir y no hay resultado creíble | 1 |
+| `sin-medir` | no se midió y no es culpa de la medición: el entorno | 2 |
+| `fallo-del-tool` | el cronómetro falló | 2 |
+
+`medicion-incompleta` y `sin-medir` están separadas a propósito: la primera es un problema de la medición y la segunda del entorno, y quien decide si algo tiene que ser puerta necesita saber cuál de las dos es.
+
+**El arreglo que no ha hecho falta tocar el build.** Un fallo del tool sale con **2**, no con 1. `build.bat` ya hacía fatal el `2` porque `2` significa «no he medido nada», y eso es exactamente lo que ha pasado: no hay medición. El `try/catch` nuevo convierte la excepción en un veredicto con nombre, y el reparto por código —que ya estaba comprovado por tests— lo trata como fatal sin que haya cambiado una línea. Lo que **sí** ha cambiado en `build.bat` es que ahora **lee el estado** y lo dice: el `estado` no decide el exit, solo lo explica, de modo que el log dice cuál de las tres cosas que caben en un `1` es la que ha pasado.
+
+**Por qué un solo punto de emisión.** `main()` devuelve un descriptor en vez de un número, y el envoltorio emite. Si `main` emitiera la línea, un camino que la emite y después falla al escribirla dejaría **dos** líneas, y dos líneas de veredicto no son ambiguas: son *ambiguas*, porque un `tail -1` se lleva la última y quien esté leyendo la otra no se entera. Con un único punto de emisión hay cero o una, por construcción, y eso no se puede comprobar con un test porque no se puede romper.
+
+**Lo que ha costado encontrar: dos fallos del banco, no del cronómetro.** Al redirigir la salida del cronómetro a un temporal —para que `build.bat` pudiera leer el estado— su línea dejó de coincidir **exactamente** con la que el banco del reparto tenía en su tabla. El banco no la sustituyó, y por lo tanto **ejecutó el cronómetro de verdad**: cinco minutos por caso, seis casos. El test no se puso rojo: se colgó, y el motivo del cuelgue no era el reparto sino que el banco había dejado de ser un banco.
+
+Las dos lecciones están en el banco, porque las dos costaron un rato:
+
+| Lo que pasó | Lo que se hizo |
+|---|---|
+| la línea del cronómetro tenía redirección y `===` dejó de casar | emparejamiento por **prefijo** más separador, no por igualdad exacta |
+| una llamada sin sustituir **se ejecuta** en vez de fallar | las que no se sustituyen **se nombran** en el mensaje del rojo |
+| el banco tardaba 5 min y no decía nada | **timeout de 40 s por caso**, para que un cuelgue sea un rojo |
+| dos tests a la vez se pisan `build/banco-perf-build` | cerrojo de instancia única por variable de entorno |
+
+La última aserción de la tabla es la que más importa: **una llamada a node que no esté en `LLAMADAS_NODE` produce un rojo que la nombra**, no un cuelgue. Un test que se cuelga en vez de ponerse rojo es un test del que nadie se fía, porque no se sabe si falló o si solo va lento.
+
 ## 7. Verificación
 
 | Comprobación | Resultado |
@@ -300,6 +344,9 @@ Las siete se ven. Y una mutación que **no** se veía, que es la razón de que e
 | §6.6: el mismo test con el test del reparto en rojo | **exit 1**, y sin anunciar una medición |
 | Fichero de la herramienta | 554 líneas → 964 |
 | §6.6: mutaciones del reparto que el test NO ve | **7 mutaciones → 7 en rojo** |
+| §6.7: `test_duraciones_suite.mjs` con el contrato del veredicto | **160 aserciones**, +41 |
+| §6.7: `test_build_bat_perf.mjs` tras el arreglo del banco | **54 aserciones**, y 43 s con una llamada sin sustituir |
+| §6.7: un fallo del cronómetro (`EISDIR` a media lectura) | antes `1` leido como lentitud → **ahora `2`, `fallo-del-tool`** |
 | §6.6: `build.bat` intacto tras el banco de mutación | **sí** |
 
 ## 8. Commits
@@ -312,6 +359,7 @@ Las siete se ven. Y una mutación que **no** se veía, que es la razón de que e
 | `93c47cd` | `build.bat` distingue el código 2 de entorno del 1 de rendimiento, y fija el contrato en la cabecera del tool |
 | `4b9199c` | §6.1: `build.bat` falla el build con un 2 y con un código que el tool no usa, y solo avisa con un 1. **Commit del hilo paralelo**: recogió los cambios de este acta que estaban sin commitear en el árbol de trabajo junto a su propio arreglo de `MockAudioEngine`, así que el asunto es suyo y no lleva cuerpo ni trailer `Workstream-Origin`. El fichero es el de WS-1 y el cambio es el descrito en §6.1. |
 | este commit | §6.6: el reparto de códigos pasa de un banco de un solo uso a `tools/test_build_bat_perf.mjs`, y `build.bat` lo ejecuta antes de cronometrar (42 aserciones). Con `*.bat text eol=crlf` en `.gitattributes`, que evita que el diff del build.bat sea el fichero entero cada vez que se toca |
+| este commit | §6.7: el cronómetro imprime una línea de veredicto legible por máquina (seis estados, un solo punto de emisión), un fallo del tool sale con 2 en vez de 1, y `build.bat` lee el estado. El banco del reparto deja de colgarse: emparejamiento por prefijo, las llamadas sin sustituir se nombran, timeout de 40 s por caso y cerrojo de instancia única |
 
 Al auditar se ha encontrado modificado `contracts/hardware/abdeep_modulation_matrix.json` y `.github/workflows/audio-ab-5d-ci.yml`, que reescriben respectivamente una ruta de `provenance` y algo del workflow. **No son de este trabajo y no se han tocado**: el hilo paralelo está tocando el repositorio a la vez.
 
