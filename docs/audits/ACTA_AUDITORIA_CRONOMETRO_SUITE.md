@@ -162,7 +162,7 @@ Criterio de severidad usado: **ALTO** puede producir un resultado falso o perder
 Es lo más importante que sale de esta auditoría y no es un fallo de la herramienta. Los arreglos de `078b2aa` y `cf17e42` hacen que el programa salga con **1** cuando la medición no sirve. Sus tres consumidores hacen los tres lo mismo:
 
 - La CI marca el paso `continue-on-error: true` y termina con `exit 0`. Está escrito que es a propósito, porque un rojo permanente por culpa del tiempo de una máquina es peor que no mirar. **Correcto, y sigue siendo cierto.**
-- `build.bat` guarda `PERF_EXIT`, imprime un `[Warn]` distinto según valga 0 o 1, y **no lo propaga a su propio código de salida**: el script termina en `:end / endlocal`.
+- `build.bat` guarda `PERF_EXIT`, distingue sus clases (`[Info]` para 0, `[Warn]` para 1, `[Error]` para 2 —*no se midió*— y para cualquier código que el tool no use), y **no lo propaga a su propio código de salida**: el script termina en `:end / endlocal`.
 - Solo quien lo lanza a mano lo lee.
 
 Consecuencia honesta: el guard ahora es fiable **cuando alguien lo mira**, y no hay ninguna puerta automática que se ponga roja por un cuelgue de la suite. Cerrar eso es una decisión de proyecto, no un arreglo: implica elegir qué significa «una medición incompleta» en un pipeline donde el resto de los pasos sí son puerta.

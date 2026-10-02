@@ -58,6 +58,29 @@
  * terminado —un cuelgue, un XML sin cerrar, casos de la referencia que no se han
  * medido— sale con 1 con ese flag puesto: no es ruido, es una medicion que no se
  * puede creer, y un guard que se apaga con una bandera no es un guard.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * LOS CODIGOS DE SALIDA, Y POR QUE EL 2 NO ES UN 1
+ *
+ *   0 = se midio, y no hay nada que decir.
+ *   1 = se midio, y hay algo que mirar. Un test lento, una regresion contra la
+ *       referencia, o una medicion que no llego a terminar: un cuelgue, un XML
+ *       truncado, casos de la referencia que no se han medido, o una medicion sin
+ *       un solo caso. Aqui la medicion EXISTE y es la que dice algo.
+ *   2 = NO SE MIDIO. Falta el ejecutable de la suite, o el fichero que se le
+ *       apunto con `--xml`. Aqui no hay ningun resultado de tiempos que leer.
+ *
+ * La distincion esta porque quien llama necesita contarlas como dos cosas. Un 2
+ * con forma de «tu suite no se ha puesto lenta» es un verde falso con forma de
+ * aviso, que es justo la clase de mentira que un cronometro no deberia tener: no
+ * se ha medido nada, y no medir nada no es medir rapido. Por eso el 2 sale con un
+ * codigo aparte y no como un 1 mas.
+ *
+ * Y lo que NO se puede distinguir desde fuera, para que no se lea de mas: un
+ * error del propio script sale con 1, porque es el codigo que node usa para lo que
+ * no captura. Un 1 es por lo tanto «algo va mal», que incluye «algo va lento», no
+ * solo «algo va lento». Quien necesite separarlos tiene que mirar el texto que
+ * sale por stderr, no el codigo.
  */
 
 import { readFileSync, writeFileSync, renameSync, rmSync, existsSync } from 'node:fs';

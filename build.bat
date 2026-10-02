@@ -191,12 +191,43 @@ if "!RUN_PERF!"=="1" (
             echo ==============================================================================
             node tools\duraciones-suite.mjs
             set "PERF_EXIT=!errorlevel!"
+            rem
+            rem El codigo de salida del cronometro son TRES clases, no una. Antes
+            rem todo lo que no era 0 caia en el mismo `else`, y ahi conviven dos
+            rem cosas que no se parecen en nada:
+            rem
+            rem   0 = se midio, y no hay nada que decir.
+            rem   1 = se midio, y hay algo que mirar. Un test lento, una regresion
+            rem       contra la referencia, o una medicion que no llego a
+            rem       terminar --cuelgue, XML truncado, casos de la referencia que
+            rem       no se midieron--. La medicion existe y es la que dice algo.
+            rem   2 = NO SE MIDIO. El binario de tests o el XML que se le apunto no
+            rem       estaba donde se buscaba. Aqui no hay ningun resultado que
+            rem       leer, y por lo tanto tampoco hay ningun resultado de tiempos.
+            rem
+            rem Decir "tu suite no se ha puesto lenta" cuando no se ha medido nada
+            rem es un verde falso con forma de aviso, que es la clase de mentira
+            rem que un cronometro no deberia tener. Un 2 es un problema de entorno,
+            rem y se dice como tal para que nadie lo lea como lentitud.
+            rem
+            rem Lo que NO se puede distinguir desde aqui: un error del propio tool
+            rem sale con 1, porque es el codigo que Node usa para lo que no se
+            rem captura. Un 1 es, por lo tanto, "algo va mal", no "algo va lento".
             if "!PERF_EXIT!"=="0" (
                 echo [Info] Suite timings: no slow test, no regression vs reference.
+            ) else if "!PERF_EXIT!"=="1" (
+                echo [Warn] Suite timings: a slow test, a regression, or a run that did not finish.
+                echo [Warn] See the table above. An unfinished run means truncated XML,
+                echo [Warn] or reference cases that were not measured.
+            ) else if "!PERF_EXIT!"=="2" (
+                echo [Error] The suite was NOT timed. That is not a performance result.
+                echo [Error] Exit 2 = the tool could not start: the test binary, or the XML it
+                echo [Error] was pointed at, is not where it was looking. There is no timing
+                echo [Error] above to read. The tool prints the full path it tried, right
+                echo [Error] before this line; that is the path to check.
             ) else (
-                echo [Warn] Suite timings reported something. See the table above.
-                echo [Warn] Exit code !PERF_EXIT! - 1 = slow test, regression, or unfinished run.
-                echo [Warn] An unfinished run means truncated XML or missing reference cases.
+                echo [Error] The timing tool exited with !PERF_EXIT!, a code it does not use.
+                echo [Error] That is a failure of the tool itself, not a slow suite.
             )
         )
     )

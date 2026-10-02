@@ -450,6 +450,16 @@ const sinBase = correr([
 
 comprobar('sin referencia que comparar sale con 0', sinBase.codigo === 0);
 
+// Y el 2, que es el codigo que mas se confunde con el 1 porque no dice nada
+// sobre tiempos: dice que NO SE HA MEDIDO. Fijarlo aqui es lo que impide que
+// derive a un 1 sin que nadie lo note, que es justo como paso con el resto de
+// este fichero: un codigo de salida que nadie mira se puede mover solo.
+const sinFichero = correr(['--xml', join(dirTEMP, 'no-existe.xml')]);
+
+comprobar('un XML que no existe sale con 2, no con 1', sinFichero.codigo === 2);
+comprobar('y el mensaje dice que no existe, con la ruta entera',
+  sinFichero.salida.includes(join(dirTEMP, 'no-existe.xml')));
+
 console.log('\nel valor de una bandera NO llega a Catch2 como filtro de test');
 
 // Un valor suelto es indistinguible de un filtro de test, y un filtro que no
