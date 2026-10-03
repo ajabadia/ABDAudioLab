@@ -95,7 +95,7 @@ El tag anotado actual desreferencia inequívocamente al commit certificado de re
 El presente addendum y el acta de smoke test completa fueron incorporados posteriormente en el commit administrativo de gobernanza en `main` para documentar la trazabilidad del retag; dicho commit posterior no altera el contenido inmutable versionado por `v2.1.0`.
 
 **Motivo:**
-Alinear la referencia remota con el commit exacto que contiene las release notes, el acta de smoke test y el inventario SHA-256 certificados.
+Alinear la referencia remota con el commit certificado de release `0b76616a9a52a0f755e260ed0cf421db2de8f33b`, que contiene el código de producción validado, las notas de release originales, las correcciones de hardening de UI/notificaciones (`f013037`) y el inventario SHA-256 de los artefactos certificados.
 
 **Acción para consumidores que hubieran obtenido el tag previo:**
 ```powershell

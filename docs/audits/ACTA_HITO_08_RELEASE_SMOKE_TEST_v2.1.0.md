@@ -106,7 +106,9 @@ Se certifican las cuatro condiciones operativas en ejecución real:
 > El acta completa de smoke test y el Addendum de Gobernanza del Retag fueron incorporados posteriormente en el commit administrativo `93a815967d6056b66e13fa7d62057398e4f16a04` de `main`. Dicho commit no forma parte del contenido versionado por `v2.1.0` y documenta la trazabilidad posterior de publicación.
 > 
 > **Motivo Técnico:**
-> Alinear la referencia remota con el commit exacto que contiene las [RELEASE_NOTES_v2.1.0.md](../../RELEASE_NOTES_v2.1.0.md), el acta de Smoke Test completa, las correcciones de hardening de UI/notificaciones (`f013037`) y el inventario formal de hashes SHA-256.
+> Alinear la referencia remota con el commit certificado de release `0b76616a9a52a0f755e260ed0cf421db2de8f33b`, que contiene el código de producción validado, las [RELEASE_NOTES_v2.1.0.md](../../RELEASE_NOTES_v2.1.0.md) originales, las correcciones de hardening de UI/notificaciones (`f013037`) y el inventario SHA-256 de los artefactos certificados.
+> 
+> El acta completa de smoke test y el Addendum de Gobernanza fueron registrados posteriormente en commits documentales de `main` y no forman parte del contenido inmutable versionado por `v2.1.0`.
 > 
 > **Acción para Clones y Consumidores con Tag Previo:**
 > Aquellos entornos o clones locales que hubieran obtenido el tag anterior deben ejecutar:
