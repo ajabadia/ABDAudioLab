@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "v2.1.0",
+  "releaseCommit": "0b76616a9a52a0f755e260ed0cf421db2de8f33b",
+  "buildArchitecture": "windows-x64",
+  "buildConfiguration": "Release",
+  "artifacts": [
+    {
+      "path": "ABDAudioLab.exe",
+      "sizeBytes": 9345024,
+      "sha256": "385AC194DF073A74E7299B99C5FC83B257BE538F5FBDB0FF5C9484E09CAFE859",
+      "description": "Aplicación principal de laboratorio y GUI"
+    },
+    {
+      "path": "ABDAudioLab_PluginWorker.exe",
+      "sizeBytes": 3805696,
+      "sha256": "DDD2976C98442DBBCA2209AB67DD9A0412BC939783B15FFBD056425FF3B1913E",
+      "description": "Proceso auxiliar de hosting para plugins"
+    }
+  ]
+}

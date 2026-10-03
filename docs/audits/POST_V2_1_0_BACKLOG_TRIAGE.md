@@ -83,9 +83,21 @@ Evaluación sistemática de ítems pendientes antes de iniciar cualquier desarro
 - [x] Higiene: 0 rutas absolutas.
 - [x] DeepMind 12D en reposo pasivo garantizado.
 
-### Definition of Done (DoD)
-1. **Script de Verificación:** `tools/verify-release-hashes.ps1` compara los binarios locales contra los hashes oficiales certificados y devuelve exit code 0/1.
-2. **Guía de Fixtures Externas:** Documento que explica exactamente por qué 27 tests se marcan SKIPPED y cómo instalar opcionalmente Dexed/VES sin alterar la suite base.
-3. **Suite Intacta:** Los 949 test cases mantienen el 100% de aserciones en verde (211.374/211.374 PASS).
-4. **Higiene Intacta:** 152/152 aserciones de `[hygiene]` en verde.
-5. **Aislamiento Hardware:** Cero llamadas MIDI, cero bytes transmitidos.
+### Definition of Done (DoD) para v2.1.1
+1. **Manifiesto de Integridad:** `docs/release/release-integrity-v2.1.0.json` versionado y referenciando el commit certificado `0b76616a9a52a0f755e260ed0cf421db2de8f33b`.
+2. **Script de Verificación:** `tools/verify-release-hashes.ps1` compara los binarios locales contra el manifiesto versionado, emitiendo exit code:
+   - `0`: Todos los artefactos coinciden en tamaño y SHA-256.
+   - `1`: Falta algún artefacto o difiere su tamaño o hash.
+   - `2`: Parámetros de invocación o manifiesto inexistente/inválido.
+   Probado empíricamente en los tres escenarios (0, 1 y 2).
+3. **Guía de Fixtures Externas:** `docs/qa/external-fixtures.md` clasifica rigurosamente: fixture obligatoria (interna), fixture opcional (Dexed/VES), fixture ausente (SKIPPED legítimo) y fixture con drift. No inventa hashes para plugins no instalados.
+4. **Suite Global de Referencia Preservada:**
+   - 949 test cases totales.
+   - 922 PASS.
+   - 27 SKIPPED legítimos y esperados.
+   - 0 FAIL.
+   - 211.374 / 211.374 assertions PASS.
+   - *Criterio de Rechazo:* Ningún test adicional en FAIL, ningún incremento injustificado de SKIPPED, ningún descenso en assertions PASS.
+5. **Higiene Intacta:** 152/152 aserciones de `[hygiene]` en verde (0 rutas absolutas).
+6. **Aislamiento Hardware & DeepMind:** Cero llamadas MIDI, cero bytes transmitidos, servidor MCP `disabled: true`.
+
