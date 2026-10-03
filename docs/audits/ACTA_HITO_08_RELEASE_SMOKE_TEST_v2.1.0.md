@@ -6,8 +6,10 @@
 **Hito Global:** HITO-08 (Release v2.1.0 & QA Operativo)  
 **Documento Rector:** `docs/audits/ACTA_HITO_08_RELEASE_SMOKE_TEST_v2.1.0.md`  
 **Compilador:** MSVC 18.10.3 (Visual Studio 2026 Developer Toolchain) · Release x64 (C++20)  
+**Commit de Hardening Previo:** `f013037`  
 **Commit Certificado de Release:** `0b76616a9a52a0f755e260ed0cf421db2de8f33b` (`main`)  
 **Tag Anotado Publicado:** `v2.1.0` (Object `8df6db9a5c03f7ba27d8f9160341581c52dc1ed2`)  
+**Commit Administrativo de Gobernanza:** `93a815967d6056b66e13fa7d62057398e4f16a04` (`main`)  
 **Estado HITO-08:** 🟢 **CERRADO Y PUBLICADO REMOTAMENTE**  
 
 ---
@@ -61,8 +63,8 @@ fallos:          0
 Se certifican las cuatro condiciones operativas en ejecución real:
 
 1. **Arranque y Estabilidad:**
-   - `ABDAudioLab.exe` arrancó en frío sin excepciones ni crashes (tiempo a primer render < 50ms).
-   - Registrado en telemetría de log: `C:\Users\ajaba\AppData\Roaming\ABDAudioLab\ABDAudioLab_2026-10-04_00-36-23.log`.
+   - `ABDAudioLab.exe` arrancó en frío sin excepciones ni crashes. La aplicación alcanzó estado estable y mostró la ventana principal sin excepción, crash ni bloqueo observado durante el smoke test.
+   - Registrado en telemetría de log de usuario: `ABDAudioLab_2026-10-04_00-36-23.log` (`%APPDATA%\ABDAudioLab\`).
 2. **Transición Visual:**
    - La ventana de carga flotante (`SoundIdSplashWindow`) inicializó componentes y cedió el foco fluidamente a `LabMainWindow`.
    - Interfaz del Wizard (Paso 1) completamente despejada, sin recuadros de avisos de fondo invasivos ni solapamientos.
@@ -98,11 +100,13 @@ Se certifican las cuatro condiciones operativas en ejecución real:
 > `8df6db9a5c03f7ba27d8f9160341581c52dc1ed2`
 > 
 > **Desreferenciación Unívoca:**
-> El tag anotado actual desreferencia inequívocamente al commit certificado de release:
+> El tag anotado actual `v2.1.0` desreferencia inequívocamente al commit certificado de release:
 > `0b76616a9a52a0f755e260ed0cf421db2de8f33b` (`refs/tags/v2.1.0^{}`)
 > 
+> El acta completa de smoke test y el Addendum de Gobernanza del Retag fueron incorporados posteriormente en el commit administrativo `93a815967d6056b66e13fa7d62057398e4f16a04` de `main`. Dicho commit no forma parte del contenido versionado por `v2.1.0` y documenta la trazabilidad posterior de publicación.
+> 
 > **Motivo Técnico:**
-> Alinear la referencia remota con el commit exacto que contiene las [RELEASE_NOTES_v2.1.0.md](file:///d:/desarrollos/ABDSynths/ABDAudioLab/RELEASE_NOTES_v2.1.0.md), el acta de Smoke Test completa, las correcciones de hardening de UI/notificaciones (`f013037`) y el inventario formal de hashes SHA-256.
+> Alinear la referencia remota con el commit exacto que contiene las [RELEASE_NOTES_v2.1.0.md](../../RELEASE_NOTES_v2.1.0.md), el acta de Smoke Test completa, las correcciones de hardening de UI/notificaciones (`f013037`) y el inventario formal de hashes SHA-256.
 > 
 > **Acción para Clones y Consumidores con Tag Previo:**
 > Aquellos entornos o clones locales que hubieran obtenido el tag anterior deben ejecutar:
