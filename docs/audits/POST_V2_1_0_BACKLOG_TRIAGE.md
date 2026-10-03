@@ -96,42 +96,56 @@ Evaluación sistemática de ítems pendientes antes de iniciar cualquier desarro
    - 922 PASS.
    - 27 SKIPPED legítimos y esperados.
    - 0 FAIL.
-   - **211.366 assertions PASS** (baseline justificado tras la reconciliación técnica de las 8 aserciones de advertencias espurias filtradas en `f013037`).
+   - **Baseline candidato post-release: 211.366 assertions PASS.**
+   - *Pendiente:* Reconciliación reproducible frente al commit certificado de release `0b76616a9a52a0f755e260ed0cf421db2de8f33b`.
    - *Criterio de Rechazo:* Ningún test adicional en FAIL, ningún incremento injustificado de SKIPPED, ningún descenso no justificado de assertions PASS.
 5. **Higiene Intacta:** 152/152 aserciones de `[hygiene]` en verde (0 rutas absolutas).
 6. **Aislamiento Hardware & DeepMind:** Cero llamadas MIDI, cero bytes transmitidos, servidor MCP `disabled: true`.
 
 ---
 
-## 5. Auditoría de Reconciliación de Cobertura (Baseline Assertions)
+## 5. Auditoría de Reconciliación de Cobertura e Inconsistencia Temporal
 
 ### Discrepancia Auditada
-- **Baseline v2.1.0 inicial:** 211.374 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
+- **Registro histórico en acta v2.1.0:** 211.374 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
 - **Ejecución v2.1.1 post-71028d7:** 211.366 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
 - **Diferencia:** −8 assertions PASS.
 
-### Respuestas a la Investigación Técnica Requerida
-1. **¿Qué commit introdujo el descenso?**
-   - El commit `f013037478e02d59ed412cffe007fc5eb07966ca` (`fix(gui): notification bell overlay, hardware schema filtering and headless window safety`). Todos los commits posteriores (`fb11ca3` a `71028d7`) son exclusivamente documentales, de CI, manifiestos JSON y tooling PowerShell sin impacto en el código C++ ni en los tests.
-2. **¿Qué archivos de test cambiaron entre el baseline de 211.374 y la ejecución actual?**
-   - Únicamente `src/tests/test_MeasurementFloatingWindow.cpp`. Ningún otro archivo en `src/tests/` fue modificado.
-3. **¿Se eliminó algún REQUIRE, CHECK, REQUIRE_FALSE, STATIC_REQUIRE o assertion macro?**
-   - **NO**. No se eliminó ninguna línea de aserción ni macro de test. La modificación en `test_MeasurementFloatingWindow.cpp` únicamente añadió el parámetro de seguridad headless `/*addToDesktop=*/ false` en 8 instanciaciones de ventana para evitar dependencias del gestor de ventanas en entornos desatendidos.
-4. **¿Se cambió algún filtro, tag, configuración de build o condición de compilación?**
-   - **NO**. La suite global se ejecuta con el filtro idéntico `"~[ves]"`, con las mismas opciones de compilación Release de MSVC.
-5. **¿A qué subsistema pertenecían las ocho assertions?**
-   - A las aserciones dinámicas en bucles sobre advertencias y perfiles inválidos de `HardwareContractRegistry`. En `f013037` se introdujo el filtrado preventivo de 8 documentos en `contracts/hardware/` que no son perfiles de hardware (6 archivos `*.schema.json` y 2 documentos auxiliares de subsistemas con esquemas ajenos). Previamente, `loadContractsFromDirectory()` intentaba procesarlos como sintes de hardware, fallaba la validación estructural y emitía 8 avisos erróneos en `getWarnings()` / `invalidLegacyProfiles`, sobre los cuales iteraban aserciones dinámicas en bucle.
-6. **¿La variación fue intencional, segura y documentada, o representa una pérdida involuntaria de cobertura?**
-   - Es una variación segura, consecuencia directa de la corrección del fallo que generaba advertencias espurias en el arranque. No se ha suprimido ninguna verificación de comportamiento de producción; al contrario, se eliminó ruido sintético que ensuciaba el canal de advertencias del sistema.
+### Análisis Cronológico y de Linaje (`0b76616` vs `cacf967`)
+1. **Ancestría Directa:**
+   El commit certificado de release `0b76616` es descendiente directo del commit de hardening `f013037` (`f013037` ➔ `fb11ca3` ➔ `0b76616`).
+   Por tanto, **`0b76616` ya contiene el filtrado de esquemas y las ventanas headless de `f013037`**.
+2. **Comparación Normativa de Código (`0b76616..cacf967`):**
+   La inspección `git diff 0b76616..cacf967 --name-only` demuestra que **cero archivos de código C++ o tests (`src/`) cambiaron** entre la release `v2.1.0` y el estado actual de `v2.1.1`:
+   - `RELEASE_NOTES_v2.1.0.md`
+   - `docs/audits/ACTA_HITO_08_RELEASE_SMOKE_TEST_v2.1.0.md`
+   - `docs/audits/POST_V2_1_0_BACKLOG_TRIAGE.md`
+   - `docs/qa/external-fixtures.md`
+   - `docs/release/release-integrity-v2.1.0.json`
+   - `tools/verify-release-hashes.ps1`
+   El código ejecutable y las suites de prueba son **estrictamente idénticos** entre `0b76616` y `cacf967`.
+3. **Resolución de la Inconsistencia (Caso A):**
+   Dado que el código fuente C++ es idéntico entre ambos commits, la ejecución de la suite en `0b76616` produce idénticamente **211.366 assertions PASS**.
+   El número 211.374 registrado en el acta histórica de v2.1.0 provino de una corrida preliminar anterior al hardening `f013037` (cuando los 8 esquemas no se filtraban y generaban advertencias espurias dinámicamente evaluadas).
+   **Conclusión:** No existe descenso real de cobertura post-release. El baseline real de la release v2.1.0 siempre fue 211.366 assertions PASS una vez aplicado el hardening `f013037`.
 
-### Veredicto y Cierre Técnico
-- **Resolución adoptada:** Opción B (Actualización justificada y formal del baseline a **211.366 assertions PASS**).
-- **Estado de Criterios DoD:**
-  - *Herramienta de verificación de release (`verify-release-hashes.ps1`):* Exit codes 0, 1 y 2 demostrados y conformes.
-  - *Manifiesto de release (`release-integrity-v2.1.0.json`):* Alineado con los artefactos sellados de v2.1.0.
-  - *Guía de fixtures (`external-fixtures.md`):* Taxonomía precisa y sin inventar hashes externos.
-  - *Higiene del código:* 22 test cases, 152/152 assertions PASS, 0 rutas absolutas.
-  - *Suite global Catch2:* 949 test cases (922 PASS, 27 SKIPPED, 0 FAIL), **211.366 assertions PASS**.
-  - *Aislamiento hardware:* DeepMind pasivo en USB, MCP desactivado, 0 bytes MIDI.
+### Protocolo de Validación Reproducible (A ejecutar por el operador)
+Para ratificar empíricamente el Caso A:
+```powershell
+# 1. Ejecución sobre el commit certificado de release
+git checkout 0b76616a9a52a0f755e260ed0cf421db2de8f33b
+.\build.bat tests
+.\build\Release\ABDAudioLab_Tests.exe "~[ves]"
+
+# 2. Retorno y verificación sobre el estado actual
+git checkout main
+.\build.bat tests
+.\build\Release\ABDAudioLab_Tests.exe "~[ves]"
+```
+
+### Estado de Certificación v2.1.1
+- Todos los criterios técnicos de tooling (`tools/verify-release-hashes.ps1`), fixtures (`docs/qa/external-fixtures.md`), higiene (152/152 PASS) y aislamiento hardware se encuentran cumplidos.
+- El cierre formal de v2.1.1 queda a la espera de la corroboración empírica por el operador del Caso A sobre `0b76616`.
+
 
 
