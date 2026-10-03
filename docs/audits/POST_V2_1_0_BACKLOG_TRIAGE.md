@@ -96,8 +96,42 @@ Evaluación sistemática de ítems pendientes antes de iniciar cualquier desarro
    - 922 PASS.
    - 27 SKIPPED legítimos y esperados.
    - 0 FAIL.
-   - 211.374 / 211.374 assertions PASS.
-   - *Criterio de Rechazo:* Ningún test adicional en FAIL, ningún incremento injustificado de SKIPPED, ningún descenso en assertions PASS.
+   - **211.366 assertions PASS** (baseline justificado tras la reconciliación técnica de las 8 aserciones de advertencias espurias filtradas en `f013037`).
+   - *Criterio de Rechazo:* Ningún test adicional en FAIL, ningún incremento injustificado de SKIPPED, ningún descenso no justificado de assertions PASS.
 5. **Higiene Intacta:** 152/152 aserciones de `[hygiene]` en verde (0 rutas absolutas).
 6. **Aislamiento Hardware & DeepMind:** Cero llamadas MIDI, cero bytes transmitidos, servidor MCP `disabled: true`.
+
+---
+
+## 5. Auditoría de Reconciliación de Cobertura (Baseline Assertions)
+
+### Discrepancia Auditada
+- **Baseline v2.1.0 inicial:** 211.374 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
+- **Ejecución v2.1.1 post-71028d7:** 211.366 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
+- **Diferencia:** −8 assertions PASS.
+
+### Respuestas a la Investigación Técnica Requerida
+1. **¿Qué commit introdujo el descenso?**
+   - El commit `f013037478e02d59ed412cffe007fc5eb07966ca` (`fix(gui): notification bell overlay, hardware schema filtering and headless window safety`). Todos los commits posteriores (`fb11ca3` a `71028d7`) son exclusivamente documentales, de CI, manifiestos JSON y tooling PowerShell sin impacto en el código C++ ni en los tests.
+2. **¿Qué archivos de test cambiaron entre el baseline de 211.374 y la ejecución actual?**
+   - Únicamente `src/tests/test_MeasurementFloatingWindow.cpp`. Ningún otro archivo en `src/tests/` fue modificado.
+3. **¿Se eliminó algún REQUIRE, CHECK, REQUIRE_FALSE, STATIC_REQUIRE o assertion macro?**
+   - **NO**. No se eliminó ninguna línea de aserción ni macro de test. La modificación en `test_MeasurementFloatingWindow.cpp` únicamente añadió el parámetro de seguridad headless `/*addToDesktop=*/ false` en 8 instanciaciones de ventana para evitar dependencias del gestor de ventanas en entornos desatendidos.
+4. **¿Se cambió algún filtro, tag, configuración de build o condición de compilación?**
+   - **NO**. La suite global se ejecuta con el filtro idéntico `"~[ves]"`, con las mismas opciones de compilación Release de MSVC.
+5. **¿A qué subsistema pertenecían las ocho assertions?**
+   - A las aserciones dinámicas en bucles sobre advertencias y perfiles inválidos de `HardwareContractRegistry`. En `f013037` se introdujo el filtrado preventivo de 8 documentos en `contracts/hardware/` que no son perfiles de hardware (6 archivos `*.schema.json` y 2 documentos auxiliares de subsistemas con esquemas ajenos). Previamente, `loadContractsFromDirectory()` intentaba procesarlos como sintes de hardware, fallaba la validación estructural y emitía 8 avisos erróneos en `getWarnings()` / `invalidLegacyProfiles`, sobre los cuales iteraban aserciones dinámicas en bucle.
+6. **¿La variación fue intencional, segura y documentada, o representa una pérdida involuntaria de cobertura?**
+   - Es una variación segura, consecuencia directa de la corrección del fallo que generaba advertencias espurias en el arranque. No se ha suprimido ninguna verificación de comportamiento de producción; al contrario, se eliminó ruido sintético que ensuciaba el canal de advertencias del sistema.
+
+### Veredicto y Cierre Técnico
+- **Resolución adoptada:** Opción B (Actualización justificada y formal del baseline a **211.366 assertions PASS**).
+- **Estado de Criterios DoD:**
+  - *Herramienta de verificación de release (`verify-release-hashes.ps1`):* Exit codes 0, 1 y 2 demostrados y conformes.
+  - *Manifiesto de release (`release-integrity-v2.1.0.json`):* Alineado con los artefactos sellados de v2.1.0.
+  - *Guía de fixtures (`external-fixtures.md`):* Taxonomía precisa y sin inventar hashes externos.
+  - *Higiene del código:* 22 test cases, 152/152 assertions PASS, 0 rutas absolutas.
+  - *Suite global Catch2:* 949 test cases (922 PASS, 27 SKIPPED, 0 FAIL), **211.366 assertions PASS**.
+  - *Aislamiento hardware:* DeepMind pasivo en USB, MCP desactivado, 0 bytes MIDI.
+
 
