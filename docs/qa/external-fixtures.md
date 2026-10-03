@@ -38,11 +38,12 @@ assertions: 211374 | 211374 passed |  0 skipped
 fallos:          0
 ```
 
-| Fixture | Tipo | Tests Afectados | Estado en Entorno Base | Criterio de Aceptación |
-|---|---|:---:|---|---|
-| **SyntheticFixture** | Interna | 922 casos | Presente en memoria | 100% PASS (211.374 assertions) |
-| **Dexed.vst3** | Externa | 19 casos | Ausente (no instalado) | `SKIPPED` legítimo declarado |
-| **VES (Vintage Emulator Studio)** | Externa | 8 casos | Ausente (no instalado) | `SKIPPED` legítimo (`~[ves]`) |
+| Componente / Fixture | Tipo | Ámbito en Suite | Estado en Entorno Base | Criterio de Aceptación |
+|---|---|---|---|---|
+| **SyntheticFixture** | Interna | Casos de validación de fixture interna | Presente en memoria | PASS obligatorio |
+| **Suite Global Completa** | Mixta | 922 casos (DSP, UI, persistencia, contratos) | Subsistemas base de producción | 100% PASS (211.374 assertions) |
+| **Dexed.vst3** | Externa | 19 casos de hosting Dexed | Ausente (no instalado) | `SKIPPED` legítimo declarado |
+| **VES (Vintage Emulator Studio)** | Externa | 8 casos de emulación VES | Ausente (no instalado) | `SKIPPED` legítimo (`~[ves]`) |
 
 > [!NOTE]
 > Los **27 SKIPPED** son legítimos, esperados y certificados. No deben ser reportados como tests ejecutados ni sumados artificialmente a los tests aprobados.

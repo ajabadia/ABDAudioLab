@@ -7,8 +7,8 @@
   "artifacts": [
     {
       "path": "ABDAudioLab.exe",
-      "sizeBytes": 9345024,
-      "sha256": "385AC194DF073A74E7299B99C5FC83B257BE538F5FBDB0FF5C9484E09CAFE859",
+      "sizeBytes": 9326080,
+      "sha256": "C94A0BDB3A67CCE77D8459E5E103E9BF1CDA3321CF5C745FEA11379E7CF6C89E",
       "description": "Aplicación principal de laboratorio y GUI"
     },
     {

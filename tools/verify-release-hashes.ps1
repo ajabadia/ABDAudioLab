@@ -59,7 +59,11 @@ if (-not $manifest.artifacts -or -not ($manifest.artifacts -is [System.Array])) 
 }
 
 # 3. Validate artifacts directory existence (Exit 2 if parameter invalid)
-$resolvedArtifactsDir = Join-Path $repoRoot $ArtifactsDirectory
+if ([System.IO.Path]::IsPathRooted($ArtifactsDirectory)) {
+    $resolvedArtifactsDir = $ArtifactsDirectory
+} else {
+    $resolvedArtifactsDir = Join-Path $repoRoot $ArtifactsDirectory
+}
 if (-not (Test-Path -Path $resolvedArtifactsDir -PathType Container)) {
     Write-Host "[FATAL] Artifacts directory does not exist or is not a directory: $resolvedArtifactsDir" -ForegroundColor Red
     exit 2
