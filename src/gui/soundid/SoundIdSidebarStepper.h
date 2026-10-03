@@ -91,8 +91,57 @@ protected:
     void mouseMove(const juce::MouseEvent& event) override;
     void mouseExit(const juce::MouseEvent& event) override;
     void mouseUp(const juce::MouseEvent& event) override;
+    void mouseDoubleClick(const juce::MouseEvent& event) override;
 
 private:
+    class CollapseToggleButton : public juce::Button
+    {
+    public:
+        CollapseToggleButton() : juce::Button("collapseToggle") {}
+
+        void setCollapsed(bool isCollapsed)
+        {
+            collapsed = isCollapsed;
+            repaint();
+        }
+
+        void paintButton(juce::Graphics& g, bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+        {
+            auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+
+            juce::Colour bg = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
+                            : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : AppTheme::SurfaceSubtle);
+            g.setColour(bg);
+            g.fillRoundedRectangle(bounds, 4.0f);
+
+            g.setColour(shouldDrawButtonAsHighlighted ? AppTheme::AccentActive : AppTheme::BorderSubtle);
+            g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+
+            juce::Path chevron;
+            float cx = bounds.getCentreX();
+            float cy = bounds.getCentreY();
+            g.setColour(shouldDrawButtonAsHighlighted ? AppTheme::AccentActive : AppTheme::TextSecondary);
+
+            if (collapsed)
+            {
+                chevron.startNewSubPath(cx - 2.5f, cy - 4.5f);
+                chevron.lineTo(cx + 2.5f, cy);
+                chevron.lineTo(cx - 2.5f, cy + 4.5f);
+            }
+            else
+            {
+                chevron.startNewSubPath(cx + 2.5f, cy - 4.5f);
+                chevron.lineTo(cx - 2.5f, cy);
+                chevron.lineTo(cx + 2.5f, cy + 4.5f);
+            }
+
+            g.strokePath(chevron, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+
+    private:
+        bool collapsed { false };
+    };
+
     Step currentStep { Step::SystemInfo };
     bool collapsedState { false };
     std::optional<Step> hoveredStep;
@@ -104,7 +153,7 @@ private:
 
     SessionSummaryInfo summaryInfo;
 
-    juce::TextButton btnToggleCollapse;
+    CollapseToggleButton btnToggleCollapse;
 
     void drawStepRow(juce::Graphics& g, Step step, juce::Rectangle<float> rowBounds, bool isHovered);
     void drawSummaryCard(juce::Graphics& g, juce::Rectangle<float> cardBounds);

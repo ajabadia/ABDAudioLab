@@ -75,6 +75,12 @@ public:
     std::function<void()> onCalibrateClicked;
     std::function<void()> onHardwareSelectorClicked;
     std::function<void()> onThemeToggled;
+    std::function<void()> onNotificationBellClicked;
+
+    /** Update the notification badge count (0 = no badge, hidden animation). */
+    void setNoticeCount(int count);
+    /** Direct access for wiring from parent. */
+    NotificationBellButton& getNotificationBell() { return btnNotificationBell; }
 
 private:
     audio::LabAudioEngine& audioEngine;
@@ -89,6 +95,7 @@ private:
     std::unique_ptr<AudioMidiStatusPill> audioMidiStatusPill;
     std::unique_ptr<HardwareSelectorPill> btnHardwareSelector;
     std::unique_ptr<ThemeToggleButton> btnThemeToggle;
+    NotificationBellButton btnNotificationBell;
 
     // Calibration flashing state
     bool isFlashing { false };

@@ -20,8 +20,12 @@ public:
                          gui::SoundIdTheme::bgLight,
                          DocumentWindow::allButtons)
     {
+        juce::Logger::writeToLog("[LabMainWindow] Entering constructor...");
         setUsingNativeTitleBar(true);
+
+        juce::Logger::writeToLog("[LabMainWindow] Instantiating MainContentComponent...");
         setContentOwned(new MainContentComponent(std::move(onProgress)), true);
+        juce::Logger::writeToLog("[LabMainWindow] MainContentComponent instantiated and owned.");
 
         #if JUCE_IOS || JUCE_ANDROID
          setFullScreen(true);
@@ -32,6 +36,7 @@ public:
         #endif
 
         setVisible(true);
+        juce::Logger::writeToLog("[LabMainWindow] Main window made visible.");
     }
 
     void closeButtonPressed() override
@@ -68,17 +73,23 @@ public:
         }
 
         // 1. Show Instant Floating Splash Window (< 50ms)
+        juce::Logger::writeToLog("[App] Creating SoundIdSplashWindow...");
         splashWindow = std::make_unique<gui::SoundIdSplashWindow>();
+        juce::Logger::writeToLog("[App] SoundIdSplashWindow created. Reporting initial progress...");
         splashWindow->reportProgress("Iniciando ABDAudioLab...", 0.05f);
 
         // 2. Initialize Main Engine and Window with Real Startup Progress
+        juce::Logger::writeToLog("[App] Enqueueing callAsync for LabMainWindow creation...");
         juce::MessageManager::callAsync([this]() {
+            juce::Logger::writeToLog("[App] Inside callAsync: instantiating LabMainWindow...");
             auto progressCb = [this](const juce::String& msg, float prog) {
+                juce::Logger::writeToLog("[Progress] " + msg + " (" + juce::String(static_cast<int>(prog * 100.0f)) + "%)");
                 if (splashWindow)
                     splashWindow->reportProgress(msg, prog);
             };
 
             mainWindow = std::make_unique<LabMainWindow>(getApplicationName(), progressCb);
+            juce::Logger::writeToLog("[App] LabMainWindow instantiation finished successfully.");
 
             if (splashWindow)
                 splashWindow->reportProgress("Listo.", 1.0f);

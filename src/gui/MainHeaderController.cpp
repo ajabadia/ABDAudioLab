@@ -13,6 +13,7 @@ namespace gui {
 MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     : audioEngine(engine)
 {
+    juce::Logger::writeToLog("[MainHeader] MainHeaderController constructor started.");
     // Autonomous subscription to audio device manager to auto-refresh drivers and sample rate
     audioEngine.getDeviceManager().addChangeListener(this);
 
@@ -43,7 +44,10 @@ MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     // 3. Audio & MIDI Status Pill
     audioMidiStatusPill = std::make_unique<AudioMidiStatusPill>();
     audioMidiStatusPill->onConfigureClicked = [this] { if (onConfigureAudioMidi) onConfigureAudioMidi(); };
-    audioMidiStatusPill->updateStatus(audioEngine);
+    juce::MessageManager::callAsync([this] {
+        if (audioMidiStatusPill != nullptr)
+            audioMidiStatusPill->updateStatus(audioEngine);
+    });
     addAndMakeVisible(audioMidiStatusPill.get());
 
     // 4. Calibration Pill
@@ -65,6 +69,10 @@ MainHeaderController::MainHeaderController(audio::LabAudioEngine& engine)
     btnThemeToggle = std::make_unique<ThemeToggleButton>();
     btnThemeToggle->onClick = [this] { if (onThemeToggled) onThemeToggled(); };
     addAndMakeVisible(btnThemeToggle.get());
+
+    // 7. Notification Bell Button
+    btnNotificationBell.onClick = [this] { if (onNotificationBellClicked) onNotificationBellClicked(); };
+    addAndMakeVisible(btnNotificationBell);
 }
 
 MainHeaderController::~MainHeaderController()
@@ -170,6 +178,7 @@ void MainHeaderController::updateTheme()
     btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::textPrimary);
 
     if (btnThemeToggle != nullptr) btnThemeToggle->repaint();
+    btnNotificationBell.repaint();
     if (btnHardwareSelector != nullptr) btnHardwareSelector->repaint();
     if (audioMidiStatusPill != nullptr) audioMidiStatusPill->repaint();
     repaint();
@@ -229,8 +238,12 @@ void MainHeaderController::resized()
     if (btnThemeToggle != nullptr)
     {
         btnThemeToggle->setBounds(topArea.removeFromRight(34).withHeight(30).withY(topArea.getY() + 1));
-        topArea.removeFromRight(6);
+        topArea.removeFromRight(4);
     }
+
+    // 1b. Notification bell (just left of theme toggle)
+    btnNotificationBell.setBounds(topArea.removeFromRight(34).withHeight(30).withY(topArea.getY() + 1));
+    topArea.removeFromRight(6);
 
     // 2. Botones de la izquierda (File, Scope y Teclado)
     btnFileMenu.setBounds(topArea.removeFromLeft(64).withHeight(30).withY(topArea.getY() + 1));
@@ -273,6 +286,11 @@ void MainHeaderController::resized()
 void MainHeaderController::paint(juce::Graphics& /*g*/)
 {
     // Transparent or theme background rendered by parent
+}
+
+void MainHeaderController::setNoticeCount(int count)
+{
+    btnNotificationBell.setNoticeCount(count);
 }
 
 } // namespace gui

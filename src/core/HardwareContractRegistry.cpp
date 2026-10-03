@@ -108,6 +108,21 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
             return false;
         }
 
+        // Esquemas JSON Schema (*.schema.json) o metaschemas de JSON Schema
+        if (jsonFile.getFileName().endsWithIgnoreCase(".schema.json"))
+            return false;
+
+        // Descartar silenciosamente contratos de otros subsistemas que declaran su propio esquema ajeno a hardware_profile
+        if (j.contains("$schema") && j["$schema"].is_string())
+        {
+            const auto schemaUri = j["$schema"].get<std::string>();
+            if (schemaUri.find("hardware_profile.schema.json") == std::string::npos
+                && (schemaUri.find(".schema.json") != std::string::npos || schemaUri.find("json-schema.org") != std::string::npos))
+            {
+                return false;
+            }
+        }
+
         // Validación Estructural Estricta
         if (!j.contains("id") || !j["id"].is_string() || j["id"].get<std::string>().empty())
         {
@@ -340,6 +355,10 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
 
     for (const auto& file : files)
     {
+        // Los esquemas JSON Schema (*.schema.json) no son perfiles de hardware
+        if (file.getFileName().endsWithIgnoreCase(".schema.json"))
+            continue;
+
         // ── LA CUARENTENA SE MIRA ANTES DE PARSEAR ──
         //
         // Y antes, y no despues de cargar, por una razon que no es de
@@ -422,9 +441,9 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
         }
         else
         {
-            invalidLegacyProfiles.insert(file.getFileNameWithoutExtension().toStdString());
             if (warning.isNotEmpty())
             {
+                invalidLegacyProfiles.insert(file.getFileNameWithoutExtension().toStdString());
                 warnings.push_back(warning);
                 juce::Logger::writeToLog("[HardwareContractRegistry] " + warning);
                 if (onProfileWarning)

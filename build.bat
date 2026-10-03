@@ -138,7 +138,9 @@ rem estan contando sobre un script que no es el que se cree. Por eso va
 rem PRIMERO en la cadena y sale con codigo PROPIO: el 4, que no es el 1 de
 rem "no he medido" ni el 3 del instrumento roto. Quien solo mire el exit
 rem tiene que poder decir cual de las cuatro cosas ha pasado.
-set "LAYOUT_FATAL=0"if /i "%1"=="tests" (
+set "LAYOUT_FATAL=0"
+
+if /i "%1"=="tests" (
     set "BUILD_TARGET=--target ABDAudioLab_Tests"
     set "IS_TEST_ONLY=1"
     echo [Info] Fast build mode: compiling ABDAudioLab_Tests only.

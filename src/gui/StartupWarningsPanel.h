@@ -93,11 +93,17 @@ public:
     /** El boton de "cerrar". */
     juce::TextButton btnCerrar { "Entendido" };
 
+    /** Notificación cuando el usuario pulsa 'Entendido' para cerrar el panel. */
+    std::function<void()> onDismissed;
+
     /** Se avisa para que quien quiera abrir un JSON desde aqui pueda engancharse. */
     std::function<void(const core::quarantine::Retenido&)> onOpenQuarantineJson;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseDown(const juce::MouseEvent& e) override;
+
+    [[nodiscard]] juce::Rectangle<float> getCardBounds() const noexcept;
 
 private:
     struct Linea
@@ -108,8 +114,20 @@ private:
         std::optional<core::quarantine::Retenido> retenido;
     };
 
-    void paintLinea(juce::Graphics& g, juce::Rectangle<int> area, const Linea& linea) const;
+    class NoticeListContent : public juce::Component
+    {
+    public:
+        void setLineas(const std::vector<Linea>& l);
+        void paint(juce::Graphics& g) override;
+        [[nodiscard]] int calculateTotalHeight(int width) const;
 
+    private:
+        std::vector<Linea> lineas;
+        void paintLinea(juce::Graphics& g, juce::Rectangle<int> area, const Linea& linea) const;
+    };
+
+    juce::Viewport viewport;
+    NoticeListContent noticeList;
     std::vector<Linea> lineas;
 };
 

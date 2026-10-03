@@ -23,10 +23,8 @@ SoundIdSidebarStepper::SoundIdSidebarStepper()
     stepDescriptions[Step::RunSession]        = juce::String::fromUTF8(u8"Excitation & Profiling");
     stepDescriptions[Step::ExportReport]      = juce::String::fromUTF8(u8"NAM, LUT & Certification");
 
-    btnToggleCollapse.setButtonText(juce::String::fromUTF8(u8"\u25c0")); // ◀ (collapse to left)
-    btnToggleCollapse.setTooltip("Collapse / Expand Navigation Rail");
-    btnToggleCollapse.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    btnToggleCollapse.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    btnToggleCollapse.setCollapsed(false);
+    btnToggleCollapse.setTooltip("Collapse Navigation Rail");
     btnToggleCollapse.onClick = [this] {
         setCollapsed(!collapsedState);
         if (onCollapseToggled != nullptr)
@@ -80,7 +78,9 @@ void SoundIdSidebarStepper::setCollapsed(bool collapsed)
 {
     if (collapsedState == collapsed) return;
     collapsedState = collapsed;
-    btnToggleCollapse.setButtonText(collapsedState ? juce::String::fromUTF8(u8"\u25b6") : juce::String::fromUTF8(u8"\u25c0"));
+    btnToggleCollapse.setCollapsed(collapsedState);
+    btnToggleCollapse.setTooltip(collapsedState ? "Expand Navigation Rail (Click to restore)"
+                                                : "Collapse Navigation Rail");
     resized();
     repaint();
 }
@@ -94,8 +94,15 @@ void SoundIdSidebarStepper::setSessionSummary(const SessionSummaryInfo& info)
 void SoundIdSidebarStepper::resized()
 {
     auto b = getLocalBounds();
-    auto topRow = b.removeFromTop(32).reduced(4, 4);
-    btnToggleCollapse.setBounds(topRow.removeFromRight(24));
+    auto topRow = b.removeFromTop(32);
+    if (collapsedState)
+    {
+        btnToggleCollapse.setBounds(topRow.withSizeKeepingCentre(32, 24));
+    }
+    else
+    {
+        btnToggleCollapse.setBounds(topRow.removeFromRight(32).withSizeKeepingCentre(24, 24));
+    }
 }
 
 void SoundIdSidebarStepper::paint(juce::Graphics& g)
@@ -107,6 +114,14 @@ void SoundIdSidebarStepper::paint(juce::Graphics& g)
     g.fillRoundedRectangle(b, 8.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.drawRoundedRectangle(b.reduced(0.5f), 8.0f, 1.0f);
+
+    // Top header label in expanded mode
+    if (!collapsedState)
+    {
+        g.setColour(SoundIdTheme::textMuted);
+        g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        g.drawText("WORKFLOW", juce::Rectangle<float>(12.0f, 4.0f, 100.0f, 24.0f), juce::Justification::centredLeft, false);
+    }
 
     auto contentArea = b.reduced(collapsedState ? 4.0f : 10.0f, 8.0f);
     contentArea.removeFromTop(28.0f); // Top bar space for collapse toggle
@@ -312,6 +327,17 @@ juce::String SoundIdSidebarStepper::getTooltip()
 
 void SoundIdSidebarStepper::mouseMove(const juce::MouseEvent& event)
 {
+    if (event.position.y < 34.0f)
+    {
+        if (hoveredStep.has_value())
+        {
+            hoveredStep.reset();
+            repaint();
+        }
+        setMouseCursor(juce::MouseCursor::PointingHandCursor);
+        return;
+    }
+
     auto b = getLocalBounds().toFloat();
     auto contentArea = b.reduced(collapsedState ? 4.0f : 10.0f, 8.0f);
     contentArea.removeFromTop(28.0f);
@@ -360,8 +386,13 @@ void SoundIdSidebarStepper::mouseExit(const juce::MouseEvent&)
 
 void SoundIdSidebarStepper::mouseUp(const juce::MouseEvent& event)
 {
-    if (btnToggleCollapse.getBounds().contains(event.getPosition()))
+    if (event.position.y < 34.0f)
+    {
+        setCollapsed(!collapsedState);
+        if (onCollapseToggled != nullptr)
+            onCollapseToggled(collapsedState);
         return;
+    }
 
     if (hoveredStep.has_value() && canNavigateTo(*hoveredStep))
     {
@@ -369,6 +400,14 @@ void SoundIdSidebarStepper::mouseUp(const juce::MouseEvent& event)
         if (onStepSelected != nullptr)
             onStepSelected(*hoveredStep);
     }
+}
+
+void SoundIdSidebarStepper::mouseDoubleClick(const juce::MouseEvent& event)
+{
+    juce::ignoreUnused(event);
+    setCollapsed(!collapsedState);
+    if (onCollapseToggled != nullptr)
+        onCollapseToggled(collapsedState);
 }
 
 } // namespace abdaudiolab::gui

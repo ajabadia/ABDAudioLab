@@ -396,6 +396,7 @@ void MainContentComponent::resized()
     aboutModal.setBounds(getLocalBounds());
     confirmationModal.setBounds(getLocalBounds());
     abVerificationModal.setBounds(getLocalBounds());
+    startupWarningsPanel.setBounds(getLocalBounds());
 }
 
 void MainContentComponent::timerCallback()

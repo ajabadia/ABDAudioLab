@@ -6,7 +6,10 @@ namespace abdaudiolab::core
 
 PluginHostManager::PluginHostManager()
 {
+    juce::Logger::writeToLog("[PluginHost] PluginHostManager constructor started.");
+    juce::Logger::writeToLog("[PluginHost] Calling formatManager.addDefaultFormats()...");
     formatManager.addDefaultFormats();
+    juce::Logger::writeToLog("[PluginHost] formatManager.addDefaultFormats() completed.");
     juce::Logger::writeToLog("[PluginHost] Initialized. Formats registered: " + juce::String(formatManager.getNumFormats()));
     for (auto* fmt : formatManager.getFormats())
     {

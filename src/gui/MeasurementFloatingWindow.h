@@ -44,7 +44,8 @@ public:
                                int defaultWidth,
                                int defaultHeight,
                                int minWidth,
-                               int minHeight);
+                               int minHeight,
+                               bool addToDesktop = true);
 
     /** @brief Contenido que SI sabe re-tematizarse. */
     MeasurementFloatingWindow (const juce::String& title,
@@ -52,7 +53,8 @@ public:
                                int defaultWidth,
                                int defaultHeight,
                                int minWidth,
-                               int minHeight);
+                               int minHeight,
+                               bool addToDesktop = true);
 
     /** @brief Reaplica el tema al marco y, si sabe, al panel que contenga. */
     void updateTheme();

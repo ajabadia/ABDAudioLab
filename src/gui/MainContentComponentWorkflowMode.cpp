@@ -297,21 +297,12 @@ void MainContentComponent::volcarCatalogoEnLaInterfaz(bool conservarSeleccion)
 // resuelve con un scroll; uno que empuja el boton de INICIAR fuera de la
 // pantalla no se resuelve con nada.
 // ==============================================================================
-int MainContentComponent::colocarPanelDeAvisos(juce::Rectangle<int>& bounds)
+int MainContentComponent::colocarPanelDeAvisos(juce::Rectangle<int>& /*bounds*/)
 {
-    if (!startupWarningsPanel.hasNotices())
-    {
-        startupWarningsPanel.setVisible(false);
-        return 0;
-    }
-
-    const int alto = juce::jmin(startupWarningsPanel.getPreferredHeight(),
-                                bounds.getHeight() / 2);
-
-    startupWarningsPanel.setVisible(true);
-    startupWarningsPanel.setBounds(bounds.removeFromTop(alto));
-
-    return alto;
+    // El panel de avisos ya no ocupa espacio en el layout principal.
+    // Se muestra como overlay flotante al pulsar la campana de notificaciones
+    // en la barra de cabecera. Ver mainHeader.onNotificationBellClicked.
+    return 0;
 }
 
 void MainContentComponent::reescargarCatalogoDeContratos()

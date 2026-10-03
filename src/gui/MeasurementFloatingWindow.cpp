@@ -16,14 +16,18 @@ MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
                                                      int defaultWidth,
                                                      int defaultHeight,
                                                      int minWidth,
-                                                     int minHeight)
-    : DocumentWindow (title, AppTheme::BackgroundApp, DocumentWindow::allButtons)
+                                                     int minHeight,
+                                                     bool addToDesktop)
+    : DocumentWindow (title, AppTheme::BackgroundApp, DocumentWindow::allButtons, addToDesktop)
 {
     setUsingNativeTitleBar (true);
     setResizable (true, true);
     setResizeLimits (minWidth, minHeight, 2560, 1440);
     setContentOwned (contentComponent, true);
-    centreWithSize (defaultWidth, defaultHeight);
+
+    setSize (defaultWidth, defaultHeight);
+    if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        centreWithSize (defaultWidth, defaultHeight);
 }
 
 MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
@@ -31,8 +35,9 @@ MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
                                                      int defaultWidth,
                                                      int defaultHeight,
                                                      int minWidth,
-                                                     int minHeight)
-    : MeasurementFloatingWindow (title, &contentPanel, defaultWidth, defaultHeight, minWidth, minHeight)
+                                                     int minHeight,
+                                                     bool addToDesktop)
+    : MeasurementFloatingWindow (title, &contentPanel, defaultWidth, defaultHeight, minWidth, minHeight, addToDesktop)
 {
     themedContent = &contentPanel;
 }

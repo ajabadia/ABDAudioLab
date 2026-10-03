@@ -69,7 +69,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 : sequencer(audioEngine, *hardwareManager.getMockController()),
   mainHeader(audioEngine)
 {
+    juce::Logger::writeToLog("[MainComponent] Constructor entry point reached.");
     auto report = [&](const juce::String& msg, float prog) {
+        juce::Logger::writeToLog("[Startup] " + msg + " (" + juce::String(static_cast<int>(prog * 100.0f)) + "%)");
         if (onProgress)
             onProgress(msg, prog);
     };
@@ -82,35 +84,23 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     // 1. Initialize Audio Engine & Restore State
     juce::File appData = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("ABDAudioLab");
     settingsFile = appData.getChildFile("AudioSettings.xml");
+    juce::Logger::writeToLog("[MainComponent] Initializing audio devices from: " + settingsFile.getFullPathName());
     audioEngine.initializeAudioDevices(settingsFile);
     audioEngine.setMockHardware(hardwareManager.getMockController());
 
     auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
     juce::String devName = (dev != nullptr) ? dev->getName() : "Drivers de Audio WASAPI/ASIO OK";
+    juce::Logger::writeToLog("[MainComponent] Audio verified: " + devName);
     report("Audio verificado: " + devName, 0.32f);
 
     hardwareManager.getContractRegistry().onProfileWarning = [this](const juce::String& warning) {
         juce::MessageManager::callAsync([this, warning]() {
-            // El aviso que se autodestruye se queda. Ver `StartupWarningsPanel`.
-            // Un retenido que solo vive seis segundos es un retenido que no esta
-            // avisado: el hardware sigue faltando y nadie se ha enterado de por
-            // que.
+            // Acumula el aviso en el panel (que arranca oculto)
             startupWarningsPanel.addNotice(warning);
 
-            // Y se coloca aqui, no en un `resized()` posterior que no va a
-            // llegar: ver `colocarPanelDeAvisos`.
-            auto area = getLocalBounds().reduced(20, 8);
-            area.removeFromTop(36);
-            colocarPanelDeAvisos(area);
-            repaint();
-
-            // Y ademas se dice de paso, para quien este mirando el prompt en
-            // ese momento y no el panel. Son los dos canales del mismo hecho,
-            // y por eso el texto es identico: lo pone el modulo de cuarentena,
-            // no cada uno el suyo.
-            manualPromptLabel.setText(warning, juce::dontSendNotification);
-            manualPromptLabel.setVisible(true);
-            hidePromptAfterDelay(6000);
+            // Actualiza el badge de la campana en la cabecera.
+            // El panel NO se muestra en linea: el usuario lo abre pulsando la campana.
+            mainHeader.setNoticeCount(startupWarningsPanel.getNoticeCount());
         });
     };
 
@@ -123,12 +113,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             retenido.fichero.startAsProcess();
     };
 
+    startupWarningsPanel.onDismissed = [this] {
+        startupWarningsPanel.setVisible(false);
+        mainHeader.setNoticeCount(0);
+        repaint();
+    };
+
     // El reescaneo vacia el panel antes de volver a llenarlo. Sin esto los
     // retenidos de antes se quedan mezclados con los de ahora, y quien mire
     // la lista creera que hay mas de los que hay.
     drawer.onContractsReloadRequested = [this] {
         startupWarningsPanel.clearNotices();
         startupWarningsPanel.setVisible(false);
+        mainHeader.setNoticeCount(0);
         reescargarCatalogoDeContratos();
     };
 
@@ -367,8 +364,24 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         catalogSelector.updateTheme();
         repaint();
     };
+
+    // Wire notification bell: toggle the warnings modal on click
+    mainHeader.onNotificationBellClicked = [this] {
+        if (startupWarningsPanel.isVisible())
+        {
+            startupWarningsPanel.setVisible(false);
+        }
+        else if (startupWarningsPanel.hasNotices())
+        {
+            // Full-screen overlay — the panel draws its own scrim + centered card
+            startupWarningsPanel.setBounds(getLocalBounds());
+            startupWarningsPanel.setVisible(true);
+            startupWarningsPanel.toFront(true);
+        }
+    };
+
     addAndMakeVisible(mainHeader);
-    addAndMakeVisible(startupWarningsPanel);
+    addChildComponent(startupWarningsPanel);  // starts hidden, shown by bell click
     startupWarningsPanel.setVisible(false);
 
 
@@ -1189,6 +1202,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 audioEngine.postLiveMidiMessage(juce::MidiMessage::noteOff(1, 60, 0.0f));
             });
         }
+        sessionCoordinator.setHardwareContext(&hardwareManager, hid);
         sessionCoordinator.triggerFreeCapture();
     };
     addChildComponent(btnFreeCapture);
@@ -1513,6 +1527,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         profilingRunView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     report("Listo.", 1.0f);
+    juce::Logger::writeToLog("[MainComponent] Constructor finished successfully.");
 }
 
 MainContentComponent::~MainContentComponent()

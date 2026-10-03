@@ -109,7 +109,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Prueba headless",
                                                 contenido,
                                                 640, 480,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         CHECK (ventana.getContentComponent() == contenido);
         CHECK (ventana.getWidth()  == 640);
@@ -127,7 +128,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Limites",
                                                 new ContenidoGenerico(),
                                                 800, 600,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         // `DocumentWindow` hereda de `ResizableWindow`, y en esta JUCE los
         // limites viven en el `ComponentBoundsConstrainer`, no en getters de
@@ -147,7 +149,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Tema",
                                                 contenido,
                                                 640, 480,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         // El constructor ya deja el fondo en el color del tema. Sin romperlo
         // antes, este CHECK passaria aunque `updateTheme()` no hiciera nada.
@@ -177,7 +180,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Idempotente",
                                                 new ContenidoGenerico(),
                                                 640, 480,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         ventana.updateTheme();
         const auto colorTrasUna = ventana.getBackgroundColour();
@@ -197,7 +201,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Cierre",
                                                 contenido,
                                                 640, 480,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         ventana.setVisible (true);
         ventana.closeButtonPressed();
@@ -220,7 +225,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         gui::MeasurementFloatingWindow ventana ("Contrato",
                                                 *panel,
                                                 640, 480,
-                                                320, 240);
+                                                320, 240,
+                                                /*addToDesktop=*/ false);
 
         // Montarla no tematiza: tematizar sigue siendo una decision, no un efecto
         // lateral de construirse. El constructor solo guarda a quien preguntar.
@@ -247,8 +253,8 @@ TEST_CASE ("La ventana flotante se monta y se re-tematiza sin conocer su conteni
         auto* uno = new ContenidoGenerico();
         auto* otro = new ContenidoGenerico();
 
-        gui::MeasurementFloatingWindow primera  ("Primera",  uno,   640, 480, 320, 240);
-        gui::MeasurementFloatingWindow segunda ("Segunda", otro,  300, 200, 100, 100);
+        gui::MeasurementFloatingWindow primera  ("Primera",  uno,   640, 480, 320, 240, /*addToDesktop=*/ false);
+        gui::MeasurementFloatingWindow segunda ("Segunda", otro,  300, 200, 100, 100, /*addToDesktop=*/ false);
 
         CHECK (primera.getContentComponent()  == uno);
         CHECK (segunda.getContentComponent() == otro);

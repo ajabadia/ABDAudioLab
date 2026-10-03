@@ -7,6 +7,7 @@ namespace abdaudiolab::audio
 
 LabAudioEngine::LabAudioEngine()
 {
+    juce::Logger::writeToLog("[AudioEngine] LabAudioEngine constructor started.");
     tempProcessBufferL.assign(16384, 0.0f);
     tempProcessBufferR.assign(16384, 0.0f);
 
@@ -17,6 +18,7 @@ LabAudioEngine::LabAudioEngine()
     if (tapHardwareIn != nullptr) tapHardwareIn->setActive(true);
     if (tapStimulus != nullptr)   tapStimulus->setActive(true);
     if (tapDiagTone != nullptr)   tapDiagTone->setActive(true);
+    juce::Logger::writeToLog("[AudioEngine] LabAudioEngine constructor completed.");
 }
 
 LabAudioEngine::~LabAudioEngine()
@@ -26,37 +28,53 @@ LabAudioEngine::~LabAudioEngine()
 
 bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
 {
+    juce::Logger::writeToLog("[AudioEngine] initializeAudioDevices() started. Settings file: " + settingsFile.getFullPathName());
     // Hierarchical 3-step fallback initialization chain (RNF-16)
     std::unique_ptr<juce::XmlElement> savedXml;
     if (settingsFile.existsAsFile())
     {
+        juce::Logger::writeToLog("[AudioEngine] Found existing settings file, parsing XML...");
         savedXml = juce::XmlDocument::parse(settingsFile);
+    }
+    else
+    {
+        juce::Logger::writeToLog("[AudioEngine] No existing settings file. Proceeding with initial setup.");
     }
 
     // Step 1: Initialize with saved XML state
+    juce::Logger::writeToLog("[AudioEngine] Step 1: Initializing deviceManager (XML state: " + juce::String(savedXml != nullptr ? "valid" : "none") + ")...");
     juce::String err = deviceManager.initialise(2, 2, savedXml.get(), true);
+    juce::Logger::writeToLog("[AudioEngine] Step 1 result: " + (err.isEmpty() ? "OK" : err));
 
     // Step 2: Fallback to default system devices if step 1 failed
     if (err.isNotEmpty())
     {
-        juce::Logger::writeToLog("AudioDeviceManager: Step 1 failed (" + err + "). Attempting Step 2 (Default devices)...");
+        juce::Logger::writeToLog("[AudioEngine] Step 1 failed (" + err + "). Attempting Step 2 (Default devices)...");
         err = deviceManager.initialiseWithDefaultDevices(2, 2);
+        juce::Logger::writeToLog("[AudioEngine] Step 2 result: " + (err.isEmpty() ? "OK" : err));
     }
 
     // Step 3: Ultimate fallback to generic stereo setup
     if (err.isNotEmpty())
     {
-        juce::Logger::writeToLog("AudioDeviceManager: Step 2 failed (" + err + "). Attempting Step 3 (Generic fallback)...");
+        juce::Logger::writeToLog("[AudioEngine] Step 2 failed (" + err + "). Attempting Step 3 (Generic fallback)...");
         err = deviceManager.initialise(2, 2, nullptr, true);
+        juce::Logger::writeToLog("[AudioEngine] Step 3 result: " + (err.isEmpty() ? "OK" : err));
     }
 
     if (err.isNotEmpty())
     {
-        juce::Logger::writeToLog("AudioDeviceManager: All 3 initialization steps failed: " + err);
+        juce::Logger::writeToLog("[AudioEngine ERROR] All 3 initialization steps failed: " + err);
         return false;
     }
 
+    auto* dev = deviceManager.getCurrentAudioDevice();
+    juce::Logger::writeToLog("[AudioEngine] Device active: " + (dev != nullptr ? dev->getName() : "None")
+        + " | SR: " + juce::String(dev != nullptr ? dev->getCurrentSampleRate() : 0.0)
+        + " | BS: " + juce::String(dev != nullptr ? dev->getCurrentBufferSizeSamples() : 0));
+
     deviceManager.addAudioCallback(this);
+    juce::Logger::writeToLog("[AudioEngine] Audio callback registered successfully.");
     return true;
 }
 

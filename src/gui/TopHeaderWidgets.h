@@ -10,6 +10,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "SoundIdTheme.h"
 #include "SoundIdSuiteList.h"
+#include "suite/SuiteIcons.h"
 #include "../audio/LabStimulusGenerator.h"
 
 namespace abdaudiolab::gui
@@ -130,6 +131,115 @@ public:
                 g.drawLine(x1, y1, x2, y2, 1.2f);
             }
         }
+    }
+};
+
+/**
+ * @class NotificationBellButton
+ * @brief Vector bell icon with numeric badge overlay and heartbeat pulse.
+ *
+ * Uses suite_icons::drawBell (ABDSharedAssets/icons/bell.svg equivalent).
+ * When noticeCount > 0, a red badge with the count is drawn and the icon
+ * pulses at 2 Hz to attract attention without blocking the workspace.
+ */
+class NotificationBellButton : public juce::Button,
+                                private juce::Timer
+{
+public:
+    NotificationBellButton() : juce::Button("NotificationBell")
+    {
+        setTooltip("Notifications");
+
+        static const juce::String bellSvgXml =
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" "
+            "stroke=\"#FFFFFF\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">"
+            "<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/>"
+            "<path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"/>"
+            "</svg>";
+
+        auto xml = juce::parseXML(bellSvgXml);
+        if (xml != nullptr)
+        {
+            bellDrawable = juce::Drawable::createFromSVG(*xml);
+            currentBellColour = juce::Colours::white;
+        }
+    }
+
+    void setNoticeCount(int count)
+    {
+        if (noticeCount == count) return;
+        noticeCount = count;
+
+        if (noticeCount > 0 && !isTimerRunning())
+            startTimer(500); // 2 Hz heartbeat
+        else if (noticeCount == 0 && isTimerRunning())
+        {
+            stopTimer();
+            pulsePhase = false;
+        }
+        repaint();
+    }
+
+    [[nodiscard]] int getNoticeCount() const noexcept { return noticeCount; }
+
+    void paintButton(juce::Graphics& g, bool isHighlighted, bool isDown) override
+    {
+        auto bounds = getLocalBounds().toFloat().reduced(0.5f);
+
+        // Background card
+        g.setColour(isDown ? gui::SoundIdTheme::bgCardHover.darker(0.08f)
+                           : (isHighlighted ? gui::SoundIdTheme::bgCardHover : gui::SoundIdTheme::bgCard));
+        g.fillRoundedRectangle(bounds, 8.0f);
+        g.setColour(gui::SoundIdTheme::borderSubtle);
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 8.0f, 1.0f);
+
+        // Bell icon
+        auto iconArea = bounds.reduced(7.0f, 5.0f);
+        juce::Colour bellCol = (noticeCount > 0)
+            ? (pulsePhase ? gui::SoundIdTheme::accentAmber : gui::SoundIdTheme::accentRed)
+            : (isHighlighted ? gui::SoundIdTheme::textPrimary : gui::SoundIdTheme::textSecondary);
+
+        if (bellDrawable != nullptr)
+        {
+            if (currentBellColour != bellCol)
+            {
+                bellDrawable->replaceColour(currentBellColour, bellCol);
+                currentBellColour = bellCol;
+            }
+            bellDrawable->drawWithin(g, iconArea, juce::RectanglePlacement::centred, 1.0f);
+        }
+        else
+        {
+            suite_icons::drawBell(g, iconArea, bellCol);
+        }
+
+        // Badge with count
+        if (noticeCount > 0)
+        {
+            float badgeSize = 13.0f;
+            float pulseScale = pulsePhase ? 1.15f : 1.0f;
+            float sz = badgeSize * pulseScale;
+            auto badgeRect = juce::Rectangle<float>(bounds.getRight() - sz - 1.0f, bounds.getY() + 1.0f, sz, sz);
+
+            g.setColour(gui::SoundIdTheme::accentRed);
+            g.fillEllipse(badgeRect);
+
+            g.setColour(juce::Colours::white);
+            g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
+            g.drawText(juce::String(noticeCount), badgeRect, juce::Justification::centred, false);
+        }
+    }
+
+private:
+    std::unique_ptr<juce::Drawable> bellDrawable;
+    juce::Colour currentBellColour { juce::Colours::white };
+    int noticeCount { 0 };
+    bool pulsePhase { false };
+
+    void timerCallback() override
+    {
+        pulsePhase = !pulsePhase;
+        repaint();
     }
 };
 
