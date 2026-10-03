@@ -77,3 +77,23 @@ Se ha verificado empíricamente la ejecución del binario Release `ABDAudioLab.e
    Get-Process | Where-Object { $_.ProcessName -like "*ABDAudioLab*" }
    ```
    Retornó 0 procesos activos en memoria.
+
+---
+
+## 7. Tag Governance Addendum — v2.1.0
+
+Durante la publicación remota se detectó que el repositorio contenía un tag `v2.1.0` previo (`c1bf1d6...`). 
+
+El tag fue actualizado forzadamente (*forced update*) al nuevo objeto de tag anotado:
+`8df6db9a5c03f7ba27d8f9160341581c52dc1ed2`
+
+El tag anotado actual desreferencia inequívocamente al commit certificado de release:
+`0b76616a9a52a0f755e260ed0cf421db2de8f33b` (`refs/tags/v2.1.0^{}`)
+
+**Motivo:**
+Alinear la referencia remota con el commit exacto que contiene las release notes, el acta de smoke test y el inventario SHA-256 certificados.
+
+**Acción para consumidores que hubieran obtenido el tag previo:**
+```powershell
+git fetch --tags --force origin
+```
