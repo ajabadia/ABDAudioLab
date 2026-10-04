@@ -16,8 +16,15 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     btnStartMeasure.onClick = [this] { startCalibrationSweep(); };
     addAndMakeVisible(btnStartMeasure);
 
-    btnSkip.setButtonText(juce::String::fromUTF8(u8"Omitir Calibración (0 dB)"));
-    btnSkip.setTooltip(juce::String::fromUTF8(u8"Continúa con ganancia unitaria nominal (0 dB) y 0 muestras de latencia. Desactiva la compensación de interfaz."));
+    btnReuseCalibration.setButtonText(juce::String::fromUTF8(u8"Reutilizar calibración guardada"));
+    btnReuseCalibration.setTooltip(juce::String::fromUTF8(u8"Aplica la calibración coincidente encontrada para la configuración actual"));
+    btnReuseCalibration.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.25f));
+    btnReuseCalibration.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+    btnReuseCalibration.onClick = [this] { reuseMatchingProfile(); };
+    addChildComponent(btnReuseCalibration);
+
+    btnSkip.setButtonText(juce::String::fromUTF8(u8"Continuar sin calibrar (Bypass)"));
+    btnSkip.setTooltip(juce::String::fromUTF8(u8"Continúa sin compensación de latencia ni nivel de la interfaz de audio. Restablece ganancia neutral."));
     btnSkip.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnSkip.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
     btnSkip.onClick = [this] { skipCalibration(); };
@@ -99,9 +106,69 @@ NativeCalibrationPanel::~NativeCalibrationPanel()
     stopTimer();
 }
 
+void NativeCalibrationPanel::neutralizeActiveTrim()
+{
+    audioEngine.setInputAutoTrim(1.0f);
+}
+
+void NativeCalibrationPanel::evaluateProfilesMatching()
+{
+    auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+    auto currentSnap = calibration::CurrentAudioConfigurationSnapshot::captureFrom(
+        dev, 0, calibrationInputChannelName, 0, calibrationOutputChannelName);
+
+    matchingProfile_ = calibration::CalibrationMatchEvaluator::findBestMatchingProfile(
+        savedProfiles, currentSnap, &matchEvaluation_);
+
+    if (currentState == State::ReadyToMeasure && matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
+    {
+        btnReuseCalibration.setVisible(true);
+        btnReuseCalibration.setEnabled(true);
+    }
+    else
+    {
+        btnReuseCalibration.setVisible(false);
+    }
+    resized();
+}
+
+void NativeCalibrationPanel::reuseMatchingProfile()
+{
+    if (!matchingProfile_.has_value() || !matchEvaluation_.isActionableMatch)
+        return;
+
+    stopTimer();
+    calibrationData = matchingProfile_->calibrationResult;
+    activeCalibrationRecord_ = *matchingProfile_;
+    activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
+    currentState = State::Success;
+
+    audioEngine.setInputAutoTrim(calibrationData.recommendedTrimGain);
+
+    btnStartMeasure.setVisible(false);
+    btnReuseCalibration.setVisible(false);
+    btnSkip.setVisible(false);
+    btnRetry.setVisible(true);
+    btnContinue.setVisible(true);
+    btnContinue.setEnabled(true);
+    btnSaveCalibration.setVisible(false);
+
+    saveFeedbackText_ = juce::String::fromUTF8(u8"Calibración guardada reutilizada correctamente.");
+
+    if (onCalibrationApplied)
+        onCalibrationApplied(calibrationData);
+
+    startTimerHz(10);
+    resized();
+    repaint();
+}
+
 void NativeCalibrationPanel::resetToInitialState()
 {
     currentState = State::ReadyToMeasure;
+    activeAlignment = calibration::ActiveCalibrationAlignment::None;
+    activeCalibrationRecord_ = {};
+    neutralizeActiveTrim();
     measurementStep = 0;
     progressValue = 0.0;
     liveInputPeak = 0.0f;
@@ -118,6 +185,9 @@ void NativeCalibrationPanel::resetToInitialState()
     btnDeleteProfile.setVisible(false);
     btnViewProfileDetails.setVisible(false);
     progressBar.setVisible(false);
+
+    evaluateProfilesMatching();
+
     startTimerHz(30);
     repaint();
 }
@@ -144,6 +214,8 @@ void NativeCalibrationPanel::refreshSavedProfiles()
         btnDeleteProfile.setVisible(showSavedProfilesSection_);
         btnViewProfileDetails.setVisible(showSavedProfilesSection_);
     }
+
+    evaluateProfilesMatching();
 }
 
 void NativeCalibrationPanel::saveCurrentCalibrationProfile()
@@ -246,6 +318,26 @@ void NativeCalibrationPanel::timerCallback()
         float inL = audioEngine.getInputPeakL();
         float inR = audioEngine.getInputPeakR();
         liveInputPeak = std::max(liveInputPeak * 0.88f, std::max(inL, inR));
+
+        // Periodic runtime alignment check
+        if (activeAlignment == calibration::ActiveCalibrationAlignment::AlignedAndActive)
+        {
+            auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+            auto currentSnap = calibration::CurrentAudioConfigurationSnapshot::captureFrom(
+                dev, 0, calibrationInputChannelName, 0, calibrationOutputChannelName);
+
+            if (!calibration::CalibrationMatchEvaluator::isStillAligned(activeCalibrationRecord_, currentSnap))
+            {
+                activeAlignment = calibration::ActiveCalibrationAlignment::Misaligned;
+                neutralizeActiveTrim();
+                saveFeedbackText_ = juce::String::fromUTF8(u8"La configuración de audio cambió desde la última calibración. Calibración previa desactivada.");
+                btnContinue.setEnabled(false);
+                btnRetry.setVisible(true);
+                btnSkip.setVisible(true);
+                btnSkip.setEnabled(true);
+                repaint();
+            }
+        }
     }
     repaint();
 }
@@ -259,11 +351,26 @@ void NativeCalibrationPanel::processCalibrationResult()
     audioEngine.getResponseReceiver().retrieveRecordedData(captured);
     calibrationData = math::LoopbackCalibrator::analyzeLoopback(captured, sr, 1.0, 20.0f, 40000.0f, -3.0f);
 
-    if (calibrationData.isCalibrated)
+    if (calibrationData.isCalibrated && !calibrationData.clippingDetected)
     {
         currentState = State::Success;
+        activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
+
+        activeCalibrationRecord_.schemaVersion = 1;
+        activeCalibrationRecord_.calibrationResult = calibrationData;
+        auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+        activeCalibrationRecord_.deviceSnapshot.deviceName = dev != nullptr ? dev->getName().toStdString() : "Audio Device";
+        activeCalibrationRecord_.deviceSnapshot.driverType = dev != nullptr ? dev->getTypeName().toStdString() : "Unknown";
+        activeCalibrationRecord_.deviceSnapshot.sampleRate = audioEngine.getSampleRate();
+        activeCalibrationRecord_.deviceSnapshot.bufferSizeSamples = audioEngine.getBlockSize();
+        activeCalibrationRecord_.routingSnapshot.inputChannelIndex = 0;
+        activeCalibrationRecord_.routingSnapshot.inputChannelLabel = calibrationInputChannelName.toStdString();
+        activeCalibrationRecord_.routingSnapshot.outputChannelIndex = 0;
+        activeCalibrationRecord_.routingSnapshot.outputChannelLabel = calibrationOutputChannelName.toStdString();
+
         audioEngine.setInputAutoTrim(calibrationData.recommendedTrimGain);
         btnStartMeasure.setVisible(false);
+        btnReuseCalibration.setVisible(false);
         btnSkip.setVisible(false);
         btnRetry.setVisible(true);
         btnContinue.setVisible(true);
@@ -305,10 +412,13 @@ void NativeCalibrationPanel::skipCalibration()
     calibrationData.frequencyFlatnessDb = 0.0f;
     calibrationData.deviceName = "Bypassed / Nominal (0 dB)";
 
-    audioEngine.setInputAutoTrim(1.0f);
+    neutralizeActiveTrim();
     currentState = State::Skipped;
+    activeAlignment = calibration::ActiveCalibrationAlignment::Bypassed;
+    activeCalibrationRecord_ = {};
 
     btnStartMeasure.setVisible(false);
+    btnReuseCalibration.setVisible(false);
     btnSkip.setVisible(false);
     btnRetry.setVisible(true);
     btnContinue.setVisible(true);
@@ -763,6 +873,52 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
                                           u8"Calculando latencia, auto-trim y polaridad..."),
                    meterArea, juce::Justification::topLeft, true);
     }
+    else if (activeAlignment == calibration::ActiveCalibrationAlignment::Misaligned)
+    {
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentAmber);
+        g.drawText(juce::String::fromUTF8(u8"La configuración cambió desde la última calibración"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"La compensación de latencia y nivel anterior no está activa.\n"
+                                          u8"Por favor, recalibra o continúa sin calibrar (Bypass)."),
+                   meterArea, juce::Justification::topLeft, true);
+    }
+    else if (matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
+    {
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentGreen);
+        g.drawText(juce::String::fromUTF8(u8"Calibración compatible encontrada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textPrimary);
+        juce::String devStr = juce::String(matchingProfile_->deviceSnapshot.deviceName) + " \u00B7 " +
+                              juce::String(matchingProfile_->deviceSnapshot.sampleRate / 1000.0, 1) + " kHz \u00B7 Buffer " +
+                              juce::String(matchingProfile_->deviceSnapshot.bufferSizeSamples);
+        g.drawText(devStr, meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 9.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::accentAmber);
+        g.drawText(juce::String::fromUTF8(u8"Aviso: La interfaz y la configuración actual coinciden con los datos guardados.\n"
+                                          u8"No se pueden detectar cambios físicos en cables, ganancia analógica o una segunda unidad idéntica."),
+                   meterArea, juce::Justification::topLeft, true);
+    }
+    else if (!savedProfiles.empty() && matchEvaluation_.status == calibration::CalibrationMatchStatus::ConfigurationMismatch)
+    {
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentAmber);
+        g.drawText(juce::String::fromUTF8(u8"Configuración distinta a la guardada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        juce::String diffMsg = juce::String::fromUTF8(u8"La calibración guardada no coincide con la configuración actual.\n");
+        for (const auto& d : matchEvaluation_.differences)
+        {
+            diffMsg += juce::String(d.fieldName) + ": " + juce::String(d.profileValue) + " \u2192 " + juce::String(d.currentValue) + "\n";
+        }
+        g.drawText(diffMsg, meterArea, juce::Justification::topLeft, true);
+    }
     else
     {
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
@@ -880,12 +1036,25 @@ void NativeCalibrationPanel::resized()
 
             if (currentState == State::ReadyToMeasure)
             {
-                btnSkip.setBounds(leftX, bottomY, 200, 36);
-                btnToggleSavedProfiles.setBounds(leftX + 208, bottomY, 190, 36);
-                btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
+                if (matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
+                {
+                    btnReuseCalibration.setVisible(true);
+                    btnSkip.setBounds(leftX, bottomY, 190, 36);
+                    btnReuseCalibration.setBounds(leftX + 196, bottomY, 220, 36);
+                    btnToggleSavedProfiles.setBounds(leftX + 422, bottomY, 170, 36);
+                    btnStartMeasure.setBounds(cardRight - 210, bottomY, 210, 36);
+                }
+                else
+                {
+                    btnReuseCalibration.setVisible(false);
+                    btnSkip.setBounds(leftX, bottomY, 200, 36);
+                    btnToggleSavedProfiles.setBounds(leftX + 208, bottomY, 190, 36);
+                    btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
+                }
             }
             else
             {
+                btnReuseCalibration.setVisible(false);
                 btnRetry.setBounds(leftX, bottomY, 160, 36);
                 btnSkip.setBounds(leftX + 168, bottomY, 180, 36);
                 btnToggleSavedProfiles.setBounds(leftX + 356, bottomY, 190, 36);

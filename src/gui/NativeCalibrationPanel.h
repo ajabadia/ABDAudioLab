@@ -6,6 +6,7 @@
 #include "session/ProfilingSessionContracts.h"
 
 #include "../calibration/CalibrationProfileStore.h"
+#include "../calibration/CalibrationMatchEvaluator.h"
 
 namespace abdaudiolab::gui
 {
@@ -35,11 +36,17 @@ public:
     void skipCalibration();
 
     void refreshSavedProfiles();
+    void evaluateProfilesMatching();
+    void reuseMatchingProfile();
+    void neutralizeActiveTrim();
     void saveCurrentCalibrationProfile();
     void deleteSelectedProfile();
 
     [[nodiscard]] const math::LoopbackCalibrationData& getCalibrationData() const noexcept { return calibrationData; }
     [[nodiscard]] State getState() const noexcept { return currentState; }
+    [[nodiscard]] calibration::ActiveCalibrationAlignment getActiveAlignment() const noexcept { return activeAlignment; }
+    [[nodiscard]] const calibration::CalibrationMatchEvaluation& getMatchEvaluation() const noexcept { return matchEvaluation_; }
+    [[nodiscard]] const std::optional<calibration::CalibrationRecord>& getMatchingProfile() const noexcept { return matchingProfile_; }
 
     void updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot);
     void setCalibrationChannels(const juce::String& outCh, const juce::String& inCh)
@@ -74,15 +81,21 @@ private:
     juce::String calibrationInputChannelName { "Input 1" };
 
     juce::TextButton btnStartMeasure { juce::String::fromUTF8(u8"Iniciar Calibración Loopback") };
-    juce::TextButton btnSkip { juce::String::fromUTF8(u8"Omitir Calibración (0 dB)") };
+    juce::TextButton btnSkip { juce::String::fromUTF8(u8"Continuar sin calibrar (Bypass)") };
     juce::TextButton btnContinue { juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔") };
     juce::TextButton btnRetry { juce::String::fromUTF8(u8"Repetir Calibración") };
     juce::TextButton btnVerifyDigital { juce::String::fromUTF8(u8"Verificar Latencia Digital") };
 
+    juce::TextButton btnReuseCalibration { juce::String::fromUTF8(u8"Reutilizar calibración guardada") };
     juce::TextButton btnSaveCalibration { juce::String::fromUTF8(u8"Guardar Calibración") };
     juce::TextButton btnToggleSavedProfiles { juce::String::fromUTF8(u8"Calibraciones Guardadas") };
     juce::TextButton btnDeleteProfile { juce::String::fromUTF8(u8"Eliminar") };
     juce::TextButton btnViewProfileDetails { juce::String::fromUTF8(u8"Ver Detalles") };
+
+    calibration::ActiveCalibrationAlignment activeAlignment { calibration::ActiveCalibrationAlignment::None };
+    std::optional<calibration::CalibrationRecord> matchingProfile_;
+    calibration::CalibrationMatchEvaluation matchEvaluation_;
+    calibration::CalibrationRecord activeCalibrationRecord_;
 
     bool isDigitalMode_ { false };
     bool isDigitalVerified_ { false };

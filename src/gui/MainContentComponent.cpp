@@ -507,6 +507,10 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 {
                     nativeCalibrationPanel.resetToInitialState();
                 }
+                else
+                {
+                    nativeCalibrationPanel.evaluateProfilesMatching();
+                }
                 break;
 
             case gui::WorkflowNavigationController::Step::RunSession:

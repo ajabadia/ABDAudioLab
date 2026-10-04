@@ -208,6 +208,8 @@ target_sources(ABDAudioLab
         src/calibration/CalibrationRecord.h
         src/calibration/CalibrationProfileStore.h
         src/calibration/CalibrationProfileStore.cpp
+        src/calibration/CalibrationMatchEvaluator.h
+        src/calibration/CalibrationMatchEvaluator.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/ModulationMatrixProfile.h
@@ -819,6 +821,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_12_ReversibleCompensation_T3.cpp
     src/tests/test_Integration_SmokeTest_SessionWorkflow.cpp
     src/tests/test_CalibrationProfileStore.cpp
+    src/tests/test_CalibrationCompatibility.cpp
     src/tests/test_CoordinatorStateMachine.cpp
     src/tests/test_MeasurementDspUtils.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
@@ -918,6 +921,7 @@ add_executable(ABDAudioLab_Tests
     src/math/NoiseFloorTracker.cpp
     src/math/LoopbackCalibrator.cpp
     src/calibration/CalibrationProfileStore.cpp
+    src/calibration/CalibrationMatchEvaluator.cpp
     src/hardware/MidiIdentityDetector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp

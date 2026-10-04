@@ -84,8 +84,17 @@ graph TD
      - Suite de higiene: `ABDAudioLab_Tests.exe "[hygiene]"` (22 test cases, 152 assertions, 100% PASS).
      - Suite canónica no-VES: `ABDAudioLab_Tests.exe "~[ves]"` (955 test cases | 928 passed | 27 skipped | 211,160 assertions, 0 failed).
 
-3. **P3C — Reglas de Compatibilidad e Invalidación Inteligente**:
-   - **Objetivo:** Determinar cuándo un perfil guardado sigue siendo válido y cuándo debe invalidarse automáticamente.
-   - **Alcance:** Comprobación de identidad de hardware (nombre de interfaz, driver, sample rate, buffer size y canales). Si el entorno cambia, marcar como inválido/desactualizado y solicitar nueva calibración o bypass explícito.
-   - **Estado:** ⚪ **No iniciada (esperando certificación y cierre de P3B)**.
-   - **Validación:** Tests de matrices de compatibilidad hardware y transiciones de estado en la UI.
+3. **P3C — Coincidencia de Configuración Observable y Reutilización Explícita**:
+   - **Objetivo:** Determinar cuándo un perfil guardado coincide con la configuración observable de audio del sistema y permitir su reutilización explícita por el operador, garantizando que nunca se aplique de forma silenciosa ni se reutilice si cambian los parámetros medibles.
+   - **Alcance:**
+     - Modelo de snapshot observable: `CurrentAudioConfigurationSnapshot` en `src/calibration/CalibrationMatchEvaluator.h`.
+     - Comparador puro y desacoplado: `CalibrationMatchEvaluator` en `src/calibration/CalibrationMatchEvaluator.cpp`.
+     - 5 estados precisos: `ConfigurationMatch`, `ConfigurationMismatch`, `DeviceOrDriverMismatch`, `NoActiveDevice` e `InvalidOrCorruptProfile`.
+     - Selección multianálisis: `findBestMatchingProfile` analiza todos los perfiles y propone el coincidente más reciente (un perfil nuevo no coincidente no bloquea uno anterior coincidente).
+     - Neutralización de trim activo: si una calibración activa en RAM pasa a `Misaligned`, o el usuario elige `[Continuar sin calibrar (Bypass)]`, o se inicia una nueva sesión (`performNewSessionReset`), el `inputAutoTrim` se neutraliza de inmediato a 1.0f (0.0 dB).
+     - Integración en UI: `NativeCalibrationPanel` añade botón `[Reutilizar calibración guardada]`, renombra `[Continuar sin calibrar (Bypass)]` y muestra advertencia explícita sobre los límites de detección analógica/física.
+   - **Estado:** 🟢 **Cerrada y certificada** (`feat(calibration): evaluate configuration matching and explicit profile reuse`).
+   - **Validación técnica observada:**
+     - Suite hermética P3C: `ABDAudioLab_Tests.exe "[calibration][compatibility][hermetic]"` (18 test cases, 53 assertions, 100% PASS).
+     - Suite de higiene: `ABDAudioLab_Tests.exe "[hygiene]"` (22 test cases, 152 assertions, 100% PASS).
+     - Suite canónica no-VES: `ABDAudioLab_Tests.exe "~[ves]"` (973 test cases | 946 passed | 27 skipped | 211,213 assertions, 0 failed).
