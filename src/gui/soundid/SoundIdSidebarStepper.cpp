@@ -13,13 +13,13 @@ SoundIdSidebarStepper::SoundIdSidebarStepper()
 
     stepTitles[Step::SystemInfo]        = "0. Studio Environment";
     stepTitles[Step::HardwareRouting]   = "1. Target & Routing";
-    stepTitles[Step::CalibrateLoopback] = "2. Calibration & Setup";
+    stepTitles[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio");
     stepTitles[Step::RunSession]        = "3. Run Session";
     stepTitles[Step::ExportReport]      = "4. Export & Report";
 
     stepDescriptions[Step::SystemInfo]        = "Audio, MIDI & Environment";
     stepDescriptions[Step::HardwareRouting]   = juce::String::fromUTF8(u8"Target, I/O & Wiring");
-    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Conditional Calibration & Setup");
+    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Latencia y Nivel de Tarjeta");
     stepDescriptions[Step::RunSession]        = juce::String::fromUTF8(u8"Excitation & Profiling");
     stepDescriptions[Step::ExportReport]      = juce::String::fromUTF8(u8"NAM, LUT & Certification");
 

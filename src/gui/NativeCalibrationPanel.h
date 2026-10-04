@@ -36,6 +36,14 @@ public:
     [[nodiscard]] State getState() const noexcept { return currentState; }
 
     void updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot);
+    void setCalibrationChannels(const juce::String& outCh, const juce::String& inCh)
+    {
+        calibrationOutputChannelName = outCh;
+        calibrationInputChannelName = inCh;
+        repaint();
+    }
+    [[nodiscard]] juce::String getCalibrationOutputChannel() const noexcept { return calibrationOutputChannelName; }
+    [[nodiscard]] juce::String getCalibrationInputChannel() const noexcept { return calibrationInputChannelName; }
 
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
     std::function<void()> onCalibrationSkipped;
@@ -49,11 +57,14 @@ private:
     State currentState { State::ReadyToMeasure };
     math::LoopbackCalibrationData calibrationData;
 
-    juce::TextButton btnStartMeasure { "Start Loopback Calibration" };
-    juce::TextButton btnSkip { "Bypass Calibration (0 dB Nominal Gain)" };
-    juce::TextButton btnContinue { "Proceed to Run Session (Step 3) \u2192" };
-    juce::TextButton btnRetry { "Retry Calibration" };
-    juce::TextButton btnVerifyDigital { "Verificar Latencia Digital" };
+    juce::String calibrationOutputChannelName { "Output 1" };
+    juce::String calibrationInputChannelName { "Input 1" };
+
+    juce::TextButton btnStartMeasure { juce::String::fromUTF8(u8"Iniciar Calibración Loopback") };
+    juce::TextButton btnSkip { juce::String::fromUTF8(u8"Omitir Calibración (0 dB)") };
+    juce::TextButton btnContinue { juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔") };
+    juce::TextButton btnRetry { juce::String::fromUTF8(u8"Repetir Calibración") };
+    juce::TextButton btnVerifyDigital { juce::String::fromUTF8(u8"Verificar Latencia Digital") };
 
     bool isDigitalMode_ { false };
     bool isDigitalVerified_ { false };

@@ -27,7 +27,7 @@ public:
 
         stepNames[Step::SystemInfo]        = "0. Studio Environment";
         stepNames[Step::HardwareRouting]   = "1. Target & Routing";
-        stepNames[Step::CalibrateLoopback] = "2. Calibration & Setup";
+        stepNames[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio");
         stepNames[Step::RunSession]        = "3. Run Session";
         stepNames[Step::ExportReport]      = "4. Export & Report";
     }

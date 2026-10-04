@@ -14,6 +14,8 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Completed);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Current);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::CalibrateLoopback) == SoundIdSidebarStepper::StepStatus::Pending);
+        CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::CalibrateLoopback) == juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio"));
+        CHECK(stepper.getStepDescription(SoundIdSidebarStepper::Step::CalibrateLoopback) == juce::String::fromUTF8(u8"Latencia y Nivel de Tarjeta"));
         CHECK_FALSE(stepper.isCollapsed());
         CHECK(stepper.getDesiredWidth() == 240);
     }

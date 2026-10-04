@@ -8,20 +8,22 @@ namespace abdaudiolab::gui
 NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     : audioEngine(engine), progressBar(progressValue)
 {
-    btnStartMeasure.setTooltip("Fires a 1.0s Farina logarithmic sweep to measure round-trip gain, latency and transfer function H(f)");
+    btnStartMeasure.setButtonText(juce::String::fromUTF8(u8"Iniciar Calibración Loopback"));
+    btnStartMeasure.setTooltip(juce::String::fromUTF8(u8"Reproduce un barrido Farina de 1.0s para medir latencia de ida y vuelta, ganancia y compensación H(f)"));
     btnStartMeasure.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnStartMeasure.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnStartMeasure.onClick = [this] { startCalibrationSweep(); };
     addAndMakeVisible(btnStartMeasure);
 
-    btnSkip.setTooltip("Proceed to Step 2 with nominal unity gain (0 dB) and 0 latency samples. Disables interface latency compensation.");
+    btnSkip.setButtonText(juce::String::fromUTF8(u8"Omitir Calibración (0 dB)"));
+    btnSkip.setTooltip(juce::String::fromUTF8(u8"Continúa con ganancia unitaria nominal (0 dB) y 0 muestras de latencia. Desactiva la compensación de interfaz."));
     btnSkip.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnSkip.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
     btnSkip.onClick = [this] { skipCalibration(); };
     addAndMakeVisible(btnSkip);
 
     btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔"));
-    btnContinue.setTooltip("Advance to Step 3: session excitation and profiling");
+    btnContinue.setTooltip(juce::String::fromUTF8(u8"Avanza al Paso 3: excitación y perfilado de la sesión"));
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -31,7 +33,7 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     addChildComponent(btnContinue);
 
     btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
-    btnVerifyDigital.setTooltip("Verifica la preparación del bus digital y latencia del plugin");
+    btnVerifyDigital.setTooltip(juce::String::fromUTF8(u8"Verifica la preparación del bus digital y latencia del plugin"));
     btnVerifyDigital.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.25f));
     btnVerifyDigital.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnVerifyDigital.onClick = [this] {
@@ -40,7 +42,8 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     };
     addChildComponent(btnVerifyDigital);
 
-    btnRetry.setTooltip("Repeat the calibration sweep after adjusting input levels");
+    btnRetry.setButtonText(juce::String::fromUTF8(u8"Repetir Calibración"));
+    btnRetry.setTooltip(juce::String::fromUTF8(u8"Vuelve a ejecutar la calibración tras comprobar conexiones y niveles"));
     btnRetry.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber);
     btnRetry.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     btnRetry.onClick = [this] { startCalibrationSweep(); };
@@ -211,7 +214,10 @@ void NativeCalibrationPanel::updateFromSnapshot(const session::ProfilingSessionS
         }
         else
         {
-            digitalStatusText_ = juce::String::fromUTF8(u8"Ruta digital interna directa (Plugin VST3 / Sintetizador Virtual)\nCalibración física de loopback DAC/ADC: No requerida.\nPulse el botón para verificar la latencia del buffer digital.");
+            digitalStatusText_ = juce::String::fromUTF8(u8"Modo digital activo (Plugin VST3 / Sintetizador Virtual)\n"
+                                                       u8"No necesitas conectar un cable de loopback.\n"
+                                                       u8"La calibración analógica de la interfaz no se aplica a plugins ni a sintetizadores virtuales.\n"
+                                                       u8"La aplicación usará la ruta digital sin compensación de conversión DAC/ADC.");
             btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
             btnVerifyDigital.setEnabled(true);
         }
@@ -254,10 +260,10 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(32.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("Step 2: Calibration & Setup", headerRow.removeFromLeft(420.0f), juce::Justification::centredLeft, true);
+    g.drawText(juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio"), headerRow.removeFromLeft(460.0f), juce::Justification::centredLeft, true);
 
     // Estado Badge
-    auto badgeRect = headerRow.removeFromRight(180.0f).reduced(0.0f, 3.0f);
+    auto badgeRect = headerRow.removeFromRight(210.0f).reduced(0.0f, 3.0f);
     if (isDigitalMode_)
     {
         if (isDigitalVerified_)
@@ -266,7 +272,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.fillRoundedRectangle(badgeRect, 6.0f);
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
             g.setColour(juce::Colour(0xff065f46));
-            g.drawText("● DIGITAL PATH VERIFIED", badgeRect, juce::Justification::centred, true);
+            g.drawText(juce::String::fromUTF8(u8"● MODO DIGITAL ACTIVO"), badgeRect, juce::Justification::centred, true);
         }
         else
         {
@@ -274,7 +280,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.fillRoundedRectangle(badgeRect, 6.0f);
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
             g.setColour(juce::Colour(0xff3730a3));
-            g.drawText("⟳ VERIFICATION PENDING", badgeRect, juce::Justification::centred, true);
+            g.drawText(juce::String::fromUTF8(u8"⟳ VERIFICACIÓN PENDIENTE"), badgeRect, juce::Justification::centred, true);
         }
     }
     else if (currentState == State::Success)
@@ -283,7 +289,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff065f46));
-        g.drawText("● CALIBRATION COMPLETE", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"● CALIBRACIÓN COMPLETADA"), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Skipped)
     {
@@ -291,7 +297,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff92400e));
-        g.drawText("⏭ CALIBRATION BYPASSED", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"⏭ CALIBRACIÓN OMITIDA"), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Measuring)
     {
@@ -299,7 +305,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff3730a3));
-        g.drawText("⟳ MEASURING...", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"⟳ MIDIENDO..."), badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Failed)
     {
@@ -307,7 +313,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentRed);
-        g.drawText("✕ LEVEL LOW / CLIP", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"✕ REVISAR RETORNO"), badgeRect, juce::Justification::centred, true);
     }
     else
     {
@@ -315,24 +321,32 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText("CALIBRATION PENDING", badgeRect, juce::Justification::centred, true);
+        g.drawText(juce::String::fromUTF8(u8"CALIBRACIÓN PENDIENTE"), badgeRect, juce::Justification::centred, true);
     }
 
-    content.removeFromTop(12.0f);
+    content.removeFromTop(10.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.fillRect(content.removeFromTop(1.0f));
-    content.removeFromTop(16.0f);
+    content.removeFromTop(10.0f);
 
     // Subtítulo explicativo
-    g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
-    g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("Closed-loop calibration compensates DAC/ADC round-trip latency and auto-trims input gain to the target headroom for stable, reproducible measurements.",
-               content.removeFromTop(32.0f), juce::Justification::topLeft, true);
+    g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
+    g.setColour(SoundIdTheme::textPrimary);
+    g.drawText(juce::String::fromUTF8(u8"Comprueba la latencia y el nivel de tu interfaz de audio antes de medir el instrumento."),
+               content.removeFromTop(18.0f), juce::Justification::topLeft, true);
 
-    content.removeFromTop(12.0f);
+    content.removeFromTop(2.0f);
+    g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::plain));
+    g.setColour(SoundIdTheme::textSecondary);
+    g.drawText(juce::String::fromUTF8(u8"Esta calibración mide la ruta de audio de tu interfaz, no el sintetizador que vas a perfilar.\n"
+                                      u8"Conecta la salida de calibración indicada a la entrada de retorno indicada mediante un cable directo.\n"
+                                      u8"La aplicación enviará una señal de prueba y medirá el retardo y el nivel del sistema de captura."),
+               content.removeFromTop(44.0f), juce::Justification::topLeft, true);
+
+    content.removeFromTop(10.0f);
 
     // 2 Columnas de contenido
-    float leftW = content.getWidth() * 0.54f;
+    float leftW = content.getWidth() * 0.52f;
     auto leftCol = content.removeFromLeft(leftW);
     content.removeFromLeft(20.0f);
     auto rightCol = content;
@@ -340,7 +354,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     if (isDigitalMode_)
     {
         auto drawDigitalItem = [&](int num, const juce::String& title, const juce::String& desc) {
-            auto stepRow = leftCol.removeFromTop(60.0f);
+            auto stepRow = leftCol.removeFromTop(62.0f);
             auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
 
             g.setColour(SoundIdTheme::accentBlue.withAlpha(0.15f));
@@ -352,37 +366,37 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.drawText(juce::String(num), circleBounds, juce::Justification::centred, false);
 
             stepRow.removeFromLeft(10.0f);
-            g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
+            g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
             g.setColour(SoundIdTheme::textPrimary);
             g.drawText(title, stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
-            g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::plain));
+            g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
             g.setColour(SoundIdTheme::textSecondary);
             g.drawText(desc, stepRow, juce::Justification::topLeft, true);
 
-            leftCol.removeFromTop(8.0f);
+            leftCol.removeFromTop(6.0f);
         };
 
-        drawDigitalItem(1, "1. Bus Virtual Interno",
-                        juce::String::fromUTF8(u8"El plugin se procesa internamente a 32/64-bit float. No hay conversores DAC/ADC."));
-        drawDigitalItem(2, "2. Cero Pérdida Analógica",
-                        juce::String::fromUTF8(u8"Calibración de loopback físico no requerida. Nivel de referencia nominal 0 dBFS."));
-        drawDigitalItem(3, "3. Verificación de Buffer",
+        drawDigitalItem(1, juce::String::fromUTF8(u8"1. Modo Digital Activo"),
+                        juce::String::fromUTF8(u8"No necesitas conectar un cable de loopback. La calibración analógica de la interfaz no se aplica a plugins ni a sintetizadores virtuales."));
+        drawDigitalItem(2, juce::String::fromUTF8(u8"2. Ruta Digital Directa"),
+                        juce::String::fromUTF8(u8"La aplicación usará la ruta digital sin compensación de conversión DAC/ADC."));
+        drawDigitalItem(3, juce::String::fromUTF8(u8"3. Verificación de Buffer"),
                         juce::String::fromUTF8(u8"Comprueba que el host y el plugin responden a la tasa de muestreo y tamaño de bloque."));
 
-        // Columna derecha
+        // Columna derecha Digital
         g.setColour(SoundIdTheme::bgCardHover);
-        g.fillRoundedRectangle(rightCol.withHeight(200.0f), 8.0f);
+        g.fillRoundedRectangle(rightCol.withHeight(220.0f), 8.0f);
         g.setColour(SoundIdTheme::borderSubtle);
-        g.drawRoundedRectangle(rightCol.withHeight(200.0f).reduced(0.5f), 8.0f, 1.0f);
+        g.drawRoundedRectangle(rightCol.withHeight(220.0f).reduced(0.5f), 8.0f, 1.0f);
 
-        auto meterArea = rightCol.withHeight(200.0f).reduced(14.0f, 12.0f);
+        auto meterArea = rightCol.withHeight(220.0f).reduced(14.0f, 12.0f);
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText("DIGITAL PATH STATUS", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"ESTADO DE RUTA DIGITAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         meterArea.removeFromTop(8.0f);
 
-        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::plain));
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(isDigitalVerified_ ? SoundIdTheme::accentGreen : SoundIdTheme::accentAmber);
         g.drawText(isDigitalVerified_ ? juce::String::fromUTF8(u8"✓ Ruta digital verificada") : juce::String::fromUTF8(u8"⟳ Pendiente de verificación digital"),
                    meterArea.removeFromTop(20.0f), juce::Justification::centredLeft, true);
@@ -390,13 +404,50 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         meterArea.removeFromTop(8.0f);
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Latencia analógica: 0 ms\nNivel nominal: 0 dBFS\nBuffer host/plugin: Sincronizado"),
+        g.drawText(juce::String::fromUTF8(u8"Modo: Digital (Plugin VST3 / Sintetizador Virtual)\n"
+                                          u8"Latencia analógica: 0 ms\n"
+                                          u8"Nivel nominal: 0 dBFS\n"
+                                          u8"Conversión DAC/ADC: No requerida"),
                    meterArea, juce::Justification::topLeft, true);
         return;
     }
 
     // --- Columna Izquierda: 3 Pasos del protocolo ---
-    auto drawStepItem = [&](int num, const juce::String& title, const juce::String& desc) {
+    // Paso 1: Conecta el cable de loopback
+    {
+        auto stepRow = leftCol.removeFromTop(74.0f);
+        auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
+
+        g.setColour(SoundIdTheme::accentGreen.withAlpha(0.15f));
+        g.fillEllipse(circleBounds);
+        g.setColour(SoundIdTheme::accentGreen);
+        g.drawEllipse(circleBounds, 1.5f);
+
+        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+        g.drawText("1", circleBounds, juce::Justification::centred, false);
+
+        stepRow.removeFromLeft(10.0f);
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textPrimary);
+        g.drawText(juce::String::fromUTF8(u8"1. Conecta el cable de loopback"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        auto channelBox = stepRow.removeFromTop(18.0f);
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentBlue);
+        g.drawText(juce::String::fromUTF8(u8"Salida de calibración: ") + calibrationOutputChannelName +
+                   juce::String::fromUTF8(u8"  ➔  Entrada de retorno: ") + calibrationInputChannelName,
+                   channelBox, juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Usa un cable directo de nivel de línea. No conectes todavía el sintetizador que quieres medir."),
+                   stepRow, juce::Justification::topLeft, true);
+
+        leftCol.removeFromTop(6.0f);
+    }
+
+    // Paso 2: Comprueba el nivel de retorno
+    {
         auto stepRow = leftCol.removeFromTop(60.0f);
         auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
 
@@ -406,42 +457,60 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.drawEllipse(circleBounds, 1.5f);
 
         g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
-        g.drawText(juce::String(num), circleBounds, juce::Justification::centred, false);
+        g.drawText("2", circleBounds, juce::Justification::centred, false);
 
         stepRow.removeFromLeft(10.0f);
-        g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(title, stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"2. Comprueba el nivel de retorno"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
-        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::plain));
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(desc, stepRow, juce::Justification::topLeft, true);
+        g.drawText(juce::String::fromUTF8(u8"Asegúrate de que la señal no esté silenciada ni saturada. La aplicación verificará el nivel y aplicará la compensación necesaria."),
+                   stepRow, juce::Justification::topLeft, true);
 
-        leftCol.removeFromTop(8.0f);
-    };
+        leftCol.removeFromTop(6.0f);
+    }
 
-    drawStepItem(1, "1. Connect Loopback Cable",
-                 "Connect a physical jack cable from Audio Output 1 (DAC) to Audio Input 1 (ADC) of your interface.");
-    drawStepItem(2, "2. Verify Gain Levels",
-                 "Adjust your interface preamp until the real-time signal meter reads -3.0 dBFS (\u00b10.5 dBFS).");
-    drawStepItem(3, "3. Trigger Farina Sweep",
-                 "Click the button below to fire a 1.0s logarithmic sweep. Extracts round-trip latency and transfer function H(f).");
+    // Paso 3: Ejecuta la calibración
+    {
+        auto stepRow = leftCol.removeFromTop(60.0f);
+        auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
+
+        g.setColour(SoundIdTheme::accentGreen.withAlpha(0.15f));
+        g.fillEllipse(circleBounds);
+        g.setColour(SoundIdTheme::accentGreen);
+        g.drawEllipse(circleBounds, 1.5f);
+
+        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+        g.drawText("3", circleBounds, juce::Justification::centred, false);
+
+        stepRow.removeFromLeft(10.0f);
+        g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textPrimary);
+        g.drawText(juce::String::fromUTF8(u8"3. Ejecuta la calibración"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"La aplicación reproducirá un barrido breve y calculará la latencia y el ajuste de nivel de esta ruta de audio."),
+                   stepRow, juce::Justification::topLeft, true);
+    }
 
     // --- Columna Derecha: Monitor Balístico de Nivel & Métricas ---
     g.setColour(SoundIdTheme::bgCardHover);
-    g.fillRoundedRectangle(rightCol.withHeight(200.0f), 8.0f);
+    g.fillRoundedRectangle(rightCol.withHeight(220.0f), 8.0f);
     g.setColour(SoundIdTheme::borderSubtle);
-    g.drawRoundedRectangle(rightCol.withHeight(200.0f).reduced(0.5f), 8.0f, 1.0f);
+    g.drawRoundedRectangle(rightCol.withHeight(220.0f).reduced(0.5f), 8.0f, 1.0f);
 
-    auto meterArea = rightCol.withHeight(200.0f).reduced(14.0f, 12.0f);
+    auto meterArea = rightCol.withHeight(220.0f).reduced(14.0f, 12.0f);
 
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText("REAL-TIME SIGNAL MONITOR", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-    meterArea.removeFromTop(8.0f);
+    g.drawText(juce::String::fromUTF8(u8"MONITOR DE SEÑAL EN TIEMPO REAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    meterArea.removeFromTop(6.0f);
 
     // Vúmetro horizontal
-    auto vumeterBar = meterArea.removeFromTop(16.0f);
+    auto vumeterBar = meterArea.removeFromTop(14.0f);
     g.setColour(SoundIdTheme::borderCard);
     g.fillRoundedRectangle(vumeterBar, 4.0f);
 
@@ -457,43 +526,114 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 
     g.fillRoundedRectangle(fillBar, 4.0f);
 
-    meterArea.removeFromTop(6.0f);
+    meterArea.removeFromTop(4.0f);
     float liveDb = 20.0f * std::log10(std::max(liveInputPeak, 1e-4f));
     juce::String dbText = (liveDb < -70.0f) ? "-inf dBFS" : juce::String(liveDb, 1) + " dBFS";
-    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+    g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("Input level: " + dbText, meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText(juce::String::fromUTF8(u8"Nivel de entrada: ") + dbText, meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
-    meterArea.removeFromTop(10.0f);
+    meterArea.removeFromTop(6.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.fillRect(meterArea.removeFromTop(1.0f));
-    meterArea.removeFromTop(8.0f);
+    meterArea.removeFromTop(6.0f);
 
-    // Métricas de calibración
-    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
-    g.setColour(SoundIdTheme::textPrimary);
+    // Métricas y mensajes de calibración
     if (currentState == State::Success)
     {
+        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentGreen);
+        g.drawText(juce::String::fromUTF8(u8"Calibración completada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"La ruta de audio está lista para medir."), meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+
         float trimDb = 20.0f * std::log10(std::max(calibrationData.recommendedTrimGain, 1e-4f));
-        g.drawText("Round-trip latency: " + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
-                   juce::String(calibrationData.latencySamples) + " samples)",
-                   meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         juce::String sign = (trimDb >= 0.0f) ? "+" : "";
-        g.drawText("Auto-Trim gain: " + sign + juce::String(trimDb, 2) + " dB",
-                   meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("H(f) flatness: \u00b1" + juce::String(calibrationData.frequencyFlatnessDb, 2) + " dB",
-                   meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textPrimary);
+        g.drawText(juce::String::fromUTF8(u8"Latencia de ida y vuelta: ") + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
+                   juce::String(calibrationData.latencySamples) + " samples)",
+                   meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+        g.drawText(juce::String::fromUTF8(u8"Ajuste de nivel: ") + sign + juce::String(trimDb, 2) + " dB",
+                   meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+        juce::String polarityStr = calibrationData.phaseInversionDetected ? juce::String::fromUTF8(u8"Invertida (\u26A0)") : juce::String::fromUTF8(u8"Correcta");
+        g.drawText(juce::String::fromUTF8(u8"Polaridad: ") + polarityStr,
+                   meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+        if (calibrationData.clippingDetected)
+        {
+            g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentAmber);
+            g.drawText(juce::String::fromUTF8(u8"Aviso: Se detectó saturación durante la calibración."),
+                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+        }
+    }
+    else if (currentState == State::Failed)
+    {
+        if (calibrationData.clippingDetected)
+        {
+            g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentRed);
+            g.drawText(juce::String::fromUTF8(u8"La señal de retorno está saturando."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText(juce::String::fromUTF8(u8"Reduce la ganancia de entrada o el nivel de salida y vuelve a ejecutar la calibración."),
+                       meterArea, juce::Justification::topLeft, true);
+        }
+        else
+        {
+            g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentRed);
+            g.drawText(juce::String::fromUTF8(u8"No se detecta una señal de retorno suficiente."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText(juce::String::fromUTF8(u8"Comprueba que el cable conecta la salida indicada con la entrada indicada y que la entrada no está silenciada."),
+                       meterArea, juce::Justification::topLeft, true);
+        }
     }
     else if (currentState == State::Skipped)
     {
-        g.drawText("Mode: Bypassed (no latency compensation)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("Gain: 1.0x (0.0 dB nominal)", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
-        g.drawText("Assumed latency: 0 samples", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentAmber);
+        g.drawText(juce::String::fromUTF8(u8"Calibración omitida"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Modo: Omitido (sin compensación de latencia)\n"
+                                          u8"Ajuste de ganancia: 0.0 dB nominal\n"
+                                          u8"Latencia asumida: 0 muestras (0.0 ms)"),
+                   meterArea, juce::Justification::topLeft, true);
+    }
+    else if (currentState == State::Measuring)
+    {
+        g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
+        g.setColour(SoundIdTheme::accentBlue);
+        g.drawText(juce::String::fromUTF8(u8"Midiendo respuesta de interfaz..."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Reproduciendo barrido logarítmico Farina.\n"
+                                          u8"Calculando latencia, auto-trim y polaridad..."),
+                   meterArea, juce::Justification::topLeft, true);
     }
     else
     {
-        g.setColour(SoundIdTheme::textMuted);
-        g.drawText("Awaiting sweep execution...", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textPrimary);
+        g.drawText(juce::String::fromUTF8(u8"A la espera de calibración"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+
+        g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textSecondary);
+        g.drawText(juce::String::fromUTF8(u8"Comprueba el cable y pulsa 'Iniciar Calibración Loopback'.\n"
+                                          u8"La aplicación comprobará el nivel y calculará la compensación necesaria."),
+                   meterArea, juce::Justification::topLeft, true);
     }
 }
 
@@ -515,7 +655,7 @@ void NativeCalibrationPanel::resized()
     if (isDigitalMode_)
     {
         btnVerifyDigital.setBounds(leftX, bottomY, 240, 36);
-        btnContinue.setBounds(cardRight - 260, bottomY, 260, 36);
+        btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
     }
     else
     {
@@ -523,8 +663,8 @@ void NativeCalibrationPanel::resized()
         btnSkip.setBounds(leftX, bottomY, 240, 36);
         btnRetry.setBounds(leftX, bottomY, 180, 36);
 
-        btnStartMeasure.setBounds(cardRight - 260, bottomY, 260, 36);
-        btnContinue.setBounds(cardRight - 260, bottomY, 260, 36);
+        btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
+        btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
     }
 }
 
