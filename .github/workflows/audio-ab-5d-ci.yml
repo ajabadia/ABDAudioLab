@@ -56,13 +56,13 @@ jobs:
 
     steps:
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: ABDAudioLab
           fetch-depth: 1
 
       - name: Checkout ABDSharedCode (Immutable Sibling Ref)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedCode
           ref: 21c0a60c1efd5aac6a6cedcc57725f601a3ce14a
@@ -85,7 +85,7 @@ jobs:
       # un rojo por eso es un rojo que se ha ganado. Fijarlo aqui haria que este
       # check solo dijese lo que ya decia el CI de ABDSharedAssets.
       - name: Checkout ABDSharedAssets (contract origin)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
           ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
@@ -93,7 +93,7 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout ABDScope (Immutable Sibling Ref)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDScope
           ref: 0a296f3f3d161f65b41be4d02413ab858dddff55
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload Test Telemetry on Failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-telemetry-logs
           path: |
@@ -231,7 +231,7 @@ jobs:
 
       - name: Upload suite timings
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: suite-timings
           path: ABDAudioLab/build/suite-timings.txt
@@ -258,7 +258,7 @@ jobs:
   # PR que solo toca un JSON de contrato es justo lo que pasaria.
 
       - name: Upload QA Acceptance Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: audio-ab-5d-qa-acceptance-reports
@@ -281,13 +281,13 @@ jobs:
       # El repo que se quiere vigilar, primero y con su PR entero: es el que
       # lleva los 40 contratos del snapshot.
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: ABDAudioLab
           fetch-depth: 1
 
       - name: Checkout ABDSharedAssets (contract origin)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
           ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
@@ -300,7 +300,7 @@ jobs:
       # puerta. Este comentario, casi literal, esta en el workflow de
       # ABDSharedAssets porque el mismo error ya se cometio una vez alli.
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -309,12 +309,12 @@ jobs:
       # node instalado se lleva por delante la shim y `pnpm install` deja de ser la
       # version fijada.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6.1.0
         with:
           version: '10.25.0'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '22.23.3'
 
@@ -365,12 +365,12 @@ jobs:
 
     steps:
       - name: Checkout ABDAudioLab
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: '22.23.3'      # Y AQUI NO esta el auditor de los .bat, aunque es el sitio donde mas
       # aportaria por ser el rapido: este job lleva `continue-on-error: true` a
