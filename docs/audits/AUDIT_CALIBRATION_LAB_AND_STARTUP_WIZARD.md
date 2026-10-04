@@ -4,11 +4,11 @@
 **Rama:** `main`  
 **Documento de Gobernanza:** `docs/audits/AUDIT_CALIBRATION_LAB_AND_STARTUP_WIZARD.md`  
 **Estado:**
-- 🟢 **Prioridad 1 cerrada** (`855991f`)
-- 🟢 **Prioridad 2 cerrada** (`ab30e62`)
-- 🟢 **P3A cerrada** (`4a12fe6`)
-- 🟡 **P3B implementada localmente; pendiente de build, tests, higiene, suite canónica y commit.**
-- ⚪ **P3C no iniciada.**
+- 🟢 **Prioridad 1 cerrada** (`855991f`) — Sincronización del arranque del Wizard en Tarea 1 (Target & Routing)
+- 🟢 **Prioridad 2 cerrada** (`ab30e62`) — Claridad operativa y UX copy de la calibración de interfaz
+- 🟢 **P3A cerrada** (`4a12fe6`) — Rechazo estricto de clipping en calibración loopback
+- 🟢 **P3B cerrada** (`c38f39b`) — Persistencia hermética de perfiles de calibración en AppData
+- 🟢 **P3C cerrada** (`6598b42`) — Coincidencia observable y reutilización explícita de perfiles
 
 ---
 
@@ -22,6 +22,8 @@ Para garantizar la estricta trazabilidad de no-regresión y justificar la variac
 | **Post-Prioridad 1 (Startup Sync)** | `855991f` | 946 | 919 | 27 | 0 | **211.042** | +6 (+1 test case ST-69) |
 | **Post-Prioridad 2 (Claridad UX/Copy)** | `ab30e62` | 946 | 919 | 27 | 0 | **211.044** | +2 (Aserciones de copy del Stepper) |
 | **Post-Prioridad 3A (Criterio Seguro Clipping)** | `4a12fe6` | 946 | 919 | 27 | 0 | **211.044** | 0 (Reemplazo de aserción en test Farina existente) |
+| **Post-Prioridad 3B (Perfil Persistente)** | `c38f39b` | 955 | 928 | 27 | 0 | **211.160** | +116 (+9 test cases herméticos) |
+| **Post-Prioridad 3C (Coincidencia Observable y Reutilización)** | `6598b42` | 973 | 946 | 27 | 0 | **211.213** | +53 (+18 test cases herméticos) |
 
 > [!NOTE]
 > Las 27 pruebas en estado `SKIPPED` corresponden exclusivamente a la ausencia de plugins VST3 externos de prueba (Dexed / VES) en el entorno de desarrollo local, de acuerdo con la clasificación normativa `KI-01`.
