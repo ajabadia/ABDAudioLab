@@ -32,19 +32,52 @@ struct LoopbackCalibrationData
 };
 
 /**
+ * @brief Evaluation result for frequency flatness across a designated analysis band.
+ */
+struct FlatnessEvaluation
+{
+    bool hasValidBins { false };
+    float deltaDb { 0.0f };
+    size_t validBinCount { 0 };
+};
+
+/**
  * @brief High-precision DAC -> ADC Loopback Sound Card Calibration & Compensation engine.
  */
 class LoopbackCalibrator
 {
 public:
     /**
+     * @brief Computes safe upper sweep limit for Farina stimulus based on active sample rate.
+     * Guaranteed to stay comfortably below Nyquist: min(20000.0f, 0.45f * sampleRate).
+     */
+    [[nodiscard]] static float computeSafeSweepMaxHz(double sampleRate) noexcept;
+
+    /**
+     * @brief Computes passband limits [f_low, f_high] for flatness qualification.
+     * Evaluates strictly in [40.0f, min(18000.0f, 0.40f * sampleRate)].
+     */
+    [[nodiscard]] static std::pair<float, float> computeFlatnessBandHz(double sampleRate) noexcept;
+
+    /**
+     * @brief Pure helper evaluating peak-to-peak flatness within specified frequency band.
+     * If no valid bins fall inside [lowHz, highHz], returns hasValidBins=false and deltaDb=inf.
+     */
+    [[nodiscard]] static FlatnessEvaluation evaluateFlatnessInBand(
+        const std::vector<float>& frequenciesHz,
+        const std::vector<float>& magnitudesDb,
+        float lowHz,
+        float highHz) noexcept;
+
+    /**
      * @brief Analyzes recorded loopback sweep and extracts soundcard response, trim, latency and SNR.
+     * @param endFreqHz If <= 0.0f, automatically resolves via computeSafeSweepMaxHz(sampleRate).
      */
     static LoopbackCalibrationData analyzeLoopback(const std::vector<float>& recordedResponse,
                                                   double sampleRate,
                                                   double sweepDurationSec = 1.0,
                                                   float startFreqHz = 20.0f,
-                                                  float endFreqHz = 40000.0f,
+                                                  float endFreqHz = 0.0f,
                                                   float targetDbfs = -3.0f);
 
     /**

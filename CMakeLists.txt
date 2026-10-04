@@ -724,6 +724,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_VoiceDispersionAndBBD.cpp
     src/tests/test_PhaseGroupDelay.cpp
     src/tests/test_LoopbackDiagnostics.cpp
+    src/tests/test_LoopbackSampleRateAdaptation.cpp
     src/tests/test_LnlManifestExport.cpp
     src/tests/test_DeColoringCompensation.cpp
     src/tests/test_AudioMidiInterfaceDetector.cpp

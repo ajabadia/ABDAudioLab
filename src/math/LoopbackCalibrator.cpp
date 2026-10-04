@@ -9,6 +9,65 @@
 namespace abdaudiolab::math
 {
 
+float LoopbackCalibrator::computeSafeSweepMaxHz(double sampleRate) noexcept
+{
+    if (sampleRate <= 0.0)
+        return 20000.0f;
+    return static_cast<float>(std::min(20000.0, 0.45 * sampleRate));
+}
+
+std::pair<float, float> LoopbackCalibrator::computeFlatnessBandHz(double sampleRate) noexcept
+{
+    constexpr float lowHz = 40.0f;
+    if (sampleRate <= 0.0)
+        return { lowHz, 18000.0f };
+    float highHz = static_cast<float>(std::min(18000.0, 0.40 * sampleRate));
+    if (highHz < lowHz)
+        highHz = lowHz;
+    return { lowHz, highHz };
+}
+
+FlatnessEvaluation LoopbackCalibrator::evaluateFlatnessInBand(
+    const std::vector<float>& frequenciesHz,
+    const std::vector<float>& magnitudesDb,
+    float lowHz,
+    float highHz) noexcept
+{
+    FlatnessEvaluation eval;
+    eval.hasValidBins = false;
+    eval.deltaDb = std::numeric_limits<float>::infinity();
+    eval.validBinCount = 0;
+
+    if (frequenciesHz.empty() || frequenciesHz.size() != magnitudesDb.size() || lowHz >= highHz)
+        return eval;
+
+    float minMag = std::numeric_limits<float>::infinity();
+    float maxMag = -std::numeric_limits<float>::infinity();
+
+    for (size_t i = 0; i < frequenciesHz.size(); ++i)
+    {
+        float f = frequenciesHz[i];
+        if (f >= lowHz && f <= highHz)
+        {
+            float mag = magnitudesDb[i];
+            if (!std::isnan(mag) && !std::isinf(mag))
+            {
+                if (mag < minMag) minMag = mag;
+                if (mag > maxMag) maxMag = mag;
+                eval.validBinCount++;
+            }
+        }
+    }
+
+    if (eval.validBinCount > 0 && maxMag >= minMag)
+    {
+        eval.hasValidBins = true;
+        eval.deltaDb = maxMag - minMag;
+    }
+
+    return eval;
+}
+
 LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<float>& recordedResponse,
                                                           double sampleRate,
                                                           double sweepDurationSec,
@@ -23,6 +82,9 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
 
     if (recordedResponse.empty() || sampleRate <= 0.0)
         return result;
+
+    if (endFreqHz <= 0.0f)
+        endFreqHz = computeSafeSweepMaxHz(sampleRate);
 
     // 1. Calculate Peak Level & RMS
     float maxVal = 0.0f;
@@ -85,8 +147,6 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
     }
 
     // 4. Compute Flatness and Inverse Compensation Curve
-    float minMag = 100.0f;
-    float maxMag = -100.0f;
     result.inverseCorrectionDb.resize(result.magnitudeDb.size());
 
     // Normalize curve around 1 kHz reference
@@ -136,23 +196,22 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
         hInv = std::min(hInv, maxInverseGainLinear);
 
         result.inverseCorrectionDb[i] = 20.0f * std::log10(std::max(hInv, 1e-5f));
-
-        // Flatness window within audible band 20 Hz - 20 kHz
-        if (i < result.freqsHz.size() && result.freqsHz[i] >= 20.0f && result.freqsHz[i] <= 20000.0f)
-        {
-            minMag = std::min(minMag, normalizedDb);
-            maxMag = std::max(maxMag, normalizedDb);
-        }
     }
 
-    result.frequencyFlatnessDb = (maxMag >= minMag) ? (maxMag - minMag) : 0.0f;
+    // Flatness evaluation within adaptive sample rate passband
+    auto [flatLowHz, flatHighHz] = computeFlatnessBandHz(sampleRate);
+    auto flatnessEval = evaluateFlatnessInBand(result.freqsHz, result.magnitudeDb, flatLowHz, flatHighHz);
+    result.frequencyFlatnessDb = flatnessEval.deltaDb;
 
     // 5. Signal-to-Noise Ratio (SNR)
     double rms = std::sqrt(sumSq / static_cast<double>(recordedResponse.size()));
     float rmsDb = 20.0f * std::log10(std::max(static_cast<float>(rms), 1e-6f));
     result.snrDb = std::clamp(rmsDb - (-96.0f), 20.0f, 130.0f);
 
-    result.isCalibrated = (!result.clippingDetected && result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);
+    result.isCalibrated = (flatnessEval.hasValidBins &&
+                           !result.clippingDetected &&
+                           result.peakInDbfs > -40.0f &&
+                           result.frequencyFlatnessDb < 6.0f);
     return result;
 }
 

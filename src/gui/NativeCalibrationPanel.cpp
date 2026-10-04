@@ -293,8 +293,10 @@ void NativeCalibrationPanel::startCalibrationSweep()
     int captureSamples = static_cast<int>(sr * 1.25);
     audioEngine.getResponseReceiver().armCapture(captureSamples, 0.005f);
 
-    // 2. Play 1.0s Farina sweep at full band
-    audioEngine.getStimulusGenerator().setStimulus(audio::StimulusType::LogFarinaSweep, 1.0, 20.0f, 40000.0f);
+    // 2. Play 1.0s Farina sweep up to safe sample rate limit
+    float startFreq = 20.0f;
+    float endFreq = math::LoopbackCalibrator::computeSafeSweepMaxHz(sr);
+    audioEngine.getStimulusGenerator().setStimulus(audio::StimulusType::LogFarinaSweep, 1.0, startFreq, endFreq);
 
     startTimer(50); // 50ms tick during sweep
 }
@@ -346,10 +348,12 @@ void NativeCalibrationPanel::processCalibrationResult()
 {
     progressBar.setVisible(false);
     double sr = audioEngine.getSampleRate();
+    float startFreq = 20.0f;
+    float endFreq = math::LoopbackCalibrator::computeSafeSweepMaxHz(sr);
 
     std::vector<float> captured;
     audioEngine.getResponseReceiver().retrieveRecordedData(captured);
-    calibrationData = math::LoopbackCalibrator::analyzeLoopback(captured, sr, 1.0, 20.0f, 40000.0f, -3.0f);
+    calibrationData = math::LoopbackCalibrator::analyzeLoopback(captured, sr, 1.0, startFreq, endFreq, -3.0f);
 
     if (calibrationData.isCalibrated && !calibrationData.clippingDetected)
     {
