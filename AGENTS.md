@@ -13,7 +13,7 @@ Este proyecto opera bajo un modelo de trabajo en tándem:
    - Sincronización obligatoria entre hilos (atómicos con `acquire`/`release`).
    - Cero asignaciones de memoria (`zero heap allocation`) en el hilo de audio en tiempo real.
    - Prevención de TOCTOU y seguridad con punteros.
-3. **Lecciones Aprendidas del Proyecto**: [GUIDE_ISSUES_TO_AVOID.md](GUIDE_ISSUES_TO_AVOID.md)
+3. **Lecciones Aprendidas del Proyecto**: [GUIDE_ISSUES_TO_AVOID.md](docs/GUIDE_ISSUES_TO_AVOID.md)
    - Casos reales detectados en auditorías previas y soluciones normativas.
 4. **Flujo Atómico y Foco Exclusivo en MVP**: [.agents/rules/atomic_mvp_workflow.md](.agents/rules/atomic_mvp_workflow.md)
    - Secuencia de cambio mínimo: hipótesis -> inspección -> cambio -> test específico -> test suite -> decisión.
