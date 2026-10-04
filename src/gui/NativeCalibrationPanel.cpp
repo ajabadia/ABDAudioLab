@@ -234,8 +234,8 @@ void NativeCalibrationPanel::saveCurrentCalibrationProfile()
     auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
     rec.deviceSnapshot.deviceName = dev != nullptr ? dev->getName().toStdString() : "Audio Device";
     rec.deviceSnapshot.driverType = dev != nullptr ? dev->getTypeName().toStdString() : "Unknown";
-    rec.deviceSnapshot.sampleRate = audioEngine.getSampleRate();
-    rec.deviceSnapshot.bufferSizeSamples = audioEngine.getBlockSize();
+    rec.deviceSnapshot.sampleRate = dev != nullptr ? dev->getCurrentSampleRate() : audioEngine.getSampleRate();
+    rec.deviceSnapshot.bufferSizeSamples = dev != nullptr ? dev->getCurrentBufferSizeSamples() : 0;
 
     rec.routingSnapshot.inputChannelIndex = 0;
     rec.routingSnapshot.inputChannelLabel = calibrationInputChannelName.toStdString();
@@ -361,8 +361,8 @@ void NativeCalibrationPanel::processCalibrationResult()
         auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
         activeCalibrationRecord_.deviceSnapshot.deviceName = dev != nullptr ? dev->getName().toStdString() : "Audio Device";
         activeCalibrationRecord_.deviceSnapshot.driverType = dev != nullptr ? dev->getTypeName().toStdString() : "Unknown";
-        activeCalibrationRecord_.deviceSnapshot.sampleRate = audioEngine.getSampleRate();
-        activeCalibrationRecord_.deviceSnapshot.bufferSizeSamples = audioEngine.getBlockSize();
+        activeCalibrationRecord_.deviceSnapshot.sampleRate = dev != nullptr ? dev->getCurrentSampleRate() : audioEngine.getSampleRate();
+        activeCalibrationRecord_.deviceSnapshot.bufferSizeSamples = dev != nullptr ? dev->getCurrentBufferSizeSamples() : 0;
         activeCalibrationRecord_.routingSnapshot.inputChannelIndex = 0;
         activeCalibrationRecord_.routingSnapshot.inputChannelLabel = calibrationInputChannelName.toStdString();
         activeCalibrationRecord_.routingSnapshot.outputChannelIndex = 0;
