@@ -152,7 +152,7 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
     float rmsDb = 20.0f * std::log10(std::max(static_cast<float>(rms), 1e-6f));
     result.snrDb = std::clamp(rmsDb - (-96.0f), 20.0f, 130.0f);
 
-    result.isCalibrated = (result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);
+    result.isCalibrated = (!result.clippingDetected && result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);
     return result;
 }
 

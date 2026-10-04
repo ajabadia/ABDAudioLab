@@ -1,27 +1,55 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 #include "math/LoopbackCalibrator.h"
+#include "math/FarinaDeconvolver.h"
 #include <vector>
 #include <cmath>
 #include "support/LabTestScratch.h"
 
 using namespace abdaudiolab::math;
 
-TEST_CASE("LoopbackCalibrator Clipping Detection", "[math][loopback][diagnostics]")
+TEST_CASE("LoopbackCalibrator Clipping Detection and Invalidation", "[math][loopback][diagnostics]")
 {
     const double sampleRate = 48000.0;
-    const int numSamples = 2000;
-    std::vector<float> recorded(numSamples, 0.2f);
+    const double durationSec = 1.0;
+    const float startFreq = 10.0f;
+    const float endFreq = 24000.0f;
 
-    // Inject clipped samples (>= 0.999f)
-    recorded[500] = 1.0f;
-    recorded[501] = 1.0f;
-    recorded[502] = -1.0f;
+    auto cleanSweep = FarinaDeconvolver::generateLogFarinaSweep(sampleRate, durationSec, startFreq, endFreq);
 
-    auto data = LoopbackCalibrator::analyzeLoopback(recorded, sampleRate, 0.05);
+    // Añadir cola para ventana IR (4096 muestras) como en captura real
+    cleanSweep.resize(cleanSweep.size() + 4096, 0.0f);
 
-    REQUIRE(data.clippingDetected == true);
-    REQUIRE(data.clippedSamplesCount == 3);
+    // Escalar a nivel nominal (-3.1 dBFS aprox)
+    for (auto& s : cleanSweep)
+        s *= 0.7f;
+
+    SECTION("Caso sano: Sin clipping, nivel y planitud correctos -> isCalibrated = true")
+    {
+        auto healthyData = LoopbackCalibrator::analyzeLoopback(cleanSweep, sampleRate, durationSec, startFreq, endFreq);
+
+        REQUIRE(healthyData.clippingDetected == false);
+        REQUIRE(healthyData.clippedSamplesCount == 0);
+        REQUIRE(healthyData.peakInDbfs > -40.0f);
+        REQUIRE(healthyData.frequencyFlatnessDb < 6.0f);
+        REQUIRE(healthyData.isCalibrated == true);
+    }
+
+    SECTION("Caso saturado: Con clipping pero nivel y planitud validos -> isCalibrated = false")
+    {
+        auto clippedSweep = cleanSweep;
+        clippedSweep[500] = 1.0f;
+        clippedSweep[501] = 1.0f;
+        clippedSweep[502] = -1.0f;
+
+        auto clippedData = LoopbackCalibrator::analyzeLoopback(clippedSweep, sampleRate, durationSec, startFreq, endFreq);
+
+        REQUIRE(clippedData.clippingDetected == true);
+        REQUIRE(clippedData.clippedSamplesCount == 3);
+        REQUIRE(clippedData.peakInDbfs > -40.0f);
+        REQUIRE(clippedData.frequencyFlatnessDb < 6.0f);
+        REQUIRE_FALSE(clippedData.isCalibrated);
+    }
 }
 
 TEST_CASE("LoopbackCalibrator DC Offset Measurement", "[math][loopback][diagnostics]")
@@ -44,7 +72,6 @@ TEST_CASE("LoopbackCalibrator DC Offset Measurement", "[math][loopback][diagnost
 
 TEST_CASE("LoopbackCalibrator Phase Inversion Diagnostic Flag", "[math][loopback][diagnostics]")
 {
-    const double sampleRate = 48000.0;
     LoopbackCalibrationData data;
     data.phaseInversionDetected = true;
     data.phaseInversionCorrelation = -0.95f;

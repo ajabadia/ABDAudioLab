@@ -60,7 +60,10 @@ graph TD
 1. **P3A — Criterio Seguro de Resultado (Fallo Estricto por Clipping)**:
    - **Objetivo:** Garantizar que ninguna calibración con clipping sea aceptada como válida (`isCalibrated = false`).
    - **Alcance:** Modificación en la regla de decisión de `LoopbackCalibrator::analyzeLoopback()` y ajuste de los tests unitarios correspondientes.
-   - **Validación:** Compilación y suite completa de tests de calibración y análisis matemático.
+   - **Estado:** ✅ **Completado y Certificado**.
+     - Implementación: `result.isCalibrated = (!result.clippingDetected && result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);` en [`src/math/LoopbackCalibrator.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/LoopbackCalibrator.cpp#L155).
+     - Test unitario: Caso dual en [`src/tests/test_LoopbackDiagnostics.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_LoopbackDiagnostics.cpp) (barrido Farina sin saturar ➔ `isCalibrated = true`; con saturación inyectada ➔ `isCalibrated = false`).
+     - Verificación: `ABDAudioLab_Tests.exe "[diagnostics]"` (17 assertions en 3 test cases PASS) y `ABDAudioLab_Tests.exe "[hygiene]"` (152 assertions en 22 test cases PASS).
 
 2. **P3B — Perfil Persistente de Calibración**:
    - **Objetivo:** Almacenar de forma desacoplada la calibración exitosa en un archivo JSON en `AppData` (directorio del usuario) para evitar obligar a recalibrar en cada sesión.
@@ -71,3 +74,4 @@ graph TD
    - **Objetivo:** Determinar cuándo un perfil guardado sigue siendo válido y cuándo debe invalidarse automáticamente.
    - **Alcance:** Comprobación de identidad de hardware (nombre de interfaz, driver, sample rate, buffer size y canales). Si el entorno cambia, marcar como inválido/desactualizado y solicitar nueva calibración o bypass explícito.
    - **Validación:** Tests de matrices de compatibilidad hardware y transiciones de estado en la UI.
+
