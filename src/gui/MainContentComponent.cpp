@@ -503,7 +503,10 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
                 break;
 
             case gui::WorkflowNavigationController::Step::CalibrateLoopback:
-                nativeCalibrationPanel.resetToInitialState();
+                if (nativeCalibrationPanel.getState() != gui::NativeCalibrationPanel::State::Success)
+                {
+                    nativeCalibrationPanel.resetToInitialState();
+                }
                 break;
 
             case gui::WorkflowNavigationController::Step::RunSession:

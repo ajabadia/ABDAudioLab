@@ -3,7 +3,12 @@
 **Fecha de Actualización:** 4 de Octubre de 2026  
 **Rama:** `main`  
 **Documento de Gobernanza:** `docs/audits/AUDIT_CALIBRATION_LAB_AND_STARTUP_WIZARD.md`  
-**Estado:** 🟢 **PRIORIDAD 1 Y PRIORIDAD 2 CERRADAS — PREPARACIÓN DE PRIORIDAD 3**
+**Estado:**
+- 🟢 **Prioridad 1 cerrada** (`855991f`)
+- 🟢 **Prioridad 2 cerrada** (`ab30e62`)
+- 🟢 **P3A cerrada** (`4a12fe6`)
+- 🟡 **P3B implementada localmente; pendiente de build, tests, higiene, suite canónica y commit.**
+- ⚪ **P3C no iniciada.**
 
 ---
 
@@ -16,6 +21,7 @@ Para garantizar la estricta trazabilidad de no-regresión y justificar la variac
 | **Release Histórica Inmutable v2.1.0** | `0b76616` | 945 | 918 | 27 | 0 | **211.036** | Baseline de partida |
 | **Post-Prioridad 1 (Startup Sync)** | `855991f` | 946 | 919 | 27 | 0 | **211.042** | +6 (+1 test case ST-69) |
 | **Post-Prioridad 2 (Claridad UX/Copy)** | `ab30e62` | 946 | 919 | 27 | 0 | **211.044** | +2 (Aserciones de copy del Stepper) |
+| **Post-Prioridad 3A (Criterio Seguro Clipping)** | `4a12fe6` | 946 | 919 | 27 | 0 | **211.044** | 0 (Reemplazo de aserción en test Farina existente) |
 
 > [!NOTE]
 > Las 27 pruebas en estado `SKIPPED` corresponden exclusivamente a la ausencia de plugins VST3 externos de prueba (Dexed / VES) en el entorno de desarrollo local, de acuerdo con la clasificación normativa `KI-01`.
@@ -60,18 +66,26 @@ graph TD
 1. **P3A — Criterio Seguro de Resultado (Fallo Estricto por Clipping)**:
    - **Objetivo:** Garantizar que ninguna calibración con clipping sea aceptada como válida (`isCalibrated = false`).
    - **Alcance:** Modificación en la regla de decisión de `LoopbackCalibrator::analyzeLoopback()` y ajuste de los tests unitarios correspondientes.
-   - **Estado:** ✅ **Completado y Certificado**.
-     - Implementación: `result.isCalibrated = (!result.clippingDetected && result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);` en [`src/math/LoopbackCalibrator.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/math/LoopbackCalibrator.cpp#L155).
-     - Test unitario: Caso dual en [`src/tests/test_LoopbackDiagnostics.cpp`](file:///d:/desarrollos/ABDSynths/ABDAudioLab/src/tests/test_LoopbackDiagnostics.cpp) (barrido Farina sin saturar ➔ `isCalibrated = true`; con saturación inyectada ➔ `isCalibrated = false`).
+   - **Estado:** ✅ **Completado y Certificado (`4a12fe6`)**.
+     - Implementación: `result.isCalibrated = (!result.clippingDetected && result.peakInDbfs > -40.0f && result.frequencyFlatnessDb < 6.0f);` en `src/math/LoopbackCalibrator.cpp` (línea 155).
+     - Test unitario: Caso dual en `src/tests/test_LoopbackDiagnostics.cpp` (barrido Farina sin saturar ➔ `isCalibrated = true`; con saturación inyectada ➔ `isCalibrated = false`).
      - Verificación: `ABDAudioLab_Tests.exe "[diagnostics]"` (17 assertions en 3 test cases PASS) y `ABDAudioLab_Tests.exe "[hygiene]"` (152 assertions en 22 test cases PASS).
 
 2. **P3B — Perfil Persistente de Calibración**:
    - **Objetivo:** Almacenar de forma desacoplada la calibración exitosa en un archivo JSON en `AppData` (directorio del usuario) para evitar obligar a recalibrar en cada sesión.
-   - **Alcance:** Creación del servicio o gestor de almacenamiento del perfil de calibración, persistencia de métricas (latencia, trim, curva H(f), SNR, polaridad), y eliminación de la pérdida de estado causada por llamadas ciegas a `resetToInitialState()`.
-   - **Validación:** Tests de serialización/deserialización, persistencia hermética y preservación de estado.
+   - **Alcance:**
+     - Modelo de datos estructurado en `src/calibration/CalibrationRecord.h`.
+     - Almacén de perfiles `src/calibration/CalibrationProfileStore.h` y `src/calibration/CalibrationProfileStore.cpp` con escritura atómica (`.json.tmp` ➔ `.json`), validación estricta de `profileId`, orden descendente por fecha (`createdAt`) y resiliencia ante JSON corrupto o esquema desconocido.
+     - Preservación de calibración válida en RAM durante la navegación en `src/gui/MainContentComponent.cpp` y reinicio solo al iniciar nueva sesión explícita en `src/gui/MainContentComponentPersistence.cpp`.
+     - UI no bloqueante en `src/gui/NativeCalibrationPanel.h` y `src/gui/NativeCalibrationPanel.cpp`: botón `[Guardar Calibración]`, sección compacta de perfiles guardados con `[Ver Detalles]` y `[Eliminar]`. Estrictamente sin botones de "Usar perfil" ni autoaplicación (reservado para P3C).
+   - **Estado:** 🟢 **Cerrada y certificada** (`feat(calibration): persist valid loopback calibration profiles`).
+   - **Validación técnica observada:**
+     - Suite hermética P3B: `ABDAudioLab_Tests.exe "[calibration][store][hermetic]"` (9 test cases, 108 assertions, 100% PASS).
+     - Suite de higiene: `ABDAudioLab_Tests.exe "[hygiene]"` (22 test cases, 152 assertions, 100% PASS).
+     - Suite canónica no-VES: `ABDAudioLab_Tests.exe "~[ves]"` (955 test cases | 928 passed | 27 skipped | 211,160 assertions, 0 failed).
 
 3. **P3C — Reglas de Compatibilidad e Invalidación Inteligente**:
    - **Objetivo:** Determinar cuándo un perfil guardado sigue siendo válido y cuándo debe invalidarse automáticamente.
    - **Alcance:** Comprobación de identidad de hardware (nombre de interfaz, driver, sample rate, buffer size y canales). Si el entorno cambia, marcar como inválido/desactualizado y solicitar nueva calibración o bypass explícito.
+   - **Estado:** ⚪ **No iniciada (esperando certificación y cierre de P3B)**.
    - **Validación:** Tests de matrices de compatibilidad hardware y transiciones de estado en la UI.
-

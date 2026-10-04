@@ -1,5 +1,6 @@
 #include "NativeCalibrationPanel.h"
 #include "SoundIdTheme.h"
+#include "../BuildVersion.h"
 #include <cmath>
 
 namespace abdaudiolab::gui
@@ -49,10 +50,47 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     btnRetry.onClick = [this] { startCalibrationSweep(); };
     addChildComponent(btnRetry);
 
+    btnSaveCalibration.setButtonText(juce::String::fromUTF8(u8"Guardar Calibración"));
+    btnSaveCalibration.setTooltip(juce::String::fromUTF8(u8"Guarda este resultado de calibración en AppData para conservarlo"));
+    btnSaveCalibration.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnSaveCalibration.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
+    btnSaveCalibration.onClick = [this] { saveCurrentCalibrationProfile(); };
+    addChildComponent(btnSaveCalibration);
+
+    btnToggleSavedProfiles.setButtonText(juce::String::fromUTF8(u8"Calibraciones Guardadas"));
+    btnToggleSavedProfiles.setTooltip(juce::String::fromUTF8(u8"Muestra o repliega el listado de calibraciones guardadas en disco"));
+    btnToggleSavedProfiles.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnToggleSavedProfiles.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
+    btnToggleSavedProfiles.onClick = [this] {
+        showSavedProfilesSection_ = !showSavedProfilesSection_;
+        refreshSavedProfiles();
+        resized();
+        repaint();
+    };
+    addAndMakeVisible(btnToggleSavedProfiles);
+
+    btnDeleteProfile.setButtonText(juce::String::fromUTF8(u8"Eliminar"));
+    btnDeleteProfile.setTooltip(juce::String::fromUTF8(u8"Elimina la calibración guardada seleccionada"));
+    btnDeleteProfile.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnDeleteProfile.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentRed);
+    btnDeleteProfile.onClick = [this] { deleteSelectedProfile(); };
+    addChildComponent(btnDeleteProfile);
+
+    btnViewProfileDetails.setButtonText(juce::String::fromUTF8(u8"Ver Detalles"));
+    btnViewProfileDetails.setTooltip(juce::String::fromUTF8(u8"Muestra u oculta los detalles técnicos de la calibración guardada"));
+    btnViewProfileDetails.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
+    btnViewProfileDetails.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
+    btnViewProfileDetails.onClick = [this] {
+        showProfileDetails_ = !showProfileDetails_;
+        repaint();
+    };
+    addChildComponent(btnViewProfileDetails);
+
     progressBar.setColour(juce::ProgressBar::foregroundColourId, SoundIdTheme::accentGreen);
     progressBar.setColour(juce::ProgressBar::backgroundColourId, SoundIdTheme::borderSubtle);
     addChildComponent(progressBar);
 
+    refreshSavedProfiles();
     startTimerHz(30);
 }
 
@@ -67,15 +105,103 @@ void NativeCalibrationPanel::resetToInitialState()
     measurementStep = 0;
     progressValue = 0.0;
     liveInputPeak = 0.0f;
+    saveFeedbackText_ = {};
+    showSavedProfilesSection_ = false;
+    showProfileDetails_ = false;
     btnStartMeasure.setVisible(true);
     btnStartMeasure.setEnabled(true);
     btnSkip.setVisible(true);
     btnSkip.setEnabled(true);
     btnContinue.setVisible(false);
     btnRetry.setVisible(false);
+    btnSaveCalibration.setVisible(false);
+    btnDeleteProfile.setVisible(false);
+    btnViewProfileDetails.setVisible(false);
     progressBar.setVisible(false);
     startTimerHz(30);
     repaint();
+}
+
+void NativeCalibrationPanel::refreshSavedProfiles()
+{
+    savedProfiles = profileStore.list();
+    btnToggleSavedProfiles.setButtonText(juce::String::fromUTF8(u8"Calibraciones Guardadas (") +
+                                         juce::String((int)savedProfiles.size()) + ")");
+
+    if (savedProfiles.empty())
+    {
+        selectedProfileIndex_ = 0;
+        btnDeleteProfile.setVisible(false);
+        btnViewProfileDetails.setVisible(false);
+    }
+    else
+    {
+        if (selectedProfileIndex_ >= (int)savedProfiles.size())
+            selectedProfileIndex_ = (int)savedProfiles.size() - 1;
+        if (selectedProfileIndex_ < 0)
+            selectedProfileIndex_ = 0;
+
+        btnDeleteProfile.setVisible(showSavedProfilesSection_);
+        btnViewProfileDetails.setVisible(showSavedProfilesSection_);
+    }
+}
+
+void NativeCalibrationPanel::saveCurrentCalibrationProfile()
+{
+    if (!calibrationData.isCalibrated || calibrationData.clippingDetected)
+    {
+        saveFeedbackText_ = juce::String::fromUTF8(u8"No se puede guardar una calibración no válida.");
+        repaint();
+        return;
+    }
+
+    calibration::CalibrationRecord rec;
+    rec.schemaVersion = 1;
+    rec.createdAt = calibration::CalibrationProfileStore::getCurrentUtcIsoTimestamp();
+
+    auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+    rec.deviceSnapshot.deviceName = dev != nullptr ? dev->getName().toStdString() : "Audio Device";
+    rec.deviceSnapshot.driverType = dev != nullptr ? dev->getTypeName().toStdString() : "Unknown";
+    rec.deviceSnapshot.sampleRate = audioEngine.getSampleRate();
+    rec.deviceSnapshot.bufferSizeSamples = audioEngine.getBlockSize();
+
+    rec.routingSnapshot.inputChannelIndex = 0;
+    rec.routingSnapshot.inputChannelLabel = calibrationInputChannelName.toStdString();
+    rec.routingSnapshot.outputChannelIndex = 0;
+    rec.routingSnapshot.outputChannelLabel = calibrationOutputChannelName.toStdString();
+
+    rec.calibrationResult = calibrationData;
+    rec.provenance.applicationVersion = version::kAppVersion;
+    rec.provenance.calibrationAlgorithmVersion = 1;
+
+    rec.profileId = calibration::CalibrationProfileStore::generateDefaultProfileId(
+        rec.deviceSnapshot.deviceName, rec.createdAt);
+
+    auto saveRes = profileStore.save(rec, false);
+    if (saveRes.success)
+    {
+        saveFeedbackText_ = juce::String::fromUTF8(u8"Calibración guardada. La verificación automática de compatibilidad con la interfaz actual se añadirá posteriormente.");
+        btnSaveCalibration.setEnabled(false);
+        refreshSavedProfiles();
+    }
+    else
+    {
+        saveFeedbackText_ = juce::String::fromUTF8(u8"Error al guardar: ") + juce::String(saveRes.errorMessage);
+    }
+    repaint();
+}
+
+void NativeCalibrationPanel::deleteSelectedProfile()
+{
+    if (selectedProfileIndex_ >= 0 && selectedProfileIndex_ < (int)savedProfiles.size())
+    {
+        std::string id = savedProfiles[static_cast<size_t>(selectedProfileIndex_)].profileId;
+        profileStore.remove(id);
+        refreshSavedProfiles();
+        saveFeedbackText_ = juce::String::fromUTF8(u8"Perfil eliminado correctamente.");
+        resized();
+        repaint();
+    }
 }
 
 void NativeCalibrationPanel::startCalibrationSweep()
@@ -142,6 +268,10 @@ void NativeCalibrationPanel::processCalibrationResult()
         btnRetry.setVisible(true);
         btnContinue.setVisible(true);
         btnContinue.setEnabled(true);
+        btnSaveCalibration.setVisible(true);
+        btnSaveCalibration.setEnabled(true);
+        saveFeedbackText_ = {};
+        refreshSavedProfiles();
 
         if (onCalibrationApplied)
             onCalibrationApplied(calibrationData);
@@ -154,6 +284,7 @@ void NativeCalibrationPanel::processCalibrationResult()
         btnSkip.setEnabled(true);
         btnRetry.setVisible(true);
         btnContinue.setVisible(false);
+        btnSaveCalibration.setVisible(false);
         startTimerHz(30);
     }
     repaint();
@@ -182,6 +313,8 @@ void NativeCalibrationPanel::skipCalibration()
     btnRetry.setVisible(true);
     btnContinue.setVisible(true);
     btnContinue.setEnabled(true);
+    btnSaveCalibration.setVisible(false);
+    saveFeedbackText_ = {};
 
     if (onCalibrationSkipped)
         onCalibrationSkipped();
@@ -572,6 +705,13 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.drawText(juce::String::fromUTF8(u8"Aviso: Se detectó saturación durante la calibración."),
                        meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
         }
+
+        if (!saveFeedbackText_.isEmpty())
+        {
+            g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::bold));
+            g.setColour(SoundIdTheme::accentGreen);
+            g.drawText(saveFeedbackText_, meterArea.removeFromTop(28.0f), juce::Justification::topLeft, true);
+        }
     }
     else if (currentState == State::Failed)
     {
@@ -635,6 +775,67 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
                                           u8"La aplicación comprobará el nivel y calculará la compensación necesaria."),
                    meterArea, juce::Justification::topLeft, true);
     }
+
+    // Sección compacta de perfiles guardados
+    if (showSavedProfilesSection_)
+    {
+        auto savedArea = rightCol;
+        savedArea.removeFromTop(226.0f);
+        auto savedBox = savedArea.removeFromTop(juce::jmin(140.0f, savedArea.getHeight() - 65.0f));
+
+        g.setColour(SoundIdTheme::bgCardHover);
+        g.fillRoundedRectangle(savedBox, 8.0f);
+        g.setColour(SoundIdTheme::borderSubtle);
+        g.drawRoundedRectangle(savedBox.reduced(0.5f), 8.0f, 1.0f);
+
+        auto inner = savedBox.reduced(10.0f, 8.0f);
+        auto titleRow = inner.removeFromTop(16.0f);
+        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
+        g.setColour(SoundIdTheme::textMuted);
+        g.drawText(juce::String::fromUTF8(u8"CALIBRACIONES GUARDADAS EN APPDATA"), titleRow, juce::Justification::centredLeft, true);
+
+        inner.removeFromTop(4.0f);
+
+        if (savedProfiles.empty())
+        {
+            g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText(juce::String::fromUTF8(u8"No hay calibraciones guardadas en disco aún."), inner, juce::Justification::centredLeft, true);
+        }
+        else
+        {
+            const auto& p = savedProfiles[static_cast<size_t>(selectedProfileIndex_)];
+
+            g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+            g.setColour(SoundIdTheme::textPrimary);
+            g.drawText(juce::String(p.deviceSnapshot.deviceName) + " (" + juce::String(p.deviceSnapshot.driverType) + ")",
+                       inner.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            juce::String srKhz = juce::String(p.deviceSnapshot.sampleRate / 1000.0, 1) + " kHz";
+            juce::String bufSpl = "Buffer " + juce::String(p.deviceSnapshot.bufferSizeSamples);
+            juce::String routeStr = juce::String(p.routingSnapshot.outputChannelLabel) + " \u2794 " + juce::String(p.routingSnapshot.inputChannelLabel);
+            g.drawText(srKhz + " \u00B7 " + bufSpl + " \u00B7 " + routeStr,
+                       inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textMuted);
+            g.drawText(juce::String::fromUTF8(u8"Fecha: ") + juce::String(p.createdAt),
+                       inner.removeFromTop(13.0f), juce::Justification::centredLeft, true);
+
+            if (showProfileDetails_)
+            {
+                g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::bold));
+                g.setColour(SoundIdTheme::accentGreen);
+                g.drawText("Lat: " + juce::String(p.calibrationResult.roundTripLatencyMs, 1) + " ms (" +
+                           juce::String(p.calibrationResult.latencySamples) + " spls) \u00B7 SNR: " +
+                           juce::String(p.calibrationResult.snrDb, 1) + " dB \u00B7 Flat: " +
+                           juce::String(p.calibrationResult.frequencyFlatnessDb, 1) + " dB",
+                           inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+            }
+        }
+    }
 }
 
 void NativeCalibrationPanel::resized()
@@ -656,15 +857,59 @@ void NativeCalibrationPanel::resized()
     {
         btnVerifyDigital.setBounds(leftX, bottomY, 240, 36);
         btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
+        btnToggleSavedProfiles.setVisible(false);
+        btnSaveCalibration.setVisible(false);
+        btnDeleteProfile.setVisible(false);
+        btnViewProfileDetails.setVisible(false);
     }
     else
     {
-        // Botones de acción inferiores
-        btnSkip.setBounds(leftX, bottomY, 240, 36);
-        btnRetry.setBounds(leftX, bottomY, 180, 36);
+        btnToggleSavedProfiles.setVisible(true);
 
-        btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
-        btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
+        if (currentState == State::Success)
+        {
+            btnRetry.setBounds(leftX, bottomY, 130, 36);
+            btnToggleSavedProfiles.setBounds(leftX + 138, bottomY, 190, 36);
+
+            btnSaveCalibration.setBounds(cardRight - 420, bottomY, 170, 36);
+            btnContinue.setBounds(cardRight - 240, bottomY, 240, 36);
+        }
+        else
+        {
+            btnSaveCalibration.setVisible(false);
+
+            if (currentState == State::ReadyToMeasure)
+            {
+                btnSkip.setBounds(leftX, bottomY, 200, 36);
+                btnToggleSavedProfiles.setBounds(leftX + 208, bottomY, 190, 36);
+                btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
+            }
+            else
+            {
+                btnRetry.setBounds(leftX, bottomY, 160, 36);
+                btnSkip.setBounds(leftX + 168, bottomY, 180, 36);
+                btnToggleSavedProfiles.setBounds(leftX + 356, bottomY, 190, 36);
+                btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
+            }
+        }
+
+        // Botones dentro de la sección de perfiles guardados
+        if (showSavedProfilesSection_ && !savedProfiles.empty())
+        {
+            int sectionX = cardBounds.getX() + static_cast<int>(maxCardW * 0.52f) + 48;
+            int sectionW = cardRight - sectionX;
+            int sectionBottom = cardBounds.getY() + 24 + 32 + 44 + 10 + 226 + 140;
+
+            btnViewProfileDetails.setVisible(true);
+            btnDeleteProfile.setVisible(true);
+            btnViewProfileDetails.setBounds(sectionX + sectionW - 180, sectionBottom - 30, 95, 24);
+            btnDeleteProfile.setBounds(sectionX + sectionW - 80, sectionBottom - 30, 75, 24);
+        }
+        else
+        {
+            btnViewProfileDetails.setVisible(false);
+            btnDeleteProfile.setVisible(false);
+        }
     }
 }
 

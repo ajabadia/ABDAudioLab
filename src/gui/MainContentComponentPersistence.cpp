@@ -38,6 +38,7 @@ void MainContentComponent::promptNewSession()
 
 void MainContentComponent::performNewSessionReset()
 {
+    nativeCalibrationPanel.resetToInitialState();
     suiteList.clearQueue();
     curvePlotter.clear();
     sessionManager.resetSession();

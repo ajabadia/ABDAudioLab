@@ -205,6 +205,9 @@ target_sources(ABDAudioLab
         src/math/SplineInterpolator2D.h
         src/math/LoopbackCalibrator.h
         src/math/LoopbackCalibrator.cpp
+        src/calibration/CalibrationRecord.h
+        src/calibration/CalibrationProfileStore.h
+        src/calibration/CalibrationProfileStore.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/ModulationMatrixProfile.h
@@ -815,6 +818,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_Phase20_12_AnalogDutCharacterization_T2.cpp
     src/tests/test_Phase20_12_ReversibleCompensation_T3.cpp
     src/tests/test_Integration_SmokeTest_SessionWorkflow.cpp
+    src/tests/test_CalibrationProfileStore.cpp
     src/tests/test_CoordinatorStateMachine.cpp
     src/tests/test_MeasurementDspUtils.cpp
     src/tests/test_MeasurementViewModelAndUI.cpp
@@ -913,6 +917,7 @@ add_executable(ABDAudioLab_Tests
     src/math/WienerHammersteinFitter.cpp
     src/math/NoiseFloorTracker.cpp
     src/math/LoopbackCalibrator.cpp
+    src/calibration/CalibrationProfileStore.cpp
     src/hardware/MidiIdentityDetector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
