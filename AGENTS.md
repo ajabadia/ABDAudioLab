@@ -18,3 +18,9 @@ Este proyecto opera bajo un modelo de trabajo en tándem:
 4. **Flujo Atómico y Foco Exclusivo en MVP**: [.agents/rules/atomic_mvp_workflow.md](.agents/rules/atomic_mvp_workflow.md)
    - Secuencia de cambio mínimo: hipótesis -> inspección -> cambio -> test específico -> test suite -> decisión.
    - Prohibición estricta de scope creep. Foco absoluto en la cadena de valor real.
+
+## Regla Fundamental: El Usuario Compila y Lanza Tests
+⛔ **Antigravity NUNCA debe ejecutar compilaciones (`cmake --build`, `build.bat`, MSBuild) ni lanzar ejecutables de tests (`ABDAudioLab_Tests.exe`) en segundo plano o terminal.**
+- **Rol de Antigravity:** Analizar, diseñar, editar código y redactar especificaciones.
+- **Rol del Usuario:** El usuario compila y ejecuta las suites de tests en su propia terminal.
+- **Protocolo de Espera:** Tras aplicar cambios de código, Antigravity debe indicar qué compilar y qué comando de test ejecutar, y esperar pacientemente a que el usuario le facilite el resultado en el chat.

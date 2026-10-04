@@ -46,9 +46,14 @@ El usuario **NUNCA** debe tener que adivinar si le toca o no ejecutar Aider. Al 
 
 ---
 
-## 4. Política de Compilación: Control Preferente del Usuario
-- **Por norma general, el usuario compila**: Salvo que el usuario indique explícitamente *"compila tú"* o *"hazlo tú"*, Antigravity no lanzará builds en segundo plano; aplicará los cambios de código y dejará que el usuario compile en su terminal con `build.bat` o CMake y proporcione el resultado.
-- **Aider**: En las tareas delegadas a Aider (`.\run-plan.bat`), Aider sí compila automáticamente vía su `auto-test: true` para su ciclo cerrado de edición.
+## 4. Política Estricta de Compilación y Tests: Control Exclusivo del Usuario
+- **El usuario compila y lanza tests siempre**: Antigravity **NO** lanzará compilaciones (`cmake --build`, `build.bat`, MSBuild) ni ejecutará binarios de prueba (`ABDAudioLab_Tests.exe`) por iniciativa propia.
+- **Flujo de trabajo**:
+  1. Antigravity analiza, edita código o prepara la tarea.
+  2. Antigravity indica al usuario los comandos sugeridos (ej. `cmake --build build --config Release` o `.\build\Release\ABDAudioLab_Tests.exe`).
+  3. El usuario compila y ejecuta las suites en su terminal y pega los resultados en el chat.
+  4. Antigravity analiza los resultados reportados por el usuario y determina el siguiente paso.
+- **Aider**: En las tareas delegadas a Aider (`.\run-plan.bat`), Aider compila de forma interna vía su `auto-test: true` durante su ciclo local de edición.
 
 ---
 
