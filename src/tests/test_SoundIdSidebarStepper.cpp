@@ -10,9 +10,9 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
 
     SECTION("Initial default state")
     {
-        CHECK(stepper.getCurrentStep() == SoundIdSidebarStepper::Step::SystemInfo);
-        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Current);
-        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Pending);
+        CHECK(stepper.getCurrentStep() == SoundIdSidebarStepper::Step::HardwareRouting);
+        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Completed);
+        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Current);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::CalibrateLoopback) == SoundIdSidebarStepper::StepStatus::Pending);
         CHECK_FALSE(stepper.isCollapsed());
         CHECK(stepper.getDesiredWidth() == 240);
@@ -21,7 +21,7 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
     SECTION("Step navigation & status transitions")
     {
         bool callbackFired = false;
-        SoundIdSidebarStepper::Step targetReceived = SoundIdSidebarStepper::Step::SystemInfo;
+        SoundIdSidebarStepper::Step targetReceived = SoundIdSidebarStepper::Step::HardwareRouting;
 
         stepper.onStepSelected = [&](SoundIdSidebarStepper::Step step) {
             callbackFired = true;
@@ -30,7 +30,7 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
 
         stepper.setCurrentStep(SoundIdSidebarStepper::Step::CalibrateLoopback);
         CHECK(stepper.getCurrentStep() == SoundIdSidebarStepper::Step::CalibrateLoopback);
-        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Completed);
+        CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Completed);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::CalibrateLoopback) == SoundIdSidebarStepper::StepStatus::Current);
 
         stepper.setCurrentStep(SoundIdSidebarStepper::Step::HardwareRouting);

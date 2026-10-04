@@ -142,7 +142,7 @@ private:
         bool collapsed { false };
     };
 
-    Step currentStep { Step::SystemInfo };
+    Step currentStep { Step::HardwareRouting };
     bool collapsedState { false };
     std::optional<Step> hoveredStep;
 

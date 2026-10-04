@@ -693,6 +693,9 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
     };
 
+    // Prioridad 1: Sincronización atómica del paso inicial del Wizard (Tarea 1: Target & Routing)
+    workflowNavController.resetToNewSession();
+
     // ==============================================================================
     // SECTION 3: TEST SUITE QUEUE & EVENT DELEGATION
     // Owns suite list UI event wireup, table selection dispatch, and real-time curve display bridging.

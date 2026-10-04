@@ -5,8 +5,8 @@ namespace abdaudiolab::gui
 
 SoundIdSidebarStepper::SoundIdSidebarStepper()
 {
-    stepStatuses[Step::SystemInfo]        = StepStatus::Current;
-    stepStatuses[Step::HardwareRouting]   = StepStatus::Pending;
+    stepStatuses[Step::SystemInfo]        = StepStatus::Completed;
+    stepStatuses[Step::HardwareRouting]   = StepStatus::Current;
     stepStatuses[Step::CalibrateLoopback] = StepStatus::Pending;
     stepStatuses[Step::RunSession]        = StepStatus::Pending;
     stepStatuses[Step::ExportReport]      = StepStatus::Pending;

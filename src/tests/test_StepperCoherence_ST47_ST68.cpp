@@ -423,3 +423,17 @@ TEST_CASE("Fase 4A: Paridad y resolucion canonica de Target cuando drawer esta v
         CHECK(snap.target.isDeterministic == true);
     }
 }
+
+TEST_CASE("ST-69: Startup Wizard coherente - SidebarStepper inicializa en HardwareRouting", "[coherence][st69][startup]")
+{
+    SoundIdSidebarStepper stepper;
+    stepper.setSize(240, 600);
+
+    // 1. SidebarStepper debe inicializarse en HardwareRouting (Tarea 1: Target & Routing)
+    CHECK(stepper.getCurrentStep() == SoundIdSidebarStepper::Step::HardwareRouting);
+    CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Completed);
+    CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Current);
+    CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::CalibrateLoopback) == SoundIdSidebarStepper::StepStatus::Pending);
+    CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::RunSession) == SoundIdSidebarStepper::StepStatus::Pending);
+    CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::ExportReport) == SoundIdSidebarStepper::StepStatus::Pending);
+}
