@@ -39,22 +39,24 @@ Los binarios oficiales de producción compilados bajo configuración `Release` p
 
 ---
 
-## 3. Baseline de Verificación y Calidad (Suite Global Catch2)
+## 3. Baseline de Verificación y Calidad (Suite Canónica en Git)
 
-Ejecución completa del ejecutable de pruebas `build\Release\ABDAudioLab_Tests.exe "~[ves]"`:
+Ejecución completa del ejecutable de pruebas `build\Release\ABDAudioLab_Tests.exe "~[ves]"` sobre el commit canónico inmutable `0b76616`:
 
 ```text
 ===============================================================================
-test cases:    949 |    922 passed | 27 skipped
-assertions: 211374 | 211374 passed |  0 skipped
+test cases:    945 |    918 passed | 27 skipped
+assertions: 211036 | 211036 passed |  0 skipped
 fallos:          0
 ```
 
-- **Casos Totales:** 949 test cases.
-- **Superados:** 922 PASS.
+- **Casos Totales:** 945 test cases.
+- **Superados:** 918 PASS.
 - **Omitidos Legítimos:** 27 SKIPPED (exclusivamente fixtures de plugins VST3 externos no instalados en el entorno de build: Dexed / VES).
-- **Aserciones Validadas:** 211.374 / 211.374 (100% de éxito).
+- **Aserciones Validadas:** 211.036 / 211.036 (100% de éxito).
 - **Fallos:** 0 fallos reportados.
+
+*(Nota técnica: Véase el Addendum en la Sección 8 para el detalle de la conciliación de métricas frente a la corrida local previa).*
 
 ---
 
@@ -136,3 +138,28 @@ Se certifican las cuatro condiciones operativas en ejecución real:
 
 **HITO-08 queda formalmente CERTIFICADO, SELLADO Y PUBLICADO REMOTAMENTE.**  
 La versión de producto **ABDAudioLab v2.1.0** está consolidada en el repositorio oficial.
+
+---
+
+## 8. Addendum — Conciliación Forense de Métricas de Suite y Aislamiento D2.7B
+
+> [!NOTE]
+> **Auditoría Forense de Métricas Post-Release (2026-10-04):**  
+> La auditoría de trazabilidad posterior a la release `v2.1.0` reveló que las métricas históricas reportadas en esta acta (949 test cases, 922 PASS, 211.374 assertions) provenían de una ejecución sobre un working tree local contaminado con trabajo experimental no versionado (D2.7B) y warnings de esquema previos al hardening `f013037`.
+>
+> **Línea Base Pura del Tag Inmutable (`0b76616`):**
+> - **Test cases:** 945 (918 PASS, 27 SKIPPED, 0 FAIL)
+> - **Assertions:** 211.036 / 211.036 PASS
+>
+> **Ecuación de Conciliación:**
+> ```text
+>   211.036 (Suite canónica 0b76616)
+> +     330 (4 test cases D2.7B no versionados en 0b76616)
+> +       8 (Aserciones dinámicas de warnings previos al hardening f013037)
+> ---------
+> = 211.374 assertions PASS (Valor histórico registrado)
+> ```
+>
+> **Aislamiento Criptográfico de D2.7B:**  
+> Los 29 artefactos asociados al prototipo software D2.7B (contratos, decodificador y test harness) fueron inventariados mediante SHA-256 y archivados en la rama aislada `archive/d2-7b-offline-snapshot` (commit `c7fde7d`). Dicho trabajo queda formalmente desvinculado de `v2.1.0`, garantizando que ningún componente experimental ni de adquisición física fue liberado en el producto final.
+

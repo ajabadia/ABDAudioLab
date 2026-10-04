@@ -4,7 +4,7 @@
 **Fecha:** 4 de Octubre de 2026  
 **Fase:** R3 — Post-Release Stabilization & Backlog Triage  
 **Documento:** `docs/audits/POST_V2_1_0_BACKLOG_TRIAGE.md`  
-**Estado:** 🟢 **ACTIVO & EN GOBERNANZA**  
+**Estado:** 🟢 **CERRADO — MICROHITO DE TOOLING Y GOBERNANZA COMPLETADO**  
 
 ---
 
@@ -20,7 +20,7 @@ La versión de producción **ABDAudioLab v2.1.0** se encuentra formalmente sella
 | **Commits Documentales en `main`** | `93a8159` (Addendum de gobernanza) ➔ `a23962c` (Linaje) ➔ `564cb97` (Armonización final) |
 | **SHA-256 `ABDAudioLab.exe`** | `C94A0BDB3A67CCE77D8459E5E103E9BF1CDA3321CF5C745FEA11379E7CF6C89E` (9.326.080 bytes) |
 | **SHA-256 `ABDAudioLab_PluginWorker.exe`** | `DDD2976C98442DBBCA2209AB67DD9A0412BC939783B15FFBD056425FF3B1913E` (3.805.696 bytes) |
-| **Suite Global Catch2** | **949 test cases: 922 PASS, 27 SKIPPED legítimos, 0 FAIL** (211.374/211.374 assertions PASS) |
+| **Suite Global Catch2 (Canónica en Git)** | **945 test cases: 918 PASS, 27 SKIPPED legítimos, 0 FAIL** (211.036 / 211.036 assertions PASS) |
 | **Suite de Higiene (`[hygiene]`)** | **22 test cases: 152/152 assertions PASS, 0 FAIL** (0 rutas absolutas) |
 | **Smoke Test Operativo** | **4 puntos certificados:** arranque limpio, transición de splash, ausencia de apertura MIDI, 0 procesos huérfanos |
 
@@ -79,8 +79,8 @@ Evaluación sistemática de ítems pendientes antes de iniciar cualquier desarro
 
 ### Criterios de Entrada (Entry Criteria)
 - [x] v2.1.0 sellada e inmovilizada en `0b76616`.
-- [x] Suite Catch2: 922 PASS, 27 SKIPPED, 0 FAIL.
-- [x] Higiene: 0 rutas absolutas.
+- [x] Suite Catch2 canónica: 918 PASS, 27 SKIPPED legítimos, 0 FAIL (211.036 / 211.036 assertions PASS).
+- [x] Higiene: 0 rutas absolutas (152/152 assertions PASS).
 - [x] DeepMind 12D en reposo pasivo garantizado.
 
 ### Definition of Done (DoD) para v2.1.1
@@ -91,61 +91,82 @@ Evaluación sistemática de ítems pendientes antes de iniciar cualquier desarro
    - `2`: Parámetros de invocación o manifiesto inexistente/inválido.
    Probado empíricamente en los tres escenarios (0, 1 y 2).
 3. **Guía de Fixtures Externas:** `docs/qa/external-fixtures.md` clasifica rigurosamente: fixture obligatoria (interna), fixture opcional (Dexed/VES), fixture ausente (SKIPPED legítimo) y fixture con drift. No inventa hashes para plugins no instalados.
-4. **Suite Global de Referencia Preservada:**
-   - 949 test cases totales.
-   - 922 PASS.
+4. **Suite Global Canónica Preservada:**
+   - 945 test cases totales.
+   - 918 PASS.
    - 27 SKIPPED legítimos y esperados.
    - 0 FAIL.
-   - **Baseline candidato post-release: 211.366 assertions PASS.**
-   - *Pendiente:* Reconciliación reproducible frente al commit certificado de release `0b76616a9a52a0f755e260ed0cf421db2de8f33b`.
-   - *Criterio de Rechazo:* Ningún test adicional en FAIL, ningún incremento injustificado de SKIPPED, ningún descenso no justificado de assertions PASS.
+   - 211.036 / 211.036 assertions PASS.
+   - Ningún test case adicional en FAIL.
+   - Ningún incremento injustificado de SKIPPED.
+   - Ningún descenso no justificado de assertions PASS frente al baseline canónico de `main` limpio.
 5. **Higiene Intacta:** 152/152 aserciones de `[hygiene]` en verde (0 rutas absolutas).
 6. **Aislamiento Hardware & DeepMind:** Cero llamadas MIDI, cero bytes transmitidos, servidor MCP `disabled: true`.
 
 ---
 
-## 5. Auditoría de Reconciliación de Cobertura e Inconsistencia Temporal
+## 6. Auditoría de Reconciliación Forense y los Tres Baselines
 
-### Discrepancia Auditada
-- **Registro histórico en acta v2.1.0:** 211.374 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
-- **Ejecución v2.1.1 post-71028d7:** 211.366 assertions PASS (949 test cases: 922 PASS, 27 SKIPPED, 0 FAIL).
-- **Diferencia:** −8 assertions PASS.
+### Tabla Comparativa de los Tres Baselines
 
-### Análisis Cronológico y de Linaje (`0b76616` vs `cacf967`)
-1. **Ancestría Directa:**
-   El commit certificado de release `0b76616` es descendiente directo del commit de hardening `f013037` (`f013037` ➔ `fb11ca3` ➔ `0b76616`).
-   Por tanto, **`0b76616` ya contiene el filtrado de esquemas y las ventanas headless de `f013037`**.
-2. **Comparación Normativa de Código (`0b76616..cacf967`):**
-   La inspección `git diff 0b76616..cacf967 --name-only` demuestra que **cero archivos de código C++ o tests (`src/`) cambiaron** entre la release `v2.1.0` y el estado actual de `v2.1.1`:
-   - `RELEASE_NOTES_v2.1.0.md`
-   - `docs/audits/ACTA_HITO_08_RELEASE_SMOKE_TEST_v2.1.0.md`
-   - `docs/audits/POST_V2_1_0_BACKLOG_TRIAGE.md`
-   - `docs/qa/external-fixtures.md`
-   - `docs/release/release-integrity-v2.1.0.json`
-   - `tools/verify-release-hashes.ps1`
-   El código ejecutable y las suites de prueba son **estrictamente idénticos** entre `0b76616` y `cacf967`.
-3. **Resolución de la Inconsistencia (Caso A):**
-   Dado que el código fuente C++ es idéntico entre ambos commits, la ejecución de la suite en `0b76616` produce idénticamente **211.366 assertions PASS**.
-   El número 211.374 registrado en el acta histórica de v2.1.0 provino de una corrida preliminar anterior al hardening `f013037` (cuando los 8 esquemas no se filtraban y generaban advertencias espurias dinámicamente evaluadas).
-   **Conclusión:** No existe descenso real de cobertura post-release. El baseline real de la release v2.1.0 siempre fue 211.366 assertions PASS una vez aplicado el hardening `f013037`.
+| Estado | Código Incluido | Tests | Assertions | Uso Normativo |
+|---|---|---|---|---|
+| **Release canónica v2.1.0** | Solo código versionado de `0b76616` | 945 total; 918 PASS; 27 SKIPPED | 211.036 PASS | Baseline oficial inmutable |
+| **Árbol local extendido D2.7B** | Release + 4 tests / 330 assertions locales | 949 total; 922 PASS; 27 SKIPPED | 211.366 PASS | Evidencia local archivada fuera de prod |
+| **Corrida histórica pre-hardening** | Árbol local extendido + 8 warnings espurios | 949 total; 922 PASS; 27 SKIPPED | 211.374 PASS | Métrica histórica corregida |
 
-### Protocolo de Validación Reproducible (A ejecutar por el operador)
-Para ratificar empíricamente el Caso A:
-```powershell
-# 1. Ejecución sobre el commit certificado de release
-git checkout 0b76616a9a52a0f755e260ed0cf421db2de8f33b
-.\build.bat tests
-.\build\Release\ABDAudioLab_Tests.exe "~[ves]"
+### Principio Clave de Reconciliación
+> **211.366 no es baseline post-release de `main`.**  
+> Es el resultado de un árbol local extendido con D2.7B, ahora formalmente preservado fuera de producción.
 
-# 2. Retorno y verificación sobre el estado actual
-git checkout main
-.\build.bat tests
-.\build\Release\ABDAudioLab_Tests.exe "~[ves]"
+### Ecuación de Conciliación Forense
+```text
+  211.036 (Suite canónica 0b76616 / main limpio)
++     330 (4 test cases D2.7B no versionados en 0b76616)
++       8 (Aserciones dinámicas de warnings previos al hardening f013037)
+---------
+= 211.374 assertions PASS (Valor histórico registrado en acta)
 ```
 
-### Estado de Certificación v2.1.1
-- Todos los criterios técnicos de tooling (`tools/verify-release-hashes.ps1`), fixtures (`docs/qa/external-fixtures.md`), higiene (152/152 PASS) y aislamiento hardware se encuentran cumplidos.
-- El cierre formal de v2.1.1 queda a la espera de la corroboración empírica por el operador del Caso A sobre `0b76616`.
+### Estado de Preservación de la Rama D2.7B
+- **D2.7B:** Preservada y aislada en la rama local `archive/d2-7b-offline-snapshot`, commit `c7fde7d`.
+- **Relación con Releases:**
+  - ⛔ No fusionada en `main`.
+  - ⛔ No incluida en `v2.1.0`.
+  - ⛔ No incluida en `v2.1.1`.
+  - ⛔ No publicada como parte de ninguna release.
+- **Inventario Criptográfico:** 29 archivos preservados con sus hashes SHA-256 en `docs/audits/D2_7B_OFFLINE_PRESERVATION_MANIFEST.md` dentro de dicha rama.
+
+---
+
+## 7. Dictamen de Cierre de R3 y Decisión Estratégica
+
+### Declaración Formal de Cierre
+Se declara formalmente **CERRADO** el microhito de estabilización y gobernanza **R3 — Post-Release Stabilization & Backlog Triage**.
+
+**Entregables Completados y Verificados:**
+- 🟢 **Manifiesto de Integridad v2.1.0:** `docs/release/release-integrity-v2.1.0.json` versionado y vinculado al commit certificado `0b76616a9a52a0f755e260ed0cf421db2de8f33b`.
+- 🟢 **Verificador Automatizado:** `tools/verify-release-hashes.ps1` probado empíricamente en sus tres códigos de retorno (0, 1 y 2).
+- 🟢 **Guía de Fixtures Externas:** `docs/qa/external-fixtures.md` clasifica rigurosamente las fixtures sin inferir hashes ficticios.
+- 🟢 **Taxonomía Normalizada:** Distinción inequívoca de `PASS`, `SKIPPED` legítimos (27 casos) y `FAIL` (0 casos).
+- 🟢 **Baseline Canónico Reconciliado:** 945 test cases (918 PASS, 27 SKIPPED, 0 FAIL, 211.036 / 211.036 assertions PASS).
+- 🟢 **Higiene Documental e Invariante de Rutas:** 22 test cases, 152 assertions PASS, 0 rutas absolutas en binarios y tests.
+- 🟢 **Aislamiento Criptográfico de D2.7B:** 29 artefactos resguardados fuera de producción en `archive/d2-7b-offline-snapshot` (`c7fde7d`).
+
+### Decisión de Publicación: Adopción de Ruta B
+Se adopta formalmente la **Ruta B**:
+- **Release Publicada Vigente:** `v2.1.0` permanece como la única versión oficial sellada en producción.
+- **Tag Inmutable:** `v2.1.0` intacto e inamovible (`refs/tags/v2.1.0^{}` $\to$ `0b76616`).
+- **Estado de v2.1.1:** El tooling y la documentación quedan consolidados en `main`. No se apresura la creación ni publicación de un tag o release `v2.1.1` por simples cambios de soporte/gobernanza. La próxima release SemVer agrupará un objetivo funcional sustantivo del backlog con su ciclo completo e independiente de validación.
+
+### Barreras de Hardware Inviolables
+- **DeepMind 12D Físico:** Conexión USB en reposo pasivo. Cero bytes TX/RX transmitidos.
+- **Puertos MIDI:** `M-IN` y `M-OUT` en estado cerrado.
+- **Servidor MCP `deepmind12`:** `disabled: true`.
+- **D2.7B Físico / Adquisición:** Estrictamente excluida y bloqueada.
+
+
+
 
 
 

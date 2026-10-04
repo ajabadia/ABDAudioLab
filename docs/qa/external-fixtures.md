@@ -27,21 +27,21 @@ El objetivo es garantizar que la ausencia de plugins de terceros en un entorno l
 
 ---
 
-## 3. Matriz de Fixtures en la Suite de Referencia (949 Test Cases)
+## 3. Matriz de Fixtures en la Suite Canónica (945 Test Cases)
 
-En la suite global de referencia (**949 test cases**), el desglose normativo es:
+En la suite global de referencia sobre `main` y el commit inmutable `0b76616` (**945 test cases**), el desglose normativo es:
 
 ```text
 ===============================================================================
-test cases:    949 |    922 passed | 27 skipped
-assertions: 211374 | 211374 passed |  0 skipped
+test cases:    945 |    918 passed | 27 skipped
+assertions: 211036 | 211036 passed |  0 skipped
 fallos:          0
 ```
 
 | Componente / Fixture | Tipo | Ámbito en Suite | Estado en Entorno Base | Criterio de Aceptación |
 |---|---|---|---|---|
 | **SyntheticFixture** | Interna | Casos de validación de fixture interna | Presente en memoria | PASS obligatorio |
-| **Suite Global Completa** | Mixta | 922 casos (DSP, UI, persistencia, contratos) | Subsistemas base de producción | 100% PASS (211.374 assertions) |
+| **Suite Canónica Completa** | Mixta | 918 casos (DSP, UI, persistencia, contratos) | Subsistemas base de producción | 100% PASS (211.036 assertions) |
 | **Dexed.vst3** | Externa | 19 casos de hosting Dexed | Ausente (no instalado) | `SKIPPED` legítimo declarado |
 | **VES (Vintage Emulator Studio)** | Externa | 8 casos de emulación VES | Ausente (no instalado) | `SKIPPED` legítimo (`~[ves]`) |
 

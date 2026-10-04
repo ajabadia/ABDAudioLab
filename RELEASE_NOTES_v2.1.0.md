@@ -28,15 +28,17 @@ Los binarios oficiales de producción han sido compilados bajo configuración `R
 
 ---
 
-## 3. Baseline de Verificación y Calidad (Suite Global Catch2)
+## 3. Baseline de Verificación y Calidad (Suite Canónica en Git)
 
-La suite de pruebas automatizadas garantiza la estabilidad funcional, la ausencia de memory leaks y la seguridad en tiempo real:
+La suite de pruebas automatizadas sobre el commit inmutable de release (`0b76616`) garantiza la estabilidad funcional, la ausencia de memory leaks y la seguridad en tiempo real:
 
-- **Casos de prueba totales ejecutados:** 949 test cases
-- **Casos superados:** 922 PASS
-- **Casos omitidos (legítimos):** 27 SKIPPED (correspondientes a fixtures de plugins VST3 externos no instalados en la máquina de build: Dexed / VES)
-- **Aserciones validadas:** 211.374 / 211.374 assertions PASS (100% de éxito)
+- **Casos de prueba totales:** 945 test cases
+- **Casos superados:** 918 PASS
+- **Casos omitidos (legítimos):** 27 SKIPPED (fixtures de plugins VST3 externos no instalados en el entorno de build: Dexed / VES)
+- **Aserciones validadas:** 211.036 / 211.036 assertions PASS (100% de éxito)
 - **Fallos reportados:** 0 fallos
+
+*(Nota técnica: Véase el Addendum 8 para la reconciliación histórica frente a valores locales previos de 949 / 211.374).*
 
 ---
 
@@ -55,7 +57,7 @@ La suite de pruebas automatizadas garantiza la estabilidad funcional, la ausenci
 
 ---
 
-## 5. Estado de Seguridad y Aislamiento Hardware (DeepMind 12D)
+## 5. Estado de Seguridad y Aislamiento Hardware (DeepMind 12D & D2.7B)
 
 Durante todo el ciclo de empaquetado y smoke testing de Release v2.1.0:
 - **Barrera de Hardware Física:** El sintetizador DeepMind 12D permanece en **reposo pasivo** por USB.
@@ -63,7 +65,7 @@ Durante todo el ciclo de empaquetado y smoke testing de Release v2.1.0:
 - **Puertos MIDI:** No se abre ni arma automáticamente ningún puerto MIDI en el arranque (`M-IN` y `M-OUT` en estado cerrado).
 - **Servidor MCP:** Servidor `deepmind12` configurado como `disabled: true` en `mcp_config.json`.
 - **Definiciones de Compilación:** `ABDSYNTHS_ALLOW_PHYSICAL_SNAPSHOT=0`. La adquisición física queda excluida y estrictamente bloqueada en la compilación estándar.
-- **Infraestructura Validada:** Únicamente los contratos de datos y la decodificación inmutable en memoria (D2.7B software-core) forman parte del ecosistema validado.
+- **Estatus D2.7B Software-Core:** El desarrollo preliminar D2.7B (contratos inmutables, decodificador 242 y 4 tests Catch2 con 330 assertions) constituyó trabajo local experimental no versionado en el commit `0b76616`, por lo que **no formó parte del binario oficial publicado ni de la suite certificada de release**. Dicho trabajo se encuentra formalmente aislado y preservado en la rama local `archive/d2-7b-offline-snapshot`.
 
 ---
 
@@ -101,3 +103,27 @@ Alinear la referencia remota con el commit certificado de release `0b76616a9a52a
 ```powershell
 git fetch --tags --force origin
 ```
+
+---
+
+## 8. Post-Release Addendum — Conciliación de Métricas de Suite y Aislamiento D2.7B
+
+> [!NOTE]
+> **Auditoría Forense de Métricas (2026-10-04):**  
+> Durante la estabilización post-release se identificó que las métricas reportadas inicialmente en la documentación histórica (**949 test cases, 922 PASS, 211.374 assertions**) correspondieron a una ejecución sobre un working tree local extendido y no reflejaban el commit canónico inmutable `0b76616`.
+>
+> **Desglose de los Tres Estados de Verificación:**
+> 1. **Baseline Canónico de Release (Commit `0b76616` / Tag `v2.1.0` inmutable):**
+>    - Test cases: **945** (918 PASS, 27 SKIPPED legítimos, 0 FAIL)
+>    - Aserciones: **211.036 / 211.036 PASS** (100% de éxito)
+> 2. **Estado Local Extendido (con trabajo D2.7B no versionado):**
+>    - Añadía 4 test cases (`test_SnapshotCore_IsolationAndInvariants.cpp`) y 330 assertions.
+>    - Resultado local: **949 test cases, 922 PASS, 27 SKIPPED, 211.366 assertions PASS**.
+> 3. **Estado Histórico Previo al Hardening `f013037`:**
+>    - Incorporaba además 8 aserciones dinámicas asociadas a advertencias de esquema descartadas durante el hardening.
+>    - **Ecuación de Conciliación:**  
+>      `211.036 (Canónico 0b76616) + 330 (D2.7B local) + 8 (Warnings pre-hardening) = 211.374 assertions`.
+>
+> **Destino de D2.7B Software-Core:**  
+> La totalidad de artefactos de D2.7B (29 archivos entre fuentes C++, tests y herramientas de loopback/harness) ha sido preservada y aislada de forma permanente e inmutable en la rama local `archive/d2-7b-offline-snapshot` (commit `c7fde7d`). Dicho código no forma parte de `main` ni de los binarios de `v2.1.0`, confirmando que el aislamiento del hardware DeepMind 12D y la exclusión de módulos preliminares en el producto final fueron totales.
+
