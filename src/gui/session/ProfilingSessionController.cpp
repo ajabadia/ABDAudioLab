@@ -328,7 +328,7 @@ bool ProfilingSessionController::selectTarget(const TargetSelectionState& target
     {
         currentSnapshot_.calibration.audio.requirement = CalibrationRequirement::Required;
         currentSnapshot_.calibration.audio.completed = false;
-        currentSnapshot_.calibration.audio.summary = "Calibración loopback físico DAC/ADC requerida";
+        currentSnapshot_.calibration.audio.summary = "Physical DAC/ADC loopback calibration required";
         currentSnapshot_.calibration.digital.requirement = CalibrationRequirement::NotApplicable;
         currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::NotApplicable;
     }
@@ -336,14 +336,14 @@ bool ProfilingSessionController::selectTarget(const TargetSelectionState& target
     {
         currentSnapshot_.calibration.audio.requirement = CalibrationRequirement::Required;
         currentSnapshot_.calibration.audio.completed = false;
-        currentSnapshot_.calibration.audio.summary = "Calibración de nivel de audio requerida";
+        currentSnapshot_.calibration.audio.summary = "Audio level calibration required";
         currentSnapshot_.calibration.digital.requirement = CalibrationRequirement::NotApplicable;
 
         if (target.supportsMidiInput)
         {
             currentSnapshot_.calibration.midi.requirement = CalibrationRequirement::Required;
             currentSnapshot_.calibration.midi.completed = false;
-            currentSnapshot_.calibration.midi.summary = "Calibración de compuerta y latencia MIDI requerida";
+            currentSnapshot_.calibration.midi.summary = "MIDI gate and latency calibration required";
         }
         else
         {
@@ -433,7 +433,7 @@ void ProfilingSessionController::updateAudioCalibration(bool completed, float in
     currentSnapshot_.calibration.audio.outputGainTrimDb = outputGain;
     currentSnapshot_.calibration.audio.roundTripLatencyMs = latencyMs;
     currentSnapshot_.calibration.audio.snrDb = snr;
-    currentSnapshot_.calibration.audio.summary = completed ? "Calibración de audio completada" : "Pendiente";
+    currentSnapshot_.calibration.audio.summary = completed ? "Audio calibration completed" : "Pending";
     publishSnapshotLocked();
 }
 
@@ -443,7 +443,7 @@ void ProfilingSessionController::updateMidiCalibration(bool completed, float lat
     currentSnapshot_.calibration.midi.completed = completed;
     currentSnapshot_.calibration.midi.detectedMidiLatencyMs = latencyMs;
     currentSnapshot_.calibration.midi.jitterMs = jitterMs;
-    currentSnapshot_.calibration.midi.summary = completed ? "Calibración MIDI completada" : "Pendiente";
+    currentSnapshot_.calibration.midi.summary = completed ? "MIDI calibration completed" : "Pending";
     publishSnapshotLocked();
 }
 

@@ -314,7 +314,7 @@ TEST_CASE("ST-64: Sesión antigua conserva el significado numérico de sus pasos
     // Pero las etiquetas visuales reflejan el orden natural
     SoundIdSidebarStepper stepper;
     CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::HardwareRouting) == "1. Target & Routing");
-    CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::CalibrateLoopback) == juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio"));
+    CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::CalibrateLoopback) == "2. Audio Interface Calibration");
 }
 
 TEST_CASE("ST-65: Target cambiado marca la receta anterior como IncompatibleWithTarget", "[coherence][st65]")

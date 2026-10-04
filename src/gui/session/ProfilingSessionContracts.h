@@ -129,7 +129,7 @@ enum class TrialLifecycleStage
 struct ManualOperatorRecipe
 {
     ManualInteractionKind interactionKind { ManualInteractionKind::PhysicalControlAdjustment };
-    juce::String instruction { "Ajustar controles físicos según la indicación y pulsar Listo [Espacio]" };
+    juce::String instruction { juce::String::fromUTF8(u8"Ajustar controles físicos según la indicación y pulsar Listo [Espacio]") };
     juce::String expectedSetting { "Default" };
     int repetitions { 1 };
     double settlingMs { 500.0 };

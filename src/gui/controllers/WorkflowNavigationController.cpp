@@ -187,6 +187,10 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         catalogSelector.setVisible(false);
         if (targetView != nullptr)
             targetView->setVisible(false);
+        if (excitationConfigPanel != nullptr)
+            excitationConfigPanel->setVisible(false);
+        if (recipeEditorComponent != nullptr)
+            recipeEditorComponent->setVisible(false);
         exportReportPanel.setVisible(false);
         suiteList.setVisible(false);
         operatorStepModal.setVisible(false);
@@ -194,29 +198,8 @@ void WorkflowNavigationController::layoutStepViews(juce::Rectangle<int> bounds, 
         healthPanel.setVisible(false);
         curvePlotter.setVisible(false);
 
-        int panelW = std::min(580, std::max(380, bounds.getWidth() * 45 / 100));
-        auto panelArea = bounds.removeFromRight(panelW);
-        bounds.removeFromRight(12);
-
         nativeCalibrationPanel.setVisible(true);
         nativeCalibrationPanel.setBounds(bounds);
-
-        if (recipeEditorComponent != nullptr && (recipeEditorComponent->showsWorkingRecipe() || recipeEditorComponent->isVisible()))
-        {
-            if (excitationConfigPanel != nullptr)
-                excitationConfigPanel->setVisible(false);
-
-            recipeEditorComponent->setVisible(true);
-            recipeEditorComponent->setBounds(panelArea);
-        }
-        else if (excitationConfigPanel != nullptr)
-        {
-            if (recipeEditorComponent != nullptr)
-                recipeEditorComponent->setVisible(false);
-
-            excitationConfigPanel->setVisible(true);
-            excitationConfigPanel->setBounds(panelArea);
-        }
     }
     else if (currentStep == Step::ExportReport)
     {

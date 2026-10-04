@@ -14,10 +14,22 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::SystemInfo) == SoundIdSidebarStepper::StepStatus::Completed);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::HardwareRouting) == SoundIdSidebarStepper::StepStatus::Current);
         CHECK(stepper.getStepStatus(SoundIdSidebarStepper::Step::CalibrateLoopback) == SoundIdSidebarStepper::StepStatus::Pending);
-        CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::CalibrateLoopback) == juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio"));
-        CHECK(stepper.getStepDescription(SoundIdSidebarStepper::Step::CalibrateLoopback) == juce::String::fromUTF8(u8"Latencia y Nivel de Tarjeta"));
+        CHECK(stepper.getStepTitle(SoundIdSidebarStepper::Step::CalibrateLoopback) == "2. Audio Interface Calibration");
+        CHECK(stepper.getStepDescription(SoundIdSidebarStepper::Step::CalibrateLoopback) == "Interface Latency & Level");
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::SystemInfo) == 0);
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::HardwareRouting) == 1);
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::CalibrateLoopback) == 2);
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::RunSession) == 3);
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::ExportReport) == 4);
         CHECK_FALSE(stepper.isCollapsed());
         CHECK(stepper.getDesiredWidth() == 240);
+    }
+
+    SECTION("R5-UX1 - Sidebar badge indices match visual task order")
+    {
+        // Regresión R5-UX1: Verificar que no hay inversión entre HardwareRouting (Tarea 1) y CalibrateLoopback (Tarea 2)
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::HardwareRouting) == 1);
+        CHECK(SoundIdSidebarStepper::getStepBadgeNumber(SoundIdSidebarStepper::Step::CalibrateLoopback) == 2);
     }
 
     SECTION("Step navigation & status transitions")

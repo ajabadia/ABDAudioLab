@@ -13,15 +13,15 @@ SoundIdSidebarStepper::SoundIdSidebarStepper()
 
     stepTitles[Step::SystemInfo]        = "0. Studio Environment";
     stepTitles[Step::HardwareRouting]   = "1. Target & Routing";
-    stepTitles[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio");
+    stepTitles[Step::CalibrateLoopback] = "2. Audio Interface Calibration";
     stepTitles[Step::RunSession]        = "3. Run Session";
     stepTitles[Step::ExportReport]      = "4. Export & Report";
 
     stepDescriptions[Step::SystemInfo]        = "Audio, MIDI & Environment";
-    stepDescriptions[Step::HardwareRouting]   = juce::String::fromUTF8(u8"Target, I/O & Wiring");
-    stepDescriptions[Step::CalibrateLoopback] = juce::String::fromUTF8(u8"Latencia y Nivel de Tarjeta");
-    stepDescriptions[Step::RunSession]        = juce::String::fromUTF8(u8"Excitation & Profiling");
-    stepDescriptions[Step::ExportReport]      = juce::String::fromUTF8(u8"NAM, LUT & Certification");
+    stepDescriptions[Step::HardwareRouting]   = "Target, I/O & Wiring";
+    stepDescriptions[Step::CalibrateLoopback] = "Interface Latency & Level";
+    stepDescriptions[Step::RunSession]        = "Excitation & Profiling";
+    stepDescriptions[Step::ExportReport]      = "NAM, LUT & Certification";
 
     btnToggleCollapse.setCollapsed(false);
     btnToggleCollapse.setTooltip("Collapse Navigation Rail");
@@ -244,7 +244,7 @@ void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rect
     else
     {
         g.setColour(badgeTextColour);
-        g.drawText(juce::String(static_cast<int>(step)), badgeRect, juce::Justification::centred, false);
+        g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
     }
 
     // If expanded, draw title and subtitle description

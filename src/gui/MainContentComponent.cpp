@@ -450,7 +450,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     nativeCalibrationPanel.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
         float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
         juce::String sign = (gainDb >= 0.0f) ? "+" : "";
-        juce::String msg = "Calibración completada. Auto-trim aplicado: " + sign + juce::String(gainDb, 1) + " dB";
+        juce::String msg = "Calibration completed. Auto-trim applied: " + sign + juce::String(gainDb, 1) + " dB";
         manualPromptLabel.setText(msg, juce::dontSendNotification);
         manualPromptLabel.setVisible(true);
         hidePromptAfterDelay(4000);

@@ -74,10 +74,10 @@ private:
     juce::Label lblMaxThd_ { {}, "THD Máximo (%):" };
     juce::Slider sliderMaxThd_;
 
-    juce::Label lblF0Tol_ { {}, "Tolerancia f0 (cents):" };
+    juce::Label lblF0Tol_ { {}, "f0 Tolerance (cents):" };
     juce::Slider sliderF0Tol_;
 
-    juce::Label lblCalPolicy_ { {}, "Calibración:" };
+    juce::Label lblCalPolicy_ { {}, "Calibration:" };
     juce::ComboBox comboCalPolicy_;
 
     // Notificación de diagnósticos locales

@@ -80,17 +80,17 @@ private:
     juce::String calibrationOutputChannelName { "Output 1" };
     juce::String calibrationInputChannelName { "Input 1" };
 
-    juce::TextButton btnStartMeasure { juce::String::fromUTF8(u8"Iniciar Calibración Loopback") };
-    juce::TextButton btnSkip { juce::String::fromUTF8(u8"Continuar sin calibrar (Bypass)") };
-    juce::TextButton btnContinue { juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔") };
-    juce::TextButton btnRetry { juce::String::fromUTF8(u8"Repetir Calibración") };
-    juce::TextButton btnVerifyDigital { juce::String::fromUTF8(u8"Verificar Latencia Digital") };
+    juce::TextButton btnStartMeasure { "Start Loopback Calibration" };
+    juce::TextButton btnSkip { "Continue without calibration (Bypass)" };
+    juce::TextButton btnContinue { "Continue to Run Session (Step 3) ➔" };
+    juce::TextButton btnRetry { "Retry Calibration" };
+    juce::TextButton btnVerifyDigital { "Verify Digital Latency" };
 
-    juce::TextButton btnReuseCalibration { juce::String::fromUTF8(u8"Reutilizar calibración guardada") };
-    juce::TextButton btnSaveCalibration { juce::String::fromUTF8(u8"Guardar Calibración") };
-    juce::TextButton btnToggleSavedProfiles { juce::String::fromUTF8(u8"Calibraciones Guardadas") };
-    juce::TextButton btnDeleteProfile { juce::String::fromUTF8(u8"Eliminar") };
-    juce::TextButton btnViewProfileDetails { juce::String::fromUTF8(u8"Ver Detalles") };
+    juce::TextButton btnReuseCalibration { "Reuse Saved Calibration" };
+    juce::TextButton btnSaveCalibration { "Save Calibration" };
+    juce::TextButton btnToggleSavedProfiles { "Saved Calibrations" };
+    juce::TextButton btnDeleteProfile { "Delete" };
+    juce::TextButton btnViewProfileDetails { "View Details" };
 
     calibration::ActiveCalibrationAlignment activeAlignment { calibration::ActiveCalibrationAlignment::None };
     std::optional<calibration::CalibrationRecord> matchingProfile_;

@@ -63,6 +63,18 @@ public:
     // --- State Machine Logic & Query ---
     [[nodiscard]] Step getCurrentStep() const noexcept { return currentStep; }
     void setCurrentStep(Step targetStep);
+    [[nodiscard]] static int getStepBadgeNumber(Step step) noexcept
+    {
+        switch (step)
+        {
+            case Step::SystemInfo:        return 0;
+            case Step::HardwareRouting:   return 1;
+            case Step::CalibrateLoopback: return 2;
+            case Step::RunSession:        return 3;
+            case Step::ExportReport:      return 4;
+            default:                      return 0;
+        }
+    }
 
     void setStepStatus(Step step, StepStatus status);
     [[nodiscard]] StepStatus getStepStatus(Step step) const;

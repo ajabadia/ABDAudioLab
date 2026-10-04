@@ -9,29 +9,29 @@ namespace abdaudiolab::gui
 NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     : audioEngine(engine), progressBar(progressValue)
 {
-    btnStartMeasure.setButtonText(juce::String::fromUTF8(u8"Iniciar Calibración Loopback"));
-    btnStartMeasure.setTooltip(juce::String::fromUTF8(u8"Reproduce un barrido Farina de 1.0s para medir latencia de ida y vuelta, ganancia y compensación H(f)"));
+    btnStartMeasure.setButtonText("Start Loopback Calibration");
+    btnStartMeasure.setTooltip("Plays a 1.0s Farina sweep to measure roundtrip latency, gain trim, and H(f) compensation");
     btnStartMeasure.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnStartMeasure.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnStartMeasure.onClick = [this] { startCalibrationSweep(); };
     addAndMakeVisible(btnStartMeasure);
 
-    btnReuseCalibration.setButtonText(juce::String::fromUTF8(u8"Reutilizar calibración guardada"));
-    btnReuseCalibration.setTooltip(juce::String::fromUTF8(u8"Aplica la calibración coincidente encontrada para la configuración actual"));
+    btnReuseCalibration.setButtonText("Reuse Saved Calibration");
+    btnReuseCalibration.setTooltip("Applies the matching calibration found for the current configuration");
     btnReuseCalibration.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.25f));
     btnReuseCalibration.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
     btnReuseCalibration.onClick = [this] { reuseMatchingProfile(); };
     addChildComponent(btnReuseCalibration);
 
-    btnSkip.setButtonText(juce::String::fromUTF8(u8"Continuar sin calibrar (Bypass)"));
-    btnSkip.setTooltip(juce::String::fromUTF8(u8"Continúa sin compensación de latencia ni nivel de la interfaz de audio. Restablece ganancia neutral."));
+    btnSkip.setButtonText("Continue without calibration (Bypass)");
+    btnSkip.setTooltip("Continues without audio interface latency or level compensation. Resets to unity gain.");
     btnSkip.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnSkip.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentAmber);
     btnSkip.onClick = [this] { skipCalibration(); };
     addAndMakeVisible(btnSkip);
 
-    btnContinue.setButtonText(juce::String::fromUTF8(u8"Continuar a Run Session (Paso 3) ➔"));
-    btnContinue.setTooltip(juce::String::fromUTF8(u8"Avanza al Paso 3: excitación y perfilado de la sesión"));
+    btnContinue.setButtonText("Continue to Run Session (Step 3) ➔");
+    btnContinue.setTooltip("Proceed to Step 3: session excitation and profiling");
     btnContinue.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     btnContinue.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     btnContinue.onClick = [this] {
@@ -40,8 +40,8 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     };
     addChildComponent(btnContinue);
 
-    btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
-    btnVerifyDigital.setTooltip(juce::String::fromUTF8(u8"Verifica la preparación del bus digital y latencia del plugin"));
+    btnVerifyDigital.setButtonText("Verify Digital Latency");
+    btnVerifyDigital.setTooltip("Verifies digital bus readiness and plugin roundtrip latency");
     btnVerifyDigital.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.25f));
     btnVerifyDigital.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     btnVerifyDigital.onClick = [this] {
@@ -50,22 +50,22 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     };
     addChildComponent(btnVerifyDigital);
 
-    btnRetry.setButtonText(juce::String::fromUTF8(u8"Repetir Calibración"));
-    btnRetry.setTooltip(juce::String::fromUTF8(u8"Vuelve a ejecutar la calibración tras comprobar conexiones y niveles"));
+    btnRetry.setButtonText("Retry Calibration");
+    btnRetry.setTooltip("Re-runs calibration after verifying connections and levels");
     btnRetry.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentAmber);
     btnRetry.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     btnRetry.onClick = [this] { startCalibrationSweep(); };
     addChildComponent(btnRetry);
 
-    btnSaveCalibration.setButtonText(juce::String::fromUTF8(u8"Guardar Calibración"));
-    btnSaveCalibration.setTooltip(juce::String::fromUTF8(u8"Guarda este resultado de calibración en AppData para conservarlo"));
+    btnSaveCalibration.setButtonText("Save Calibration");
+    btnSaveCalibration.setTooltip("Saves this calibration result to AppData for persistent reuse");
     btnSaveCalibration.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnSaveCalibration.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
     btnSaveCalibration.onClick = [this] { saveCurrentCalibrationProfile(); };
     addChildComponent(btnSaveCalibration);
 
-    btnToggleSavedProfiles.setButtonText(juce::String::fromUTF8(u8"Calibraciones Guardadas"));
-    btnToggleSavedProfiles.setTooltip(juce::String::fromUTF8(u8"Muestra o repliega el listado de calibraciones guardadas en disco"));
+    btnToggleSavedProfiles.setButtonText("Saved Calibrations");
+    btnToggleSavedProfiles.setTooltip("Shows or collapses the list of saved calibrations on disk");
     btnToggleSavedProfiles.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnToggleSavedProfiles.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textSecondary);
     btnToggleSavedProfiles.onClick = [this] {
@@ -76,15 +76,15 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
     };
     addAndMakeVisible(btnToggleSavedProfiles);
 
-    btnDeleteProfile.setButtonText(juce::String::fromUTF8(u8"Eliminar"));
-    btnDeleteProfile.setTooltip(juce::String::fromUTF8(u8"Elimina la calibración guardada seleccionada"));
+    btnDeleteProfile.setButtonText("Delete");
+    btnDeleteProfile.setTooltip("Deletes the selected saved calibration profile");
     btnDeleteProfile.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnDeleteProfile.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentRed);
     btnDeleteProfile.onClick = [this] { deleteSelectedProfile(); };
     addChildComponent(btnDeleteProfile);
 
-    btnViewProfileDetails.setButtonText(juce::String::fromUTF8(u8"Ver Detalles"));
-    btnViewProfileDetails.setTooltip(juce::String::fromUTF8(u8"Muestra u oculta los detalles técnicos de la calibración guardada"));
+    btnViewProfileDetails.setButtonText("View Details");
+    btnViewProfileDetails.setTooltip("Shows or hides technical details for the saved calibration");
     btnViewProfileDetails.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCardHover);
     btnViewProfileDetails.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     btnViewProfileDetails.onClick = [this] {
@@ -153,7 +153,7 @@ void NativeCalibrationPanel::reuseMatchingProfile()
     btnContinue.setEnabled(true);
     btnSaveCalibration.setVisible(false);
 
-    saveFeedbackText_ = juce::String::fromUTF8(u8"Calibración guardada reutilizada correctamente.");
+    saveFeedbackText_ = "Saved calibration profile reused successfully.";
 
     if (onCalibrationApplied)
         onCalibrationApplied(calibrationData);
@@ -195,7 +195,7 @@ void NativeCalibrationPanel::resetToInitialState()
 void NativeCalibrationPanel::refreshSavedProfiles()
 {
     savedProfiles = profileStore.list();
-    btnToggleSavedProfiles.setButtonText(juce::String::fromUTF8(u8"Calibraciones Guardadas (") +
+    btnToggleSavedProfiles.setButtonText("Saved Calibrations (" +
                                          juce::String((int)savedProfiles.size()) + ")");
 
     if (savedProfiles.empty())
@@ -222,7 +222,7 @@ void NativeCalibrationPanel::saveCurrentCalibrationProfile()
 {
     if (!calibrationData.isCalibrated || calibrationData.clippingDetected)
     {
-        saveFeedbackText_ = juce::String::fromUTF8(u8"No se puede guardar una calibración no válida.");
+        saveFeedbackText_ = "Cannot save an invalid calibration.";
         repaint();
         return;
     }
@@ -252,13 +252,13 @@ void NativeCalibrationPanel::saveCurrentCalibrationProfile()
     auto saveRes = profileStore.save(rec, false);
     if (saveRes.success)
     {
-        saveFeedbackText_ = juce::String::fromUTF8(u8"Calibración guardada. La verificación automática de compatibilidad con la interfaz actual se añadirá posteriormente.");
+        saveFeedbackText_ = "Calibration profile saved successfully.";
         btnSaveCalibration.setEnabled(false);
         refreshSavedProfiles();
     }
     else
     {
-        saveFeedbackText_ = juce::String::fromUTF8(u8"Error al guardar: ") + juce::String(saveRes.errorMessage);
+        saveFeedbackText_ = "Error saving profile: " + juce::String(saveRes.errorMessage);
     }
     repaint();
 }
@@ -270,7 +270,7 @@ void NativeCalibrationPanel::deleteSelectedProfile()
         std::string id = savedProfiles[static_cast<size_t>(selectedProfileIndex_)].profileId;
         profileStore.remove(id);
         refreshSavedProfiles();
-        saveFeedbackText_ = juce::String::fromUTF8(u8"Perfil eliminado correctamente.");
+        saveFeedbackText_ = "Profile deleted successfully.";
         resized();
         repaint();
     }
@@ -330,12 +330,12 @@ void NativeCalibrationPanel::timerCallback()
             {
                 activeAlignment = calibration::ActiveCalibrationAlignment::Misaligned;
                 neutralizeActiveTrim();
-                saveFeedbackText_ = juce::String::fromUTF8(u8"La configuración de audio cambió desde la última calibración. Calibración previa desactivada.");
+                saveFeedbackText_ = "Audio configuration changed since last calibration. Previous calibration deactivated.";
                 btnContinue.setEnabled(false);
                 btnRetry.setVisible(true);
                 btnSkip.setVisible(true);
                 btnSkip.setEnabled(true);
-                repaint();
+                resized();
             }
         }
     }
@@ -387,13 +387,15 @@ void NativeCalibrationPanel::processCalibrationResult()
     {
         currentState = State::Failed;
         btnStartMeasure.setVisible(false);
+        btnReuseCalibration.setVisible(false);
+        btnRetry.setVisible(true);
         btnSkip.setVisible(true);
         btnSkip.setEnabled(true);
-        btnRetry.setVisible(true);
         btnContinue.setVisible(false);
         btnSaveCalibration.setVisible(false);
-        startTimerHz(30);
     }
+    startTimerHz(30);
+    resized();
     repaint();
 }
 
@@ -451,17 +453,17 @@ void NativeCalibrationPanel::updateFromSnapshot(const session::ProfilingSessionS
 
         if (isDigitalVerified_)
         {
-            digitalStatusText_ = juce::String::fromUTF8(u8"Ruta digital verificada: Buffer 0 dBFS, 0 ms latencia física.\nListo para proceder al perfilado.");
-            btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"✓ Verificación Completa"));
+            digitalStatusText_ = "Digital path verified: 0 dBFS buffer, 0 ms physical latency.\nReady to proceed to profiling.";
+            btnVerifyDigital.setButtonText("✓ Verification Complete");
             btnVerifyDigital.setEnabled(false);
         }
         else
         {
-            digitalStatusText_ = juce::String::fromUTF8(u8"Modo digital activo (Plugin VST3 / Sintetizador Virtual)\n"
-                                                       u8"No necesitas conectar un cable de loopback.\n"
-                                                       u8"La calibración analógica de la interfaz no se aplica a plugins ni a sintetizadores virtuales.\n"
-                                                       u8"La aplicación usará la ruta digital sin compensación de conversión DAC/ADC.");
-            btnVerifyDigital.setButtonText(juce::String::fromUTF8(u8"Verificar Latencia Digital"));
+            digitalStatusText_ = "Digital mode active (VST3 Plugin / Virtual Synth)\n"
+                                 "No loopback cable required.\n"
+                                 "Analog interface calibration does not apply to plugins or virtual synthesizers.\n"
+                                 "The application will use the digital path without DAC/ADC conversion compensation.";
+            btnVerifyDigital.setButtonText("Verify Digital Latency");
             btnVerifyDigital.setEnabled(true);
         }
     }
@@ -503,10 +505,10 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     auto headerRow = content.removeFromTop(32.0f);
     g.setFont(juce::FontOptions("Inter", 18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String::fromUTF8(u8"2. Calibración de Interfaz de Audio"), headerRow.removeFromLeft(460.0f), juce::Justification::centredLeft, true);
+    g.drawText("2. Audio Interface Calibration", headerRow.removeFromLeft(460.0f), juce::Justification::centredLeft, true);
 
     // Estado Badge
-    auto badgeRect = headerRow.removeFromRight(210.0f).reduced(0.0f, 3.0f);
+    auto badgeRect = headerRow.removeFromRight(220.0f).reduced(0.0f, 3.0f);
     if (isDigitalMode_)
     {
         if (isDigitalVerified_)
@@ -515,7 +517,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.fillRoundedRectangle(badgeRect, 6.0f);
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
             g.setColour(juce::Colour(0xff065f46));
-            g.drawText(juce::String::fromUTF8(u8"● MODO DIGITAL ACTIVO"), badgeRect, juce::Justification::centred, true);
+            g.drawText("[ DIGITAL MODE ACTIVE ]", badgeRect, juce::Justification::centred, true);
         }
         else
         {
@@ -523,7 +525,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             g.fillRoundedRectangle(badgeRect, 6.0f);
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
             g.setColour(juce::Colour(0xff3730a3));
-            g.drawText(juce::String::fromUTF8(u8"⟳ VERIFICACIÓN PENDIENTE"), badgeRect, juce::Justification::centred, true);
+            g.drawText("[ VERIFICATION PENDING ]", badgeRect, juce::Justification::centred, true);
         }
     }
     else if (currentState == State::Success)
@@ -532,7 +534,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff065f46));
-        g.drawText(juce::String::fromUTF8(u8"● CALIBRACIÓN COMPLETADA"), badgeRect, juce::Justification::centred, true);
+        g.drawText("[ CALIBRATION COMPLETED ]", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Skipped)
     {
@@ -540,7 +542,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff92400e));
-        g.drawText(juce::String::fromUTF8(u8"⏭ CALIBRACIÓN OMITIDA"), badgeRect, juce::Justification::centred, true);
+        g.drawText("[ CALIBRATION BYPASSED ]", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Measuring)
     {
@@ -548,7 +550,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(juce::Colour(0xff3730a3));
-        g.drawText(juce::String::fromUTF8(u8"⟳ MIDIENDO..."), badgeRect, juce::Justification::centred, true);
+        g.drawText("[ MEASURING... ]", badgeRect, juce::Justification::centred, true);
     }
     else if (currentState == State::Failed)
     {
@@ -556,7 +558,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentRed);
-        g.drawText(juce::String::fromUTF8(u8"✕ REVISAR RETORNO"), badgeRect, juce::Justification::centred, true);
+        g.drawText("[ CHECK RETURN SIGNAL ]", badgeRect, juce::Justification::centred, true);
     }
     else
     {
@@ -564,7 +566,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         g.fillRoundedRectangle(badgeRect, 6.0f);
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"CALIBRACIÓN PENDIENTE"), badgeRect, juce::Justification::centred, true);
+        g.drawText("[ READY TO CALIBRATE ]", badgeRect, juce::Justification::centred, true);
     }
 
     content.removeFromTop(10.0f);
@@ -575,15 +577,15 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     // Subtítulo explicativo
     g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(juce::String::fromUTF8(u8"Comprueba la latencia y el nivel de tu interfaz de audio antes de medir el instrumento."),
+    g.drawText("Verify roundtrip latency and level calibration for your audio interface before profiling the instrument.",
                content.removeFromTop(18.0f), juce::Justification::topLeft, true);
 
     content.removeFromTop(2.0f);
     g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::plain));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText(juce::String::fromUTF8(u8"Esta calibración mide la ruta de audio de tu interfaz, no el sintetizador que vas a perfilar.\n"
-                                      u8"Conecta la salida de calibración indicada a la entrada de retorno indicada mediante un cable directo.\n"
-                                      u8"La aplicación enviará una señal de prueba y medirá el retardo y el nivel del sistema de captura."),
+    g.drawText("This calibration measures the audio path of your audio interface, not the instrument being profiled.\n"
+               "Connect the designated calibration output to the return input using a direct patch cable.\n"
+               "The application will send a test signal to measure capture latency and system level.",
                content.removeFromTop(44.0f), juce::Justification::topLeft, true);
 
     content.removeFromTop(10.0f);
@@ -620,12 +622,12 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
             leftCol.removeFromTop(6.0f);
         };
 
-        drawDigitalItem(1, juce::String::fromUTF8(u8"1. Modo Digital Activo"),
-                        juce::String::fromUTF8(u8"No necesitas conectar un cable de loopback. La calibración analógica de la interfaz no se aplica a plugins ni a sintetizadores virtuales."));
-        drawDigitalItem(2, juce::String::fromUTF8(u8"2. Ruta Digital Directa"),
-                        juce::String::fromUTF8(u8"La aplicación usará la ruta digital sin compensación de conversión DAC/ADC."));
-        drawDigitalItem(3, juce::String::fromUTF8(u8"3. Verificación de Buffer"),
-                        juce::String::fromUTF8(u8"Comprueba que el host y el plugin responden a la tasa de muestreo y tamaño de bloque."));
+        drawDigitalItem(1, "1. Digital Mode Active",
+                        "No loopback cable required. Analog interface calibration does not apply to plugins or virtual synthesizers.");
+        drawDigitalItem(2, "2. Direct Digital Path",
+                        "The application will use the digital path without DAC/ADC conversion compensation.");
+        drawDigitalItem(3, "3. Buffer Verification",
+                        "Verifies that the host and plugin respond at the selected sample rate and block size.");
 
         // Columna derecha Digital
         g.setColour(SoundIdTheme::bgCardHover);
@@ -636,21 +638,21 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         auto meterArea = rightCol.withHeight(220.0f).reduced(14.0f, 12.0f);
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText(juce::String::fromUTF8(u8"ESTADO DE RUTA DIGITAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("DIGITAL PATH STATUS", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
         meterArea.removeFromTop(8.0f);
 
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(isDigitalVerified_ ? SoundIdTheme::accentGreen : SoundIdTheme::accentAmber);
-        g.drawText(isDigitalVerified_ ? juce::String::fromUTF8(u8"✓ Ruta digital verificada") : juce::String::fromUTF8(u8"⟳ Pendiente de verificación digital"),
+        g.drawText(isDigitalVerified_ ? "✓ Digital path verified" : "⟳ Digital verification pending",
                    meterArea.removeFromTop(20.0f), juce::Justification::centredLeft, true);
 
         meterArea.removeFromTop(8.0f);
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Modo: Digital (Plugin VST3 / Sintetizador Virtual)\n"
-                                          u8"Latencia analógica: 0 ms\n"
-                                          u8"Nivel nominal: 0 dBFS\n"
-                                          u8"Conversión DAC/ADC: No requerida"),
+        g.drawText("Mode: Digital (VST3 Plugin / Virtual Synth)\n"
+                   "Analog Latency: 0 ms\n"
+                   "Nominal Level: 0 dBFS\n"
+                   "DAC/ADC Conversion: Not required",
                    meterArea, juce::Justification::topLeft, true);
         return;
     }
@@ -672,18 +674,18 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         stepRow.removeFromLeft(10.0f);
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(juce::String::fromUTF8(u8"1. Conecta el cable de loopback"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("1. Connect loopback cable", stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         auto channelBox = stepRow.removeFromTop(18.0f);
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentBlue);
-        g.drawText(juce::String::fromUTF8(u8"Salida de calibración: ") + calibrationOutputChannelName +
-                   juce::String::fromUTF8(u8"  ➔  Entrada de retorno: ") + calibrationInputChannelName,
+        g.drawText("Calibration Output: " + calibrationOutputChannelName +
+                   "  ➔  Return Input: " + calibrationInputChannelName,
                    channelBox, juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Usa un cable directo de nivel de línea. No conectes todavía el sintetizador que quieres medir."),
+        g.drawText("Use a direct line-level cable. Do not connect the synthesizer being profiled yet.",
                    stepRow, juce::Justification::topLeft, true);
 
         leftCol.removeFromTop(6.0f);
@@ -705,11 +707,11 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         stepRow.removeFromLeft(10.0f);
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(juce::String::fromUTF8(u8"2. Comprueba el nivel de retorno"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("2. Check return level", stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Asegúrate de que la señal no esté silenciada ni saturada. La aplicación verificará el nivel y aplicará la compensación necesaria."),
+        g.drawText("Ensure the signal is neither muted nor clipping. The engine will check level and apply recommended input trim.",
                    stepRow, juce::Justification::topLeft, true);
 
         leftCol.removeFromTop(6.0f);
@@ -731,52 +733,90 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         stepRow.removeFromLeft(10.0f);
         g.setFont(juce::FontOptions("Inter", 12.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(juce::String::fromUTF8(u8"3. Ejecuta la calibración"), stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("3. Run calibration", stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"La aplicación reproducirá un barrido breve y calculará la latencia y el ajuste de nivel de esta ruta de audio."),
+        g.drawText("The application will play a short sweep and calculate roundtrip latency and level trim for this audio path.",
                    stepRow, juce::Justification::topLeft, true);
     }
 
     // --- Columna Derecha: Monitor Balístico de Nivel & Métricas ---
+    float monitorHeight = 240.0f;
     g.setColour(SoundIdTheme::bgCardHover);
-    g.fillRoundedRectangle(rightCol.withHeight(220.0f), 8.0f);
+    g.fillRoundedRectangle(rightCol.withHeight(monitorHeight), 8.0f);
     g.setColour(SoundIdTheme::borderSubtle);
-    g.drawRoundedRectangle(rightCol.withHeight(220.0f).reduced(0.5f), 8.0f, 1.0f);
+    g.drawRoundedRectangle(rightCol.withHeight(monitorHeight).reduced(0.5f), 8.0f, 1.0f);
 
-    auto meterArea = rightCol.withHeight(220.0f).reduced(14.0f, 12.0f);
+    auto meterArea = rightCol.withHeight(monitorHeight).reduced(14.0f, 12.0f);
 
     g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText(juce::String::fromUTF8(u8"MONITOR DE SEÑAL EN TIEMPO REAL"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+    g.drawText("REAL-TIME SIGNAL MONITOR", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
     meterArea.removeFromTop(6.0f);
 
-    // Vúmetro horizontal
+    // Vúmetro horizontal con marcas de referencia
     auto vumeterBar = meterArea.removeFromTop(14.0f);
     g.setColour(SoundIdTheme::borderCard);
     g.fillRoundedRectangle(vumeterBar, 4.0f);
 
+    // Optimal range indicator background (-24 dBFS to -3 dBFS corresponds approx to 0.15 to 0.75 width)
+    float optStart = vumeterBar.getX() + vumeterBar.getWidth() * 0.15f;
+    float optEnd = vumeterBar.getX() + vumeterBar.getWidth() * 0.75f;
+    g.setColour(SoundIdTheme::accentGreen.withAlpha(0.12f));
+    g.fillRect(juce::Rectangle<float>(optStart, vumeterBar.getY(), optEnd - optStart, vumeterBar.getHeight()));
+
     float peakNorm = juce::jlimit(0.0f, 1.0f, liveInputPeak);
     auto fillBar = vumeterBar.withWidth(vumeterBar.getWidth() * peakNorm);
 
-    if (peakNorm > 0.98f)
+    if (peakNorm > 0.95f)
         g.setColour(SoundIdTheme::accentRed);
-    else if (peakNorm > 0.60f)
+    else if (peakNorm >= 0.15f)
         g.setColour(SoundIdTheme::accentGreen);
+    else if (peakNorm > 0.02f)
+        g.setColour(SoundIdTheme::accentAmber);
     else
-        g.setColour(SoundIdTheme::accentGreen.withAlpha(0.6f));
+        g.setColour(SoundIdTheme::textMuted.withAlpha(0.4f));
 
     g.fillRoundedRectangle(fillBar, 4.0f);
 
     meterArea.removeFromTop(4.0f);
     float liveDb = 20.0f * std::log10(std::max(liveInputPeak, 1e-4f));
     juce::String dbText = (liveDb < -70.0f) ? "-inf dBFS" : juce::String(liveDb, 1) + " dBFS";
-    g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
-    g.setColour(SoundIdTheme::textSecondary);
-    g.drawText(juce::String::fromUTF8(u8"Nivel de entrada: ") + dbText, meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
-    meterArea.removeFromTop(6.0f);
+    juce::String statusRange;
+    juce::Colour statusColour;
+    if (liveDb > -0.5f)
+    {
+        statusRange = " [Clipping / Overload]";
+        statusColour = SoundIdTheme::accentRed;
+    }
+    else if (liveDb >= -24.0f)
+    {
+        statusRange = " [Optimal Level]";
+        statusColour = SoundIdTheme::accentGreen;
+    }
+    else if (liveDb >= -40.0f)
+    {
+        statusRange = " [Low Level - Turn Up]";
+        statusColour = SoundIdTheme::accentAmber;
+    }
+    else
+    {
+        statusRange = " [Idle / Silent]";
+        statusColour = SoundIdTheme::textMuted;
+    }
+
+    auto levelRow = meterArea.removeFromTop(16.0f);
+    g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::bold));
+    g.setColour(SoundIdTheme::textPrimary);
+    g.drawText("Input: " + dbText, levelRow.removeFromLeft(110.0f), juce::Justification::centredLeft, true);
+
+    g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::bold));
+    g.setColour(statusColour);
+    g.drawText(statusRange, levelRow, juce::Justification::centredLeft, true);
+
+    meterArea.removeFromTop(4.0f);
     g.setColour(SoundIdTheme::borderSubtle);
     g.fillRect(meterArea.removeFromTop(1.0f));
     meterArea.removeFromTop(6.0f);
@@ -786,33 +826,33 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     {
         g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentGreen);
-        g.drawText(juce::String::fromUTF8(u8"Calibración completada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Calibration Completed", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"La ruta de audio está lista para medir."), meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+        g.drawText("The audio path is verified and ready for profiling.", meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
 
         float trimDb = 20.0f * std::log10(std::max(calibrationData.recommendedTrimGain, 1e-4f));
         juce::String sign = (trimDb >= 0.0f) ? "+" : "";
 
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(juce::String::fromUTF8(u8"Latencia de ida y vuelta: ") + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
+        g.drawText("Roundtrip Latency: " + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms (" +
                    juce::String(calibrationData.latencySamples) + " samples)",
                    meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
-        g.drawText(juce::String::fromUTF8(u8"Ajuste de nivel: ") + sign + juce::String(trimDb, 2) + " dB",
+        g.drawText("Level Trim: " + sign + juce::String(trimDb, 2) + " dB",
                    meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
-        juce::String polarityStr = calibrationData.phaseInversionDetected ? juce::String::fromUTF8(u8"Invertida (\u26A0)") : juce::String::fromUTF8(u8"Correcta");
-        g.drawText(juce::String::fromUTF8(u8"Polaridad: ") + polarityStr,
+        juce::String polarityStr = calibrationData.phaseInversionDetected ? juce::String("Inverted (180 deg)") : juce::String("Normal");
+        g.drawText("Polarity: " + polarityStr,
                    meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
         if (calibrationData.clippingDetected)
         {
             g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentAmber);
-            g.drawText(juce::String::fromUTF8(u8"Aviso: Se detectó saturación durante la calibración."),
+            g.drawText("Warning: Clipping detected during calibration sweep.",
                        meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
         }
 
@@ -820,7 +860,14 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         {
             g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentGreen);
-            g.drawText(saveFeedbackText_, meterArea.removeFromTop(28.0f), juce::Justification::topLeft, true);
+            g.drawText(saveFeedbackText_, meterArea.removeFromTop(20.0f), juce::Justification::topLeft, true);
+        }
+        else
+        {
+            g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+            g.setColour(SoundIdTheme::textSecondary);
+            g.drawText("Save this calibration profile to disk by clicking [Save Calibration].",
+                       meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
         }
     }
     else if (currentState == State::Failed)
@@ -829,22 +876,22 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         {
             g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentRed);
-            g.drawText(juce::String::fromUTF8(u8"La señal de retorno está saturando."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+            g.drawText("Return signal is clipping / overloading.", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
             g.setColour(SoundIdTheme::textSecondary);
-            g.drawText(juce::String::fromUTF8(u8"Reduce la ganancia de entrada o el nivel de salida y vuelve a ejecutar la calibración."),
+            g.drawText("Reduce input gain or output volume on your interface and re-run calibration.",
                        meterArea, juce::Justification::topLeft, true);
         }
         else
         {
             g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
             g.setColour(SoundIdTheme::accentRed);
-            g.drawText(juce::String::fromUTF8(u8"No se detecta una señal de retorno suficiente."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+            g.drawText("Insufficient or invalid return signal detected.", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
             g.setColour(SoundIdTheme::textSecondary);
-            g.drawText(juce::String::fromUTF8(u8"Comprueba que el cable conecta la salida indicada con la entrada indicada y que la entrada no está silenciada."),
+            g.drawText("Verify patch cable connection between designated output and input, and ensure input is not muted.",
                        meterArea, juce::Justification::topLeft, true);
         }
     }
@@ -852,44 +899,44 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     {
         g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentAmber);
-        g.drawText(juce::String::fromUTF8(u8"Calibración omitida"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("Calibration Bypassed", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Modo: Omitido (sin compensación de latencia)\n"
-                                          u8"Ajuste de ganancia: 0.0 dB nominal\n"
-                                          u8"Latencia asumida: 0 muestras (0.0 ms)"),
+        g.drawText("Mode: Bypassed (no latency compensation)\n"
+                   "Gain Trim: 0.0 dB nominal\n"
+                   "Assumed Latency: 0 samples (0.0 ms)",
                    meterArea, juce::Justification::topLeft, true);
     }
     else if (currentState == State::Measuring)
     {
         g.setFont(juce::FontOptions("Inter", 11.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentBlue);
-        g.drawText(juce::String::fromUTF8(u8"Midiendo respuesta de interfaz..."), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("Measuring interface response...", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Reproduciendo barrido logarítmico Farina.\n"
-                                          u8"Calculando latencia, auto-trim y polaridad..."),
+        g.drawText("Playing logarithmic Farina sine sweep.\n"
+                   "Computing latency, auto-trim, and phase polarity...",
                    meterArea, juce::Justification::topLeft, true);
     }
     else if (activeAlignment == calibration::ActiveCalibrationAlignment::Misaligned)
     {
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentAmber);
-        g.drawText(juce::String::fromUTF8(u8"La configuración cambió desde la última calibración"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("Configuration changed since last calibration", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"La compensación de latencia y nivel anterior no está activa.\n"
-                                          u8"Por favor, recalibra o continúa sin calibrar (Bypass)."),
+        g.drawText("Previous latency and level compensation is inactive.\n"
+                   "Please recalibrate or continue without calibration (Bypass).",
                    meterArea, juce::Justification::topLeft, true);
     }
     else if (matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
     {
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentGreen);
-        g.drawText(juce::String::fromUTF8(u8"Calibración compatible encontrada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Matching Calibration Found", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::textPrimary);
@@ -900,19 +947,19 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 
         g.setFont(juce::FontOptions("Inter", 9.0f, juce::Font::plain));
         g.setColour(SoundIdTheme::accentAmber);
-        g.drawText(juce::String::fromUTF8(u8"Aviso: La interfaz y la configuración actual coinciden con los datos guardados.\n"
-                                          u8"No se pueden detectar cambios físicos en cables, ganancia analógica o una segunda unidad idéntica."),
+        g.drawText("Notice: Current audio device matches saved profile.\n"
+                   "Physical cable changes or analog preamp gain adjustments cannot be detected automatically.",
                    meterArea, juce::Justification::topLeft, true);
     }
     else if (!savedProfiles.empty() && matchEvaluation_.status == calibration::CalibrationMatchStatus::ConfigurationMismatch)
     {
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentAmber);
-        g.drawText(juce::String::fromUTF8(u8"Configuración distinta a la guardada"), meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
+        g.drawText("Configuration Differs from Saved Profile", meterArea.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        juce::String diffMsg = juce::String::fromUTF8(u8"La calibración guardada no coincide con la configuración actual.\n");
+        juce::String diffMsg = "Saved calibration does not match current device settings.\n";
         for (const auto& d : matchEvaluation_.differences)
         {
             diffMsg += juce::String(d.fieldName) + ": " + juce::String(d.profileValue) + " \u2192 " + juce::String(d.currentValue) + "\n";
@@ -923,12 +970,18 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
     {
         g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText(juce::String::fromUTF8(u8"A la espera de calibración"), meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+        g.drawText("Awaiting Calibration", meterArea.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
         g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String::fromUTF8(u8"Comprueba el cable y pulsa 'Iniciar Calibración Loopback'.\n"
-                                          u8"La aplicación comprobará el nivel y calculará la compensación necesaria."),
+        g.drawText("Verify patch cable and click 'Start Loopback Calibration'.\n"
+                   "The engine will measure levels and compute required compensation.",
+                   meterArea.removeFromTop(32.0f), juce::Justification::topLeft, true);
+
+        meterArea.removeFromTop(6.0f);
+        g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::plain));
+        g.setColour(SoundIdTheme::textMuted);
+        g.drawText("Save your calibration once completed successfully.",
                    meterArea, juce::Justification::topLeft, true);
     }
 
@@ -948,7 +1001,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         auto titleRow = inner.removeFromTop(16.0f);
         g.setFont(juce::FontOptions("Inter", 10.0f, juce::Font::bold));
         g.setColour(SoundIdTheme::textMuted);
-        g.drawText(juce::String::fromUTF8(u8"CALIBRACIONES GUARDADAS EN APPDATA"), titleRow, juce::Justification::centredLeft, true);
+        g.drawText("SAVED PROFILES IN APPDATA", titleRow, juce::Justification::centredLeft, true);
 
         inner.removeFromTop(4.0f);
 
@@ -956,7 +1009,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
         {
             g.setFont(juce::FontOptions("Inter", 10.5f, juce::Font::plain));
             g.setColour(SoundIdTheme::textSecondary);
-            g.drawText(juce::String::fromUTF8(u8"No hay calibraciones guardadas en disco aún."), inner, juce::Justification::centredLeft, true);
+            g.drawText("No saved calibration profiles found on disk.", inner, juce::Justification::centredLeft, true);
         }
         else
         {
@@ -977,7 +1030,7 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 
             g.setFont(juce::FontOptions("Inter", 9.5f, juce::Font::plain));
             g.setColour(SoundIdTheme::textMuted);
-            g.drawText(juce::String::fromUTF8(u8"Fecha: ") + juce::String(p.createdAt),
+            g.drawText("Date: " + juce::String(p.createdAt),
                        inner.removeFromTop(13.0f), juce::Justification::centredLeft, true);
 
             if (showProfileDetails_)
@@ -1011,74 +1064,153 @@ void NativeCalibrationPanel::resized()
 
     if (isDigitalMode_)
     {
+        btnVerifyDigital.setVisible(true);
+        btnContinue.setVisible(true);
         btnVerifyDigital.setBounds(leftX, bottomY, 240, 36);
         btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
+
+        btnStartMeasure.setVisible(false);
+        btnRetry.setVisible(false);
+        btnSkip.setVisible(false);
+        btnReuseCalibration.setVisible(false);
         btnToggleSavedProfiles.setVisible(false);
         btnSaveCalibration.setVisible(false);
         btnDeleteProfile.setVisible(false);
         btnViewProfileDetails.setVisible(false);
+        return;
+    }
+
+    btnVerifyDigital.setVisible(false);
+    btnToggleSavedProfiles.setVisible(true);
+
+    int rightBoundForLeftButtons = cardRight;
+
+    if (currentState == State::Success)
+    {
+        btnContinue.setVisible(true);
+        btnContinue.setBounds(cardRight - 230, bottomY, 230, 36);
+
+        btnSaveCalibration.setVisible(true);
+        btnSaveCalibration.setBounds(cardRight - 400, bottomY, 160, 36);
+
+        rightBoundForLeftButtons = cardRight - 412;
+
+        btnRetry.setVisible(true);
+        btnRetry.setBounds(leftX, bottomY, 140, 36);
+
+        int availW = rightBoundForLeftButtons - (leftX + 148);
+        btnToggleSavedProfiles.setBounds(leftX + 148, bottomY, std::min(190, std::max(120, availW)), 36);
+
+        btnSkip.setVisible(false);
+        btnStartMeasure.setVisible(false);
+        btnReuseCalibration.setVisible(false);
+    }
+    else if (currentState == State::ReadyToMeasure)
+    {
+        btnContinue.setVisible(false);
+        btnSaveCalibration.setVisible(false);
+        btnRetry.setVisible(false);
+
+        btnStartMeasure.setVisible(true);
+        btnStartMeasure.setEnabled(true);
+
+        if (matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
+        {
+            btnStartMeasure.setBounds(cardRight - 230, bottomY, 230, 36);
+            btnReuseCalibration.setVisible(true);
+            btnReuseCalibration.setBounds(cardRight - 460, bottomY, 220, 36);
+            rightBoundForLeftButtons = cardRight - 472;
+        }
+        else
+        {
+            btnReuseCalibration.setVisible(false);
+            btnStartMeasure.setBounds(cardRight - 250, bottomY, 250, 36);
+            rightBoundForLeftButtons = cardRight - 262;
+        }
+
+        btnSkip.setVisible(true);
+        btnSkip.setEnabled(true);
+
+        int availW = rightBoundForLeftButtons - leftX - 10;
+        int btnW = std::min(190, std::max(110, availW / 2));
+        btnSkip.setBounds(leftX, bottomY, btnW, 36);
+        btnToggleSavedProfiles.setBounds(leftX + btnW + 10, bottomY, btnW, 36);
+    }
+    else if (currentState == State::Failed)
+    {
+        btnContinue.setVisible(false);
+        btnSaveCalibration.setVisible(false);
+        btnStartMeasure.setVisible(false);
+        btnReuseCalibration.setVisible(false);
+
+        btnRetry.setVisible(true);
+        btnRetry.setBounds(cardRight - 190, bottomY, 190, 36);
+        rightBoundForLeftButtons = cardRight - 202;
+
+        btnSkip.setVisible(true);
+        btnSkip.setEnabled(true);
+
+        int availW = rightBoundForLeftButtons - leftX - 10;
+        int btnW = std::min(190, std::max(110, availW / 2));
+        btnSkip.setBounds(leftX, bottomY, btnW, 36);
+        btnToggleSavedProfiles.setBounds(leftX + btnW + 10, bottomY, btnW, 36);
+    }
+    else if (currentState == State::Measuring)
+    {
+        btnContinue.setVisible(false);
+        btnSaveCalibration.setVisible(false);
+        btnRetry.setVisible(false);
+        btnReuseCalibration.setVisible(false);
+
+        btnStartMeasure.setVisible(true);
+        btnStartMeasure.setEnabled(false);
+        btnStartMeasure.setBounds(cardRight - 250, bottomY, 250, 36);
+        rightBoundForLeftButtons = cardRight - 262;
+
+        btnSkip.setVisible(true);
+        btnSkip.setEnabled(false);
+
+        int availW = rightBoundForLeftButtons - leftX - 10;
+        int btnW = std::min(190, std::max(110, availW / 2));
+        btnSkip.setBounds(leftX, bottomY, btnW, 36);
+        btnToggleSavedProfiles.setBounds(leftX + btnW + 10, bottomY, btnW, 36);
+    }
+    else // State::Skipped
+    {
+        btnStartMeasure.setVisible(true);
+        btnStartMeasure.setEnabled(true);
+        btnStartMeasure.setBounds(cardRight - 250, bottomY, 250, 36);
+        rightBoundForLeftButtons = cardRight - 262;
+
+        btnContinue.setVisible(true);
+        btnContinue.setBounds(cardRight - 460, bottomY, 200, 36);
+        rightBoundForLeftButtons = cardRight - 472;
+
+        btnSaveCalibration.setVisible(false);
+        btnRetry.setVisible(false);
+        btnReuseCalibration.setVisible(false);
+        btnSkip.setVisible(false);
+
+        int availW = rightBoundForLeftButtons - leftX;
+        btnToggleSavedProfiles.setBounds(leftX, bottomY, std::min(190, std::max(120, availW)), 36);
+    }
+
+    // Botones dentro de la sección de perfiles guardados
+    if (showSavedProfilesSection_ && !savedProfiles.empty())
+    {
+        int sectionX = cardBounds.getX() + static_cast<int>(maxCardW * 0.52f) + 48;
+        int sectionW = cardRight - sectionX;
+        int sectionBottom = cardBounds.getY() + 24 + 32 + 44 + 10 + 226 + 140;
+
+        btnViewProfileDetails.setVisible(true);
+        btnDeleteProfile.setVisible(true);
+        btnViewProfileDetails.setBounds(sectionX + sectionW - 180, sectionBottom - 30, 95, 24);
+        btnDeleteProfile.setBounds(sectionX + sectionW - 80, sectionBottom - 30, 75, 24);
     }
     else
     {
-        btnToggleSavedProfiles.setVisible(true);
-
-        if (currentState == State::Success)
-        {
-            btnRetry.setBounds(leftX, bottomY, 130, 36);
-            btnToggleSavedProfiles.setBounds(leftX + 138, bottomY, 190, 36);
-
-            btnSaveCalibration.setBounds(cardRight - 420, bottomY, 170, 36);
-            btnContinue.setBounds(cardRight - 240, bottomY, 240, 36);
-        }
-        else
-        {
-            btnSaveCalibration.setVisible(false);
-
-            if (currentState == State::ReadyToMeasure)
-            {
-                if (matchingProfile_.has_value() && matchEvaluation_.isActionableMatch)
-                {
-                    btnReuseCalibration.setVisible(true);
-                    btnSkip.setBounds(leftX, bottomY, 190, 36);
-                    btnReuseCalibration.setBounds(leftX + 196, bottomY, 220, 36);
-                    btnToggleSavedProfiles.setBounds(leftX + 422, bottomY, 170, 36);
-                    btnStartMeasure.setBounds(cardRight - 210, bottomY, 210, 36);
-                }
-                else
-                {
-                    btnReuseCalibration.setVisible(false);
-                    btnSkip.setBounds(leftX, bottomY, 200, 36);
-                    btnToggleSavedProfiles.setBounds(leftX + 208, bottomY, 190, 36);
-                    btnStartMeasure.setBounds(cardRight - 280, bottomY, 280, 36);
-                }
-            }
-            else
-            {
-                btnReuseCalibration.setVisible(false);
-                btnRetry.setBounds(leftX, bottomY, 160, 36);
-                btnSkip.setBounds(leftX + 168, bottomY, 180, 36);
-                btnToggleSavedProfiles.setBounds(leftX + 356, bottomY, 190, 36);
-                btnContinue.setBounds(cardRight - 280, bottomY, 280, 36);
-            }
-        }
-
-        // Botones dentro de la sección de perfiles guardados
-        if (showSavedProfilesSection_ && !savedProfiles.empty())
-        {
-            int sectionX = cardBounds.getX() + static_cast<int>(maxCardW * 0.52f) + 48;
-            int sectionW = cardRight - sectionX;
-            int sectionBottom = cardBounds.getY() + 24 + 32 + 44 + 10 + 226 + 140;
-
-            btnViewProfileDetails.setVisible(true);
-            btnDeleteProfile.setVisible(true);
-            btnViewProfileDetails.setBounds(sectionX + sectionW - 180, sectionBottom - 30, 95, 24);
-            btnDeleteProfile.setBounds(sectionX + sectionW - 80, sectionBottom - 30, 75, 24);
-        }
-        else
-        {
-            btnViewProfileDetails.setVisible(false);
-            btnDeleteProfile.setVisible(false);
-        }
+        btnViewProfileDetails.setVisible(false);
+        btnDeleteProfile.setVisible(false);
     }
 }
 
