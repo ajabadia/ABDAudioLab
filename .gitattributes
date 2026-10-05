@@ -31,3 +31,15 @@
 # fin de linea del .bat sea una propiedad del repo y no de la config de quien
 # commitea.
 *.bat text eol=crlf
+
+# LAS CABECERAS GENERADAS, Y POR QUE TAMBIEN A LF. Mismo motivo que el JSON de
+# arriba, y por eso la regla es identica: las escribe un generador de
+# ABDSharedAssets (`generar-cuarentena-cpp.mjs` y `generar-claves-export-cpp.mjs`),
+# que produce LF, y su `--check` compara byte a byte contra lo que hay en disco.
+#
+# Sin esto, un checkout en Windows con core.autocrlf=true devuelve las dos con
+# CRLF y el `--check` ve un fichero distinto del que el generador produce: el
+# rojo dice "la cabecera esta desfasada" y el unico cambio es el fin de linea,
+# que un diff no enseña. Es el mismo agujero que el de los JSON, en un repo que
+# ya lo deja escrito para los JSON, asi que aqui solo se copia la regla.
+*.generado.h text eol=lf
