@@ -17,11 +17,11 @@ SoundIdSidebarStepper::SoundIdSidebarStepper()
     stepTitles[Step::RunSession]        = "3. Run Session";
     stepTitles[Step::ExportReport]      = "4. Export & Report";
 
-    stepDescriptions[Step::SystemInfo]        = "Audio, MIDI & Environment";
-    stepDescriptions[Step::HardwareRouting]   = "Target, I/O & Wiring";
-    stepDescriptions[Step::CalibrateLoopback] = "Interface Latency & Level";
-    stepDescriptions[Step::RunSession]        = "Excitation & Profiling";
-    stepDescriptions[Step::ExportReport]      = "NAM, LUT & Certification";
+    stepDescriptions[Step::SystemInfo]        = "Audio I/O & MIDI setup";
+    stepDescriptions[Step::HardwareRouting]   = "Synth profile & wiring";
+    stepDescriptions[Step::CalibrateLoopback] = "Loopback latency & SNR";
+    stepDescriptions[Step::RunSession]        = "Acquisition & live monitor";
+    stepDescriptions[Step::ExportReport]      = "Package & validation report";
 
     btnToggleCollapse.setCollapsed(false);
     btnToggleCollapse.setTooltip("Collapse Navigation Rail");
@@ -174,115 +174,162 @@ void SoundIdSidebarStepper::paint(juce::Graphics& g)
 
 void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rectangle<float> rowBounds, bool isHovered)
 {
-    auto status = getStepStatus(step);
-    bool isCurrent = (step == currentStep);
-    bool isLocked = isStepLocked(step);
+    const auto status = getStepStatus(step);
+    const bool isCurrent = (step == currentStep);
+    const bool isLocked = isStepLocked(step);
+    const bool isNavigable = isStepNavigable(step);
 
-    const juce::Colour accentGreen  = SoundIdTheme::accentGreen;
-    const juce::Colour accentAmber  = SoundIdTheme::accentAmber;
-    const juce::Colour textPrimary  = SoundIdTheme::textPrimary;
-    const juce::Colour textMuted    = SoundIdTheme::textMuted;
-    const juce::Colour borderSubtle = SoundIdTheme::borderSubtle;
+    const juce::Colour accentGreen   = SoundIdTheme::accentGreen;
+    const juce::Colour accentAmber   = SoundIdTheme::accentAmber;
+    const juce::Colour textPrimary   = SoundIdTheme::textPrimary;
+    const juce::Colour textSecondary = SoundIdTheme::textSecondary;
+    const juce::Colour textMuted     = SoundIdTheme::textMuted;
+    const juce::Colour borderSubtle  = SoundIdTheme::borderSubtle;
 
-    // Hover background
-    if (isHovered && canNavigateTo(step))
+    // 1. Row Background, Contours & Indicators
+    if (isCurrent)
     {
+        // Current state: subtle accent background + outline + left vertical bar
         g.setColour(accentGreen.withAlpha(0.08f));
         g.fillRoundedRectangle(rowBounds, 6.0f);
         g.setColour(accentGreen.withAlpha(0.20f));
         g.drawRoundedRectangle(rowBounds.reduced(0.5f), 6.0f, 1.0f);
+
+        // Vertical indicator bar on left edge (2.5 px width)
+        auto barRect = juce::Rectangle<float>(rowBounds.getX() + 1.0f, rowBounds.getY() + 5.0f,
+                                              getActiveIndicatorWidth(), rowBounds.getHeight() - 10.0f);
+        g.setColour(accentGreen);
+        g.fillRoundedRectangle(barRect, 1.25f);
     }
-    else if (isCurrent)
+    else if (isHovered && isNavigable)
     {
-        g.setColour(SoundIdTheme::surfaceSubtle);
+        // Interactive hover state: subtle hover surface + accent border hint
+        g.setColour(accentGreen.withAlpha(0.06f));
         g.fillRoundedRectangle(rowBounds, 6.0f);
-        g.setColour(borderSubtle);
+        g.setColour(accentGreen.withAlpha(0.18f));
         g.drawRoundedRectangle(rowBounds.reduced(0.5f), 6.0f, 1.0f);
     }
 
-    // Circle Badge
-    float badgeSize = 24.0f;
-    float badgeX = collapsedState ? (rowBounds.getCentreX() - badgeSize * 0.5f) : (rowBounds.getX() + 8.0f);
-    float badgeY = rowBounds.getCentreY() - badgeSize * 0.5f;
-    auto badgeRect = juce::Rectangle<float>(badgeX, badgeY, badgeSize, badgeSize);
-
-    juce::Colour badgeColour = borderSubtle;
-    juce::Colour badgeTextColour = textMuted;
-
-    if (status == StepStatus::Completed)
-    {
-        badgeColour = accentGreen;
-        badgeTextColour = juce::Colours::white;
-        g.setColour(badgeColour);
-        g.fillEllipse(badgeRect);
-    }
-    else if (status == StepStatus::Current)
-    {
-        badgeColour = accentGreen;
-        badgeTextColour = accentGreen;
-        g.setColour(badgeColour.withAlpha(0.15f));
-        g.fillEllipse(badgeRect.expanded(3.0f));
-        g.setColour(badgeColour);
-        g.drawEllipse(badgeRect, 2.0f);
-    }
-    else if (status == StepStatus::Warning || status == StepStatus::Skipped)
-    {
-        badgeColour = accentAmber;
-        badgeTextColour = accentAmber;
-        g.setColour(badgeColour.withAlpha(0.20f));
-        g.fillEllipse(badgeRect);
-        g.setColour(badgeColour);
-        g.drawEllipse(badgeRect, 1.5f);
-    }
-    else
-    {
-        g.setColour(borderSubtle);
-        g.drawEllipse(badgeRect, 1.5f);
-    }
+    // 2. Circle Badge (24x24)
+    const float badgeSize = 24.0f;
+    const float badgeX = collapsedState ? (rowBounds.getCentreX() - badgeSize * 0.5f) : (rowBounds.getX() + 10.0f);
+    const float badgeY = rowBounds.getCentreY() - badgeSize * 0.5f;
+    const auto badgeRect = juce::Rectangle<float>(badgeX, badgeY, badgeSize, badgeSize);
+    const float cx = badgeRect.getCentreX();
+    const float cy = badgeRect.getCentreY();
 
     if (isLocked)
     {
-        badgeColour = badgeColour.withAlpha(0.35f);
-        badgeTextColour = badgeTextColour.withAlpha(0.35f);
+        // Locked: dimmed outlined circle with muted digit (non-interactive)
+        g.setColour(borderSubtle.withAlpha(0.35f));
+        g.drawEllipse(badgeRect, 1.2f);
+        g.setFont(juce::FontOptions(11.0f, juce::Font::plain));
+        g.setColour(textMuted.withAlpha(0.35f));
+        g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
     }
+    else if (status == StepStatus::Completed)
+    {
+        // Completed: solid filled green badge with white checkmark path (mojibake-free vector)
+        g.setColour(accentGreen);
+        g.fillEllipse(badgeRect);
 
-    // Inner Glyph
-    g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
-    if (status == StepStatus::Completed)
-    {
+        juce::Path checkmark;
+        checkmark.startNewSubPath(cx - 4.5f, cy + 0.2f);
+        checkmark.lineTo(cx - 1.2f, cy + 3.8f);
+        checkmark.lineTo(cx + 5.0f, cy - 3.8f);
         g.setColour(juce::Colours::white);
-        g.drawText(juce::String::fromUTF8(u8"\u2713"), badgeRect, juce::Justification::centred, false);
+        g.strokePath(checkmark, juce::PathStrokeType(2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
-    else if (status == StepStatus::Skipped)
+    else if (isCurrent)
     {
-        g.setColour(badgeTextColour);
-        g.drawText(juce::String::fromUTF8(u8"\u23ed"), badgeRect, juce::Justification::centred, false);
+        // Current: green ring with expanding glowing halo and bold green digit
+        g.setColour(accentGreen.withAlpha(0.15f));
+        g.fillEllipse(badgeRect.expanded(3.0f));
+        g.setColour(accentGreen);
+        g.drawEllipse(badgeRect, 2.0f);
+
+        g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+        g.setColour(accentGreen);
+        g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
+    }
+    else if (status == StepStatus::Warning || status == StepStatus::Skipped)
+    {
+        g.setColour(accentAmber.withAlpha(0.20f));
+        g.fillEllipse(badgeRect);
+        g.setColour(accentAmber);
+        g.drawEllipse(badgeRect, 1.5f);
+
+        g.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+        g.setColour(accentAmber);
+        if (status == StepStatus::Skipped)
+            g.drawText(juce::String::fromUTF8(u8"\u23ed"), badgeRect, juce::Justification::centred, false);
+        else
+            g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
     }
     else
     {
-        g.setColour(badgeTextColour);
+        // Pending: subtle border circle with muted digit
+        g.setColour(borderSubtle);
+        g.drawEllipse(badgeRect, 1.5f);
+
+        g.setFont(juce::FontOptions(11.0f, juce::Font::plain));
+        g.setColour(textMuted);
         g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
     }
 
-    // If expanded, draw title and subtitle description
+    // 3. Expanded Mode: Typography & Hierarchy
     if (!collapsedState)
     {
-        float textLeft = badgeX + badgeSize + 10.0f;
-        float textWidth = rowBounds.getRight() - textLeft - 6.0f;
+        const float textLeft = badgeX + badgeSize + 10.0f;
+        const float textWidth = rowBounds.getRight() - textLeft - 6.0f;
 
-        auto titleArea = juce::Rectangle<float>(textLeft, rowBounds.getY() + 10.0f, textWidth, 18.0f);
-        auto descArea  = juce::Rectangle<float>(textLeft, rowBounds.getY() + 28.0f, textWidth, 16.0f);
+        const auto titleArea = juce::Rectangle<float>(textLeft, rowBounds.getY() + 9.0f, textWidth, 18.0f);
+        const auto descArea  = juce::Rectangle<float>(textLeft, rowBounds.getY() + 27.0f, textWidth, 16.0f);
 
-        g.setFont(juce::FontOptions(12.0f, isCurrent ? juce::Font::bold : juce::Font::plain));
-        g.setColour(isCurrent ? textPrimary : (status == StepStatus::Completed ? textPrimary : textMuted));
-        
-        juce::String title = stepTitles[step];
-        if (isLocked) title += " [Locked]";
-        g.drawText(title, titleArea, juce::Justification::centredLeft, true);
+        if (isLocked)
+        {
+            // Locked: dimmed typography, no crude "[Locked]" suffix string
+            g.setFont(juce::FontOptions(getStandardTitleFontSize(), juce::Font::plain));
+            g.setColour(textMuted.withAlpha(0.45f));
+            g.drawText(stepTitles[step], titleArea, juce::Justification::centredLeft, true);
 
-        g.setFont(juce::FontOptions(10.0f));
-        g.setColour(textMuted);
-        g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+            g.setFont(juce::FontOptions(getStandardSubtitleFontSize(), juce::Font::plain));
+            g.setColour(textMuted.withAlpha(0.35f));
+            g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+        }
+        else if (isCurrent)
+        {
+            // Current: prominent 13.0f bold title in textPrimary and 10.5f subtitle in textSecondary
+            g.setFont(juce::FontOptions(getActiveTitleFontSize(), juce::Font::bold));
+            g.setColour(textPrimary);
+            g.drawText(stepTitles[step], titleArea, juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions(getActiveSubtitleFontSize(), juce::Font::plain));
+            g.setColour(textSecondary);
+            g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+        }
+        else if (status == StepStatus::Completed)
+        {
+            // Completed: standard 12.0f plain title in textPrimary and 10.0f subtitle in textMuted
+            g.setFont(juce::FontOptions(getStandardTitleFontSize(), juce::Font::plain));
+            g.setColour(textPrimary);
+            g.drawText(stepTitles[step], titleArea, juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions(getStandardSubtitleFontSize(), juce::Font::plain));
+            g.setColour(textMuted);
+            g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+        }
+        else
+        {
+            // Pending: standard 12.0f plain title in textMuted and 10.0f subtitle in textMuted
+            g.setFont(juce::FontOptions(getStandardTitleFontSize(), juce::Font::plain));
+            g.setColour(textMuted);
+            g.drawText(stepTitles[step], titleArea, juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions(getStandardSubtitleFontSize(), juce::Font::plain));
+            g.setColour(textMuted);
+            g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+        }
     }
 }
 
@@ -337,7 +384,7 @@ juce::String SoundIdSidebarStepper::getTooltip()
 {
     if (collapsedState && hoveredStep.has_value())
     {
-        return stepTitles[*hoveredStep] + " \u2014 " + stepDescriptions[*hoveredStep];
+        return stepTitles[*hoveredStep] + " : " + stepDescriptions[*hoveredStep];
     }
     return {};
 }
@@ -387,9 +434,9 @@ void SoundIdSidebarStepper::mouseMove(const juce::MouseEvent& event)
     if (hoveredStep != foundStep)
     {
         hoveredStep = foundStep;
-        setMouseCursor(hoveredStep.has_value() && canNavigateTo(*hoveredStep)
-                       ? juce::MouseCursor::PointingHandCursor
-                       : juce::MouseCursor::NormalCursor);
+        const bool isNavigable = hoveredStep.has_value() && isStepNavigable(*hoveredStep);
+        setMouseCursor(isNavigable ? juce::MouseCursor::PointingHandCursor
+                                   : juce::MouseCursor::NormalCursor);
         repaint();
     }
 }
@@ -411,7 +458,7 @@ void SoundIdSidebarStepper::mouseUp(const juce::MouseEvent& event)
         return;
     }
 
-    if (hoveredStep.has_value() && canNavigateTo(*hoveredStep))
+    if (hoveredStep.has_value() && isStepNavigable(*hoveredStep))
     {
         setCurrentStep(*hoveredStep);
         if (onStepSelected != nullptr)
