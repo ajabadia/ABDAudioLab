@@ -52,8 +52,16 @@ FlatnessEvaluation LoopbackCalibrator::evaluateFlatnessInBand(
             float mag = magnitudesDb[i];
             if (!std::isnan(mag) && !std::isinf(mag))
             {
-                if (mag < minMag) minMag = mag;
-                if (mag > maxMag) maxMag = mag;
+                if (mag < minMag)
+                {
+                    minMag = mag;
+                    eval.minFreqHz = f;
+                }
+                if (mag > maxMag)
+                {
+                    maxMag = mag;
+                    eval.maxFreqHz = f;
+                }
                 eval.validBinCount++;
             }
         }
@@ -63,6 +71,8 @@ FlatnessEvaluation LoopbackCalibrator::evaluateFlatnessInBand(
     {
         eval.hasValidBins = true;
         eval.deltaDb = maxMag - minMag;
+        eval.minMagDb = minMag;
+        eval.maxMagDb = maxMag;
     }
 
     return eval;
@@ -73,7 +83,8 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
                                                           double sweepDurationSec,
                                                           float startFreqHz,
                                                           float endFreqHz,
-                                                          float targetDbfs)
+                                                          float targetDbfs,
+                                                          std::optional<float> measuredNoiseFloorRmsDb)
 {
     LoopbackCalibrationData result;
     result.sampleRate = sampleRate;
@@ -202,11 +213,26 @@ LoopbackCalibrationData LoopbackCalibrator::analyzeLoopback(const std::vector<fl
     auto [flatLowHz, flatHighHz] = computeFlatnessBandHz(sampleRate);
     auto flatnessEval = evaluateFlatnessInBand(result.freqsHz, result.magnitudeDb, flatLowHz, flatHighHz);
     result.frequencyFlatnessDb = flatnessEval.deltaDb;
+    result.flatnessMinMagDb = flatnessEval.minMagDb;
+    result.flatnessMaxMagDb = flatnessEval.maxMagDb;
+    result.flatnessMinFreqHz = flatnessEval.minFreqHz;
+    result.flatnessMaxFreqHz = flatnessEval.maxFreqHz;
 
     // 5. Signal-to-Noise Ratio (SNR)
     double rms = std::sqrt(sumSq / static_cast<double>(recordedResponse.size()));
     float rmsDb = 20.0f * std::log10(std::max(static_cast<float>(rms), 1e-6f));
-    result.snrDb = std::clamp(rmsDb - (-96.0f), 20.0f, 130.0f);
+    if (measuredNoiseFloorRmsDb.has_value())
+    {
+        // Real physical calibrated SNR: L_signal,RMS,dBFS - L_noise,RMS,dBFS
+        result.snrDb = std::clamp(rmsDb - (*measuredNoiseFloorRmsDb), 0.0f, 140.0f);
+        result.snrMethod = SnrMeasurementMethod::PhysicalNoiseBaseline;
+    }
+    else
+    {
+        // Legacy fallback when baseline was not measured
+        result.snrDb = std::clamp(rmsDb - (-96.0f), 20.0f, 130.0f);
+        result.snrMethod = SnrMeasurementMethod::LegacyAssumedNoiseFloor;
+    }
 
     result.isCalibrated = (flatnessEval.hasValidBins &&
                            !result.clippingDetected &&

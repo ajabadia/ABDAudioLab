@@ -11,6 +11,10 @@ LabAudioEngine::LabAudioEngine()
     tempProcessBufferL.assign(16384, 0.0f);
     tempProcessBufferR.assign(16384, 0.0f);
 
+    // Listen for device lifecycle events so consumers can detect that the interface
+    // was closed or unplugged while it was in use.
+    deviceManager.addChangeListener(this);
+
     tapHardwareIn = scopeCollector.registerTap("Hardware In (DUT)", abd::scope::ScopeTapType::StereoAudio, 8192, "hardware_in");
     tapStimulus   = scopeCollector.registerTap("Stimulus Generator", abd::scope::ScopeTapType::StereoAudio, 8192, "stimulus");
     tapDiagTone   = scopeCollector.registerTap("Diagnostic 1kHz", abd::scope::ScopeTapType::StereoAudio, 8192, "diag_tone");
@@ -24,6 +28,7 @@ LabAudioEngine::LabAudioEngine()
 LabAudioEngine::~LabAudioEngine()
 {
     deviceManager.removeAudioCallback(this);
+    deviceManager.removeChangeListener(this);
 }
 
 bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
@@ -75,6 +80,10 @@ bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
 
     deviceManager.addAudioCallback(this);
     juce::Logger::writeToLog("[AudioEngine] Audio callback registered successfully.");
+
+    // Prime the open -> closed edge detector without latching a loss: from here on, a genuine
+    // close or unplug is the transition that consumers must react to.
+    audioDeviceOpen.store(isAudioDeviceOpen(), std::memory_order_release);
     return true;
 }
 
@@ -149,6 +158,7 @@ void LabAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
     generator.prepare(currentSampleRate);
     receiver.prepare(currentSampleRate);
     liveMidiCollector.reset(currentSampleRate);
+    silentOutputBlocksRendered.store(0, std::memory_order_relaxed);
     if (mockHardware != nullptr)
         mockHardware->resetDsp(currentSampleRate);
 
@@ -168,6 +178,51 @@ void LabAudioEngine::audioDeviceStopped()
         juce::Logger::writeToLog("[AudioEngine] Audio device stopped: releasing plugin resources for '" + plugin->getName() + "'");
         plugin->releaseResources();
     }
+}
+
+void LabAudioEngine::changeListenerCallback(juce::ChangeBroadcaster* source)
+{
+    // juce::AudioDeviceManager broadcasts on open, close, stream stop and device re-scan
+    // (e.g. an interface being unplugged), so this is the earliest reliable edge we get.
+    if (source == &deviceManager)
+        pollAudioDeviceState();
+}
+
+bool LabAudioEngine::isAudioDeviceOpen() const noexcept
+{
+    return deviceManager.getCurrentAudioDevice() != nullptr;
+}
+
+int LabAudioEngine::getCurrentBufferSizeSamples() const noexcept
+{
+    if (auto* dev = deviceManager.getCurrentAudioDevice())
+        return dev->getCurrentBufferSizeSamples();
+    return 256;
+}
+
+double LabAudioEngine::getCpuUsagePercent() const noexcept
+{
+    return deviceManager.getCpuUsage() * 100.0;
+}
+
+void LabAudioEngine::pollAudioDeviceState() noexcept
+{
+    const bool openNow = deviceManager.getCurrentAudioDevice() != nullptr;
+    const bool wasOpen = audioDeviceOpen.exchange(openNow, std::memory_order_acq_rel);
+
+    if (wasOpen && ! openNow)
+    {
+        juce::Logger::writeToLog("[AudioEngine] Audio device closed or disconnected");
+
+        // Sticky until a consumer acknowledges it: the device may be reopened immediately, but any
+        // measurement that was running against it was still interrupted.
+        audioDeviceLost.store(true, std::memory_order_release);
+    }
+}
+
+bool LabAudioEngine::consumeAudioDeviceLost() noexcept
+{
+    return audioDeviceLost.exchange(false, std::memory_order_acq_rel);
 }
 
 void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
@@ -231,7 +286,8 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
     auto [fftSource, inR] = processInputAndMetrics(inputChannelData, numInputChannels, samplesToProcess, trim);
 
     // 4b. Direct Monitoring Passthrough for active software plugins (audition/manual interaction)
-    if (activePlugin.load(std::memory_order_acquire) != nullptr
+    if (!physicalLoopbackIsolation.load(std::memory_order_acquire)
+        && activePlugin.load(std::memory_order_acquire) != nullptr
         && pluginMonitoringEnabled.load(std::memory_order_acquire)
         && !generator.isPlaying())
     {
@@ -403,6 +459,11 @@ void LabAudioEngine::renderStimulusAndRoute(float* const* outputChannelData, int
     outputPeakR.store(outPeakValR, std::memory_order_relaxed);
     outputRmsL.store(std::sqrt(outSumSqL / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
     outputRmsR.store(std::sqrt(outSumSqR / static_cast<float>(samplesToProcess)), std::memory_order_relaxed);
+
+    if (outPeakValL <= 1e-6f && outPeakValR <= 1e-6f && !generator.isPlaying())
+        silentOutputBlocksRendered.fetch_add(1, std::memory_order_relaxed);
+    else
+        silentOutputBlocksRendered.store(0, std::memory_order_relaxed);
 }
 
 std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
@@ -411,9 +472,12 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
     int samplesToProcess,
     float trim) noexcept
 {
-    // If an active software plugin is hosted, route stimulus block directly through its processBlock
-    if (auto* plugin = activePlugin.load(std::memory_order_acquire))
+    const bool isIsolated = physicalLoopbackIsolation.load(std::memory_order_acquire);
+
+    // If an active software plugin is hosted and isolation is NOT active, route stimulus block directly through its processBlock
+    if (!isIsolated && activePlugin.load(std::memory_order_acquire) != nullptr)
     {
+        auto* plugin = activePlugin.load(std::memory_order_acquire);
         int currentLat = plugin->getLatencySamples();
         if (currentLat != receiver.getLatencyCompensationSamples())
         {
@@ -483,8 +547,8 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
         return { tempProcessBufferL.data(), tempProcessBufferR.data() };
     }
 
-    // If Mock Hardware is active, process signal through simulated DSP loopback
-    if (mockHardware != nullptr)
+    // If Mock Hardware is active and isolation is NOT active, process signal through simulated DSP loopback
+    if (!isIsolated && mockHardware != nullptr)
     {
         mockHardware->processAudioBlock(tempProcessBufferL.data(), tempProcessBufferL.data(), samplesToProcess);
         if (std::abs(trim - 1.0f) > 0.001f)

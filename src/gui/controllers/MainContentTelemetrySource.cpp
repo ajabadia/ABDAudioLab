@@ -66,12 +66,8 @@ TelemetryDeviceMetrics MainContentTelemetrySource::readDeviceMetrics() const
 {
     TelemetryDeviceMetrics metrics;
     metrics.sampleRate = audioEngine.getCurrentSampleRate();
-    metrics.bufferSizeSamples = 256;
-    if (auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice())
-    {
-        metrics.bufferSizeSamples = dev->getCurrentBufferSizeSamples();
-    }
-    metrics.cpuUsagePercent = static_cast<float>(audioEngine.getDeviceManager().getCpuUsage() * 100.0);
+    metrics.bufferSizeSamples = audioEngine.getCurrentBufferSizeSamples();
+    metrics.cpuUsagePercent = static_cast<float>(audioEngine.getCpuUsagePercent());
     return metrics;
 }
 

@@ -210,6 +210,14 @@ target_sources(ABDAudioLab
         src/calibration/CalibrationProfileStore.cpp
         src/calibration/CalibrationMatchEvaluator.h
         src/calibration/CalibrationMatchEvaluator.cpp
+        src/calibration/CalibrationSnapshot.h
+        src/calibration/CalibrationSnapshot.cpp
+        src/calibration/CalibrationNoiseBaselineRunner.h
+        src/calibration/CalibrationNoiseBaselineRunner.cpp
+        src/calibration/CalibrationCompatibilityEvaluator.h
+        src/calibration/CalibrationCompatibilityEvaluator.cpp
+        src/calibration/ActiveCalibrationContext.h
+        src/calibration/ActiveCalibrationContext.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/ModulationMatrixProfile.h
@@ -525,6 +533,18 @@ target_sources(ABDAudioLab
         src/gui/HardwareDeviceDisplayCardComponent.cpp
         src/gui/NativeCalibrationPanel.h
         src/gui/NativeCalibrationPanel.cpp
+        src/gui/NativeCalibrationPanelLayout.cpp
+        src/gui/NativeCalibrationPanelProfiles.cpp
+        src/gui/NativeCalibrationPanelUiState.cpp
+        src/gui/NativeCalibrationPanelWorkflow.cpp
+        src/gui/calibration/CalibrationPanelTypes.h
+        src/gui/calibration/CalibrationPanelMetrics.h
+        src/gui/calibration/CalibrationPanelViewState.h
+        src/gui/calibration/CalibrationPanelPainter.h
+        src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+        src/gui/calibration/CalibrationPanelPainterStepper.cpp
+        src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+        src/gui/calibration/CalibrationPanelPainterReports.cpp
         src/gui/TestConfigModal.h
         src/gui/TestConfigModal.cpp
         src/gui/MatrixResolutionTableComponent.h
@@ -725,6 +745,20 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PhaseGroupDelay.cpp
     src/tests/test_LoopbackDiagnostics.cpp
     src/tests/test_LoopbackSampleRateAdaptation.cpp
+    src/tests/test_AudioReceiverLifecycle.cpp
+    src/tests/test_CalibrationSnapshotProvenance.cpp
+    src/tests/test_CalibrationNoiseBaseline.cpp
+    src/gui/NativeCalibrationPanel.cpp
+    src/gui/NativeCalibrationPanelLayout.cpp
+    src/gui/NativeCalibrationPanelProfiles.cpp
+    src/gui/NativeCalibrationPanelUiState.cpp
+    src/gui/NativeCalibrationPanelWorkflow.cpp
+    src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+    src/gui/calibration/CalibrationPanelPainterStepper.cpp
+    src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+    src/gui/calibration/CalibrationPanelPainterReports.cpp
+    src/tests/test_NativeCalibrationPanelInteraction.cpp
+    src/tests/test_CalibrationPanelPainters.cpp
     src/tests/test_LnlManifestExport.cpp
     src/tests/test_DeColoringCompensation.cpp
     src/tests/test_AudioMidiInterfaceDetector.cpp
@@ -923,6 +957,10 @@ add_executable(ABDAudioLab_Tests
     src/math/LoopbackCalibrator.cpp
     src/calibration/CalibrationProfileStore.cpp
     src/calibration/CalibrationMatchEvaluator.cpp
+    src/calibration/CalibrationSnapshot.cpp
+    src/calibration/CalibrationNoiseBaselineRunner.cpp
+    src/calibration/CalibrationCompatibilityEvaluator.cpp
+    src/calibration/ActiveCalibrationContext.cpp
     src/hardware/MidiIdentityDetector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
@@ -1190,6 +1228,11 @@ target_link_libraries(ABDAudioLab_Tests
 
 if(WIN32)
     target_link_libraries(ABDAudioLab_Tests PRIVATE dbghelp)
+endif()
+
+if(MSVC)
+    target_compile_options(ABDAudioLab PRIVATE /utf-8)
+    target_compile_options(ABDAudioLab_Tests PRIVATE /utf-8)
 endif()
 
 include(CTest)

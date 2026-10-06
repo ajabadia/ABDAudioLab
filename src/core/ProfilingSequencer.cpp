@@ -209,6 +209,20 @@ void ProfilingSequencer::run()
     auto& generator = audioEngine.getStimulusGenerator();
     auto& receiver = audioEngine.getResponseReceiver();
 
+    // Inject calibrated RTL latency compensation into receiver if context is active and compatible
+    if (calibrationContext != nullptr && calibrationContext->isActive())
+    {
+        int rtl = calibrationContext->getLatencyCompensationSamples();
+        receiver.setLatencyCompensationSamples(rtl);
+    }
+    else
+    {
+        if (audioEngine.getActivePluginInstance() == nullptr)
+        {
+            receiver.setLatencyCompensationSamples(0);
+        }
+    }
+
     const auto& testCases = activeSession.getTestCases();
     int totalTests = static_cast<int>(testCases.size());
 
@@ -258,21 +272,48 @@ void ProfilingSequencer::run()
                 float calculatedGain = targetHeadroomLinear / maxPeak;
                 calculatedGain = isVirtualPlugin ? juce::jlimit(0.01f, 100.0f, calculatedGain)
                                                 : juce::jlimit(0.1f, 10.0f, calculatedGain);
-                audioEngine.setInputAutoTrim(calculatedGain);
+                float sessionGainDb = 20.0f * std::log10(calculatedGain);
 
-                float gainDb = 20.0f * std::log10(calculatedGain);
+                if (calibrationContext != nullptr && calibrationContext->isActive())
+                {
+                    // Composite auto-trim: effectiveTrimDb = interfaceCalibrationTrimDb + sessionTargetTrimDb
+                    calibrationContext->setSessionTargetTrimDb(sessionGainDb);
+                    lastGainPlan = calibrationContext->getGainPlan();
+                    audioEngine.setInputAutoTrim(calibrationContext->getEffectiveLinearGain());
+                }
+                else
+                {
+                    lastGainPlan.interfaceCalibrationTrimDb = 0.0f;
+                    lastGainPlan.sessionTargetTrimDb = sessionGainDb;
+                    lastGainPlan.effectiveTrimDb = sessionGainDb;
+                    audioEngine.setInputAutoTrim(calculatedGain);
+                }
+
+                float effectiveDb = lastGainPlan.effectiveTrimDb;
                 if (isVirtualPlugin)
                 {
                     int latency = audioEngine.getPluginLatencySamples();
                     notifyProgress(0.02f, "Auto-Trim Digital (Plugin VST3/AU): Ganancia normalizada a -3.0 dBFS ("
-                        + juce::String(calculatedGain, 2) + "x / " + (gainDb >= 0.0f ? "+" : "") + juce::String(gainDb, 1) + " dB)"
+                        + juce::String(calculatedGain, 2) + "x / " + (effectiveDb >= 0.0f ? "+" : "") + juce::String(effectiveDb, 1) + " dB)"
                         + (latency > 0 ? (" | Latencia: " + juce::String(latency) + " smp") : ""),
                         SequencerState::LineCalibration);
                     audioCapture->executeSettlingWait(20, *this);
                 }
                 else
                 {
-                    notifyProgress(0.02f, "Auto-Trim aplicado: In 1 calibrado a -3.0 dBfs (" + juce::String(calculatedGain, 2) + "x / " + (gainDb >= 0.0f ? "+" : "") + juce::String(gainDb, 1) + " dB)", SequencerState::LineCalibration);
+                    if (calibrationContext != nullptr && calibrationContext->isActive())
+                    {
+                        float interfaceDb = lastGainPlan.interfaceCalibrationTrimDb;
+                        notifyProgress(0.02f, juce::String("Auto-Trim Compuesto: Calibracion Interfaz ") +
+                            (interfaceDb >= 0.0f ? "+" : "") + juce::String(interfaceDb, 1) + " dB + Sintetizador " +
+                            (sessionGainDb >= 0.0f ? "+" : "") + juce::String(sessionGainDb, 1) + " dB = Efectivo " +
+                            (effectiveDb >= 0.0f ? "+" : "") + juce::String(effectiveDb, 1) + " dB",
+                            SequencerState::LineCalibration);
+                    }
+                    else
+                    {
+                        notifyProgress(0.02f, "Auto-Trim aplicado: In 1 calibrado a -3.0 dBfs (" + juce::String(calculatedGain, 2) + "x / " + (effectiveDb >= 0.0f ? "+" : "") + juce::String(effectiveDb, 1) + " dB)", SequencerState::LineCalibration);
+                    }
                     audioCapture->executeSettlingWait(150, *this);
                 }
             }

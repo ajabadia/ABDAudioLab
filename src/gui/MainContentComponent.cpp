@@ -447,7 +447,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
 
 
+    sequencer.setActiveCalibrationContext(activeCalibrationContext);
+
     nativeCalibrationPanel.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
+        auto snapOpt = nativeCalibrationPanel.getActiveSnapshot();
+        if (snapOpt.has_value())
+        {
+            auto curConfig = calibration::CurrentAudioConfigurationSnapshot::captureFrom(
+                audioEngine.getDeviceManager().getCurrentAudioDevice(),
+                0, nativeCalibrationPanel.getCalibrationInputChannel(),
+                0, nativeCalibrationPanel.getCalibrationOutputChannel());
+            activeCalibrationContext->activate(*snapOpt, curConfig);
+        }
+
         float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
         juce::String sign = (gainDb >= 0.0f) ? "+" : "";
         juce::String msg = "Calibration completed. Auto-trim applied: " + sign + juce::String(gainDb, 1) + " dB";
@@ -471,6 +483,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         resized();
     };
     nativeCalibrationPanel.onCalibrationSkipped = [this] {
+        activeCalibrationContext->deactivate();
+
         canonicalCalibrationState.isCalibrated = false;
         canonicalCalibrationState.sampleRate = 0.0;
         canonicalCalibrationState.isSkipped = true;
@@ -1509,11 +1523,13 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     report("Precalentando Motores Web Chromium (Scope & Detector)...", 0.96f);
     // Pre-warm WebView2 for ABDScope & Hardware Detector in background to eliminate first-click cold-start lag
     juce::MessageManager::callAsync([safeThis = juce::Component::SafePointer<MainContentComponent>(this)]() {
+        juce::Logger::writeToLog("[MainComponent] WebView2 pre-warm callAsync executing...");
         if (safeThis != nullptr)
         {
             safeThis->preWarmScopeWindow();
             safeThis->preWarmHardwareDetector();
         }
+        juce::Logger::writeToLog("[MainComponent] WebView2 pre-warm callAsync completed.");
     });
 
     profilingRunView = std::make_unique<gui::soundid::SoundIdProfilingRunView>(profilingSessionController);

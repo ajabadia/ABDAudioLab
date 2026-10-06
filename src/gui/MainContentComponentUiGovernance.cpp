@@ -273,11 +273,23 @@ void MainContentComponent::updateSplitLayout()
 
 void MainContentComponent::paint(juce::Graphics& g)
 {
+    static bool firstPaintLogged = false;
+    if (!firstPaintLogged)
+    {
+        firstPaintLogged = true;
+        juce::Logger::writeToLog("[MainComponent] First paint() executed.");
+    }
     g.fillAll(gui::SoundIdTheme::bgLight);
 }
 
 void MainContentComponent::resized()
 {
+    static bool firstResizeLogged = false;
+    if (!firstResizeLogged)
+    {
+        firstResizeLogged = true;
+        juce::Logger::writeToLog("[MainComponent] First resized() executed. Bounds: " + getLocalBounds().toString());
+    }
     auto bounds = getLocalBounds().reduced(20);
 
     // 1. Top Header Area (Single Coordinated Component)

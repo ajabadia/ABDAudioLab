@@ -38,6 +38,7 @@
 #include "gui/InfoDrawer.h"
 #include "gui/AboutModalDialog.h"
 #include "gui/NativeCalibrationPanel.h"
+#include "calibration/ActiveCalibrationContext.h"
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
@@ -228,6 +229,7 @@ private:
     gui::PluginWindowController pluginWindowController;
     gui::PluginScanDirectoriesModal pluginScanModal;
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
+    std::shared_ptr<calibration::ActiveCalibrationContext> activeCalibrationContext { std::make_shared<calibration::ActiveCalibrationContext>() };
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
 

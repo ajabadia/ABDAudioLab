@@ -57,10 +57,28 @@ nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest&
     j["sampleRate"] = manifest.sampleRate;
     j["lineCalibrationGainDb"] = manifest.lineCalibrationGainDb;
     j["noiseFloorThresholdDb"] = manifest.noiseFloorThresholdDb;
+    if (manifest.measuredNoiseFloorRmsDbfs.has_value())
+        j["measuredNoiseFloorRmsDbfs"] = *manifest.measuredNoiseFloorRmsDbfs;
+    if (manifest.measuredNoiseFloorPeakDbfs.has_value())
+        j["measuredNoiseFloorPeakDbfs"] = *manifest.measuredNoiseFloorPeakDbfs;
+    j["noiseBaselineStatus"] = calibration::noiseBaselineStatusToString(manifest.noiseBaselineStatus);
+    j["hasPhysicalNoiseBaseline"] = manifest.hasPhysicalNoiseBaseline;
+    j["snrMeasurementMethod"] = math::snrMeasurementMethodToString(manifest.snrMeasurementMethod);
     j["totalMeasuredPoints"] = manifest.totalMeasuredPoints;
     j["operatorNotes"] = manifest.operatorNotes;
     j["ambientTemperatureC"] = manifest.ambientTemperatureC;
     j["warmupTimeMinutes"] = manifest.warmupTimeMinutes;
+
+    // Calibration Snapshot & Composite Gain Plan
+    if (manifest.calibrationSnapshot.has_value())
+    {
+        j["calibrationSnapshot"] = manifest.calibrationSnapshot->toJson();
+    }
+    nlohmann::json gpJson;
+    gpJson["interfaceCalibrationTrimDb"] = manifest.gainPlan.interfaceCalibrationTrimDb;
+    gpJson["sessionTargetTrimDb"] = manifest.gainPlan.sessionTargetTrimDb;
+    gpJson["effectiveTrimDb"] = manifest.gainPlan.effectiveTrimDb;
+    j["gainPlan"] = gpJson;
 
     if (manifest.hasWienerHammersteinModel)
     {
@@ -143,10 +161,52 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
         if (j.contains("sampleRate")) outManifest.sampleRate = j["sampleRate"].get<double>();
         if (j.contains("lineCalibrationGainDb")) outManifest.lineCalibrationGainDb = j["lineCalibrationGainDb"].get<float>();
         if (j.contains("noiseFloorThresholdDb")) outManifest.noiseFloorThresholdDb = j["noiseFloorThresholdDb"].get<float>();
+        if (j.contains("measuredNoiseFloorRmsDbfs") && !j["measuredNoiseFloorRmsDbfs"].is_null())
+            outManifest.measuredNoiseFloorRmsDbfs = j["measuredNoiseFloorRmsDbfs"].get<float>();
+        if (j.contains("measuredNoiseFloorPeakDbfs") && !j["measuredNoiseFloorPeakDbfs"].is_null())
+            outManifest.measuredNoiseFloorPeakDbfs = j["measuredNoiseFloorPeakDbfs"].get<float>();
+        if (j.contains("noiseBaselineStatus"))
+            outManifest.noiseBaselineStatus = calibration::noiseBaselineStatusFromString(j["noiseBaselineStatus"].get<std::string>());
+        if (j.contains("hasPhysicalNoiseBaseline"))
+            outManifest.hasPhysicalNoiseBaseline = j["hasPhysicalNoiseBaseline"].get<bool>();
+        if (j.contains("snrMeasurementMethod"))
+            outManifest.snrMeasurementMethod = math::snrMeasurementMethodFromString(j["snrMeasurementMethod"].get<std::string>());
         if (j.contains("totalMeasuredPoints")) outManifest.totalMeasuredPoints = j["totalMeasuredPoints"].get<int>();
         if (j.contains("operatorNotes")) outManifest.operatorNotes = j["operatorNotes"].get<std::string>();
         if (j.contains("ambientTemperatureC")) outManifest.ambientTemperatureC = j["ambientTemperatureC"].get<float>();
         if (j.contains("warmupTimeMinutes")) outManifest.warmupTimeMinutes = j["warmupTimeMinutes"].get<int>();
+
+        // Calibration Snapshot & Composite Gain Plan
+        if (j.contains("calibrationSnapshot") && j["calibrationSnapshot"].is_object())
+        {
+            auto snapOpt = calibration::CalibrationSnapshot::fromJsonSafe(j["calibrationSnapshot"]);
+            if (snapOpt.has_value())
+                outManifest.calibrationSnapshot = *snapOpt;
+            else
+                outManifest.calibrationSnapshot = std::nullopt;
+        }
+        else
+        {
+            outManifest.calibrationSnapshot = std::nullopt;
+        }
+
+        if (j.contains("gainPlan") && j["gainPlan"].is_object())
+        {
+            const auto& gp = j["gainPlan"];
+            if (gp.contains("interfaceCalibrationTrimDb"))
+                outManifest.gainPlan.interfaceCalibrationTrimDb = gp["interfaceCalibrationTrimDb"].get<float>();
+            if (gp.contains("sessionTargetTrimDb"))
+                outManifest.gainPlan.sessionTargetTrimDb = gp["sessionTargetTrimDb"].get<float>();
+            if (gp.contains("effectiveTrimDb"))
+                outManifest.gainPlan.effectiveTrimDb = gp["effectiveTrimDb"].get<float>();
+        }
+        else
+        {
+            // Legacy session: do NOT fabricate unknown calibration fields
+            outManifest.gainPlan.interfaceCalibrationTrimDb = 0.0f;
+            outManifest.gainPlan.sessionTargetTrimDb = outManifest.lineCalibrationGainDb;
+            outManifest.gainPlan.effectiveTrimDb = outManifest.lineCalibrationGainDb;
+        }
 
         outManifest.tests.clear();
         if (j.contains("tests") && j["tests"].is_array())

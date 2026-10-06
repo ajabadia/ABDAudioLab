@@ -41,7 +41,32 @@ core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
     sm.activeFunctionId = drawer.getSelectedFunctionId().toStdString();
     sm.activeFunctionName = drawer.getActiveFunctionDisplayName().toStdString();
     sm.sampleRate = audioEngine.getSampleRate();
-    sm.lineCalibrationGainDb = -3.0f;
+    sm.gainPlan = sequencer.getGainPlan();
+    sm.lineCalibrationGainDb = sm.gainPlan.effectiveTrimDb;
+    if (auto ctx = sequencer.getActiveCalibrationContext())
+    {
+        const auto& snapOpt = ctx->getSnapshot();
+        if (snapOpt.has_value())
+        {
+            sm.calibrationSnapshot = *snapOpt;
+            const auto& baseline = snapOpt->noiseBaseline;
+            sm.noiseBaselineStatus = baseline.status;
+            if (baseline.status == calibration::NoiseBaselineStatus::Valid
+                || baseline.status == calibration::NoiseBaselineStatus::BelowMeasurementFloor)
+            {
+                sm.measuredNoiseFloorRmsDbfs = baseline.rmsDbfs;
+                sm.measuredNoiseFloorPeakDbfs = baseline.peakDbfs;
+                sm.hasPhysicalNoiseBaseline = true;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::PhysicalNoiseBaseline;
+            }
+            else
+            {
+                sm.hasPhysicalNoiseBaseline = false;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+            }
+        }
+    }
+    // Acceptance policy threshold remains strictly decoupled from observed physical measurement
     sm.noiseFloorThresholdDb = -85.0f;
     sm.totalMeasuredPoints = totalPointsMeasured;
     sm.operatorNotes = drawer.getOperatorNotes().toStdString();

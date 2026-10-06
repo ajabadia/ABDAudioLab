@@ -323,8 +323,12 @@ void DrawerHardwareTab::openHardwarePickerModal()
 
 void DrawerHardwareTab::preWarmHardwarePicker()
 {
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() called.");
     if (pickerWindow != nullptr)
+    {
+        juce::Logger::writeToLog("[DrawerHardwareTab] pickerWindow already exists, returning.");
         return;
+    }
 
     std::vector<abd::hwid::HardwareContract> sharedContracts;
     sharedContracts.reserve(availableContracts.size());
@@ -362,6 +366,7 @@ void DrawerHardwareTab::preWarmHardwarePicker()
     detectionConfig.includeHeuristic = true;
     detectionConfig.requireSysExVerified = false;
 
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() instantiating HardwarePickerWindow...");
     pickerWindow = std::make_unique<HardwarePickerWindow>(
         *midiBackend,
         sharedContracts,
@@ -369,6 +374,7 @@ void DrawerHardwareTab::preWarmHardwarePicker()
         detectionConfig,
         false // Start invisible to pre-warm WebView2 runtime in background
     );
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() completed.");
 }
 
 void DrawerHardwareTab::setHardwareList(const std::vector<HardwareItem>& list)
