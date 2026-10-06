@@ -82,6 +82,8 @@ public:
     void setStepLocked(Step step, bool locked);
     [[nodiscard]] bool isStepLocked(Step step) const;
     [[nodiscard]] bool canNavigateTo(Step step) const;
+    [[nodiscard]] bool canNavigateToExportReport() const noexcept;
+    [[nodiscard]] bool isExportReportCompleted() const noexcept;
     [[nodiscard]] juce::String getStepTitle(Step step) const { auto it = stepTitles.find(step); return it != stepTitles.end() ? it->second : ""; }
     [[nodiscard]] juce::String getStepDescription(Step step) const { auto it = stepDescriptions.find(step); return it != stepDescriptions.end() ? it->second : ""; }
 

@@ -38,7 +38,12 @@ void SoundIdSidebarStepper::setCurrentStep(Step targetStep)
     if (currentStep == targetStep) return;
 
     if (stepStatuses[currentStep] == StepStatus::Current)
-        stepStatuses[currentStep] = StepStatus::Completed;
+    {
+        if (currentStep == Step::ExportReport || currentStep == Step::RunSession)
+            stepStatuses[currentStep] = StepStatus::Pending;
+        else
+            stepStatuses[currentStep] = StepStatus::Completed;
+    }
 
     currentStep = targetStep;
     stepStatuses[currentStep] = StepStatus::Current;
@@ -71,7 +76,19 @@ bool SoundIdSidebarStepper::isStepLocked(Step step) const
 
 bool SoundIdSidebarStepper::canNavigateTo(Step step) const
 {
+    if (step == Step::ExportReport)
+        return canNavigateToExportReport();
     return !isStepLocked(step);
+}
+
+bool SoundIdSidebarStepper::canNavigateToExportReport() const noexcept
+{
+    return !isStepLocked(Step::ExportReport);
+}
+
+bool SoundIdSidebarStepper::isExportReportCompleted() const noexcept
+{
+    return getStepStatus(Step::ExportReport) == StepStatus::Completed;
 }
 
 void SoundIdSidebarStepper::setCollapsed(bool collapsed)

@@ -58,20 +58,20 @@ void drawInstructionStep(juce::Graphics& g,
                          float gapAfter)
 {
     auto stepRow = column.removeFromTop(rowHeight);
-    auto circleBounds = stepRow.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
+    auto circleBounds = stepRow.removeFromLeft(30.0f).withSizeKeepingCentre(24.0f, 24.0f);
 
     g.setColour(accent.withAlpha(0.15f));
     g.fillEllipse(circleBounds);
     g.setColour(accent);
     g.drawEllipse(circleBounds, 1.5f);
 
-    g.setFont(font(11.5f, juce::Font::bold));
+    g.setFont(font(12.0f, juce::Font::bold));
     g.drawText(juce::String(number), circleBounds, juce::Justification::centred, false);
 
     stepRow.removeFromLeft(10.0f);
-    g.setFont(font(12.0f, juce::Font::bold));
+    g.setFont(font(14.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(title, stepRow.removeFromTop(18.0f), juce::Justification::centredLeft, true);
+    g.drawText(title, stepRow.removeFromTop(20.0f), juce::Justification::centredLeft, true);
 
     g.setFont(font(descriptionFontHeight));
     g.setColour(SoundIdTheme::textSecondary);
@@ -88,16 +88,16 @@ void drawTipBox(juce::Graphics& g,
                 float borderAlpha)
 {
     column.removeFromTop(4.0f);
-    auto tipBox = column.removeFromTop(36.0f);
+    auto tipBox = column.removeFromTop(40.0f);
 
     g.setColour(accent.withAlpha(0.08f));
     g.fillRoundedRectangle(tipBox, 6.0f);
     g.setColour(accent.withAlpha(borderAlpha));
     g.drawRoundedRectangle(tipBox.reduced(0.5f), 6.0f, 1.0f);
 
-    g.setFont(font(9.5f, style));
+    g.setFont(font(12.0f, style));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText(text, tipBox.reduced(8.0f, 2.0f), juce::Justification::centredLeft, true);
+    g.drawText(text, tipBox.reduced(10.0f, 2.0f), juce::Justification::centredLeft, true);
 }
 
 juce::String formatTrimDb(float linearGain, int decimals)

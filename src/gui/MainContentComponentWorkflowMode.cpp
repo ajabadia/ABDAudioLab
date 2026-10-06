@@ -40,31 +40,9 @@ void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
 
 void MainContentComponent::setupGuidedWorkflowInitialData()
 {
-    gui::session::TargetSelectionState target;
-    target.targetId = "synthetic_fixture_demo";
-    target.targetName = "Sintetizador Virtual de Prueba (Demo Snapshot)";
-    target.manufacturer = "ABDAudioLab";
-    target.version = "1.0.0";
-    target.kind = gui::session::TargetKind::SyntheticFixture;
-    target.isConnected = true;
-    target.isDeterministic = true;
-    target.availableDomainDescription = "Notas MIDI C1-C6, Vel 1-127, Controles de Filtro y Modulación";
-    target.parameterCount = 8;
-
-    profilingSessionController.selectTarget(target);
-    profilingSessionController.updateAuditResult(
-        synth::ApprovalStatus::Approved,
-        "100% Determinista (Fixture Digital)",
-        "Reset de fase instantaneo (0 ms)",
-        0.0,
-        false,
-        {},
-        "Target de prueba sintetico precalificado para validacion acustica");
-
-    // Precargar evaluacion de demostracion para que el usuario siempre tenga datos listos
-    profilingSessionController.loadPredefinedFixture("fixture_approved.json");
-    profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::ConfigureAndStart);
-
+    // Clean initial state: no artificial synthetic demo injected in production.
+    // Target starts clean (None Selected) and stepper begins at Step 1 (Target & Routing).
+    profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::TargetSelection);
     profilingSessionController.setWorkflowMode(currentWorkflowMode);
 }
 

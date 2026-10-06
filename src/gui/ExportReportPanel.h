@@ -122,6 +122,7 @@ public:
 
         // Default base metrics
         updateMetrics(98.4f, -92.1f, 0.012f, 12, 24.5f);
+        applyButtonStyling();
     }
 
     ~ExportReportPanel() override
@@ -136,9 +137,9 @@ public:
     {
         juce::ignoreUnused(targetFolder, baseName);
         exportButton.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x9C\x93 PACKAGE EXPORTED!")));
-        exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff008753));
+        exportButton.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
         statusLabel.setText(juce::String(juce::CharPointer_UTF8("\xE2\x9C\x93 Package exported: C++ Header (alignas 16), Telemetry JSON, HTML Report, and Manifest")), juce::dontSendNotification);
-        statusLabel.setColour(juce::Label::textColourId, juce::Colour(0xff00a86b));
+        statusLabel.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
         statusLabel.setVisible(true);
         startTimer(4000);
         repaint();
@@ -175,7 +176,7 @@ public:
     {
         auditionToggleButton.setButtonText(isAuditioning ? "STOP DSP AUDITION"
                                                          : "PREVIEW AUDIO CORRECTION (DSP AUDITION)");
-        auditionToggleButton.setColour(juce::TextButton::buttonColourId, isAuditioning ? juce::Colour(0xff2563eb) : juce::Colour(0xff334155));
+        applyButtonStyling();
 
         lblCutoff.setVisible(isAuditioning);
         sliderCutoff.setVisible(isAuditioning);
@@ -184,6 +185,41 @@ public:
         comboWaveform.setVisible(isAuditioning);
         resized();
         repaint();
+    }
+
+    void applyButtonStyling()
+    {
+        const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
+
+        // 1. PRIMARY: Dominant 1-Click Export Package
+        exportButton.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
+        exportButton.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::primaryText());
+        exportButton.setColour(juce::TextButton::textColourOnId, SoundIdTheme::ButtonTokens::primaryText());
+
+        // 2. REVIEW: Preview Audio Correction & A/B Verification (Neutral surfaces)
+        const auto revBg = isAuditioning ? (isDark ? juce::Colour(0xff1e293b) : juce::Colour(0xffe2e8f0))
+                                         : SoundIdTheme::ButtonTokens::secondaryBg(isDark);
+        const auto revText = isAuditioning ? SoundIdTheme::accentGreen
+                                           : SoundIdTheme::ButtonTokens::secondaryText(isDark);
+        auditionToggleButton.setColour(juce::TextButton::buttonColourId, revBg);
+        auditionToggleButton.setColour(juce::TextButton::textColourOffId, revText);
+
+        btnVerifyAb.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+        btnVerifyAb.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
+
+        // 3. UTILITIES: Open Export Folder & View HTML Report (Neutral support surfaces)
+        openFolderButton.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+        openFolderButton.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
+
+        viewHtmlButton.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+        viewHtmlButton.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
+
+        // 4. EXTERNAL: Publish to Cloud (Restrained secondary blue, clearly distinct from local export)
+        const auto cloudBg = isDark ? juce::Colour(0xff172554) : juce::Colour(0xffeff6ff);
+        const auto cloudText = isDark ? juce::Colour(0xff60a5fa) : juce::Colour(0xff1d4ed8);
+        publishCloudButton.setColour(juce::TextButton::buttonColourId, cloudBg);
+        publishCloudButton.setColour(juce::TextButton::textColourOffId, cloudText);
+        publishCloudButton.setColour(juce::TextButton::textColourOnId, cloudText);
     }
 
     std::function<void()> onExportRequested;
@@ -200,7 +236,7 @@ protected:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        const juce::Colour accentGreen  = juce::Colour(0xff00a86b);
+        const juce::Colour accentGreen  = SoundIdTheme::accentGreen;
         const juce::Colour textPrimary  = getLookAndFeel().findColour(juce::Label::textColourId);
         const juce::Colour borderSubtle = textPrimary.withAlpha(0.12f);
         const juce::Colour cardBg       = textPrimary.withAlpha(0.02f);
@@ -270,57 +306,55 @@ protected:
         titleLabel.setBounds(bounds.removeFromTop(36).withSizeKeepingCentre(bounds.getWidth(), 25).translated(0, 20));
         subtitleLabel.setBounds(bounds.removeFromTop(26).withSizeKeepingCentre(bounds.getWidth(), 20).translated(0, 20));
 
-        // Bottom action deck inside certification card
-        auto innerBottom = bounds.withSizeKeepingCentre(static_cast<int>(bounds.getWidth() * 0.84f), 125).translated(0, 95);
+        // Bottom action deck inside certification card (146px height)
+        auto innerBottom = bounds.withSizeKeepingCentre(static_cast<int>(bounds.getWidth() * 0.84f), 146).translated(0, 105);
 
-        // Row 1: Export, Cloud Publish, Folder, HTML
-        auto buttonRow1 = innerBottom.removeFromTop(34);
-        exportButton.setBounds(buttonRow1.removeFromLeft(static_cast<int>(innerBottom.getWidth() * 0.38f)));
-        buttonRow1.removeFromLeft(8);
-        publishCloudButton.setBounds(buttonRow1.removeFromLeft(static_cast<int>(innerBottom.getWidth() * 0.28f)));
-        buttonRow1.removeFromLeft(8);
-        openFolderButton.setBounds(buttonRow1.removeFromLeft(static_cast<int>(innerBottom.getWidth() * 0.16f)));
-        buttonRow1.removeFromLeft(8);
-        viewHtmlButton.setBounds(buttonRow1);
+        // Row 1: PRIMARY ACTION - 1-Click Export (Dominant, 36px)
+        auto buttonRow1 = innerBottom.removeFromTop(36);
+        exportButton.setBounds(buttonRow1);
 
-        // Row 2: Audition Mode controls & A/B Verification (height 34px)
         innerBottom.removeFromTop(8);
-        auto auditionRow = innerBottom.removeFromTop(34);
-        auditionToggleButton.setBounds(auditionRow.removeFromLeft(220));
-        auditionRow.removeFromLeft(8);
-        btnVerifyAb.setBounds(auditionRow.removeFromLeft(240));
 
-        if (isAuditioning)
+        // Row 2: REVIEW ACTIONS - Preview & A/B Verification (32px)
+        auto auditionRow = innerBottom.removeFromTop(32);
+        if (!isAuditioning)
         {
+            const int halfRev = (auditionRow.getWidth() - 8) / 2;
+            auditionToggleButton.setBounds(auditionRow.removeFromLeft(halfRev));
             auditionRow.removeFromLeft(8);
+            btnVerifyAb.setBounds(auditionRow.removeFromLeft(halfRev));
+        }
+        else
+        {
+            auditionToggleButton.setBounds(auditionRow.removeFromLeft(200));
+            auditionRow.removeFromLeft(8);
+            btnVerifyAb.setBounds(auditionRow.removeFromLeft(180));
+            auditionRow.removeFromLeft(10);
             lblCutoff.setBounds(auditionRow.removeFromLeft(40));
             auditionRow.removeFromLeft(2);
-            sliderCutoff.setBounds(auditionRow.removeFromLeft(70));
+            sliderCutoff.setBounds(auditionRow.removeFromLeft(65));
             auditionRow.removeFromLeft(6);
             lblResonance.setBounds(auditionRow.removeFromLeft(36));
             auditionRow.removeFromLeft(2);
-            sliderResonance.setBounds(auditionRow.removeFromLeft(70));
+            sliderResonance.setBounds(auditionRow.removeFromLeft(65));
             auditionRow.removeFromLeft(6);
-            comboWaveform.setBounds(auditionRow.removeFromLeft(110));
+            comboWaveform.setBounds(auditionRow);
         }
+
+        innerBottom.removeFromTop(8);
+
+        // Row 3: UTILITIES (Left) & EXTERNAL (Right) (30px)
+        auto utilityRow = innerBottom.removeFromTop(30);
+        openFolderButton.setBounds(utilityRow.removeFromLeft(140));
+        utilityRow.removeFromLeft(8);
+        viewHtmlButton.setBounds(utilityRow.removeFromLeft(140));
+
+        publishCloudButton.setBounds(utilityRow.removeFromRight(200));
 
         innerBottom.removeFromTop(6);
         statusLabel.setBounds(innerBottom.removeFromTop(20));
 
-        // Styling
-        exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00a86b));
-        exportButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        exportButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-
-        publishCloudButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
-        publishCloudButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-        publishCloudButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-
-        btnVerifyAb.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff7c3aed));
-        btnVerifyAb.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-
-        auditionToggleButton.setColour(juce::TextButton::buttonColourId, isAuditioning ? juce::Colour(0xff2563eb) : juce::Colour(0xff334155));
-        auditionToggleButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+        applyButtonStyling();
     }
 
 private:
@@ -328,9 +362,8 @@ private:
     {
         stopTimer();
         exportButton.setButtonText(juce::String::fromUTF8(u8"\u26a1 EXPORT PRODUCTION PACKAGE (1-CLICK)"));
-        exportButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff00a86b));
         publishCloudButton.setButtonText(juce::String(juce::CharPointer_UTF8("\xE2\x98\x81 PUBLISH TO CLOUD (API)")));
-        publishCloudButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff0284c7));
+        applyButtonStyling();
         repaint();
     }
 

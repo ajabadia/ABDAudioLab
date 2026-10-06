@@ -132,7 +132,7 @@ void NativeCalibrationPanel::layoutNoiseBaselineRow(int leftX, int bottomY, bool
     // buttons run the active sub-step, so showing both at once would just be noise.
     const bool useRetry = btnRetry.isVisible();
 
-    constexpr int measureWidth = 240;
+    constexpr int measureWidth = 220;
     juce::TextButton& action = useRetry ? btnRetry : btnStartMeasure;
 
     btnStartMeasure.setVisible(!useRetry);
@@ -152,10 +152,10 @@ void NativeCalibrationPanel::layoutNoiseBaselineRow(int leftX, int bottomY, bool
 
     if (noiseBaselineState_ == NoiseBaselineState::Passed)
     {
-        constexpr int navWidth = 190;
+        constexpr int navWidth = 180;
         btnRecheckBaseline.setVisible(true);
         btnRecheckBaseline.setEnabled(true);
-        btnRecheckBaseline.setButtonText("Go to Loopback (2B) ->");
+        btnRecheckBaseline.setButtonText("Proceed to 2B Loopback ->");
         btnRecheckBaseline.setTooltip("Navigate to Step 2B: connect loopback cable and calibrate");
         btnRecheckBaseline.setBounds(rightBoundForLeftButtons - navWidth, bottomY, navWidth, 36);
         rightBoundForLeftButtons -= (navWidth + 10);
@@ -176,7 +176,7 @@ void NativeCalibrationPanel::layoutLoopbackRow(int leftX, int bottomY, bool isMe
     // main button keeps its context-sensitive label.
     const bool useRetry = btnRetry.isVisible();
 
-    constexpr int sweepWidth = 260;
+    constexpr int sweepWidth = 220;
     juce::TextButton& action = useRetry ? btnRetry : btnStartMeasure;
 
     btnStartMeasure.setVisible(!useRetry);
@@ -192,23 +192,23 @@ void NativeCalibrationPanel::layoutLoopbackRow(int leftX, int bottomY, bool isMe
     else if (loopbackState_ == LoopbackState::Locked)
     {
         action.setEnabled(false);
-        action.setButtonText("Run Loopback Sweep (Locked)");
+        action.setButtonText("Run Loopback (Locked)");
     }
     else
     {
         action.setEnabled(!isMeasuringAny);
         action.setButtonText(loopbackState_ == LoopbackState::Passed
                                  ? "Re-run Loopback Calibration"
-                                 : "Run Physical Loopback Calibration");
+                                 : "Run Loopback Calibration");
     }
 
     action.setBounds(rightBoundForLeftButtons - sweepWidth, bottomY, sweepWidth, 36);
     rightBoundForLeftButtons -= (sweepWidth + 10);
 
-    constexpr int navWidth = 180;
+    constexpr int navWidth = 165;
     btnRecheckBaseline.setVisible(true);
     btnRecheckBaseline.setEnabled(true);
-    btnRecheckBaseline.setButtonText("<- Back to Baseline (2A)");
+    btnRecheckBaseline.setButtonText("<- Back to 2A Baseline");
     btnRecheckBaseline.setTooltip("Navigate to Step 2A: inspect or re-check input noise floor");
     btnRecheckBaseline.setBounds(rightBoundForLeftButtons - navWidth, bottomY, navWidth, 36);
     rightBoundForLeftButtons -= (navWidth + 10);
@@ -226,10 +226,10 @@ void NativeCalibrationPanel::layoutBypassAndProfilesRow(int leftX, int bottomY, 
     btnSkip.setEnabled(!isMeasuringAny);
 
     const int availableWidth = rightBoundForLeftButtons - leftX - 10;
-    const int halfWidth = std::min(180, std::max(110, availableWidth / 2));
+    const int halfWidth = std::min(170, std::max(110, availableWidth / 2));
 
     btnSkip.setBounds(leftX, bottomY, halfWidth, 36);
-    btnToggleSavedProfiles.setBounds(leftX + halfWidth + 10, bottomY, halfWidth, 36);
+    btnToggleSavedProfiles.setBounds(leftX + halfWidth + 8, bottomY, halfWidth, 36);
 }
 
 } // namespace abdaudiolab::gui

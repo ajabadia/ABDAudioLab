@@ -35,14 +35,14 @@ void drawReportHeader(juce::Graphics& g,
                       juce::Colour badgeColour,
                       float gapAfter)
 {
-    auto header = meterArea.removeFromTop(16.0f);
+    auto header = meterArea.removeFromTop(18.0f);
 
-    g.setFont(font(11.0f, juce::Font::bold));
+    g.setFont(font(13.0f, juce::Font::bold));
     g.setColour(titleColour);
-    g.drawText(title, header.removeFromLeft(200.0f), juce::Justification::centredLeft, true);
+    g.drawText(title, header.removeFromLeft(220.0f), juce::Justification::centredLeft, true);
 
-    drawBadge(g, header.removeFromRight(100.0f), badgeLabel, juce::Colours::transparentBlack,
-              badgeColour, 9.5f, juce::Justification::centredRight, 0.0f);
+    drawBadge(g, header.removeFromRight(110.0f), badgeLabel, juce::Colours::transparentBlack,
+              badgeColour, 11.0f, juce::Justification::centredRight, 0.0f);
 
     meterArea.removeFromTop(gapAfter);
 }
@@ -55,12 +55,12 @@ void drawFailureBody(juce::Graphics& g,
                      juce::Colour headlineColour,
                      float headlineHeight)
 {
-    g.setFont(font(10.5f, juce::Font::bold));
+    g.setFont(font(13.0f, juce::Font::bold));
     g.setColour(headlineColour);
     g.drawText(headline, meterArea.removeFromTop(headlineHeight),
                juce::Justification::centredLeft, true);
 
-    g.setFont(font(9.5f));
+    g.setFont(font(11.5f));
     g.setColour(SoundIdTheme::textSecondary);
     g.drawText(remediation, meterArea, juce::Justification::topLeft, true);
 }
@@ -71,7 +71,7 @@ void drawStatusBody(juce::Graphics& g,
                     const juce::String& body,
                     juce::Colour colour,
                     float bodyHeight,
-                    float bodyFontHeight = 10.5f)
+                    float bodyFontHeight = 12.0f)
 {
     g.setFont(font(bodyFontHeight));
     g.setColour(colour);
@@ -131,20 +131,24 @@ void paintLevelMonitor(juce::Graphics& g,
 
     auto meterArea = card.reduced(14.0f, 12.0f);
 
-    g.setFont(font(11.0f, juce::Font::bold));
+    g.setFont(font(12.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
     g.drawText("REAL-TIME SIGNAL MONITOR", meterArea.removeFromTop(16.0f),
                juce::Justification::centredLeft, true);
     meterArea.removeFromTop(6.0f);
 
-    // Horizontal VU meter with the optimal window marked on the track.
-    const auto meterBar = meterArea.removeFromTop(14.0f);
-    g.setColour(SoundIdTheme::borderCard);
-    g.fillRoundedRectangle(meterBar, 4.0f);
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+
+    // Horizontal VU meter using shared TelemetryTokens
+    const auto meterBar = meterArea.removeFromTop(SoundIdTheme::TelemetryTokens::trackHeight);
+    g.setColour(SoundIdTheme::TelemetryTokens::trackBg(isDark));
+    g.fillRoundedRectangle(meterBar, SoundIdTheme::TelemetryTokens::cornerRadius);
+    g.setColour(SoundIdTheme::TelemetryTokens::trackBorder(isDark));
+    g.drawRoundedRectangle(meterBar, SoundIdTheme::TelemetryTokens::cornerRadius, 1.0f);
 
     const float optimalStart = meterBar.getX() + meterBar.getWidth() * 0.15f;
     const float optimalEnd = meterBar.getX() + meterBar.getWidth() * 0.75f;
-    g.setColour(SoundIdTheme::accentGreen.withAlpha(0.12f));
+    g.setColour(SoundIdTheme::TelemetryTokens::safeColour().withAlpha(0.12f));
     g.fillRect(juce::Rectangle<float>(optimalStart, meterBar.getY(),
                                       optimalEnd - optimalStart, meterBar.getHeight()));
 
@@ -154,24 +158,24 @@ void paintLevelMonitor(juce::Graphics& g,
     // The track colour only changes to red/amber past the optimal window.
     juce::Colour meterColour = SoundIdTheme::textMuted.withAlpha(0.4f);
     if (peak > 0.95f)
-        meterColour = SoundIdTheme::accentRed;
+        meterColour = SoundIdTheme::TelemetryTokens::clippingColour();
     else if (peak >= 0.15f)
-        meterColour = SoundIdTheme::accentGreen;
+        meterColour = SoundIdTheme::TelemetryTokens::safeColour();
     else if (peak > 0.02f)
-        meterColour = SoundIdTheme::accentAmber;
+        meterColour = SoundIdTheme::TelemetryTokens::warningColour();
 
     g.setColour(meterColour);
-    g.fillRoundedRectangle(meterBar.withWidth(meterBar.getWidth() * peak), 4.0f);
+    g.fillRoundedRectangle(meterBar.withWidth(meterBar.getWidth() * peak), SoundIdTheme::TelemetryTokens::cornerRadius);
 
     meterArea.removeFromTop(4.0f);
 
-    auto levelRow = meterArea.removeFromTop(16.0f);
-    g.setFont(font(10.5f, juce::Font::bold));
+    auto levelRow = meterArea.removeFromTop(18.0f);
+    g.setFont(font(12.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("Input: " + reading.dBfsText, levelRow.removeFromLeft(110.0f),
+    g.drawText("Input: " + reading.dBfsText, levelRow.removeFromLeft(125.0f),
                juce::Justification::centredLeft, true);
 
-    g.setFont(font(9.5f, juce::Font::bold));
+    g.setFont(font(11.5f, juce::Font::bold));
     g.setColour(reading.rangeColour);
     g.drawText(reading.rangeText, levelRow, juce::Justification::centredLeft, true);
 
@@ -231,28 +235,28 @@ void paintNoiseBaselineReport(juce::Graphics& g, const ViewState& view, juce::Re
     {
         case NoiseBaselineState::Passed:
         {
-            g.setFont(font(10.5f));
+            g.setFont(font(12.0f));
             g.setColour(SoundIdTheme::textPrimary);
             g.drawText("RMS Noise Floor: " + formatDbfs(view.noiseReport.rmsDbfs, 1) + " [SAFE < -45 dBFS]",
-                       meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
-            g.drawText("Peak Noise Floor: " + formatDbfs(view.noiseReport.peakDbfs, 1),
-                       meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(17.0f), juce::Justification::centredLeft, true);
+            g.drawText("Peak Noise Floor: " + formatDbfs(view.noiseReport.peakDbfs, 1) + " [INFO]",
+                       meterArea.removeFromTop(17.0f), juce::Justification::centredLeft, true);
             g.drawText("Channel: " + view.noiseReport.inputChannel + " | Device: " + view.noiseReport.deviceName,
-                       meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(17.0f), juce::Justification::centredLeft, true);
             if (view.noiseReport.timestampIso.isNotEmpty())
                 g.drawText("Measured At: " + view.noiseReport.timestampIso,
-                           meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+                           meterArea.removeFromTop(17.0f), juce::Justification::centredLeft, true);
 
             meterArea.removeFromTop(6.0f);
             drawStatusBody(g, meterArea,
                            "Input verified quiet and safe. Ready to switch to 2B for loopback calibration.",
-                           SoundIdTheme::accentGreen, 28.0f, 10.0f);
+                           SoundIdTheme::accentGreen, 28.0f, 12.0f);
             break;
         }
 
         case NoiseBaselineState::Checking:
             drawStatusBody(g, meterArea, "Measuring 400 ms input baseline under confirmed digital silence...",
-                           SoundIdTheme::accentBlue, 20.0f);
+                           SoundIdTheme::accentBlue, 20.0f, 12.0f);
             break;
 
         case NoiseBaselineState::Contaminated:
@@ -346,9 +350,9 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
     const auto baselineRef = view.noiseBaselineState == NoiseBaselineState::Passed
                                  ? juce::String(view.noiseReport.rmsDbfs, 1) + " dBFS [PASS]"
                                  : juce::String("[NOT CHECKED]");
-    g.setFont(font(9.5f));
+    g.setFont(font(11.5f));
     g.setColour(SoundIdTheme::textSecondary);
-    g.drawText("Baseline (2A): " + baselineRef, meterArea.removeFromTop(14.0f),
+    g.drawText("Baseline (2A): " + baselineRef, meterArea.removeFromTop(16.0f),
                juce::Justification::centredLeft, true);
 
     meterArea.removeFromTop(4.0f);
@@ -359,30 +363,30 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
     {
         case LoopbackState::Passed:
         {
-            g.setFont(font(10.5f));
+            g.setFont(font(12.0f));
             g.setColour(SoundIdTheme::textPrimary);
             g.drawText("Roundtrip Latency: " + juce::String(report.roundTripLatencyMs, 2) + " ms ("
                            + juce::String(report.latencySamples) + " samples)",
-                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
             g.drawText("Recommended Level Trim: " + formatTrimDb(report.recommendedTrimGain, 2),
-                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
             g.drawText("Flatness Delta: " + juce::String(report.frequencyFlatnessDb, 1) + " dB [PASS < 6.0 dB]",
-                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
             juce::String snrTag = (report.snrMethod == math::SnrMeasurementMethod::PhysicalNoiseBaseline)
                                       ? " [PHYSICAL]"
                                       : (report.snrMethod == math::SnrMeasurementMethod::LegacyAssumedNoiseFloor
                                              ? " [ESTIMATED]"
                                              : "");
             g.drawText("SNR: " + juce::String(report.snrDb, 1) + " dB" + snrTag + " | THD+N: " + juce::String(report.thdPercent, 3) + "%",
-                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
             g.drawText(juce::String("Polarity: ") + (report.phaseInverted ? "Inverted (180 deg)" : "Normal"),
-                       meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
 
             if (!view.saveFeedbackText.isEmpty())
             {
-                g.setFont(font(9.5f, juce::Font::bold));
+                g.setFont(font(11.5f, juce::Font::bold));
                 g.setColour(SoundIdTheme::accentGreen);
-                g.drawText(view.saveFeedbackText, meterArea.removeFromTop(18.0f),
+                g.drawText(view.saveFeedbackText, meterArea.removeFromTop(20.0f),
                            juce::Justification::topLeft, true);
             }
             break;
@@ -437,10 +441,21 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
         {
             const auto reason = report.failureReason.isNotEmpty() ? report.failureReason
                                                                   : view.diagnostics.failureReason;
+            juce::String extraDiagnostics;
+            if (view.diagnostics.latencySamples > 0)
+            {
+                extraDiagnostics += "\nRTL: " + juce::String(view.diagnostics.roundTripLatencyMs, 2)
+                                    + " ms (" + juce::String(view.diagnostics.latencySamples) + " smp) [DIAGNOSTIC ONLY — CALIBRATION FAILED]";
+            }
+            if (view.diagnostics.snrDb != 0.0f || view.noiseBaselineState == NoiseBaselineState::Passed)
+            {
+                extraDiagnostics += "\nSNR: " + juce::String(view.diagnostics.snrDb, 1) + " dB [PHYSICAL BASELINE, INVALID LOOPBACK]";
+            }
             drawFailureBody(g, meterArea, "Failed: " + reason,
                             "Peak In: " + juce::String(view.diagnostics.peakInDbfs, 1) + " dBFS\n"
                             "Captured: " + juce::String(view.diagnostics.samplesCaptured) + " / "
-                                + juce::String(view.diagnostics.samplesRequired) + "\n"
+                                + juce::String(view.diagnostics.samplesRequired)
+                                + extraDiagnostics + "\n"
                             "Verify physical patch cable connection and retry.",
                             SoundIdTheme::accentRed, 18.0f);
             break;
@@ -469,8 +484,8 @@ void paintSavedProfiles(juce::Graphics& g, const ViewState& view, juce::Rectangl
     const auto profileIndex = juce::jmax(0, view.selectedProfileIndex);
     const auto hasProfile = totalProfiles > 0 && profileIndex < totalProfiles;
 
-    auto titleRow = inner.removeFromTop(16.0f);
-    g.setFont(font(10.0f, juce::Font::bold));
+    auto titleRow = inner.removeFromTop(18.0f);
+    g.setFont(font(11.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
     g.drawText("SAVED PROFILES IN APPDATA", titleRow, juce::Justification::centredLeft, true);
 
@@ -486,7 +501,7 @@ void paintSavedProfiles(juce::Graphics& g, const ViewState& view, juce::Rectangl
 
     if (!hasProfile)
     {
-        g.setFont(font(10.5f));
+        g.setFont(font(12.0f));
         g.setColour(SoundIdTheme::textSecondary);
         g.drawText("No saved calibration profiles found on disk.", inner,
                    juce::Justification::centredLeft, true);
@@ -495,35 +510,35 @@ void paintSavedProfiles(juce::Graphics& g, const ViewState& view, juce::Rectangl
 
     const auto& profile = (*profiles)[static_cast<size_t>(profileIndex)];
 
-    g.setFont(font(11.0f, juce::Font::bold));
+    g.setFont(font(12.5f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
     g.drawText(juce::String(profile.deviceSnapshot.deviceName) + " ("
                    + juce::String(profile.deviceSnapshot.driverType) + ")",
-               inner.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+               inner.removeFromTop(16.0f), juce::Justification::centredLeft, true);
 
-    g.setFont(font(10.0f));
+    g.setFont(font(11.5f));
     g.setColour(SoundIdTheme::textSecondary);
     g.drawText(juce::String(profile.deviceSnapshot.sampleRate / 1000.0, 1) + " kHz | Buffer "
                    + juce::String(profile.deviceSnapshot.bufferSizeSamples) + " | "
                    + juce::String(profile.routingSnapshot.outputChannelLabel) + " -> "
                    + juce::String(profile.routingSnapshot.inputChannelLabel),
-               inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+               inner.removeFromTop(15.0f), juce::Justification::centredLeft, true);
 
-    g.setFont(font(9.5f));
+    g.setFont(font(11.0f));
     g.setColour(SoundIdTheme::textMuted);
-    g.drawText("Date: " + juce::String(profile.createdAt), inner.removeFromTop(13.0f),
+    g.drawText("Date: " + juce::String(profile.createdAt), inner.removeFromTop(14.0f),
                juce::Justification::centredLeft, true);
 
     if (view.showProfileDetails)
     {
         const auto& result = profile.calibrationResult;
-        g.setFont(font(9.5f, juce::Font::bold));
+        g.setFont(font(11.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::accentGreen);
         g.drawText("Lat: " + juce::String(result.roundTripLatencyMs, 1) + " ms ("
                        + juce::String(result.latencySamples) + " spls) | SNR: "
                        + juce::String(result.snrDb, 1) + " dB | Flat: "
                        + juce::String(result.frequencyFlatnessDb, 1) + " dB",
-                   inner.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+                   inner.removeFromTop(15.0f), juce::Justification::centredLeft, true);
     }
 }
 

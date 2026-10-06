@@ -490,6 +490,18 @@ bool ProfilingSessionController::startProfiling()
                    "Segunda solicitud de inicio rechazada.");
         return false;
     }
+
+    if (!hasRealTargetInSnapshot(currentSnapshot_))
+    {
+        raiseAlert(UiAlert::Severity::Error,
+                   "Target no configurado",
+                   "No se ha seleccionado un target real o plugin VST3.",
+                   "El perfilado requiere un dispositivo real o plugin configurado en el Paso 1.",
+                   "Seleccione un target en el Paso 1 antes de iniciar la medición.",
+                   "Inicio de medición bloqueado.");
+        return false;
+    }
+
     if (currentSnapshot_.sessionStatus == ProfilingSessionStatus::TargetSelected ||
         currentSnapshot_.sessionStatus == ProfilingSessionStatus::EvaluationLoadedForReview ||
         currentSnapshot_.sessionStatus == ProfilingSessionStatus::Completed ||
@@ -750,6 +762,7 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
         manifestData.sampleRate = 48000.0;
         manifestData.averageSnrDb = 98.4f;
         manifestData.noiseFloorRmsDb = -92.1f;
+        manifestData.calibrationMode = currentSnapshot_.calibration.audio.bypassed ? "Bypass" : "ValidatedPhysicalLoopback";
 
         std::vector<exporting::MeasuredPoint> exportPoints;
 

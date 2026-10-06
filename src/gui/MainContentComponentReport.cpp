@@ -43,7 +43,15 @@ core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
     sm.sampleRate = audioEngine.getSampleRate();
     sm.gainPlan = sequencer.getGainPlan();
     sm.lineCalibrationGainDb = sm.gainPlan.effectiveTrimDb;
-    if (auto ctx = sequencer.getActiveCalibrationContext())
+    const bool isBypassed = workflowNavController.isCalibrationSkipped() || canonicalCalibrationState.isSkipped;
+    sm.calibrationMode = isBypassed ? "Bypass" : "ValidatedPhysicalLoopback";
+    if (isBypassed)
+    {
+        sm.calibrationSnapshot = std::nullopt;
+        sm.hasPhysicalNoiseBaseline = false;
+        sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+    }
+    else if (auto ctx = sequencer.getActiveCalibrationContext())
     {
         const auto& snapOpt = ctx->getSnapshot();
         if (snapOpt.has_value())
@@ -351,6 +359,8 @@ void MainContentComponent::updateExportReportMetrics(const exporting::Calculated
 void MainContentComponent::notifyExportSuccess(const juce::File& destinationDir, const juce::String& baseName)
 {
     exportReportPanel.showExportSuccess(destinationDir.getFullPathName(), baseName);
+    workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                        gui::SoundIdSidebarStepper::StepStatus::Completed);
 }
 
 void MainContentComponent::showPanelStatus(const juce::String& statusMessage, bool isWarning)

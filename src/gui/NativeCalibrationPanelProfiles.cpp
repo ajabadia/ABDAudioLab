@@ -99,7 +99,7 @@ void NativeCalibrationPanel::evaluateProfilesMatching()
 void NativeCalibrationPanel::refreshSavedProfiles()
 {
     savedProfiles = profileStore.list();
-    btnToggleSavedProfiles.setButtonText("Saved Calibrations ("
+    btnToggleSavedProfiles.setButtonText("Saved Profiles ("
                                          + juce::String(static_cast<int>(savedProfiles.size())) + ")");
 
     selectedProfileIndex_ = savedProfiles.empty()

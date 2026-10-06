@@ -20,7 +20,7 @@ namespace abdaudiolab::gui::calibrationpanel::painter
 namespace
 {
 
-constexpr float kInstructionRowHeight { 50.0f };
+constexpr float kInstructionRowHeight { 56.0f };
 constexpr float kDigitalRowHeight { 62.0f };
 
 /** @brief One numbered instruction row of the left column. */
@@ -164,7 +164,7 @@ void paintAnalogInstructions(juce::Graphics& g, const ViewState& view, juce::Rec
     const bool is2A = view.subView == SubView::NoiseBaseline_2A;
 
     auto header = leftColumn.removeFromTop(20.0f);
-    g.setFont(font(10.5f, juce::Font::bold));
+    g.setFont(font(12.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textMuted);
     g.drawText(is2A ? "SUBPASO 2A: SUELO DE RUIDO DE ENTRADA (CABLE DESCONECTADO)"
                     : "SUBPASO 2B: MEDICION FISICA DE LOOPBACK (CABLE CONECTADO)",
@@ -172,7 +172,7 @@ void paintAnalogInstructions(juce::Graphics& g, const ViewState& view, juce::Rec
     leftColumn.removeFromTop(6.0f);
 
     drawSteps(g, leftColumn, is2A ? buildSteps2A(view) : buildSteps2B(view),
-              kInstructionRowHeight, 10.5f, 4.0f);
+              kInstructionRowHeight, 12.0f, 4.0f);
 
     if (is2A)
     {

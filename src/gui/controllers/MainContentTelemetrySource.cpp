@@ -99,9 +99,12 @@ TelemetrySessionProgress MainContentTelemetrySource::readSessionProgress() const
 {
     TelemetrySessionProgress progress;
     progress.currentTrial = sessionCoordinator.getTotalPointsMeasured();
-    progress.totalTrials = suiteList.getQueueSize();
+    int totalPts = suiteList.getTotalPointCount();
+    progress.totalTrials = totalPts > 0 ? totalPts : std::max(1, suiteList.getQueueSize());
 
-    float rms = audioEngine.getLastPluginOutputRms();
+    float rms = (audioEngine.getActivePluginInstance() != nullptr)
+        ? audioEngine.getLastPluginOutputRms()
+        : audioEngine.getInputRmsL();
     progress.lastPluginOutputRmsDb = (rms > 0.00001f) ? juce::Decibels::gainToDecibels(rms) : -120.0f;
     progress.activeMidiNoteNumber = audioEngine.getLastNoteOnNumber();
 

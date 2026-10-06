@@ -70,6 +70,7 @@ nlohmann::json SessionSerializer::serializeManifestToJson(const SessionManifest&
     j["warmupTimeMinutes"] = manifest.warmupTimeMinutes;
 
     // Calibration Snapshot & Composite Gain Plan
+    j["calibrationMode"] = manifest.calibrationMode;
     if (manifest.calibrationSnapshot.has_value())
     {
         j["calibrationSnapshot"] = manifest.calibrationSnapshot->toJson();
@@ -177,6 +178,8 @@ bool SessionSerializer::deserializeManifestFromJson(const nlohmann::json& j, Ses
         if (j.contains("warmupTimeMinutes")) outManifest.warmupTimeMinutes = j["warmupTimeMinutes"].get<int>();
 
         // Calibration Snapshot & Composite Gain Plan
+        if (j.contains("calibrationMode"))
+            outManifest.calibrationMode = j["calibrationMode"].get<std::string>();
         if (j.contains("calibrationSnapshot") && j["calibrationSnapshot"].is_object())
         {
             auto snapOpt = calibration::CalibrationSnapshot::fromJsonSafe(j["calibrationSnapshot"]);

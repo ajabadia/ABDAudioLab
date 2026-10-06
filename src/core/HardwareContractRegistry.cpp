@@ -154,8 +154,8 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         // contrato YA retenido sea visible como tal en cualquier consumidor que
         // lo reciba por otra via —el adaptador, un snapshot—, y no solo como una
         // ausencia en esta lista.
-        c.status = j.value("status", std::string());
-        c.statusReason = j.value("statusReason", std::string());
+        c.status = j.value(quarantine::campoEstado, std::string());
+        c.statusReason = j.value(quarantine::campoMotivo, std::string());
         c.brand = j.value("brand", std::string(""));
         c.brandLogo = j.value("brandLogo", std::string(""));
         c.modelImage = j.value("modelImage", std::string(""));
@@ -424,7 +424,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
             // cajon sin que nadie haya decidido que eso es lo correcto.
             const auto estado = contract.status;
 
-            if (!estado.empty() && estado != "quarantined")
+            if (!estado.empty() && estado != quarantine::valorEstado)
             {
                 const juce::String aviso = "Contrato '" + juce::String(contract.id)
                                            + "' lleva status '" + estado

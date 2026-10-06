@@ -173,14 +173,14 @@ private:
 
     juce::TextButton btnStartMeasure { "Start Loopback Calibration" };
     juce::TextButton btnRecheckBaseline { "↺ Re-check Baseline (2A)" };
-    juce::TextButton btnSkip { "Continue without calibration (Bypass)" };
-    juce::TextButton btnContinue { "Continue to Run Session (Step 3) ➔" };
+    juce::TextButton btnSkip { "Bypass Calibration" };
+    juce::TextButton btnContinue { "Continue to Step 3 ➔" };
     juce::TextButton btnRetry { "Retry Calibration" };
     juce::TextButton btnVerifyDigital { "Verify Digital Latency" };
 
     juce::TextButton btnReuseCalibration { "Reuse Saved Calibration" };
     juce::TextButton btnSaveCalibration { "Save Calibration" };
-    juce::TextButton btnToggleSavedProfiles { "Saved Calibrations" };
+    juce::TextButton btnToggleSavedProfiles { "Saved Profiles" };
     juce::TextButton btnDeleteProfile { "Delete" };
     juce::TextButton btnViewProfileDetails { "View Details" };
     juce::TextButton btnPrevProfile { "◀" };

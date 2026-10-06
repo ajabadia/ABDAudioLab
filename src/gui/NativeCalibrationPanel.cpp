@@ -86,13 +86,13 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     [this] { reuseMatchingProfile(); });
 
     addActionButton(*this, btnSkip,
-                    { "Continue without calibration (Bypass)",
+                    { "Bypass Calibration",
                       "Continues without audio interface latency or level compensation. Resets to unity gain.",
-                      SoundIdTheme::bgCardHover, SoundIdTheme::accentAmber },
+                      SoundIdTheme::bgCardHover, SoundIdTheme::textSecondary },
                     [this] { skipCalibration(); });
 
     addActionButton(*this, btnContinue,
-                    { "Continue to Run Session (Step 3) ➔",
+                    { "Continue to Step 3 ➔",
                       "Proceed to Step 3: session excitation and profiling",
                       SoundIdTheme::accentGreen, juce::Colours::white },
                     [this] {
@@ -123,7 +123,7 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     [this] { saveCurrentCalibrationProfile(); });
 
     addActionButton(*this, btnToggleSavedProfiles,
-                    { "Saved Calibrations",
+                    { "Saved Profiles",
                       "Shows or collapses the list of saved calibrations on disk",
                       SoundIdTheme::bgCardHover, SoundIdTheme::textSecondary },
                     [this] {

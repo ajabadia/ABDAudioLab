@@ -25,7 +25,7 @@ struct BadgeStyle
     juce::String label;
     juce::Colour background { SoundIdTheme::bgCardHover };
     juce::Colour foreground { SoundIdTheme::textSecondary };
-    float textHeight { 10.5f };
+    float textHeight { 12.0f };
     float cornerRadius { 6.0f };
 };
 
@@ -66,7 +66,7 @@ struct PillStyle
     juce::String label;
     juce::Colour background;
     juce::Colour foreground;
-    float textHeight { 9.5f };
+    float textHeight { 11.0f };
 };
 
 struct StepCardModel
@@ -75,10 +75,10 @@ struct StepCardModel
     juce::Colour border { SoundIdTheme::borderSubtle };
     bool active { false };
     PillStyle pill;
-    float pillWidth { 118.0f };
+    float pillWidth { 128.0f };
     juce::Colour circleFill { SoundIdTheme::textMuted };
     juce::String circleText { "2A" };
-    float circleTextHeight { 10.0f };
+    float circleTextHeight { 11.0f };
     juce::String title;
     juce::Colour titleColour { SoundIdTheme::textPrimary };
     juce::String subtitle;
@@ -117,25 +117,24 @@ StepCardModel buildStepCard2A(const ViewState& view)
     }
 
     card.pillWidth = 118.0f;
+    card.pillWidth = 132.0f;
     if (passed)
         card.pill = { "[ PASS ]", juce::Colour(0xffd1fae5), juce::Colour(0xff065f46) };
     else if (checking)
         card.pill = { "[ CHECKING ]", juce::Colour(0xffe0e7ff), juce::Colour(0xff3730a3) };
     else if (deviceStopped)
-    {
-        card.pill = { "[ DEVICE STOPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 8.0f };
-    }
+        card.pill = { "[ DEVICE STOPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 10.5f };
     else if (contaminated)
-        card.pill = { "[ CONTAMINATED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 9.0f };
+        card.pill = { "[ CONTAMINATED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 10.5f };
     else if (safetyAborted)
-        card.pill = { "[ SAFETY ABORT ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 8.5f };
+        card.pill = { "[ SAFETY ABORT ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 10.5f };
     else
         card.pill = { "[ PENDING ]", SoundIdTheme::bgCard, SoundIdTheme::accentBlue };
 
     card.circleFill = passed ? SoundIdTheme::accentGreen
                              : (active ? SoundIdTheme::accentBlue : SoundIdTheme::textMuted);
     card.circleText = passed ? juce::String("OK") : juce::String("2A");
-    card.circleTextHeight = passed ? 9.5f : 10.0f;
+    card.circleTextHeight = 11.0f;
 
     card.titleColour = passed ? SoundIdTheme::accentGreen
                               : (active ? SoundIdTheme::textPrimary : SoundIdTheme::textSecondary);
@@ -209,42 +208,44 @@ StepCardModel buildStepCard2B(const ViewState& view)
         card.border = SoundIdTheme::accentRed;
     }
 
-    card.pillWidth = 126.0f;
+    card.pillWidth = 140.0f;
     if (passed)
         card.pill = { "[ PASS ]", juce::Colour(0xffd1fae5), juce::Colour(0xff065f46) };
     else if (measuringPreflight)
-        card.pill = { "[ PREFLIGHT ]", juce::Colour(0xffe0e7ff), juce::Colour(0xff3730a3), 9.0f };
+        card.pill = { "[ PREFLIGHT ]", juce::Colour(0xffe0e7ff), juce::Colour(0xff3730a3), 10.5f };
     else if (measuringSweep)
-        card.pill = { "[ SWEEPING ]", juce::Colour(0xffe0e7ff), juce::Colour(0xff3730a3), 9.0f };
+        card.pill = { "[ SWEEPING ]", juce::Colour(0xffe0e7ff), juce::Colour(0xff3730a3), 10.5f };
     else if (stale)
         card.pill = { "[ STALE ]", juce::Colour(0xfffef3c7), juce::Colour(0xff92400e) };
     else if (ready)
         card.pill = { "[ READY ]", SoundIdTheme::accentGreen, juce::Colours::white };
     else if (loopback == LoopbackState::Clipped)
-        card.pill = { "[ CLIPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 9.0f };
+        card.pill = { "[ CLIPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 10.5f };
     else if (loopback == LoopbackState::SignalTooLow)
-        card.pill = { "[ LOW LEVEL ]", juce::Colour(0xfffef3c7), juce::Colour(0xff92400e), 8.5f };
+        card.pill = { "[ LOW LEVEL ]", juce::Colour(0xfffef3c7), juce::Colour(0xff92400e), 10.5f };
     else if (deviceStopped)
-        card.pill = { "[ DEVICE STOPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 8.5f };
+        card.pill = { "[ DEVICE STOPPED ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed, 10.5f };
     else if (isLoopbackFailureState(loopback))
         card.pill = { "[ FAIL ]", juce::Colour(0xfffee2e2), SoundIdTheme::accentRed };
     else
-        card.pill = { "[ LOCKED ]", SoundIdTheme::bgCard.withAlpha(0.6f), SoundIdTheme::textMuted, 9.0f };
+        card.pill = { "[ LOCKED ]", SoundIdTheme::bgCard.withAlpha(0.6f), SoundIdTheme::textMuted, 10.5f };
 
     card.circleText = juce::String("2B");
     if (passed)
     {
         card.circleFill = SoundIdTheme::accentGreen;
         card.circleText = juce::String("OK");
-        card.circleTextHeight = 9.5f;
+        card.circleTextHeight = 11.0f;
     }
     else if (ready)
     {
         card.circleFill = SoundIdTheme::accentGreen;
+        card.circleTextHeight = 11.0f;
     }
     else
     {
         card.circleFill = locked ? SoundIdTheme::textMuted.withAlpha(0.4f) : SoundIdTheme::accentBlue;
+        card.circleTextHeight = 11.0f;
     }
 
     card.titleColour = passed ? SoundIdTheme::accentGreen
@@ -284,11 +285,11 @@ void paintStepCard(juce::Graphics& g,
 
     auto inner = cardBounds.reduced(10.0f, 8.0f);
 
-    auto pill = inner.removeFromRight(model.pillWidth).withHeight(20.0f).withY(inner.getY() + 2.0f);
+    auto pill = inner.removeFromRight(model.pillWidth).withHeight(22.0f).withY(inner.getY() + 2.0f);
     drawBadge(g, pill, model.pill.label, model.pill.background, model.pill.foreground,
               model.pill.textHeight, juce::Justification::centred, 4.0f);
 
-    auto circle = inner.removeFromLeft(26.0f).withSizeKeepingCentre(22.0f, 22.0f);
+    auto circle = inner.removeFromLeft(28.0f).withSizeKeepingCentre(24.0f, 24.0f);
     g.setColour(model.circleFill);
     g.fillEllipse(circle);
     g.setFont(font(model.circleTextHeight, juce::Font::bold));
@@ -297,11 +298,11 @@ void paintStepCard(juce::Graphics& g,
 
     inner.removeFromLeft(8.0f);
 
-    g.setFont(font(11.5f, juce::Font::bold));
+    g.setFont(font(13.5f, juce::Font::bold));
     g.setColour(model.titleColour);
     g.drawText(model.title, inner.removeFromTop(18.0f), juce::Justification::centredLeft, true);
 
-    g.setFont(font(10.0f));
+    g.setFont(font(11.5f));
     g.setColour(model.subtitleColour);
     g.drawText(model.subtitle, inner, juce::Justification::topLeft, true);
 }
@@ -313,10 +314,10 @@ void paintHeaderRow(juce::Graphics& g, const ViewState& view, juce::Rectangle<fl
 {
     g.setFont(font(18.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
-    g.drawText("2. Audio Interface Calibration", headerRow.removeFromLeft(460.0f),
+    g.drawText("2. Audio Interface Calibration", headerRow.removeFromLeft(440.0f),
                juce::Justification::centredLeft, true);
 
-    paintStatusBadge(g, view, headerRow.removeFromRight(220.0f).reduced(0.0f, 3.0f));
+    paintStatusBadge(g, view, headerRow.removeFromRight(260.0f).reduced(0.0f, 2.0f));
 }
 
 void paintStatusBadge(juce::Graphics& g, const ViewState& view, juce::Rectangle<float> badgeRect)

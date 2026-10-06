@@ -383,6 +383,12 @@ void NativeCalibrationPanel::handleNoiseBaselineTick()
     noiseReport_.statusText = "PASSED";
     noiseReport_.failureReason = {};
 
+    juce::Logger::writeToLog(juce::String("[Calibration 2A] Evaluated: Status=")
+                             + juce::String(calibration::noiseBaselineStatusToString(lastNoiseBaseline_.status))
+                             + " | RMS=" + juce::String(lastNoiseBaseline_.rmsDbfs, 1) + " dBFS"
+                             + " | Peak=" + juce::String(lastNoiseBaseline_.peakDbfs, 1) + " dBFS"
+                             + " | Device=" + noiseReport_.deviceName);
+
     // Unlock loopback only if it was locked; an already Stale 2B stays ready to measure.
     if (loopbackState_ == LoopbackState::Locked)
         loopbackState_ = LoopbackState::Ready;
@@ -678,6 +684,34 @@ void NativeCalibrationPanel::processCalibrationResult()
         completeSuccessfulCalibration();
     else
         completeFailedCalibration();
+
+    juce::Logger::writeToLog(juce::String("=== CALIBRATION 2B RESULT SUMMARY ==="));
+    juce::Logger::writeToLog(juce::String("Device / driver: ") + lastDiagnostics_.deviceName + " / " + lastDiagnostics_.driverType);
+    juce::Logger::writeToLog(juce::String("Sample rate: ") + juce::String(sampleRate, 0) + " Hz");
+    juce::Logger::writeToLog(juce::String("Buffer size: ") + juce::String(audioEngine.getCurrentBufferSizeSamples()));
+    juce::Logger::writeToLog(juce::String("Input / output: ") + lastDiagnostics_.inputChannel + " -> " + lastDiagnostics_.outputChannel);
+    juce::Logger::writeToLog(juce::String("2A status: ") + (noiseReport_.passed ? "PASS" : "FAIL"));
+    juce::Logger::writeToLog(juce::String("2A RMS: ") + juce::String(noiseReport_.rmsDbfs, 1) + " dBFS");
+    juce::Logger::writeToLog(juce::String("2A peak: ") + juce::String(noiseReport_.peakDbfs, 1) + " dBFS [INFO]");
+    juce::Logger::writeToLog(juce::String("2B preflight: PASSED (200 ms muted)"));
+    juce::Logger::writeToLog(juce::String("2B result: ") + (loopbackReport_.passed ? juce::String("PASS") : (juce::String("FAIL — ") + loopbackReport_.failureReason)));
+    juce::Logger::writeToLog(juce::String("Samples captured / required: ") + juce::String(lastCaptureStatus_.samplesCaptured) + " / " + juce::String(lastCaptureStatus_.requiredSamples));
+    juce::Logger::writeToLog(juce::String("Peak level: ") + juce::String(calibrationData.peakInDbfs, 1) + " dBFS");
+    if (loopbackReport_.passed)
+    {
+        juce::Logger::writeToLog(juce::String("RTL: ") + juce::String(calibrationData.latencySamples) + " samples (" + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms)");
+        juce::Logger::writeToLog(juce::String("SNR: ") + juce::String(calibrationData.snrDb, 1) + " dB");
+    }
+    else
+    {
+        juce::Logger::writeToLog(juce::String("RTL: ") + juce::String(calibrationData.latencySamples) + " samples (" + juce::String(calibrationData.roundTripLatencyMs, 2) + " ms) [DIAGNOSTIC ONLY — CALIBRATION FAILED]");
+        juce::Logger::writeToLog(juce::String("SNR: ") + juce::String(calibrationData.snrDb, 1) + " dB [PHYSICAL BASELINE, INVALID LOOPBACK]");
+    }
+    juce::Logger::writeToLog(juce::String("Flatness: ") + juce::String(calibrationData.frequencyFlatnessDb, 1) + " dB");
+    juce::Logger::writeToLog(juce::String("SNR method: ") + juce::String(math::snrMeasurementMethodToString(calibrationData.snrMethod)));
+    juce::Logger::writeToLog(juce::String("Abort reason: ") + (lastCaptureStatus_.result == audio::CaptureResult::Aborted ? "Aborted" : "None"));
+    juce::Logger::writeToLog(juce::String("Step 3 unlocked: ") + (loopbackReport_.passed ? "YES" : "NO (LOCKED)"));
+    juce::Logger::writeToLog(juce::String("====================================="));
 
     startTimerHz(30);
     resized();

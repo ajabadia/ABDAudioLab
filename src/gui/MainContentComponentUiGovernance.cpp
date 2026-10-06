@@ -54,7 +54,8 @@ void MainContentComponent::updateGovernanceUi()
     auto mode = sessionCoordinator.getWorkspaceInteractionMode();
     auto state = sessionCoordinator.getCoordinatorState();
     int currentPt = sessionCoordinator.getTotalPointsMeasured();
-    int totalPts = suiteList.getQueueSize();
+    int totalPts = suiteList.getTotalPointCount();
+    if (totalPts <= 0) totalPts = suiteList.getQueueSize();
 
     auto sessState = sessionCoordinator.getSessionState();
     unsigned progressPct = totalPts > 0 ? static_cast<unsigned>(currentPt * 100 / totalPts) : 0;
@@ -80,9 +81,20 @@ void MainContentComponent::updateGovernanceUi()
     juce::String stateStr = sessionStatus.statusText;
     juce::Colour stateCol = sessionStatus.badgeColour;
 
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+    const bool hasRealTarget = resolveCanonicalTarget().has_value() ||
+                               gui::session::hasRealTargetInSnapshot(profilingSessionController.getCurrentSnapshot());
+
+    if (mode == measurement::WorkspaceInteractionMode::Guided && !hasRealTarget)
+    {
+        stateStr = "No Target";
+        stateCol = isDark ? juce::Colour(0xffff5252) : juce::Colour(0xffb91c1c);
+    }
+
     // 3. Point Progress & Live Telemetry Text
     juce::String ptStr = (mode == measurement::WorkspaceInteractionMode::Guided)
-                             ? ("Point: " + juce::String(currentPt) + " of " + juce::String(std::max(currentPt, totalPts)))
+                             ? (!hasRealTarget ? juce::String("Target & Routing Required")
+                                               : ("Point: " + juce::String(currentPt) + " of " + juce::String(std::max(currentPt, totalPts))))
                              : ("Recorded takes: " + juce::String(currentPt));
 
     float liveRms = audioEngine.getLastPluginOutputRms();
@@ -96,7 +108,9 @@ void MainContentComponent::updateGovernanceUi()
             telemetrySuffix += " (" + juce::MidiMessage::getMidiNoteName(lastNote, true, true, 3) + ")";
     }
 
+    const auto badgeBg = isDark ? juce::Colour(0xff1e2329) : juce::Colour(0xfff1f3f5);
     lblHeaderStatusBadge.setText("  " + modeStr + "  |  " + stateStr + "  |  " + ptStr + telemetrySuffix + "  ", juce::dontSendNotification);
+    lblHeaderStatusBadge.setColour(juce::Label::backgroundColourId, badgeBg);
     lblHeaderStatusBadge.setColour(juce::Label::textColourId, stateCol);
     lblHeaderStatusBadge.setColour(juce::Label::outlineColourId, stateCol.withAlpha(0.6f));
 
@@ -109,9 +123,6 @@ void MainContentComponent::updateGovernanceUi()
         confirmManualButton.setTooltip(gui::strings::TOOLTIP_CONFIRM_MANUAL);
 
     bool isFreeMode = (mode == measurement::WorkspaceInteractionMode::Free);
-    bool isRunning = sessionCoordinator.isRunningSession();
-    bool isPaused = sessionCoordinator.isSessionPaused();
-    bool isCompleted = (sessState == gui::SessionState::Completed || state == measurement::CoordinatorState::SessionCompleted);
 
     if (isFreeMode)
     {
@@ -147,57 +158,11 @@ void MainContentComponent::updateGovernanceUi()
         btnFreeCapture.setVisible(false);
         btnFreeStop.setVisible(false);
         btnPromoteToRecipe.setVisible(false);
-        btnPrimaryAction.setVisible(true);
 
-        if (isCompleted)
-        {
-            btnPrimaryAction.setButtonText(gui::strings::VIEW_RESULTS_EXPORT);
-            btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentPurple);
-            btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-            btnPrimaryAction.setEnabled(true);
-            btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_VIEW_RESULTS);
-            btnCancelAction.setVisible(false);
-        }
-        else if (isRunning)
-        {
-            if (isPaused)
-            {
-                btnPrimaryAction.setButtonText(gui::strings::RESUME);
-                btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
-                btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_RESUME);
-            }
-            else
-            {
-                btnPrimaryAction.setButtonText(gui::strings::PAUSE);
-                btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentAmber.withAlpha(0.35f));
-                btnPrimaryAction.setColour(juce::TextButton::textColourOffId, gui::SoundIdTheme::accentAmber);
-                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_PAUSE);
-            }
-            btnPrimaryAction.setEnabled(sessionStatus.primaryEnabled);
-
-            btnCancelAction.setButtonText(gui::strings::CANCEL);
-            btnCancelAction.setVisible(sessionStatus.cancelVisible);
-            btnCancelAction.setEnabled(true);
-            btnCancelAction.setTooltip(gui::strings::TOOLTIP_CANCEL);
-        }
-        else
-        {
-            btnPrimaryAction.setButtonText(gui::strings::START_MEASUREMENT);
-            btnPrimaryAction.setColour(juce::TextButton::buttonColourId, gui::SoundIdTheme::accentGreen);
-            btnPrimaryAction.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-
-            bool canStart = (state == measurement::CoordinatorState::SessionReady
-                             || state == measurement::CoordinatorState::ProfileSelected
-                             || (state != measurement::CoordinatorState::NoSession && suiteList.getQueueSize() > 0));
-            btnPrimaryAction.setEnabled(canStart && sessionStatus.primaryEnabled);
-            if (!canStart)
-                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_BLOCKED);
-            else
-                btnPrimaryAction.setTooltip(gui::strings::TOOLTIP_START_READY);
-
-            btnCancelAction.setVisible(sessionStatus.cancelVisible);
-        }
+        // En modo guiado, la barra superior no duplica los comandos de sesión.
+        // SoundIdProfilingRunView contiene de forma exclusiva START, PAUSE/RESUME y CANCEL.
+        btnPrimaryAction.setVisible(false);
+        btnCancelAction.setVisible(false);
     }
 
     // 6. Persistent Operator Instructions & Error Banners
@@ -342,9 +307,12 @@ void MainContentComponent::resized()
         }
         else
         {
-            int btnW = (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted) ? 240 : 180;
-            btnPrimaryAction.setBounds(govRow.removeFromLeft(btnW));
-            govRow.removeFromLeft(8);
+            if (btnPrimaryAction.isVisible())
+            {
+                int btnW = (sessionCoordinator.getCoordinatorState() == measurement::CoordinatorState::SessionCompleted) ? 240 : 180;
+                btnPrimaryAction.setBounds(govRow.removeFromLeft(btnW));
+                govRow.removeFromLeft(8);
+            }
             if (btnCancelAction.isVisible())
             {
                 btnCancelAction.setBounds(govRow.removeFromLeft(110));
@@ -386,6 +354,8 @@ void MainContentComponent::resized()
                 profilingRunView->setVisible(true);
                 profilingRunView->setBounds(bounds);
             }
+            if (resultsSummaryView != nullptr)
+                resultsSummaryView->setVisible(false);
             curvePlotter.setVisible(false);
             suiteList.setVisible(false);
             centerSplitterBar.setVisible(false);
@@ -395,12 +365,38 @@ void MainContentComponent::resized()
         {
             if (profilingRunView != nullptr)
                 profilingRunView->setVisible(false);
+            if (resultsSummaryView != nullptr)
+                resultsSummaryView->setVisible(false);
+        }
+    }
+    else if (workflowNavController.getCurrentStep() == gui::WorkflowNavigationController::Step::ExportReport)
+    {
+        if (profilingRunView != nullptr)
+            profilingRunView->setVisible(false);
+
+        if (sessionCoordinator.getWorkspaceInteractionMode() == measurement::WorkspaceInteractionMode::Guided)
+        {
+            if (resultsSummaryView != nullptr)
+            {
+                resultsSummaryView->setVisible(true);
+                resultsSummaryView->setBounds(bounds);
+            }
+            exportReportPanel.setVisible(false);
+        }
+        else
+        {
+            if (resultsSummaryView != nullptr)
+                resultsSummaryView->setVisible(false);
+            exportReportPanel.setVisible(true);
+            exportReportPanel.setBounds(bounds);
         }
     }
     else
     {
         if (profilingRunView != nullptr)
             profilingRunView->setVisible(false);
+        if (resultsSummaryView != nullptr)
+            resultsSummaryView->setVisible(false);
     }
 
     // 6. Slide-in Drawer & Modals fill full window bounds
@@ -504,6 +500,8 @@ void MainContentComponent::onSessionSnapshotUpdated(const gui::session::Profilin
     nativeCalibrationPanel.updateFromSnapshot(snapshot);
     if (profilingRunView != nullptr)
         profilingRunView->updateFromSnapshot(snapshot);
+    if (resultsSummaryView != nullptr)
+        resultsSummaryView->updateFromSnapshot(snapshot);
 }
 
 void MainContentComponent::onAlertRaised(const gui::session::UiAlert& alert)
@@ -520,11 +518,32 @@ void MainContentComponent::onWorkflowStageChanged(gui::session::ProfilingWorkflo
                                             gui::SoundIdSidebarStepper::StepStatus::Completed);
         workflowNavController.setStep(gui::WorkflowNavigationController::Step::RunSession);
     }
+    else if (newStage == gui::session::ProfilingWorkflowStage::ReviewResults)
+    {
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::RunSession,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+        workflowNavController.setStepLocked(gui::WorkflowNavigationController::Step::ExportReport, false);
+        if (workflowNavController.getStepStatus(gui::WorkflowNavigationController::Step::ExportReport) !=
+            gui::SoundIdSidebarStepper::StepStatus::Completed)
+        {
+            workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                                gui::SoundIdSidebarStepper::StepStatus::Pending);
+        }
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::ExportReport);
+    }
+    else if (newStage == gui::session::ProfilingWorkflowStage::TargetSelection)
+    {
+        workflowNavController.setStep(gui::WorkflowNavigationController::Step::HardwareRouting);
+    }
 }
 
 void MainContentComponent::onSessionStatusChanged(gui::session::ProfilingSessionStatus newStatus)
 {
-    juce::ignoreUnused(newStatus);
+    if (newStatus == gui::session::ProfilingSessionStatus::Exported)
+    {
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+    }
 }
 
 } // namespace abdaudiolab

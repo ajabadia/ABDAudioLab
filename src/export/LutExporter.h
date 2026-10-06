@@ -81,6 +81,7 @@ struct SessionManifestData
     float autoTrimGainDb { 0.0f };       /**< Auto-trim gain offset in dB. */
     float noiseFloorRmsDb { -80.0f };    /**< Noise floor RMS level in dBFS. */
     float averageSnrDb { 30.0f };        /**< Average SNR across measurements. */
+    std::string calibrationMode { "ValidatedPhysicalLoopback" }; /**< Loopback calibration mode ("ValidatedPhysicalLoopback" or "Bypass"). */
     std::vector<ControlGridManifest> gridConfig; /**< Control grid configuration vector. */
     std::string cppHeaderFilename;       /**< Generated C++ header filename. */
     std::string jsonReportFilename;      /**< Generated JSON report filename. */

@@ -54,6 +54,7 @@ struct SessionManifest
     math::SnrMeasurementMethod snrMeasurementMethod { math::SnrMeasurementMethod::NotAvailable };
 
     // 1.8 Calibration Provenance & Composite Input Gain Plan
+    std::string calibrationMode { "ValidatedPhysicalLoopback" };         /**< Loopback calibration mode ("ValidatedPhysicalLoopback" or "Bypass"). */
     std::optional<calibration::CalibrationSnapshot> calibrationSnapshot; /**< Immutable loopback calibration snapshot. */
     calibration::InputGainPlan gainPlan;                                 /**< Structured composite gain plan. */
 

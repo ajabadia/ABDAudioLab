@@ -1451,6 +1451,17 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     sessionCoordinator.onSessionFinished = [this](bool isPatching) {
         if (!isPatching)
         {
+            profilingSessionController.completeProfiling();
+            workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::RunSession,
+                                                gui::SoundIdSidebarStepper::StepStatus::Completed);
+            workflowNavController.setStepLocked(gui::WorkflowNavigationController::Step::ExportReport, false);
+            if (workflowNavController.getStepStatus(gui::WorkflowNavigationController::Step::ExportReport) !=
+                gui::SoundIdSidebarStepper::StepStatus::Completed)
+            {
+                workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                                    gui::SoundIdSidebarStepper::StepStatus::Pending);
+            }
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::ExportReport);
         }
         updateExportReportMetrics();
         sessionManager.triggerAutoSave(buildCurrentSessionManifest());
@@ -1534,15 +1545,27 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     profilingRunView = std::make_unique<gui::soundid::SoundIdProfilingRunView>(profilingSessionController);
     profilingRunView->onStartClicked = [this] {
+        if (!gui::session::hasRealTargetInSnapshot(profilingSessionController.getCurrentSnapshot()))
+            return;
+        profilingSessionController.startProfiling();
         startProfilingSession(false);
     };
     profilingRunView->onPauseClicked = [this] {
+        profilingSessionController.pauseProfiling();
         sessionCoordinator.togglePauseSession();
     };
     profilingRunView->onCancelClicked = [this] {
+        profilingSessionController.cancelProfiling();
         stopProfilingSession();
     };
     addChildComponent(profilingRunView.get());
+
+    resultsSummaryView = std::make_unique<gui::soundid::SoundIdResultsSummaryView>(profilingSessionController);
+    resultsSummaryView->onExportCompleted = [this] {
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+    };
+    addChildComponent(resultsSummaryView.get());
 
     setupGuidedWorkflowInitialData();
 
@@ -1551,6 +1574,8 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     excitationConfigPanel.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
     if (profilingRunView != nullptr)
         profilingRunView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+    if (resultsSummaryView != nullptr)
+        resultsSummaryView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     report("Listo.", 1.0f);
     juce::Logger::writeToLog("[MainComponent] Constructor finished successfully.");
