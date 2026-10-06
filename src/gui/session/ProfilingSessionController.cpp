@@ -162,7 +162,8 @@ bool ProfilingSessionController::canTransitionTo(ProfilingSessionStatus newStatu
                     cur == ProfilingSessionStatus::Paused);
 
         case ProfilingSessionStatus::Failed:
-            return true;
+            return (cur != ProfilingSessionStatus::Completed &&
+                    cur != ProfilingSessionStatus::Exported);
 
         default:
             return false;
@@ -1609,6 +1610,9 @@ void ProfilingSessionController::completeProfiling()
 void ProfilingSessionController::failSession(const std::string& reason)
 {
     std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    if (!canTransitionTo(ProfilingSessionStatus::Failed))
+        return;
+
     currentSnapshot_.sessionStatus = ProfilingSessionStatus::Failed;
     if (previousEvaluation_.hasEvaluation)
     {
@@ -1942,6 +1946,12 @@ void ProfilingSessionController::onCoordinatorFailed(uint64_t runId, uint64_t se
             return;
         if (coordinator_ && coordinator_->getCurrentRunId() != runId)
             return;
+
+        if (currentSnapshot_.sessionStatus != ProfilingSessionStatus::Profiling &&
+            currentSnapshot_.sessionStatus != ProfilingSessionStatus::Paused)
+        {
+            return;
+        }
 
         failSession(error);
     };
