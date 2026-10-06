@@ -70,8 +70,8 @@ std::array<InstructionStep, 4> buildSteps2B(const ViewState& view)
           "Antes de emitir el sweep, se verifican 200 ms con salida muteada.\n"
           "Si detecta senal peligrosa (> -6 dBFS), aborta antes de emitir audio.",
           SoundIdTheme::accentAmber },
-        { "4. Barrido Farina Contractual (1.300 ms)",
-          "1.300 ms de captura (1.000 ms sweep Farina + 200 ms margen RTL + 100 ms cola).\n"
+        { "4. Barrido Farina Contractual (1300 ms)",
+          "1300 ms de captura (1000 ms sweep Farina + 200 ms margen RTL + 100 ms cola).\n"
           "Calcula RTL exacta, trim tecnico, respuesta en frecuencia y SNR.",
           SoundIdTheme::accentGreen }
     } };

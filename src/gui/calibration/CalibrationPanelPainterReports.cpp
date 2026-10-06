@@ -419,7 +419,7 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
 
         case LoopbackState::MeasuringSweep:
             drawStatusBody(g, meterArea,
-                           "Emitting logarithmic Farina sweep (1.300 ms)...\n"
+                           "Emitting logarithmic Farina sweep (1300 ms)...\n"
                            "Capturing loopback impulse response.",
                            SoundIdTheme::accentBlue, 32.0f);
             break;

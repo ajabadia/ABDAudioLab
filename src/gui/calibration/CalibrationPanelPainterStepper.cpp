@@ -264,7 +264,7 @@ StepCardModel buildStepCard2B(const ViewState& view)
     else if (measuringPreflight)
         card.subtitle = "Preflight de seguridad (200 ms con salida muteada)...";
     else if (measuringSweep)
-        card.subtitle = "Barrido Farina contractual (1.300 ms)...";
+        card.subtitle = "Barrido Farina contractual (1300 ms)...";
     else if (locked)
         card.subtitle = "Bloqueado: Primero debe validarse el Paso 2A";
     else if (deviceStopped)

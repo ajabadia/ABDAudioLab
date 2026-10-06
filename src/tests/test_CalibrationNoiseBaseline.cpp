@@ -99,7 +99,7 @@ TEST_CASE("CalibrationNoiseBaseline: SNR real calibrado vs fallback y ventana co
 {
     constexpr double kSampleRate = 44100.0;
 
-    SECTION("El baseline no altera requiredSamples ni la ventana de 1.300 ms del loopback")
+    SECTION("El baseline no altera requiredSamples ni la ventana de 1300 ms del loopback")
     {
         auto req = audio::CaptureRequirements::makeLoopbackRequirements(kSampleRate);
         // N_required = 1000ms sweep + 200ms margin + 100ms tail = 1300ms = 57330 samples @ 44.1k

@@ -4,11 +4,11 @@ namespace abdaudiolab::gui::strings
 {
 
 // Primary Actions
-inline constexpr const char* START_MEASUREMENT      = "▶  START MEASUREMENT";
-inline constexpr const char* PAUSE                  = "❚❚  PAUSE";
-inline constexpr const char* RESUME                 = "▶  RESUME";
+inline constexpr const char* START_MEASUREMENT      = "START MEASUREMENT";
+inline constexpr const char* PAUSE                  = "PAUSE";
+inline constexpr const char* RESUME                 = "RESUME";
 inline constexpr const char* CANCEL                 = "CANCEL";
-inline constexpr const char* VIEW_RESULTS_EXPORT    = "✓  VIEW RESULTS / EXPORT";
+inline constexpr const char* VIEW_RESULTS_EXPORT    = "VIEW RESULTS / EXPORT";
 
 // Workspace Interaction Modes
 inline constexpr const char* MODE_GUIDED            = "Mode: Guided";

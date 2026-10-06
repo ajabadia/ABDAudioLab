@@ -67,7 +67,7 @@ private:
     juce::GroupComponent operatorStepCard_;
     juce::Label operatorPromptLabel_;
     juce::Label expectedSettingLabel_;
-    juce::TextButton btnConfirmManual_ { "✓  LISTO / CAPTURAR [Espacio]" };
+    juce::TextButton btnConfirmManual_ { "LISTO / CAPTURAR [Espacio]" };
     juce::TextButton btnRepeatStep_ { "Repetir [R]" };
     juce::TextButton btnStepBack_ { "Paso Atrás" };
 

@@ -46,7 +46,7 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     setupInfo(preflightWarningsLabel_, "Acoustic Condition: Target verified and armed for execution");
 
     // Primary Giant Start Button
-    startButton_.setButtonText("▶  START MEASUREMENT");
+    startButton_.setButtonText("START MEASUREMENT");
     startButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen);
     startButton_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     startButton_.onClick = [this]() {
@@ -61,7 +61,7 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
     addAndMakeVisible(startButton_);
 
     // Load Evaluation Button
-    loadEvaluationButton_.setButtonText("📂 Load Evaluation... ▼");
+    loadEvaluationButton_.setButtonText("Load Evaluation...");
     loadEvaluationButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
     loadEvaluationButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     loadEvaluationButton_.onClick = [this]() {
@@ -117,7 +117,7 @@ SoundIdProfilingRunView::SoundIdProfilingRunView(session::IProfilingSessionComma
 
     // Botón de salto directo al Paso 3
     // Direct Navigation to Results
-    viewResultsButton_.setButtonText("View Results ➔");
+    viewResultsButton_.setButtonText("View Results ->");
     viewResultsButton_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
     viewResultsButton_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
     viewResultsButton_.onClick = [this]() {
