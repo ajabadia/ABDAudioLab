@@ -1589,14 +1589,16 @@ void ProfilingSessionController::completeProfiling()
     std::lock_guard<std::recursive_mutex> lock(stateMutex_);
     if (canTransitionTo(ProfilingSessionStatus::Completed))
     {
+        currentSnapshot_.sessionStatus = ProfilingSessionStatus::Completed;
+        currentSnapshot_.workflowStage = ProfilingWorkflowStage::ReviewResults;
+        currentSnapshot_.taskCompletedAtMs = getCurrentTimeMs();
+
         if (coordinator_ && coordinator_->isRunning())
         {
             coordinator_->requestCancel();
             coordinator_->waitForWorkerToStop(1000);
         }
-        currentSnapshot_.sessionStatus = ProfilingSessionStatus::Completed;
-        currentSnapshot_.workflowStage = ProfilingWorkflowStage::ReviewResults;
-        currentSnapshot_.taskCompletedAtMs = getCurrentTimeMs();
+
         publishSnapshotLocked();
         auto ctx = createCallbackContextLocked();
         notifyStatusListeners(ProfilingSessionStatus::Completed, ctx);
