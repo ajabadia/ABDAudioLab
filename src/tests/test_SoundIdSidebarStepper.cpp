@@ -154,4 +154,32 @@ TEST_CASE("SoundIdSidebarStepper - State navigation & collapse behavior", "[Soun
         CHECK(SoundIdSidebarStepper::getStandardTitleFontSize() == 12.0f);
         CHECK(SoundIdSidebarStepper::getStandardSubtitleFontSize() == 10.0f);
     }
+
+    SECTION("Hallazgo 06 - ButtonTokens SSOT metrics and contrast")
+    {
+        // ButtonTokens SSOT metrics
+        CHECK(SoundIdTheme::ButtonTokens::height == 36);
+        CHECK(SoundIdTheme::ButtonTokens::cornerRadius == 6.0f);
+
+        // Verify primary button tokens
+        CHECK(SoundIdTheme::ButtonTokens::primaryBg().isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::primaryText() == juce::Colours::white);
+
+        // Verify secondary button tokens in light and dark modes
+        CHECK(SoundIdTheme::ButtonTokens::secondaryBg(true).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::secondaryBg(false).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::secondaryText(true) != SoundIdTheme::ButtonTokens::secondaryText(false));
+
+        // Danger and tertiary text tokens
+        CHECK(SoundIdTheme::ButtonTokens::dangerText(true).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::dangerText(false).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::tertiaryText(true).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::tertiaryText(false).isOpaque());
+
+        // Disabled tokens
+        CHECK(SoundIdTheme::ButtonTokens::disabledBg(true).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::disabledBg(false).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::disabledText(true).isOpaque());
+        CHECK(SoundIdTheme::ButtonTokens::disabledText(false).isOpaque());
+    }
 }

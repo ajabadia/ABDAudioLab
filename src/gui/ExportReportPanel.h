@@ -306,17 +306,17 @@ protected:
         titleLabel.setBounds(bounds.removeFromTop(36).withSizeKeepingCentre(bounds.getWidth(), 25).translated(0, 20));
         subtitleLabel.setBounds(bounds.removeFromTop(26).withSizeKeepingCentre(bounds.getWidth(), 20).translated(0, 20));
 
-        // Bottom action deck inside certification card (146px height)
-        auto innerBottom = bounds.withSizeKeepingCentre(static_cast<int>(bounds.getWidth() * 0.84f), 146).translated(0, 105);
+        // Bottom action deck inside certification card (154px height)
+        auto innerBottom = bounds.withSizeKeepingCentre(static_cast<int>(bounds.getWidth() * 0.84f), 154).translated(0, 105);
 
-        // Row 1: PRIMARY ACTION - 1-Click Export (Dominant, 36px)
-        auto buttonRow1 = innerBottom.removeFromTop(36);
+        // Row 1: PRIMARY ACTION - 1-Click Export (Dominant, ButtonTokens::height = 36px)
+        auto buttonRow1 = innerBottom.removeFromTop(SoundIdTheme::ButtonTokens::height);
         exportButton.setBounds(buttonRow1);
 
         innerBottom.removeFromTop(8);
 
-        // Row 2: REVIEW ACTIONS - Preview & A/B Verification (32px)
-        auto auditionRow = innerBottom.removeFromTop(32);
+        // Row 2: REVIEW ACTIONS - Preview & A/B Verification (ButtonTokens::height = 36px)
+        auto auditionRow = innerBottom.removeFromTop(SoundIdTheme::ButtonTokens::height);
         if (!isAuditioning)
         {
             const int halfRev = (auditionRow.getWidth() - 8) / 2;
@@ -343,8 +343,8 @@ protected:
 
         innerBottom.removeFromTop(8);
 
-        // Row 3: UTILITIES (Left) & EXTERNAL (Right) (30px)
-        auto utilityRow = innerBottom.removeFromTop(30);
+        // Row 3: UTILITIES (Left) & EXTERNAL (Right) (ButtonTokens::height = 36px)
+        auto utilityRow = innerBottom.removeFromTop(SoundIdTheme::ButtonTokens::height);
         openFolderButton.setBounds(utilityRow.removeFromLeft(140));
         utilityRow.removeFromLeft(8);
         viewHtmlButton.setBounds(utilityRow.removeFromLeft(140));

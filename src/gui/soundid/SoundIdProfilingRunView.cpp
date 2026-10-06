@@ -757,7 +757,7 @@ void SoundIdProfilingRunView::resized()
     constexpr int cardGap = 12;
     constexpr int headerHeight = 60;
     constexpr int footerHeight = 54;
-    constexpr int guidanceMinHeight = 84;
+    constexpr int guidanceMinHeight = 94;
     constexpr int minMonitorWidth = 260;
 
     auto area = getLocalBounds().reduced(outerPadding);
@@ -853,7 +853,7 @@ void SoundIdProfilingRunView::resized()
         expectedSettingLabel_.setBounds(opInner.removeFromTop(18));
         opInner.removeFromTop(4);
 
-        auto opBtnRow = opInner.removeFromTop(30);
+        auto opBtnRow = opInner.removeFromTop(SoundIdTheme::ButtonTokens::height);
         btnConfirmManual_.setBounds(opBtnRow.removeFromLeft(220));
         opBtnRow.removeFromLeft(10);
         btnRepeatStep_.setBounds(opBtnRow.removeFromLeft(100));

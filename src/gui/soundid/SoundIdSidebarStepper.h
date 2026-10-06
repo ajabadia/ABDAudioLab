@@ -138,10 +138,10 @@ private:
             juce::Colour bg = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
                             : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : AppTheme::SurfaceSubtle);
             g.setColour(bg);
-            g.fillRoundedRectangle(bounds, 4.0f);
+            g.fillRoundedRectangle(bounds, SoundIdTheme::ButtonTokens::cornerRadius);
 
             g.setColour(shouldDrawButtonAsHighlighted ? AppTheme::AccentActive : AppTheme::BorderSubtle);
-            g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+            g.drawRoundedRectangle(bounds, SoundIdTheme::ButtonTokens::cornerRadius, 1.0f);
 
             juce::Path chevron;
             float cx = bounds.getCentreX();
