@@ -80,25 +80,50 @@ All tests passed (43 assertions in 11 test cases)
 Código de salida: 0
 ```
 
+### 3.3 Suite Autónoma C++ en ABDSharedCode (`ABDScope_CppSmoke`)
+```text
+============================================
+  ABDScope Native C++ Standalone Sanity Test
+============================================
+[TEST] Testing SpscRingBuffer...
+[TEST] Testing ScopeDataCollector & Multi-Tap...
+[TEST] Testing TriggerDetector Sub-sample Lock & Pitch...
+  Note: A4, Freq: 441 Hz
+[TEST] Testing ScopeFrameSerializer JSON Wire-Protocol...
+============================================
+  [SUCCESS] ALL C++ SMOKE TESTS PASSED!
+============================================
+Código de salida: 0
+```
+
+### 3.4 Suite Frontend Vitest (`WebUI/tests/`)
+```text
+ Test Files  9 passed (9)
+      Tests  62 passed | 1 skipped (63)
+   Duration  13.41s
+========================================================
+  [SUCCESS] ALL BUILDS AND TESTS PASSED (100%)
+========================================================
+Código de salida: 0
+```
+
 ---
 
-## 4. Estado de Archivos Modificados
+## 4. Trazabilidad Canónica de Commits
 
-| Repositorio | Archivo | Modificación |
-|---|---|---|
-| `ABDAudioLab` | `CMakeLists.txt` | Registro del nuevo arnés `src/tests/test_ScopeContractsAndLifetime.cpp`. |
-| `ABDAudioLab` | `src/gui/ScopeWebFloatingWindow.h` | Eliminación de `const_cast` y adopción de la API canónica. |
-| `ABDAudioLab` | `src/tests/test_ScopeContractsAndLifetime.cpp` | Arnés de pruebas unitarias y de integración de ciclo de vida. |
-| `ABDAudioLab` | `docs/audits/INVENTARIO_Y_ARQUITECTURA_ABDSCOPE_SHAREDCODE.md` | Documento rector actualizado y certificado sin rutas absolutas. |
-| `ABDSharedCode` | `Scope/Source/Core/ScopeDataCollector.h` | Sobrecarga no-const de `getTap()` y búsqueda insensible a mayúsculas. |
+| Repositorio | Rama | Commit | Descripción |
+|---|---|---|---|
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `1a70b36` | `feat(scope): contratos de api, higiene de tipos y tests de ciclo de vida en ABDSharedCode/Scope` |
+| `ABDSharedCode` | `master` | `0e6ae9d` | `feat(scope): sincronizacion autonoma de ScopeCore, contratos sin const_cast y especificacion de gobernanza` |
 
 ---
 
 ## 5. Conclusión y Próximos Pasos
 
-El objetivo de las **Fases 1 y 2** queda formalmente **CERRADO Y CERTIFICADO**.
-La arquitectura de `ABDSharedCode/Scope` garantiza un desacoplamiento limpio, seguridad en el hilo de audio en tiempo real y plena compatibilidad con el host `ABDAudioLab`.
+El objetivo de la **Fase 2 (Contratos, Ciclo de Vida y Sincronización Bidireccional)** queda formalmente **CERRADO Y CERTIFICADO**:
+1. `ABDSharedCode/Scope` es un módulo completamente autónomo, testeable en C++ y WebUI sin dependencias externas de host.
+2. `ABDAudioLab` consume limpiamente la API sin `const_cast` ni duplicidad de targets CMake.
+3. El repositorio histórico `ABDScope/` queda documentado como obsoleto y archivado.
+4. El tag congelado `v2.1.1-build570-stepper-buttontokens-rc1` permanece intacto en `0c1896b`.
 
-Para la siguiente etapa:
-1. Proceder a consolidar el commit atómico en la rama `feature/abdscope-sharedcode-scope`.
-2. Mantener la congelación intacta del tag `v2.1.1-build570-stepper-buttontokens-rc1` hasta la promoción definitiva.
+**Próxima Etapa:** Fase 3 (Empaquetado de assets web, paridad de temas y verificación del bundle WebView2).
