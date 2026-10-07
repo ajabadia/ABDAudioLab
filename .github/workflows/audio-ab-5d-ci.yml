@@ -65,7 +65,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedCode
-          ref: 21c0a60c1efd5aac6a6cedcc57725f601a3ce14a
+          ref: 55e77bb180aa560a9a5aceff1480fd78b121f360
           path: ABDSharedCode
           fetch-depth: 1
 
@@ -88,16 +88,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
+          ref: eea11732a47a6d2cad1ab21c2ba0aa98df3e36f1
           path: ABDSharedAssets
-          fetch-depth: 1
-
-      - name: Checkout ABDScope (Immutable Sibling Ref)
-        uses: actions/checkout@v7
-        with:
-          repository: ajabadia/ABDScope
-          ref: 0a296f3f3d161f65b41be4d02413ab858dddff55
-          path: ABDScope
           fetch-depth: 1
 
       - name: Setup MSVC Environment
@@ -290,7 +282,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
+          ref: eea11732a47a6d2cad1ab21c2ba0aa98df3e36f1
           path: ABDSharedAssets
           fetch-depth: 1
 

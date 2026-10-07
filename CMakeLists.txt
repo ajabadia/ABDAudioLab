@@ -77,7 +77,7 @@ else()
     FetchContent_Declare(
       ABDSharedCode
       GIT_REPOSITORY https://github.com/ajabadia/ABDSharedCode.git
-      GIT_TAG        65875eb8fbf65602b05981318608264a4c2432ec  # master @ 2026-09-22 — pinned for v2.1.0 release
+      GIT_TAG        55e77bb180aa560a9a5aceff1480fd78b121f360  # master @ 2026-10-07 — includes Scope module
     )
     FetchContent_MakeAvailable(ABDSharedCode)
 endif()
@@ -91,9 +91,8 @@ endif()
 # add_subdirectory del mismo modulo haria duplicar los targets ABDScopeCore y
 # romper la configuracion con "add_library cannot create target ABDScopeCore...".
 #
-# OJO con el pin de arriba: el FetchContent de ABDSharedCode (65875eb, v2.1.0)
-# es ANTERIOR a la absorcion, asi que en el escenario sin workspace local hay
-# que subir ese pin cuando el master de ABDSharedCode con Scope este pushado;
+# NOTA: El pin de arriba para FetchContent de ABDSharedCode (55e77bb, 2026-10-07)
+# ya incluye la absorcion del modulo Scope.
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab (Standalone Executable)
