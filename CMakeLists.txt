@@ -1137,6 +1137,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_AudioABBaselineManifestValidation5D.cpp
     src/tests/test_PinkNoiseGenerator.cpp
     src/tests/test_ScopeContractsAndLifetime.cpp
+    src/tests/test_ScopeBundleAndThemeParity.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso
