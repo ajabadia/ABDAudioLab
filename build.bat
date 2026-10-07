@@ -5,9 +5,12 @@ echo ===========================================================================
 echo  ABDAudioLab - Build and Compilation Script
 echo ==============================================================================
 
-:: Terminate running instance if open
+:: Terminate running instance or orphaned compiler processes if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
 taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
+taskkill /f /im cl.exe >nul 2>nul
+taskkill /f /im link.exe >nul 2>nul
+taskkill /f /im vctip.exe >nul 2>nul
 ping -n 2 127.0.0.1 >nul 2>nul
 
 :: 1. Detect Visual Studio Environment using vswhere

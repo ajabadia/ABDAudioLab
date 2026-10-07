@@ -83,7 +83,7 @@ Código de salida: 0
 | `ABDSharedCode` | `master` | `5918e46` | `feat(scope): vinculacion de tema en index.html y eliminacion de const_cast en JuceWebScopeComponent` |
 | `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `2af2b6d` | `feat(scope): suite test_ScopeBundleAndThemeParity.cpp y registro en CMakeLists.txt (funcional)` |
 | `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `6c4eafe` | `feat(scope): normalización de formato de cabecera en acta de Fase 3 (formato)` |
-| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | *(en curso)* | `docs(audit): trazabilidad y desglose de commits de Fase 3 (documental)` |
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `663df22` | `docs(audit): trazabilidad y desglose de commits de Fase 3 (documental)` |
 
 ---
 
