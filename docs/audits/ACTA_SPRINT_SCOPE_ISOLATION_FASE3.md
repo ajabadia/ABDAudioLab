@@ -81,7 +81,9 @@ Código de salida: 0
 | Repositorio | Rama | Commit | Descripción |
 |---|---|---|---|
 | `ABDSharedCode` | `master` | `5918e46` | `feat(scope): vinculacion de tema en index.html y eliminacion de const_cast en JuceWebScopeComponent` |
-| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `6c4eafe` | `feat(scope): suite de pruebas de bundle embebido, paridad de temas y acta de Fase 3` |
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `2af2b6d` | `feat(scope): suite test_ScopeBundleAndThemeParity.cpp y registro en CMakeLists.txt (funcional)` |
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `6c4eafe` | `feat(scope): normalización de formato de cabecera en acta de Fase 3 (formato)` |
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | *(en curso)* | `docs(audit): trazabilidad y desglose de commits de Fase 3 (documental)` |
 
 ---
 
