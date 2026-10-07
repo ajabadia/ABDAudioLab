@@ -34,15 +34,14 @@ ProfilingSessionCoordinator::~ProfilingSessionCoordinator()
 
     if (isThreadRunning())
     {
-        bool stopped = waitForThreadToExit(3000);
+        bool stopped = stopThread(3000);
         if (!stopped)
         {
             juce::Logger::writeToLog("CRITICAL: ProfilingSessionCoordinator worker thread did not stop within 3000ms! Applying safe shutdown wait policy...");
-            // Política de espera segura extendida para proteger recursos y estabilidad del proceso
-            stopped = waitForThreadToExit(5000);
+            stopped = stopThread(2000);
             if (!stopped)
             {
-                juce::Logger::writeToLog("FATAL: ProfilingSessionCoordinator worker thread remained active after 8000ms shutdown timeout.");
+                juce::Logger::writeToLog("FATAL: ProfilingSessionCoordinator worker thread remained active after 5000ms shutdown timeout.");
             }
         }
     }
@@ -149,36 +148,40 @@ bool ProfilingSessionCoordinator::isRunning() const
 
 void ProfilingSessionCoordinator::waitForWorkerToStop(int timeoutMs)
 {
-    if (isThreadRunning())
+    const int effectiveTimeout = (timeoutMs > 0) ? timeoutMs : 3000;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(effectiveTimeout);
+
+    while (isThreadRunning() && std::chrono::steady_clock::now() < deadline)
     {
-        waitForThreadToExit(timeoutMs);
-    }
+        waitForThreadToExit(20);
+
 #if defined(_WIN32)
-    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
-    {
-        if (mm->isThisTheMessageThread())
+        if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
         {
-            MSG msg;
-            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+            if (mm->isThisTheMessageThread())
             {
-                if (msg.message == WM_QUIT)
-                    break;
-                if (msg.hwnd == nullptr || IsWindow(msg.hwnd))
+                MSG msg;
+                while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
                 {
-                    __try
+                    if (msg.message == WM_QUIT)
+                        break;
+                    if (msg.hwnd == nullptr || IsWindow(msg.hwnd))
                     {
-                        TranslateMessage(&msg);
-                        DispatchMessage(&msg);
-                    }
-                    __except (EXCEPTION_EXECUTE_HANDLER)
-                    {
-                        // Safely discard exceptions from stale windows of unloaded in-process DLLs (e.g. VST3 plugins)
+                        __try
+                        {
+                            TranslateMessage(&msg);
+                            DispatchMessage(&msg);
+                        }
+                        __except (EXCEPTION_EXECUTE_HANDLER)
+                        {
+                            // Safely discard exceptions from stale windows of unloaded in-process DLLs (e.g. VST3 plugins)
+                        }
                     }
                 }
             }
         }
-    }
 #endif
+    }
 }
 
 void ProfilingSessionCoordinator::publishSnapshot(CoordinatorState state, double progress, int trial, int total,
