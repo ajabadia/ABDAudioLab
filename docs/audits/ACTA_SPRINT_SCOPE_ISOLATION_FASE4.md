@@ -45,7 +45,7 @@ Para blindar las suites de ejecución ante posibles cuelgues durante el apagado 
 | `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `6c4eafe` | `feat(scope): normalización de formato de cabecera en acta de Fase 3 (formato)` |
 | `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `663df22` | `docs(audit): trazabilidad y desglose de commits de Fase 3 (documental)` |
 | `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `5302ef1` | `chore(build): blindaje contra procesos huerfanos del compilador y cierre formal de Fase 3` |
-| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | *(en curso)* | `feat(scope): guard arquitectonico anti-regresion y teardown determinista de sesion (Fase 4)` |
+| `ABDAudioLab` | `feature/abdscope-sharedcode-scope` | `15002c9` | `feat(scope): guard arquitectonico anti-regresion y teardown determinista de sesion (Fase 4)` |
 
 ---
 
