@@ -81,10 +81,12 @@ A continuación se detalla la matriz completa de consumo de Scope en el codebase
   - Valida selección de tap (`selectTap(0)`), buffer circular SPSC con ganancia de entrada (auto-trim), lectura de muestras procesadas y serialización JSON hacia el protocolo wire de WebView2.
 
 ### 2.4 Configuración de Compilación (`CMakeLists.txt`)
-- Target CMake: `ABDShared::ScopeCore` importado desde `../ABDSharedCode/Scope`.
-- Directores de inclusión propagados:
-  - `${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/Scope/Source`
-  - `${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/Scope/Source/Core`
+- **Target Principal:** `ABDShared::ScopeCore` importado desde `../ABDSharedCode/Scope`.
+- **Transitividad de Assets Web:** `ScopeCore` enlaza de forma transitiva `ABDShared::ScopeWebAssets` (`target_link_libraries(ABDScopeCore INTERFACE ABDScopeWebAssets)` en `Scope/CMakeLists.txt`), por lo que el host no necesita enlazar los binarios web por separado.
+- **Directorios de Inclusión Propagados:**
+  - `../ABDSharedCode/Scope/Source`
+  - `../ABDSharedCode/Scope/Source/Core`
+  - `../ABDSharedCode/Scope/Source/JUCE`
 
 ---
 
