@@ -1587,9 +1587,15 @@ void ProfilingSessionController::updateModelEvaluation(synth::SelectionStatus st
 
 void ProfilingSessionController::completeProfiling()
 {
-    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
-    if (canTransitionTo(ProfilingSessionStatus::Completed))
+    // Phase 1: Transition state under lock, but do NOT wait on the worker thread
+    // while holding stateMutex_ — the worker's callbacks also acquire stateMutex_,
+    // which would cause a deadlock (lock inversion).
+    bool needStopWorker = false;
     {
+        std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+        if (!canTransitionTo(ProfilingSessionStatus::Completed))
+            return;
+
         currentSnapshot_.sessionStatus = ProfilingSessionStatus::Completed;
         currentSnapshot_.workflowStage = ProfilingWorkflowStage::ReviewResults;
         currentSnapshot_.taskCompletedAtMs = getCurrentTimeMs();
@@ -1597,13 +1603,19 @@ void ProfilingSessionController::completeProfiling()
         if (coordinator_ && coordinator_->isRunning())
         {
             coordinator_->requestCancel();
-            coordinator_->waitForWorkerToStop(1000);
+            needStopWorker = true;
         }
 
         publishSnapshotLocked();
         auto ctx = createCallbackContextLocked();
         notifyStatusListeners(ProfilingSessionStatus::Completed, ctx);
         notifyStageListeners(ProfilingWorkflowStage::ReviewResults, ctx);
+    }
+
+    // Phase 2: Wait for the worker thread OUTSIDE the lock to avoid deadlock.
+    if (needStopWorker && coordinator_)
+    {
+        coordinator_->waitForWorkerToStop(1000);
     }
 }
 
