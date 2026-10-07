@@ -83,22 +83,17 @@ else()
 endif()
 
 # ------------------------------------------------------------------------------
-# ABDScope (Unified Audio Visualizer)
+# ABDScope -> ABDSharedCode (subtree desde v0.4.0)
 # ------------------------------------------------------------------------------
-set(ABDSCOPE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope")
-if(EXISTS "${ABDSCOPE_DIR}/CMakeLists.txt")
-    message(STATUS "ABDScope: Using local workspace at ${ABDSCOPE_DIR}")
-    add_subdirectory("${ABDSCOPE_DIR}" ABDScope_Build EXCLUDE_FROM_ALL)
-else()
-    include(FetchContent)
-    message(STATUS "ABDScope: Fetching from GitHub repository...")
-    FetchContent_Declare(
-      ABDScope
-      GIT_REPOSITORY https://github.com/ajabadia/ABDScope.git
-      GIT_TAG        0a296f3f3d161f65b41be4d02413ab858dddff55  # main @ 2026-09-22 — pinned for v2.1.0 release
-    )
-    FetchContent_MakeAvailable(ABDScope)
-endif()
+# El modulo Scope vive ahora en ABDSharedCode/Scope y se registra al anadir
+# ABDSharedCode mas arriba (targets ABDShared::ScopeCore y
+# ABDShared::ScopeCoreHeaders). Este bloque se borraba: mantener un segundo
+# add_subdirectory del mismo modulo haria duplicar los targets ABDScopeCore y
+# romper la configuracion con "add_library cannot create target ABDScopeCore...".
+#
+# OJO con el pin de arriba: el FetchContent de ABDSharedCode (65875eb, v2.1.0)
+# es ANTERIOR a la absorcion, asi que en el escenario sin workspace local hay
+# que subir ese pin cuando el master de ABDSharedCode con Scope este pushado;
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab (Standalone Executable)
@@ -667,7 +662,6 @@ target_sources(ABDAudioLab
 target_include_directories(ABDAudioLab
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
         ${ara_sdk_SOURCE_DIR}
 )
@@ -705,7 +699,9 @@ target_link_libraries(ABDAudioLab
         juce::juce_gui_basics
         juce::juce_gui_extra
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        # Scope via ABDSharedCode (subtree): propaga .../Scope/Source y
+        # .../Source/Core, que sustituyen a la linea ../ABDScope/Source borrada.
+        ABDShared::ScopeCore
         ABDShared::AutoUpdater
         ABDShared::HardwareMidiDetect
         ABDShared::StudioTopologyAssets
@@ -1190,7 +1186,6 @@ add_custom_command(TARGET ABDAudioLab_PluginWorker POST_BUILD
 target_include_directories(ABDAudioLab_Tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
 )
 
@@ -1222,7 +1217,7 @@ target_link_libraries(ABDAudioLab_Tests
         juce::juce_audio_utils
         juce::juce_dsp
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        ABDShared::ScopeCore
         ABDShared::HardwareMidiDetect
 )
 
