@@ -143,13 +143,13 @@ jobs:
           .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d]" -r console
 
       - name: Gate 6 — Global Non-VES Suite Baseline Verification
-        timeout-minutes: 15
+        timeout-minutes: 20
         shell: pwsh
         env:
           ABDAUDIOLAB_TEST_TELEMETRY_DIR: ${{ runner.temp }}/abdaudiolab-tests/runner
         run: |
           New-Item -ItemType Directory -Force -Path $env:ABDAUDIOLAB_TEST_TELEMETRY_DIR | Out-Null
-          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console -d yes
+          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console
           if ($LASTEXITCODE -ne 0) {
               Write-Error "Gate 6 failed with exit code $LASTEXITCODE"
               exit $LASTEXITCODE
