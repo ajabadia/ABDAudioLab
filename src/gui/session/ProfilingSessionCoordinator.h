@@ -114,7 +114,7 @@ public:
     [[nodiscard]] uint64_t getCurrentRunId() const noexcept { return currentRunId_.load(std::memory_order_acquire); }
     [[nodiscard]] bool isRunning() const;
 
-    void waitForWorkerToStop(int timeoutMs = 3000);
+    bool waitForWorkerToStop(int timeoutMs = 3000);
 
     // Permite inyectar fallo para pruebas unitarias
     void setSimulateValidationFailure(bool fail) noexcept { simulateValidationFailure_ = fail; }
