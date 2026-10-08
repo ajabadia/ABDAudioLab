@@ -1,21 +1,57 @@
-{
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": "v2.1.0",
-  "releaseCommit": "0b76616a9a52a0f755e260ed0cf421db2de8f33b",
-  "buildArchitecture": "windows-x64",
-  "buildConfiguration": "Release",
-  "artifacts": [
-    {
-      "path": "ABDAudioLab.exe",
-      "sizeBytes": 9326080,
-      "sha256": "C94A0BDB3A67CCE77D8459E5E103E9BF1CDA3321CF5C745FEA11379E7CF6C89E",
-      "description": "Aplicación principal de laboratorio y GUI"
-    },
-    {
-      "path": "ABDAudioLab_PluginWorker.exe",
-      "sizeBytes": 3805696,
-      "sha256": "DDD2976C98442DBBCA2209AB67DD9A0412BC939783B15FFBD056425FF3B1913E",
-      "description": "Proceso auxiliar de hosting para plugins"
-    }
-  ]
+﻿{
+    "$schema":  "http://json-schema.org/draft-07/schema#",
+    "schemaVersion":  1,
+    "version":  "v2.1.0",
+    "buildArchitecture":  "windows-x64",
+    "buildConfiguration":  "Release",
+    "artifacts":  [
+                      {
+                          "path":  "build/ABDAudioLab_artefacts/Release/ABDAudioLab.exe",
+                          "sizeBytes":  9655808,
+                          "sha256":  "AB2CCE62258351CEA6B3A7FFCC3BD1444163189A974FAEC721ABDF57DE95BC2E",
+                          "description":  "Aplicación principal de laboratorio y GUI"
+                      },
+                      {
+                          "path":  "build/ABDAudioLab_artefacts/Release/ABDAudioLab_PluginWorker.exe",
+                          "sizeBytes":  3805696,
+                          "sha256":  "CCC513E5CCCEF858F8865314DF645646FB7F0C0743278DE8AFF2A43FEF8F6072",
+                          "description":  "Proceso auxiliar de hosting para plugins"
+                      },
+                      {
+                          "path":  "build/Release/ABDAudioLab_Tests.exe",
+                          "sizeBytes":  18037248,
+                          "sha256":  "1EF42FB34F21C10B7D01006F5B04D44A8D997E479F86E5F2053DBB7E304BDAE3",
+                          "description":  "Suite ejecutable de pruebas unitarias y de integración Catch2"
+                      },
+                      {
+                          "path":  "fixtures/evaluations/fixture_approved.json",
+                          "sizeBytes":  1157,
+                          "sha256":  "FE3635ACFCC04E041C621BEBEDEFAA0463FEFBAC8668FCB63476207A7D288F38",
+                          "description":  "Fixture de evaluación aprobada (SyntheticFixture)"
+                      },
+                      {
+                          "path":  "fixtures/evaluations/dexed_warnings.json",
+                          "sizeBytes":  1961,
+                          "sha256":  "BFD1771FE08048A8AC97A5601A52E8A8013FD8B2B5D45F1FE6C593ACABEA4001",
+                          "description":  "Fixture de evaluación con advertencias de estabilidad y reset"
+                      },
+                      {
+                          "path":  "fixtures/evaluations/inconclusive.json",
+                          "sizeBytes":  1170,
+                          "sha256":  "C824EFE381092C920B77291C18298607AC405F15770392887B665293E0DFC185",
+                          "description":  "Fixture de evaluación no concluyente (bloqueo de exportación)"
+                      },
+                      {
+                          "path":  "fixtures/evaluations/rejected.json",
+                          "sizeBytes":  1274,
+                          "sha256":  "F603C7472F7E792E810F41344B2A41E067853F49723CDAF30546D960B26FF8E0",
+                          "description":  "Fixture de evaluación rechazada por métricas fuera de tolerancia"
+                      },
+                      {
+                          "path":  "fixtures/evaluations/tampered_hash_mismatch.json",
+                          "sizeBytes":  1156,
+                          "sha256":  "E0697FCB2551F573855896381602E9DC6959D8D54F5CD8FD435889C5F64899AC",
+                          "description":  "Fixture con discrepancia deliberada de hash canónico (control de sabotaje)"
+                      }
+                  ]
 }

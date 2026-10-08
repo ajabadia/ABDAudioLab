@@ -7,6 +7,31 @@
 namespace abdaudiolab::math
 {
 
+enum class SnrMeasurementMethod
+{
+    PhysicalNoiseBaseline,
+    LegacyAssumedNoiseFloor,
+    NotAvailable
+};
+
+[[nodiscard]] inline const char* snrMeasurementMethodToString(SnrMeasurementMethod method) noexcept
+{
+    switch (method)
+    {
+        case SnrMeasurementMethod::PhysicalNoiseBaseline: return "PhysicalNoiseBaseline";
+        case SnrMeasurementMethod::LegacyAssumedNoiseFloor: return "LegacyAssumedNoiseFloor";
+        case SnrMeasurementMethod::NotAvailable: return "NotAvailable";
+    }
+    return "NotAvailable";
+}
+
+[[nodiscard]] inline SnrMeasurementMethod snrMeasurementMethodFromString(const std::string& str) noexcept
+{
+    if (str == "PhysicalNoiseBaseline") return SnrMeasurementMethod::PhysicalNoiseBaseline;
+    if (str == "LegacyAssumedNoiseFloor") return SnrMeasurementMethod::LegacyAssumedNoiseFloor;
+    return SnrMeasurementMethod::NotAvailable;
+}
+
 struct LoopbackCalibrationData
 {
     bool isCalibrated { false };
@@ -18,7 +43,12 @@ struct LoopbackCalibrationData
     int latencySamples { 0 };
     float thdPlusNoisePercent { 0.001f };
     float snrDb { 95.0f };
+    SnrMeasurementMethod snrMethod { SnrMeasurementMethod::NotAvailable };
     float frequencyFlatnessDb { 0.1f }; // Max delta across 20Hz - 20kHz
+    float flatnessMinMagDb { 0.0f };
+    float flatnessMaxMagDb { 0.0f };
+    float flatnessMinFreqHz { 0.0f };
+    float flatnessMaxFreqHz { 0.0f };
     bool phaseInversionDetected { false };  /**< True if hardware loopback cable or pre-amp inverts signal polarity. */
     float phaseInversionCorrelation { 1.0f }; /**< Cross-correlation peak value (negative indicates inversion). */
     bool clippingDetected { false };        /**< True if input exceeded ADC ceiling / reached saturation. */
@@ -39,6 +69,10 @@ struct FlatnessEvaluation
     bool hasValidBins { false };
     float deltaDb { 0.0f };
     size_t validBinCount { 0 };
+    float minMagDb { 0.0f };
+    float maxMagDb { 0.0f };
+    float minFreqHz { 0.0f };
+    float maxFreqHz { 0.0f };
 };
 
 /**
@@ -78,7 +112,8 @@ public:
                                                   double sweepDurationSec = 1.0,
                                                   float startFreqHz = 20.0f,
                                                   float endFreqHz = 0.0f,
-                                                  float targetDbfs = -3.0f);
+                                                  float targetDbfs = -3.0f,
+                                                  std::optional<float> measuredNoiseFloorRmsDb = std::nullopt);
 
     /**
      * @brief Saves calibration data to JSON format.

@@ -38,6 +38,7 @@
 #include "gui/InfoDrawer.h"
 #include "gui/AboutModalDialog.h"
 #include "gui/NativeCalibrationPanel.h"
+#include "calibration/ActiveCalibrationContext.h"
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
@@ -74,6 +75,7 @@
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/UiStrings.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
+#include "gui/soundid/SoundIdResultsSummaryView.h"
 #include "gui/soundid/SoundIdTargetView.h"
 #include "gui/soundid/SoundIdExcitationConfigPanel.h"
 
@@ -228,6 +230,7 @@ private:
     gui::PluginWindowController pluginWindowController;
     gui::PluginScanDirectoriesModal pluginScanModal;
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
+    std::shared_ptr<calibration::ActiveCalibrationContext> activeCalibrationContext { std::make_shared<calibration::ActiveCalibrationContext>() };
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
 
@@ -321,6 +324,7 @@ private:
 
     // Profiling Views and Workflow State
     std::unique_ptr<gui::soundid::SoundIdProfilingRunView> profilingRunView;
+    std::unique_ptr<gui::soundid::SoundIdResultsSummaryView> resultsSummaryView;
     gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };
     void setWorkflowMode(gui::session::UiWorkflowMode mode);
     void setupGuidedWorkflowInitialData();

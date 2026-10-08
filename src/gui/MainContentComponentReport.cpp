@@ -41,7 +41,40 @@ core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
     sm.activeFunctionId = drawer.getSelectedFunctionId().toStdString();
     sm.activeFunctionName = drawer.getActiveFunctionDisplayName().toStdString();
     sm.sampleRate = audioEngine.getSampleRate();
-    sm.lineCalibrationGainDb = -3.0f;
+    sm.gainPlan = sequencer.getGainPlan();
+    sm.lineCalibrationGainDb = sm.gainPlan.effectiveTrimDb;
+    const bool isBypassed = workflowNavController.isCalibrationSkipped() || canonicalCalibrationState.isSkipped;
+    sm.calibrationMode = isBypassed ? "Bypass" : "ValidatedPhysicalLoopback";
+    if (isBypassed)
+    {
+        sm.calibrationSnapshot = std::nullopt;
+        sm.hasPhysicalNoiseBaseline = false;
+        sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+    }
+    else if (auto ctx = sequencer.getActiveCalibrationContext())
+    {
+        const auto& snapOpt = ctx->getSnapshot();
+        if (snapOpt.has_value())
+        {
+            sm.calibrationSnapshot = *snapOpt;
+            const auto& baseline = snapOpt->noiseBaseline;
+            sm.noiseBaselineStatus = baseline.status;
+            if (baseline.status == calibration::NoiseBaselineStatus::Valid
+                || baseline.status == calibration::NoiseBaselineStatus::BelowMeasurementFloor)
+            {
+                sm.measuredNoiseFloorRmsDbfs = baseline.rmsDbfs;
+                sm.measuredNoiseFloorPeakDbfs = baseline.peakDbfs;
+                sm.hasPhysicalNoiseBaseline = true;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::PhysicalNoiseBaseline;
+            }
+            else
+            {
+                sm.hasPhysicalNoiseBaseline = false;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+            }
+        }
+    }
+    // Acceptance policy threshold remains strictly decoupled from observed physical measurement
     sm.noiseFloorThresholdDb = -85.0f;
     sm.totalMeasuredPoints = totalPointsMeasured;
     sm.operatorNotes = drawer.getOperatorNotes().toStdString();
@@ -326,6 +359,8 @@ void MainContentComponent::updateExportReportMetrics(const exporting::Calculated
 void MainContentComponent::notifyExportSuccess(const juce::File& destinationDir, const juce::String& baseName)
 {
     exportReportPanel.showExportSuccess(destinationDir.getFullPathName(), baseName);
+    workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                        gui::SoundIdSidebarStepper::StepStatus::Completed);
 }
 
 void MainContentComponent::showPanelStatus(const juce::String& statusMessage, bool isWarning)

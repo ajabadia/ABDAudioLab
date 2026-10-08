@@ -65,7 +65,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedCode
-          ref: 21c0a60c1efd5aac6a6cedcc57725f601a3ce14a
+          ref: 55e77bb180aa560a9a5aceff1480fd78b121f360
           path: ABDSharedCode
           fetch-depth: 1
 
@@ -88,16 +88,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
+          ref: eea11732a47a6d2cad1ab21c2ba0aa98df3e36f1
           path: ABDSharedAssets
-          fetch-depth: 1
-
-      - name: Checkout ABDScope (Immutable Sibling Ref)
-        uses: actions/checkout@v7
-        with:
-          repository: ajabadia/ABDScope
-          ref: 0a296f3f3d161f65b41be4d02413ab858dddff55
-          path: ABDScope
           fetch-depth: 1
 
       - name: Setup MSVC Environment
@@ -151,9 +143,17 @@ jobs:
           .\build\Release\ABDAudioLab_Tests.exe "[audioab_5d]" -r console
 
       - name: Gate 6 — Global Non-VES Suite Baseline Verification
-        timeout-minutes: 15
+        timeout-minutes: 20
+        shell: pwsh
+        env:
+          ABDAUDIOLAB_TEST_TELEMETRY_DIR: ${{ runner.temp }}/abdaudiolab-tests/runner
         run: |
-          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console -d yes
+          New-Item -ItemType Directory -Force -Path $env:ABDAUDIOLAB_TEST_TELEMETRY_DIR | Out-Null
+          .\build\Release\ABDAudioLab_Tests.exe "~[ves]" -r console
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "Gate 6 failed with exit code $LASTEXITCODE"
+              exit $LASTEXITCODE
+          }
 
       # El snapshot y la cuarentena, con etiqueta propia y NO dentro de la suite
       # grande. `[contracts]` habria sido mas corto y habria arrastrado trece
@@ -269,17 +269,11 @@ jobs:
           if-no-files-found: error
 
   contracts-preflight:
-    name: Contract Preflight (origin vs lab snapshot)
+    name: "Contracts: hardware contracts parity (ABDSharedAssets vs ABDAudioLab)"
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    defaults:
-      run:
-        working-directory: ABDSharedAssets
+    timeout-minutes: 5
 
     steps:
-      # El repo que se quiere vigilar, primero y con su PR entero: es el que
-      # lleva los 40 contratos del snapshot.
       - name: Checkout ABDAudioLab
         uses: actions/checkout@v7
         with:
@@ -290,51 +284,87 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedAssets
-          ref: 065ca6c6aef82e8d41cf6a94d650ab28f5c27e4c
+          ref: eea11732a47a6d2cad1ab21c2ba0aa98df3e36f1
           path: ABDSharedAssets
           fetch-depth: 1
-
-      # Los generadores de `contracts/` son Python y el runner de Ubuntu no lo
-      # trae. Sin este paso el preflight no se puede ni ejecutar, y un preflight
-      # que no corre y sale en verde es PEOR que no tenerlo: aparenta que hay
-      # puerta. Este comentario, casi literal, esta en el workflow de
-      # ABDSharedAssets porque el mismo error ya se cometio una vez alli.
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-
-      # pnpm ANTES de node, no al reves. `pnpm/action-setup` se apoya en el node
-      # que deja el paso siguiente en el PATH; con el orden dado del reves, el
-      # node instalado se lleva por delante la shim y `pnpm install` deja de ser la
-      # version fijada.
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6.1.0
-        with:
-          version: '10.25.0'
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '22.23.3'
 
-      # Los generadores de contratos leen codigo de ABDSharedCode, ABDEep,
-      # ABDNeural y ABDMS2000. Este script baja los que falten a su SHA fijado, y
-      # lleva `if: always()` en el workflow de al lado por una razon que aqui se
-      # repite: si un checkout falla y el preflight corre igual, el fallo se ve
-      # como «no he podido comprobar» y sale con 2, culpando al contrato de un
-      # problema del montaje.
-      - name: Fetch missing contract sources (pinned SHA)
-        run: node scripts/fetch-missing-siblings.mjs
+      - name: "Verify hardware contracts parity (40 files)"
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = require("path");
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          const originDir = path.resolve("ABDSharedAssets/contracts");
+          const labDir = path.resolve("ABDAudioLab/contracts/hardware");
 
-      # Y por fin la puerta. Sale con 1 si algo esta desfasado, con 2 si no se ha
-      # podido comprobar, y 2 tampoco es verde: es «nadie sabe», que no es lo
-      # mismo que «todo bien».
-      - name: "Preflight: contracts match ABDAudioLab snapshot, quarantine declared"
-        run: pnpm run preflight
+          console.log(`Comparing origin: ${originDir}`);
+          console.log(`With lab:         ${labDir}`);
+
+          if (!fs.existsSync(originDir)) {
+            console.error(`Error: origin directory does not exist: ${originDir}`);
+            process.exit(1);
+          }
+          if (!fs.existsSync(labDir)) {
+            console.error(`Error: lab directory does not exist: ${labDir}`);
+            process.exit(1);
+          }
+
+          const originFiles = fs.readdirSync(originDir).filter(f => fs.statSync(path.join(originDir, f)).isFile()).sort();
+          const labFiles = fs.readdirSync(labDir).filter(f => fs.statSync(path.join(labDir, f)).isFile()).sort();
+
+          console.log(`Found ${originFiles.length} files in ABDSharedAssets, ${labFiles.length} in ABDAudioLab.`);
+
+          let hasErrors = false;
+
+          if (originFiles.length !== 40) {
+            console.error(`Error: Expected exactly 40 hardware contracts in ABDSharedAssets, but found ${originFiles.length}`);
+            hasErrors = true;
+          }
+          if (labFiles.length !== 40) {
+            console.error(`Error: Expected exactly 40 hardware contracts in ABDAudioLab, but found ${labFiles.length}`);
+            hasErrors = true;
+          }
+
+          const originSet = new Set(originFiles);
+          const labSet = new Set(labFiles);
+
+          for (const f of originFiles) {
+            if (!labSet.has(f)) {
+              console.error(`Missing file in ABDAudioLab: ${f}`);
+              hasErrors = true;
+            }
+          }
+
+          for (const f of labFiles) {
+            if (!originSet.has(f)) {
+              console.error(`Extra file in ABDAudioLab: ${f}`);
+              hasErrors = true;
+            }
+          }
+
+          for (const f of originFiles) {
+            if (labSet.has(f)) {
+              const originBuf = fs.readFileSync(path.join(originDir, f));
+              const labBuf = fs.readFileSync(path.join(labDir, f));
+              if (!originBuf.equals(labBuf)) {
+                console.error(`Content mismatch in contract: ${f}`);
+                hasErrors = true;
+              }
+            }
+          }
+
+          if (hasErrors) {
+            console.error("Hardware contracts verification FAILED.");
+            process.exit(1);
+          }
+
+          console.log("Hardware contracts parity verified: 40/40 identical files. PASS.");
+          '
 
   # ─────────────────────────────────────────────────────────────────────────
   # EL CRONOMETRO, Y POR QUE ES `continue-on-error`

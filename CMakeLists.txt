@@ -77,28 +77,22 @@ else()
     FetchContent_Declare(
       ABDSharedCode
       GIT_REPOSITORY https://github.com/ajabadia/ABDSharedCode.git
-      GIT_TAG        65875eb8fbf65602b05981318608264a4c2432ec  # master @ 2026-09-22 — pinned for v2.1.0 release
+      GIT_TAG        55e77bb180aa560a9a5aceff1480fd78b121f360  # master @ 2026-10-07 — includes Scope module
     )
     FetchContent_MakeAvailable(ABDSharedCode)
 endif()
 
 # ------------------------------------------------------------------------------
-# ABDScope (Unified Audio Visualizer)
+# ABDScope -> ABDSharedCode (subtree desde v0.4.0)
 # ------------------------------------------------------------------------------
-set(ABDSCOPE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope")
-if(EXISTS "${ABDSCOPE_DIR}/CMakeLists.txt")
-    message(STATUS "ABDScope: Using local workspace at ${ABDSCOPE_DIR}")
-    add_subdirectory("${ABDSCOPE_DIR}" ABDScope_Build EXCLUDE_FROM_ALL)
-else()
-    include(FetchContent)
-    message(STATUS "ABDScope: Fetching from GitHub repository...")
-    FetchContent_Declare(
-      ABDScope
-      GIT_REPOSITORY https://github.com/ajabadia/ABDScope.git
-      GIT_TAG        0a296f3f3d161f65b41be4d02413ab858dddff55  # main @ 2026-09-22 — pinned for v2.1.0 release
-    )
-    FetchContent_MakeAvailable(ABDScope)
-endif()
+# El modulo Scope vive ahora en ABDSharedCode/Scope y se registra al anadir
+# ABDSharedCode mas arriba (targets ABDShared::ScopeCore y
+# ABDShared::ScopeCoreHeaders). Este bloque se borraba: mantener un segundo
+# add_subdirectory del mismo modulo haria duplicar los targets ABDScopeCore y
+# romper la configuracion con "add_library cannot create target ABDScopeCore...".
+#
+# NOTA: El pin de arriba para FetchContent de ABDSharedCode (55e77bb, 2026-10-07)
+# ya incluye la absorcion del modulo Scope.
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab (Standalone Executable)
@@ -210,6 +204,14 @@ target_sources(ABDAudioLab
         src/calibration/CalibrationProfileStore.cpp
         src/calibration/CalibrationMatchEvaluator.h
         src/calibration/CalibrationMatchEvaluator.cpp
+        src/calibration/CalibrationSnapshot.h
+        src/calibration/CalibrationSnapshot.cpp
+        src/calibration/CalibrationNoiseBaselineRunner.h
+        src/calibration/CalibrationNoiseBaselineRunner.cpp
+        src/calibration/CalibrationCompatibilityEvaluator.h
+        src/calibration/CalibrationCompatibilityEvaluator.cpp
+        src/calibration/ActiveCalibrationContext.h
+        src/calibration/ActiveCalibrationContext.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/ModulationMatrixProfile.h
@@ -525,6 +527,18 @@ target_sources(ABDAudioLab
         src/gui/HardwareDeviceDisplayCardComponent.cpp
         src/gui/NativeCalibrationPanel.h
         src/gui/NativeCalibrationPanel.cpp
+        src/gui/NativeCalibrationPanelLayout.cpp
+        src/gui/NativeCalibrationPanelProfiles.cpp
+        src/gui/NativeCalibrationPanelUiState.cpp
+        src/gui/NativeCalibrationPanelWorkflow.cpp
+        src/gui/calibration/CalibrationPanelTypes.h
+        src/gui/calibration/CalibrationPanelMetrics.h
+        src/gui/calibration/CalibrationPanelViewState.h
+        src/gui/calibration/CalibrationPanelPainter.h
+        src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+        src/gui/calibration/CalibrationPanelPainterStepper.cpp
+        src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+        src/gui/calibration/CalibrationPanelPainterReports.cpp
         src/gui/TestConfigModal.h
         src/gui/TestConfigModal.cpp
         src/gui/MatrixResolutionTableComponent.h
@@ -647,7 +661,6 @@ target_sources(ABDAudioLab
 target_include_directories(ABDAudioLab
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
         ${ara_sdk_SOURCE_DIR}
 )
@@ -685,7 +698,9 @@ target_link_libraries(ABDAudioLab
         juce::juce_gui_basics
         juce::juce_gui_extra
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        # Scope via ABDSharedCode (subtree): propaga .../Scope/Source y
+        # .../Source/Core, que sustituyen a la linea ../ABDScope/Source borrada.
+        ABDShared::ScopeCore
         ABDShared::AutoUpdater
         ABDShared::HardwareMidiDetect
         ABDShared::StudioTopologyAssets
@@ -725,6 +740,20 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PhaseGroupDelay.cpp
     src/tests/test_LoopbackDiagnostics.cpp
     src/tests/test_LoopbackSampleRateAdaptation.cpp
+    src/tests/test_AudioReceiverLifecycle.cpp
+    src/tests/test_CalibrationSnapshotProvenance.cpp
+    src/tests/test_CalibrationNoiseBaseline.cpp
+    src/gui/NativeCalibrationPanel.cpp
+    src/gui/NativeCalibrationPanelLayout.cpp
+    src/gui/NativeCalibrationPanelProfiles.cpp
+    src/gui/NativeCalibrationPanelUiState.cpp
+    src/gui/NativeCalibrationPanelWorkflow.cpp
+    src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+    src/gui/calibration/CalibrationPanelPainterStepper.cpp
+    src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+    src/gui/calibration/CalibrationPanelPainterReports.cpp
+    src/tests/test_NativeCalibrationPanelInteraction.cpp
+    src/tests/test_CalibrationPanelPainters.cpp
     src/tests/test_LnlManifestExport.cpp
     src/tests/test_DeColoringCompensation.cpp
     src/tests/test_AudioMidiInterfaceDetector.cpp
@@ -923,6 +952,10 @@ add_executable(ABDAudioLab_Tests
     src/math/LoopbackCalibrator.cpp
     src/calibration/CalibrationProfileStore.cpp
     src/calibration/CalibrationMatchEvaluator.cpp
+    src/calibration/CalibrationSnapshot.cpp
+    src/calibration/CalibrationNoiseBaselineRunner.cpp
+    src/calibration/CalibrationCompatibilityEvaluator.cpp
+    src/calibration/ActiveCalibrationContext.cpp
     src/hardware/MidiIdentityDetector.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
@@ -1102,6 +1135,8 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_AudioABComparatorAndVerdict5D.cpp
     src/tests/test_AudioABBaselineManifestValidation5D.cpp
     src/tests/test_PinkNoiseGenerator.cpp
+    src/tests/test_ScopeContractsAndLifetime.cpp
+    src/tests/test_ScopeBundleAndThemeParity.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso
@@ -1152,7 +1187,6 @@ add_custom_command(TARGET ABDAudioLab_PluginWorker POST_BUILD
 target_include_directories(ABDAudioLab_Tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
         ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
 )
 
@@ -1184,12 +1218,17 @@ target_link_libraries(ABDAudioLab_Tests
         juce::juce_audio_utils
         juce::juce_dsp
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        ABDShared::ScopeCore
         ABDShared::HardwareMidiDetect
 )
 
 if(WIN32)
     target_link_libraries(ABDAudioLab_Tests PRIVATE dbghelp)
+endif()
+
+if(MSVC)
+    target_compile_options(ABDAudioLab PRIVATE /utf-8)
+    target_compile_options(ABDAudioLab_Tests PRIVATE /utf-8)
 endif()
 
 include(CTest)

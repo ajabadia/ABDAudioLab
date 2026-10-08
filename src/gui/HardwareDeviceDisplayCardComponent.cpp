@@ -291,14 +291,14 @@ void HardwareDeviceDisplayCardComponent::paint(juce::Graphics& g)
     // 1. Caso: Sin selección (Estado Limpio / Nueva Sesión)
     if (!isPluginModeActive && currentHwDisplayName.isEmpty())
     {
-        g.setFont(juce::FontOptions("Inter", 13.0f, juce::Font::bold));
+        g.setFont(juce::FontOptions("Inter", 14.5f, juce::Font::bold));
         g.setColour(SoundIdTheme::textMuted);
         g.drawText(juce::String::fromUTF8(u8"SIN DISPOSITIVO SELECCIONADO"), dInner.removeFromTop(24.0f), juce::Justification::centred, true);
 
         g.setColour(SoundIdTheme::borderCard);
         g.drawRoundedRectangle(dInner.reduced(16.0f, 16.0f), 6.0f, 1.0f);
 
-        g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::plain));
+        g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::plain));
         g.setColour(SoundIdTheme::textSecondary);
         g.drawText(juce::String::fromUTF8(u8"Seleccione un sintetizador, pedal o plugin virtual en el menú superior."),
                    dInner, juce::Justification::centred, true);
@@ -321,15 +321,15 @@ void HardwareDeviceDisplayCardComponent::paint(juce::Graphics& g)
     dInner.removeFromTop(4.0f);
 
     // 3. Pie inferior reservado para NOMBRE y TIPO
-    auto bottomTextCard = dInner.removeFromBottom(44.0f);
-    auto nameArea = bottomTextCard.removeFromTop(24.0f);
-    auto typeArea = bottomTextCard.removeFromTop(18.0f);
+    auto bottomTextCard = dInner.removeFromBottom(48.0f);
+    auto nameArea = bottomTextCard.removeFromTop(26.0f);
+    auto typeArea = bottomTextCard.removeFromTop(20.0f);
 
-    g.setFont(juce::FontOptions("Inter", 14.5f, juce::Font::bold));
+    g.setFont(juce::FontOptions("Inter", 16.0f, juce::Font::bold));
     g.setColour(SoundIdTheme::textPrimary);
     g.drawText(currentHwDisplayName, nameArea, juce::Justification::centred, true);
 
-    g.setFont(juce::FontOptions("Inter", 11.0f, juce::Font::bold));
+    g.setFont(juce::FontOptions("Inter", 12.5f, juce::Font::bold));
     g.setColour(isPluginModeActive ? SoundIdTheme::accentBlue : SoundIdTheme::accentGreen);
     g.drawText("Type: " + currentHwCategory, typeArea, juce::Justification::centred, true);
 

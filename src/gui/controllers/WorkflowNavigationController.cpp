@@ -88,9 +88,14 @@ WorkflowNavigationController::StepStatus WorkflowNavigationController::getStepSt
 
 void WorkflowNavigationController::setStepLocked(Step step, bool locked)
 {
-    juce::ignoreUnused(step, locked);
+    sidebarStepper.setStepLocked(step, locked);
     if (step == Step::HardwareRouting)
         catalogSelector.setHardwareLocked(locked);
+}
+
+bool WorkflowNavigationController::isStepLocked(Step step) const
+{
+    return sidebarStepper.isStepLocked(step);
 }
 
 void WorkflowNavigationController::resetToNewSession()

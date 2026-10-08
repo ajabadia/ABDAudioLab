@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include "CalibrationRecord.h"
+#include "CalibrationSnapshot.h"
 #include <optional>
 #include <vector>
 #include <string>
@@ -32,16 +33,31 @@ public:
     SaveResult save(const CalibrationRecord& record, bool overwrite = false);
 
     /**
+     * @brief Saves a CalibrationSnapshot using atomic two-phase write ({profileId}.json.tmp -> {profileId}.json).
+     */
+    SaveResult saveSnapshot(const CalibrationSnapshot& snapshot, bool overwrite = false);
+
+    /**
      * @brief Loads a calibration record by profileId.
      * Returns std::nullopt if not found, corrupted, or unsupported schema version.
      */
     [[nodiscard]] std::optional<CalibrationRecord> load(const std::string& profileId) const;
 
     /**
+     * @brief Loads a CalibrationSnapshot by profileId. Supports legacy record migration.
+     */
+    [[nodiscard]] std::optional<CalibrationSnapshot> loadSnapshot(const std::string& profileId) const;
+
+    /**
      * @brief Lists all valid calibration records in store, sorted by createdAt descending (most recent first).
      * Corrupted files and temporary files (.tmp) are ignored safely.
      */
     [[nodiscard]] std::vector<CalibrationRecord> list() const;
+
+    /**
+     * @brief Lists all valid calibration snapshots in store, sorted by createdAt descending.
+     */
+    [[nodiscard]] std::vector<CalibrationSnapshot> listSnapshots() const;
 
     /**
      * @brief Deletes a profile by profileId. Returns true if file was successfully removed.

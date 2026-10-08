@@ -141,8 +141,8 @@ void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noe
                 double phase = K * (std::exp(exponent) - 1.0);
                 sampleVal = static_cast<float>(std::sin(phase));
 
-                // Optional Hann window on first and last 20ms to prevent start/end click transients
-                double windowTime = 0.02; // 20ms
+                // Hann window on first and last 2ms to prevent start/end click transients without attenuating sweep band
+                double windowTime = 0.002; // 2ms
                 if (t < windowTime)
                 {
                     double win = 0.5 * (1.0 - std::cos(std::numbers::pi * (t / windowTime)));

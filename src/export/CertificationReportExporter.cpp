@@ -351,6 +351,14 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "    <div class=\"badge " << statusBadgeClass << "\">" << statusBadgeText << "</div>\n";
     file << "  </div>\n";
 
+    if (manifest.calibrationMode == "Bypass")
+    {
+        file << "  <div class=\"sign-convention-box\" style=\"border-left-color: #d97706; background-color: #fffbeb; color: #92400e; margin-bottom: 20px;\">\n";
+        file << "    <strong>CALIBRATION STATUS: BYPASSED</strong> &bull; RTL compensation: OFF &bull; Interface trim: OFF &bull; Noise baseline: Not applied<br>\n";
+        file << "    <span style=\"font-size: 11px;\">Notice: Calibration provenance incomplete. This session was executed with nominal loopback settings and cannot be certified as closed-loop traceable physical calibration.</span>\n";
+        file << "  </div>\n";
+    }
+
     // 1. Core measurement metrics
     file << "  <div class=\"metrics-grid\">\n";
     file << "    <div class=\"metric-card\"><div class=\"metric-lbl\">SAMPLE RATE</div><div class=\"metric-val\">" << static_cast<int>(manifest.sampleRate) << " Hz</div></div>\n";

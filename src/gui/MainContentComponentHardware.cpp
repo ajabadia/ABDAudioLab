@@ -36,6 +36,7 @@ namespace abdaudiolab
 // ==============================================================================
 void MainContentComponent::preWarmScopeWindow()
 {
+    juce::Logger::writeToLog("[MainComponent] preWarmScopeWindow() starting...");
     if (scopeWebWindow == nullptr)
     {
         scopeWebWindow = std::make_unique<gui::ScopeWebFloatingWindow>(
@@ -46,11 +47,14 @@ void MainContentComponent::preWarmScopeWindow()
         );
         scopeWebWindow->setVisible(false);
     }
+    juce::Logger::writeToLog("[MainComponent] preWarmScopeWindow() completed.");
 }
 
 void MainContentComponent::preWarmHardwareDetector()
 {
+    juce::Logger::writeToLog("[MainComponent] preWarmHardwareDetector() starting...");
     drawer.preWarmHardwareDetector();
+    juce::Logger::writeToLog("[MainComponent] preWarmHardwareDetector() completed.");
 }
 
 void MainContentComponent::performOfflineReanalysis()

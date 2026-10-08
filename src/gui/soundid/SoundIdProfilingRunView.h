@@ -48,7 +48,6 @@ private:
     // Botón gigante principal de inicio y accesos directos
     juce::TextButton startButton_;
     juce::TextButton loadEvaluationButton_;
-    juce::TextButton viewResultsButton_;
     juce::TextButton advancedSettingsLink_;
 
     std::shared_ptr<juce::FileChooser> fileChooser_;
@@ -67,7 +66,7 @@ private:
     juce::GroupComponent operatorStepCard_;
     juce::Label operatorPromptLabel_;
     juce::Label expectedSettingLabel_;
-    juce::TextButton btnConfirmManual_ { "✓  LISTO / CAPTURAR [Espacio]" };
+    juce::TextButton btnConfirmManual_ { "LISTO / CAPTURAR [Espacio]" };
     juce::TextButton btnRepeatStep_ { "Repetir [R]" };
     juce::TextButton btnStepBack_ { "Paso Atrás" };
 
@@ -93,6 +92,8 @@ private:
         int activeNoteNumber { -1 };
         int activeVelocity { -1 };
         bool isPaused { false };
+        std::string targetId;
+        bool isDarkMode { false };
     };
 
     ProfilingRunPresentationState lastPresentationState_;
@@ -102,6 +103,8 @@ private:
     bool isProfilingActive_ { false };
     bool isPaused_ { false };
     bool isWaitingForOperator_ { false };
+
+    void applyTheme(bool isDark);
 
     bool keyPressed(const juce::KeyPress& key) override;
 
