@@ -291,7 +291,7 @@ jobs:
           const fs = require("fs");
           const path = require("path");
 
-          const originDir = path.resolve("ABDSharedAssets/contracts/hardware");
+          const originDir = path.resolve("ABDSharedAssets/contracts");
           const labDir = path.resolve("ABDAudioLab/contracts/hardware");
 
           console.log(`Comparing origin: ${originDir}`);
