@@ -1,0 +1,208 @@
+name: ABDAudioLab CI
+
+# =============================================================================
+# POR QUE ESTE WORKFLOW EXISTE
+# =============================================================================
+# audio-ab-5d-ci.yml es serio, pero esta delimitado por `paths:` a los
+# ficheros de audio 5D y contratos: un cambio en el GUI, el hardware o el
+# synth no dispara NADA. El resultado es que el plugin (ABDAudioLab,
+# ReferenceSynth) y la suite entera de unit tests compilaban solo en la
+# maquina de desarrollo. Este workflow cierra ese hueco:
+#
+#   - build-and-test: build COMPLETO (app + ReferenceSynth VST3 + los tests)
+#     y la suite ABDAudioLab_Tests ejecutandose como puerta BLOQUEANTE.
+#   - pluginval: validacion del VST3 con strictness 5, seed 42.
+#   - cppcheck: informativo, como en el resto de la familia.
+#
+# NOTA SOBRE ctest: este CMakeLists hace enable_testing() pero NUNCA llama a
+# add_test(), asi que ctest no tiene nada que correr. La suite es un exe
+# Catch2 cuyo main() devuelve != 0 si algo falla, y el paso de abajo lo
+# ejecuta directamente. Cuando haya add_test, el paso pasa a ctest.
+#
+# NOTA SOBRE EL SISTEMA OPERATIVO: solo windows-latest, y no por comodidad.
+# El build de Windows es el que esta medido en local (build/Release con los
+# cuatro targets enlazados); un leg de Ubuntu seria una apuesta sin medir, y
+# la regla de la familia es que una puerta nueva nace verde o no nace.
+# cppcheck corre en Ubuntu porque ahi esta el binario bueno.
+#
+# DEPENDENCIAS: JUCE 8.0.4, nlohmann_json y Catch2 llegan por FetchContent
+# ya fijados en el propio CMakeLists. El hermano ABDSharedCode va a SHA
+# (55e77bb, el mismo pin del CMakeLists y del workflow de audio 5D): el
+# src/ tiene includes duros contra ../ABDSharedCode (Waterfall3DComponent,
+# FskAudioModem...), asi que el checkout del hermano no es opcional.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audiolab-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+  SHA_SHARED: '55e77bb180aa560a9a5aceff1480fd78b121f360'  # ABDSharedCode — el mismo pin del CMakeLists
+
+jobs:
+  build-and-test:
+    name: Build completo + unit tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ABDAudioLab
+
+    steps:
+    - name: Checkout ABDAudioLab
+      uses: actions/checkout@v7
+      with:
+        path: ABDAudioLab
+        fetch-depth: 1
+
+    - name: Checkout ABDSharedCode (hermano, SHA fijo)
+      uses: actions/checkout@v7
+      with:
+        repository: ajabadia/ABDSharedCode
+        ref: ${{ env.SHA_SHARED }}
+        path: ABDSharedCode
+        fetch-depth: 1
+
+    - name: Setup MSVC Environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    # FindWebView2 de JUCE busca en la carpeta local de NuGet del usuario;
+    # el SDK no viene con el runner. Mismo tratamiento que el workflow de
+    # audio 5D (nuget.exe pinneado, paquete pinneado).
+    - name: Install Pinned WebView2 SDK for JUCE
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/v6.10.1/nuget.exe -OutFile nuget.exe
+        .\nuget.exe install Microsoft.Web.WebView2 -Version 1.0.4258.31 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -A x64
+
+    # Build SIN --target: app, ReferenceSynth_VST3, ABDAudioLab_Tests y el
+    # validador VST3 interno. Es el build que hasta ahora solo existia en la
+    # maquina de desarrollo.
+    - name: Build everything (Release)
+      run: |
+        cmake --build build --config Release --parallel
+
+    # BLOQUEANTE. Sin add_test en el CMake, el exe Catch2 es la puerta:
+    # su main devuelve != 0 ante cualquier fallo y el paso revienta.
+    - name: Run ABDAudioLab_Tests (Catch2, bloqueante)
+      run: |
+        & "build\Release\ABDAudioLab_Tests.exe"
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::ABDAudioLab_Tests: ${LASTEXITCODE} fallos"
+          exit $LASTEXITCODE
+        }
+
+  pluginval:
+    name: Pluginval — ReferenceSynth VST3 (strictness 5, seed 42)
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ABDAudioLab
+
+    steps:
+    - name: Checkout ABDAudioLab
+      uses: actions/checkout@v7
+      with:
+        path: ABDAudioLab
+        fetch-depth: 1
+
+    - name: Checkout ABDSharedCode (hermano, SHA fijo)
+      uses: actions/checkout@v7
+      with:
+        repository: ajabadia/ABDSharedCode
+        ref: ${{ env.SHA_SHARED }}
+        path: ABDSharedCode
+        fetch-depth: 1
+
+    - name: Setup MSVC Environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Pinned WebView2 SDK for JUCE
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/v6.10.1/nuget.exe -OutFile nuget.exe
+        .\nuget.exe install Microsoft.Web.WebView2 -Version 1.0.4258.31 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -A x64
+
+    - name: Build VST3 target (ReferenceSynth_VST3)
+      run: |
+        cmake --build build --config Release --target ReferenceSynth_VST3 --parallel
+
+    - name: Download pluginval v1.0.4 (pinned)
+      run: |
+        $pvZip = "$env:RUNNER_TEMP\pluginval_Windows.zip"
+        Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip" -OutFile $pvZip
+        Expand-Archive -Path $pvZip -DestinationPath "$env:RUNNER_TEMP\pluginval" -Force
+        Get-ChildItem "$env:RUNNER_TEMP\pluginval" -Recurse -Filter "pluginval.exe" | Select-Object -First 1 -ExpandProperty FullName
+
+    - name: Run pluginval validation (strictness 5, seed 42)
+      run: |
+        $vst3 = Get-ChildItem "build\*_artefacts\Release\VST3\*.vst3" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $vst3) {
+          Write-Host "::error::pluginval — no se encontro VST3 en build/*_artefacts/Release/VST3/"
+          exit 1
+        }
+        $pv = Get-ChildItem "$env:RUNNER_TEMP\pluginval" -Recurse -Filter "pluginval.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $pv) {
+          Write-Host "::error::pluginval — no se encontro pluginval.exe en RUNNER_TEMP\pluginval"
+          exit 1
+        }
+        Write-Host "Validando: $($vst3.FullName)"
+        & $pv.FullName --strictness-level 5 --seed 42 --validate $vst3.FullName *> pluginval.log
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::pluginval — validacion fallida (strictness 5, seed 42). Ver pluginval.log"
+          Get-Content pluginval.log
+          exit $LASTEXITCODE
+        }
+        Write-Host "pluginval: ALL TESTS PASSED (strictness 5, seed 42)"
+        Get-Content pluginval.log | Select-String -Pattern "ALL TESTS PASSED|PASSED" | Select-Object -First 3
+
+    - name: Publish pluginval log (on failure diagnostics)
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: audiolab-pluginval-log-${{ github.run_id }}
+        path: ABDAudioLab/pluginval.log
+        if-no-files-found: ignore
+        retention-days: 30
+
+  cppcheck:
+    name: cppcheck (informativo, no bloqueante)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Static analysis (cppcheck) - informativo
+      run: |
+        set +e
+        sudo apt-get update -qq && sudo apt-get install -y -qq cppcheck
+        salida=$(cppcheck --enable=warning,performance,portability --std=c++20 --suppress=missingIncludeSystem --template='{severity}|{file}|{line}|{message}' src/ 2>&1)
+        hallazgos=$(printf '%s\n' "$salida" | grep -cE '^(warning|performance|portability|error)\|')
+        printf '%s\n' "$salida" | grep -E '^(warning|performance|portability|error)\|' | sed -n '1,30p'
+        echo "::warning title=cppcheck::${hallazgos} hallazgos en src/ (MEDIDO en local con cppcheck 2.21: 0; informativo hasta que la primera corrida de CI confirme el 0 y pase a bloquear)."
+        exit 0
