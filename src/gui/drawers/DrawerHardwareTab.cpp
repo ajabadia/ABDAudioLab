@@ -22,7 +22,7 @@ public:
                          std::function<void(const abd::hwid::HardwarePickResult&)> onResult,
                          const abd::hwid::HardwareMidiDetector::DetectionConfig& config = {},
                          bool startVisible = true)
-        : DocumentWindow("Hardware MIDI Auto-Detection (ABDSharedCode)",
+        : DocumentWindow("Hardware MIDI Auto-Detection (ABDShared)",
                          AppTheme::BackgroundApp,
                          DocumentWindow::closeButton),
           resultCallback(std::move(onResult))

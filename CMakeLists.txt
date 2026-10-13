@@ -66,7 +66,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ARA_SDK)
 
 # ------------------------------------------------------------------------------
-# ABDShared / ABDSharedCode (Shared Libraries: AutoUpdater, Scope, HardwareDrivers, etc.)
+# ABDShared (Shared Libraries: DspCore, SynthCore, AutoUpdater, Scope, etc.)
 # ------------------------------------------------------------------------------
 set(ABDSHARED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared")
 set(ABDSHARED_CODE_DIR "${ABDSHARED_DIR}/Code")
@@ -74,18 +74,19 @@ set(ABDSHARED_CODE_DIR "${ABDSHARED_DIR}/Code")
 if(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
     message(STATUS "ABDShared: Using local consolidated tree at ${ABDSHARED_CODE_DIR}")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDShared_Code")
-elseif(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
-    set(ABDSHARED_CODE_DIR "${ABDSHARED_CODE_DIR}")
-    message(STATUS "ABDSharedCode: Using legacy local at ${ABDSHARED_CODE_DIR}")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/CMakeLists.txt")
+    set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
+    message(STATUS "ABDSharedCode: Using legacy local fallback at ${ABDSHARED_CODE_DIR}")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDSharedCode")
 else()
     include(FetchContent)
     FetchContent_Declare(
-      ABDSharedCode
-      GIT_REPOSITORY https://github.com/ajabadia/ABDSharedCode.git
-      GIT_TAG        55e77bb180aa560a9a5aceff1480fd78b121f360  # master @ 2026-10-07 — includes Scope module
+      ABDShared
+      GIT_REPOSITORY https://github.com/ajabadia/ABDShared.git
+      GIT_TAG        main
+      SOURCE_SUBDIR  Code
     )
-    FetchContent_MakeAvailable(ABDSharedCode)
+    FetchContent_MakeAvailable(ABDShared)
 endif()
 
 # ------------------------------------------------------------------------------
@@ -706,7 +707,7 @@ target_link_libraries(ABDAudioLab
         juce::juce_gui_basics
         juce::juce_gui_extra
         nlohmann_json::nlohmann_json
-        # Scope via ABDSharedCode (subtree): propaga .../Scope/Source y
+        # Scope via ABDShared (Code/Scope): propaga .../Scope/Source y
         # .../Source/Core, que sustituyen a la linea ../ABDScope/Source borrada.
         ABDShared::ScopeCore
         ABDShared::AutoUpdater
