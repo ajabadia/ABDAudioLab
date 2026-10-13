@@ -29,6 +29,7 @@ void NativeCalibrationPanel::resetToInitialState()
     activeAlignment = calibration::ActiveCalibrationAlignment::None;
     activeCalibrationRecord_ = {};
     activeSnapshot_ = std::nullopt;
+    loadedLoopbackProfile_ = std::nullopt;
     neutralizeActiveTrim();
 
     measurementStep = 0;

@@ -9,6 +9,7 @@
 #include "LabResourcePaths.h"
 #include <mutex>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 namespace abdaudiolab::core
 {
@@ -21,6 +22,13 @@ std::optional<juce::File> g_explicitOverride;
 
 constexpr const char* kMarkerFileName = "ABDAudioLab.workspace";
 constexpr const char* kEnvVarName = "ABDAUDIOLAB_DATA_ROOT";
+
+juce::File getSettingsFile()
+{
+    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+        .getChildFile("ABDAudioLab")
+        .getChildFile("lab_settings.json");
+}
 
 bool ensureSubdirectoriesAndWritable(LabDataDirectories& dirs, juce::String* outDiagnostic)
 {
@@ -42,34 +50,37 @@ bool ensureSubdirectoriesAndWritable(LabDataDirectories& dirs, juce::String* out
         }
     }
 
-    dirs.experiments = dirs.dataRoot.getChildFile("experiments");
-    if (!dirs.experiments.isDirectory())
-    {
-        auto res = dirs.experiments.createDirectory();
-        if (res.failed())
+    auto createAndVerifySubDir = [&dirs, outDiagnostic](juce::File& targetSubDir, const char* name) -> bool {
+        targetSubDir = dirs.dataRoot.getChildFile(name);
+        if (!targetSubDir.isDirectory())
         {
-            if (outDiagnostic != nullptr)
-                *outDiagnostic += "Failed to create experiments directory: " + res.getErrorMessage() + "\n";
-            return false;
+            auto res = targetSubDir.createDirectory();
+            if (res.failed())
+            {
+                if (outDiagnostic != nullptr)
+                    *outDiagnostic += "Failed to create " + juce::String(name) + " directory: " + res.getErrorMessage() + "\n";
+                return false;
+            }
         }
-    }
+        return true;
+    };
 
-    dirs.exports = dirs.dataRoot.getChildFile("exports");
-    if (!dirs.exports.isDirectory())
+    if (!createAndVerifySubDir(dirs.experiments, "experiments") ||
+        !createAndVerifySubDir(dirs.exports, "exports") ||
+        !createAndVerifySubDir(dirs.loopbackProfiles, "loopback_profiles") ||
+        !createAndVerifySubDir(dirs.presets, "presets") ||
+        !createAndVerifySubDir(dirs.reports, "reports"))
     {
-        auto res = dirs.exports.createDirectory();
-        if (res.failed())
-        {
-            if (outDiagnostic != nullptr)
-                *outDiagnostic += "Failed to create exports directory: " + res.getErrorMessage() + "\n";
-            return false;
-        }
+        return false;
     }
 
     juce::String writeErr;
     if (!testDirectoryWritable(dirs.dataRoot, &writeErr) ||
         !testDirectoryWritable(dirs.experiments, &writeErr) ||
-        !testDirectoryWritable(dirs.exports, &writeErr))
+        !testDirectoryWritable(dirs.exports, &writeErr) ||
+        !testDirectoryWritable(dirs.loopbackProfiles, &writeErr) ||
+        !testDirectoryWritable(dirs.presets, &writeErr) ||
+        !testDirectoryWritable(dirs.reports, &writeErr))
     {
         if (outDiagnostic != nullptr)
             *outDiagnostic += "Write permission probe failed: " + writeErr + "\n";
@@ -171,6 +182,101 @@ void clearExplicitDataRootOverride()
     g_explicitOverride.reset();
 }
 
+bool persistDataRootPreference(const juce::File& customRoot, juce::String* outError)
+{
+    try
+    {
+        auto settingsFile = getSettingsFile();
+        if (!settingsFile.getParentDirectory().isDirectory())
+            settingsFile.getParentDirectory().createDirectory();
+
+        nlohmann::json j;
+        if (settingsFile.existsAsFile())
+        {
+            std::string content = settingsFile.loadFileAsString().toStdString();
+            if (!content.empty())
+            {
+                try { j = nlohmann::json::parse(content); } catch (...) {}
+            }
+        }
+
+        j["dataRoot"] = customRoot.getFullPathName().toStdString();
+        j["updatedAt"] = juce::Time::getCurrentTime().toISO8601(true).toStdString();
+
+        juce::File tmpFile = settingsFile.withFileExtension(".tmp");
+        if (!tmpFile.replaceWithText(j.dump(2)))
+        {
+            if (outError != nullptr)
+                *outError = "Could not write temporary settings file: " + tmpFile.getFullPathName();
+            return false;
+        }
+
+        if (settingsFile.existsAsFile() && !settingsFile.deleteFile())
+        {
+            if (outError != nullptr)
+                *outError = "Could not overwrite existing settings file: " + settingsFile.getFullPathName();
+            return false;
+        }
+
+        if (!tmpFile.moveFileTo(settingsFile))
+        {
+            if (outError != nullptr)
+                *outError = "Could not atomically update settings file: " + settingsFile.getFullPathName();
+            return false;
+        }
+
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        if (outError != nullptr)
+            *outError = "JSON serialization error: " + juce::String(e.what());
+        return false;
+    }
+}
+
+juce::File loadPersistedDataRootPreference()
+{
+    auto settingsFile = getSettingsFile();
+    if (!settingsFile.existsAsFile())
+        return {};
+
+    try
+    {
+        std::string content = settingsFile.loadFileAsString().toStdString();
+        if (content.empty())
+            return {};
+
+        auto j = nlohmann::json::parse(content);
+        if (j.contains("dataRoot") && j["dataRoot"].is_string())
+        {
+            juce::File candidate(j["dataRoot"].get<std::string>());
+            if (candidate.isDirectory())
+                return candidate;
+        }
+    }
+    catch (...)
+    {
+    }
+
+    return {};
+}
+
+void clearPersistedDataRootPreference()
+{
+    auto settingsFile = getSettingsFile();
+    if (settingsFile.existsAsFile())
+        settingsFile.deleteFile();
+}
+
+bool setAndPersistDataRootOverride(const juce::File& customRoot, juce::String& outError)
+{
+    if (!setExplicitDataRootOverride(customRoot, outError))
+        return false;
+
+    return persistDataRootPreference(customRoot, &outError);
+}
+
 LabDataDirectories resolveLabDataDirectories(juce::String* outDiagnostic)
 {
     LabDataDirectories dirs;
@@ -218,10 +324,23 @@ LabDataDirectories resolveLabDataDirectories(juce::String* outDiagnostic)
         }
     }
 
-    // 3. Prioridad 3: Marcador único ABDAudioLab.workspace
-    // La busqueda del marcador vive ya en LabResourcePaths (única autoridad).
-    // Antes se reimplementaba aqui con su propia precedencia (CWD y luego
-    // ejecutable), que es justo como dos copias de una regla divergen.
+    // 3. Prioridad 3: Preferencia persistida por el usuario
+    juce::File persisted = loadPersistedDataRootPreference();
+    if (persisted.isDirectory())
+    {
+        dirs.dataRoot = persisted;
+        dirs.origin = DataRootOrigin::UserPersistedPreference;
+        dirs.resolutionReason = "Preferencia del usuario cargada desde " + getSettingsFile().getFullPathName().toStdString();
+
+        if (ensureSubdirectoriesAndWritable(dirs, outDiagnostic))
+        {
+            if (outDiagnostic != nullptr)
+                *outDiagnostic += "Resolved via UserPersistedPreference: " + dirs.dataRoot.getFullPathName() + "\n";
+            return dirs;
+        }
+    }
+
+    // 4. Prioridad 4: Marcador único ABDAudioLab.workspace
     const auto repoRoot = core::resolveRepoRoot();
 
     if (repoRoot.isResolved)
@@ -239,7 +358,7 @@ LabDataDirectories resolveLabDataDirectories(juce::String* outDiagnostic)
         }
     }
 
-    // 4. Prioridad 4: Fallback a Documents de usuario
+    // 5. Prioridad 5: Fallback a Documents de usuario
     auto docsDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
                        .getChildFile("ABDAudioLab");
     dirs.dataRoot = docsDir;

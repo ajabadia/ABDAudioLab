@@ -63,6 +63,14 @@ public:
     [[nodiscard]] std::vector<LoopbackProfile> listProfiles() const;
 
     /**
+     * @brief Finds all profiles matching a device name, optionally filtered by sample rate (±1.0 Hz).
+     * Ordered by createdAt descending (most recent first).
+     */
+    [[nodiscard]] std::vector<LoopbackProfile> findProfilesForDevice(
+        const std::string& deviceName,
+        double sampleRate = 0.0) const;
+
+    /**
      * @brief Removes a profile by hardware key or profile ID.
      */
     bool removeProfile(const std::string& hardwareKeyOrId);
@@ -73,7 +81,12 @@ public:
     [[nodiscard]] juce::File getStorageDirectory() const noexcept { return storageDir; }
 
     /**
-     * @brief Returns default %APPDATA%/ABDAudioLab/loopback_profiles/ directory.
+     * @brief Sets and creates a new active storage directory.
+     */
+    void setStorageDirectory(const juce::File& newDir);
+
+    /**
+     * @brief Returns default unified loopback_profiles/ directory.
      */
     [[nodiscard]] static juce::File getDefaultStorageDirectory();
 

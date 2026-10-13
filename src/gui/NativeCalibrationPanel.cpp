@@ -114,7 +114,18 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     { "Retry Calibration",
                       "Re-runs calibration after verifying connections and levels",
                       SoundIdTheme::accentAmber, juce::Colours::black },
-                    [this] { runActiveSubViewAction(); });
+                    [this] {
+                        if (currentState == State::Success || loopbackState_ == LoopbackState::Passed)
+                        {
+                            resetToInitialState();
+                            if (onCalibrationResetRequested)
+                                onCalibrationResetRequested();
+                        }
+                        else
+                        {
+                            runActiveSubViewAction();
+                        }
+                    });
 
     addActionButton(*this, btnSaveCalibration,
                     { "Save Calibration",
@@ -123,14 +134,21 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     [this] { saveCurrentCalibrationProfile(); });
 
     addActionButton(*this, btnToggleSavedProfiles,
-                    { "Saved Profiles",
-                      "Shows or collapses the list of saved calibrations on disk",
+                    { "Historial (.abdloop)...",
+                      "Abre el historial de calibraciones .abdloop guardadas",
                       SoundIdTheme::bgCardHover, SoundIdTheme::textSecondary },
                     [this] {
-                        showSavedProfilesSection_ = !showSavedProfilesSection_;
-                        refreshSavedProfiles();
-                        resized();
-                        repaint();
+                        if (onOpenProfileHistory)
+                        {
+                            onOpenProfileHistory();
+                        }
+                        else
+                        {
+                            showSavedProfilesSection_ = !showSavedProfilesSection_;
+                            refreshSavedProfiles();
+                            resized();
+                            repaint();
+                        }
                     });
 
     addActionButton(*this, btnDeleteProfile,
@@ -267,6 +285,7 @@ calibrationpanel::ViewState NativeCalibrationPanel::buildViewState() const
     view.selectedProfileIndex = selectedProfileIndex_;
     view.saveFeedbackText = saveFeedbackText_;
     view.savedProfiles = &savedProfiles;
+    view.loadedProfile = loadedLoopbackProfile_;
 
     return view;
 }

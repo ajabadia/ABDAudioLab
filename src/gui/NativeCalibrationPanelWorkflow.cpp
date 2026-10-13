@@ -126,6 +126,19 @@ void NativeCalibrationPanel::startCalibrationSweep()
 
 void NativeCalibrationPanel::startNoiseBaselineCheck()
 {
+    if (onPreflightCheck)
+    {
+        onPreflightCheck([this](bool proceed) {
+            if (proceed)
+                executeStartNoiseBaselineCheck();
+        });
+        return;
+    }
+    executeStartNoiseBaselineCheck();
+}
+
+void NativeCalibrationPanel::executeStartNoiseBaselineCheck()
+{
     // Immediate Invalidation Invariant:
     // Starting a new 2A check immediately invalidates 2B, neutralizes the active calibration
     // context, deactivates latency/trim compensation and prevents continuing to Step 3.
@@ -167,6 +180,19 @@ void NativeCalibrationPanel::startPhysicalLoopbackSweep()
         return;
     }
 
+    if (onPreflightCheck)
+    {
+        onPreflightCheck([this](bool proceed) {
+            if (proceed)
+                executeStartPhysicalLoopbackSweep();
+        });
+        return;
+    }
+    executeStartPhysicalLoopbackSweep();
+}
+
+void NativeCalibrationPanel::executeStartPhysicalLoopbackSweep()
+{
     // Step 2B preflight guard: the capture source must be the verified physical ADC with
     // mock hardware isolated, so no software passthrough or plugin can hijack the capture.
     ensurePhysicalIsolation();
@@ -825,6 +851,46 @@ void NativeCalibrationPanel::skipCalibration()
     else if (onCalibrationApplied)
         onCalibrationApplied(calibrationData);
 
+    repaint();
+}
+
+void NativeCalibrationPanel::applyLoadedLoopbackProfile(const calibration::LoopbackProfile& profile)
+{
+    stopTimer();
+    loadedLoopbackProfile_ = profile;
+    calibrationData = profile.toCalibrationData();
+
+    // Populate Step 2B loopback report from loaded profile
+    loopbackReport_.passed = true;
+    loopbackReport_.failureReason = {};
+    loopbackReport_.roundTripLatencyMs = profile.roundTripLatencyMs;
+    loopbackReport_.latencySamples = profile.latencySamples;
+    loopbackReport_.recommendedTrimGain = profile.recommendedTrimGain;
+    loopbackReport_.frequencyFlatnessDb = profile.frequencyFlatnessDb;
+    loopbackReport_.snrDb = profile.snrDb;
+    loopbackReport_.thdPercent = profile.thdPlusNoisePercent;
+    loopbackReport_.phaseInverted = profile.phaseInversionDetected;
+    loopbackReport_.timestampIso = juce::String(profile.createdAt);
+    loopbackReport_.snrMethod = math::SnrMeasurementMethod::PhysicalNoiseBaseline;
+
+    // Populate Step 2A noise report from loaded profile
+    noiseReport_.passed = true;
+    noiseReport_.rmsDbfs = profile.peakInDbfs;
+    noiseReport_.peakDbfs = profile.peakInDbfs;
+    noiseReport_.statusText = "LOADED";
+    noiseReport_.timestampIso = juce::String(profile.createdAt);
+
+    currentState = State::Success;
+    loopbackState_ = LoopbackState::Passed;
+    noiseBaselineState_ = NoiseBaselineState::Passed;
+    activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
+
+    btnRetry.setButtonText(juce::String::fromUTF8(u8"↺ Volver a Medir"));
+    btnRetry.setTooltip("Descarta la medición cargada y reinicia el proceso de calibración");
+    applyResolvedButtonLayout(false, false);
+
+    saveFeedbackText_ = "Perfil de infraestructura (.abdloop) cargado activamente.";
+    resized();
     repaint();
 }
 

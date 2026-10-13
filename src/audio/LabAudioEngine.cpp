@@ -27,6 +27,10 @@ LabAudioEngine::LabAudioEngine()
 
 LabAudioEngine::~LabAudioEngine()
 {
+    const auto availableInputs = juce::MidiInput::getAvailableDevices();
+    for (const auto& dev : availableInputs)
+        deviceManager.removeMidiInputDeviceCallback(dev.identifier, &liveMidiCollector);
+
     deviceManager.removeAudioCallback(this);
     deviceManager.removeChangeListener(this);
 }
@@ -51,23 +55,23 @@ bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
     juce::String err = deviceManager.initialise(2, 2, savedXml.get(), true);
     juce::Logger::writeToLog("[AudioEngine] Step 1 result: " + (err.isEmpty() ? "OK" : err));
 
-    // Step 2: Fallback to default system devices if step 1 failed
-    if (err.isNotEmpty())
+    // Step 2: Fallback to default system devices if step 1 failed or if no audio device is currently open
+    if (err.isNotEmpty() || deviceManager.getCurrentAudioDevice() == nullptr)
     {
-        juce::Logger::writeToLog("[AudioEngine] Step 1 failed (" + err + "). Attempting Step 2 (Default devices)...");
+        juce::Logger::writeToLog("[AudioEngine] Step 1 failed or no device opened (" + err + "). Attempting Step 2 (Default devices)...");
         err = deviceManager.initialiseWithDefaultDevices(2, 2);
         juce::Logger::writeToLog("[AudioEngine] Step 2 result: " + (err.isEmpty() ? "OK" : err));
     }
 
     // Step 3: Ultimate fallback to generic stereo setup
-    if (err.isNotEmpty())
+    if (err.isNotEmpty() || deviceManager.getCurrentAudioDevice() == nullptr)
     {
         juce::Logger::writeToLog("[AudioEngine] Step 2 failed (" + err + "). Attempting Step 3 (Generic fallback)...");
         err = deviceManager.initialise(2, 2, nullptr, true);
         juce::Logger::writeToLog("[AudioEngine] Step 3 result: " + (err.isEmpty() ? "OK" : err));
     }
 
-    if (err.isNotEmpty())
+    if (err.isNotEmpty() && deviceManager.getCurrentAudioDevice() == nullptr)
     {
         juce::Logger::writeToLog("[AudioEngine ERROR] All 3 initialization steps failed: " + err);
         return false;
@@ -78,6 +82,9 @@ bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
         + " | SR: " + juce::String(dev != nullptr ? dev->getCurrentSampleRate() : 0.0)
         + " | BS: " + juce::String(dev != nullptr ? dev->getCurrentBufferSizeSamples() : 0));
 
+    // Auto-detect and enable all connected MIDI input devices and route them to liveMidiCollector
+    autoDetectAndEnableMidiDevices();
+
     deviceManager.addAudioCallback(this);
     juce::Logger::writeToLog("[AudioEngine] Audio callback registered successfully.");
 
@@ -85,6 +92,32 @@ bool LabAudioEngine::initializeAudioDevices(const juce::File& settingsFile)
     // close or unplug is the transition that consumers must react to.
     audioDeviceOpen.store(isAudioDeviceOpen(), std::memory_order_release);
     return true;
+}
+
+void LabAudioEngine::autoDetectAndEnableMidiDevices()
+{
+    // Auto-detect and enable available MIDI inputs
+    const auto availableInputs = juce::MidiInput::getAvailableDevices();
+    for (const auto& inputDev : availableInputs)
+    {
+        if (!deviceManager.isMidiInputDeviceEnabled(inputDev.identifier))
+        {
+            deviceManager.setMidiInputDeviceEnabled(inputDev.identifier, true);
+            juce::Logger::writeToLog("[AudioEngine] Auto-detected and enabled MIDI input: " + inputDev.name + " (" + inputDev.identifier + ")");
+        }
+        deviceManager.addMidiInputDeviceCallback(inputDev.identifier, &liveMidiCollector);
+    }
+
+    // Auto-detect and set default MIDI output device if none is currently configured
+    const auto availableOutputs = juce::MidiOutput::getAvailableDevices();
+    if (!availableOutputs.isEmpty())
+    {
+        if (deviceManager.getDefaultMidiOutputIdentifier().isEmpty())
+        {
+            deviceManager.setDefaultMidiOutputDevice(availableOutputs[0].identifier);
+            juce::Logger::writeToLog("[AudioEngine] Auto-detected and set default MIDI output: " + availableOutputs[0].name + " (" + availableOutputs[0].identifier + ")");
+        }
+    }
 }
 
 void LabAudioEngine::saveAudioSettings(const juce::File& settingsFile)
@@ -185,7 +218,10 @@ void LabAudioEngine::changeListenerCallback(juce::ChangeBroadcaster* source)
     // juce::AudioDeviceManager broadcasts on open, close, stream stop and device re-scan
     // (e.g. an interface being unplugged), so this is the earliest reliable edge we get.
     if (source == &deviceManager)
+    {
         pollAudioDeviceState();
+        autoDetectAndEnableMidiDevices();
+    }
 }
 
 bool LabAudioEngine::isAudioDeviceOpen() const noexcept
@@ -259,7 +295,7 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
     }
 
     // 2. Diagnostic test tone mode (RNF-17 physical DAC test)
-    if (diagnosticToneActive.load(std::memory_order_relaxed))
+    if (diagnosticToneActive.load(std::memory_order_acquire))
     {
         renderDiagnosticTone(outputChannelData, numOutputChannels, samplesToProcess);
         return;
@@ -312,8 +348,8 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
 
 void LabAudioEngine::renderDiagnosticTone(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept
 {
-    float freq = diagnosticToneFreq.load(std::memory_order_relaxed);
-    float level = diagnosticToneLevel.load(std::memory_order_relaxed);
+    float freq = diagnosticToneFreq.load(std::memory_order_acquire);
+    float level = diagnosticToneLevel.load(std::memory_order_acquire);
     double phaseIncrement = (2.0 * std::numbers::pi * freq) / currentSampleRate;
     for (int i = 0; i < samplesToProcess; ++i)
     {

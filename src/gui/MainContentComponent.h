@@ -129,6 +129,10 @@ public:
     void showInfoDrawer();
     void updateSetupDrawerInfo();
     void chooseExportFolder();
+    void promptSelectWorkingDirectory();
+    void openWorkingDirectoryInExplorer();
+    void openReportsFolderInExplorer();
+    void applyWorkingDirectory(const juce::File& newRoot);
     void onHardwareSelected(const juce::String& hwId, const juce::String& funcId);
     void hidePromptAfterDelay(int delayMs = 4000);
     void handleClearPoint(int queueIdx, int pointIdx);
@@ -138,6 +142,7 @@ public:
     void openAudioMidiSettings();
     void showAboutDialog();
     void triggerAsyncLoopbackProfileDetection();
+    void loadAndApplyLoopbackProfile(const calibration::LoopbackProfile& profile);
 
     core::ProfilingSession buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr);
     void startTargetedPatchSession(const std::vector<std::pair<int, int>>& pointsToPatch);
@@ -246,6 +251,8 @@ private:
     juce::File settingsFile;
     juce::File exportDirectory;
     gui::SessionReportManager sessionReportManager;
+    std::unique_ptr<juce::FileChooser> workingDirectoryChooser;
+    bool userDismissedDirectoryWarning { false };
     int totalPointsMeasured { 0 };
     bool isPatchingSession { false };
 

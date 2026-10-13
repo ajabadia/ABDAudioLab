@@ -49,6 +49,12 @@ public:
     bool initializeAudioDevices(const juce::File& settingsFile);
 
     /**
+     * @brief Automatically detects connected MIDI hardware, enabling available MIDI inputs,
+     *        attaching liveMidiCollector, and setting default MIDI output if none is configured.
+     */
+    void autoDetectAndEnableMidiDevices();
+
+    /**
      * @brief Persists current audio device settings to XML file.
      * @param settingsFile Target file path.
      */
@@ -188,15 +194,15 @@ public:
      */
     void enableDiagnosticTestTone(bool enable, float freqHz = 1000.0f, float levelLinear = 0.5f) noexcept
     {
-        diagnosticToneFreq.store(freqHz, std::memory_order_relaxed);
-        diagnosticToneLevel.store(levelLinear, std::memory_order_relaxed);
+        diagnosticToneFreq.store(freqHz, std::memory_order_release);
+        diagnosticToneLevel.store(levelLinear, std::memory_order_release);
         diagnosticToneActive.store(enable, std::memory_order_release);
     }
 
     /**
      * @brief Returns true if diagnostic test tone is active.
      */
-    [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_relaxed); }
+    [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_acquire); }
 
     /**
      * @brief Enables or disables real-time audition mode ("Comprobar cómo sonaría").
@@ -271,7 +277,7 @@ public:
      */
     [[nodiscard]] bool isOutputConfirmedSilent(int minSilentBlocks = 2) const noexcept
     {
-        if (generator.isPlaying() || diagnosticToneActive.load(std::memory_order_relaxed) || auditionActive.load(std::memory_order_relaxed))
+        if (generator.isPlaying() || diagnosticToneActive.load(std::memory_order_acquire) || auditionActive.load(std::memory_order_relaxed))
             return false;
         auto* dev = deviceManager.getCurrentAudioDevice();
         if (dev == nullptr || !dev->isPlaying())

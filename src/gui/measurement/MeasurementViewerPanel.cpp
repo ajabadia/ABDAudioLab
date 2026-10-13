@@ -9,6 +9,7 @@
 #include "MeasurementViewModelLoader.h"
 #include "../SessionReportManager.h"
 #include "../AppTheme.h"
+#include "../../core/LabDataDirectories.h"
 #include <thread>
 #include <iomanip>
 #include <sstream>
@@ -522,7 +523,7 @@ void MeasurementViewerPanel::promptLoadContainer()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
         juce::String::fromUTF8(u8"Seleccionar Carpeta del Contenedor FAIR/LNL..."),
-        juce::File::getSpecialLocation(juce::File::userHomeDirectory),
+        core::resolveLabDataDirectories().experiments,
         "*",
         true);
 

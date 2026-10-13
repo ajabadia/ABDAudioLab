@@ -199,6 +199,10 @@ void MainHeaderController::showFileMenu()
     menu.addItem(6, "Export Certification Report (PDF/HTML)...");
     menu.addItem(7, "Open Export Folder");
     menu.addItem(11, "Open Experiments Folder");
+    menu.addItem(14, "Open Reports Folder");
+    menu.addSeparator();
+    menu.addItem(15, "Set Working Directory...");
+    menu.addItem(16, "Open Working Directory Folder");
     menu.addSeparator();
     menu.addItem(9, "Scan Plugin Directories...");
     menu.addItem(10, "Virtual MIDI Keyboard...");
@@ -224,6 +228,9 @@ void MainHeaderController::showFileMenu()
             case 11: if (safeThis->onOpenExperimentsFolder) safeThis->onOpenExperimentsFolder(); break;
             case 12: if (safeThis->onOpenMeasurementViewer) safeThis->onOpenMeasurementViewer(); break;
             case 13: if (safeThis->onOpenMeasurementComparison) safeThis->onOpenMeasurementComparison(); break;
+            case 14: if (safeThis->onOpenReportsFolder) safeThis->onOpenReportsFolder(); break;
+            case 15: if (safeThis->onSetWorkingDirectory) safeThis->onSetWorkingDirectory(); break;
+            case 16: if (safeThis->onOpenWorkingDirectoryFolder) safeThis->onOpenWorkingDirectoryFolder(); break;
             default: break;
         }
     });

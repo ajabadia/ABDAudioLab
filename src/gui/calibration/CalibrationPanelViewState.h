@@ -11,8 +11,10 @@
 
 #include "CalibrationPanelTypes.h"
 #include "../../calibration/CalibrationProfileStore.h"
+#include "../../calibration/LoopbackProfile.h"
 
 #include <vector>
+#include <optional>
 
 namespace abdaudiolab::gui::calibrationpanel
 {
@@ -41,6 +43,8 @@ struct ViewState
     int selectedProfileIndex { 0 };
     juce::String saveFeedbackText;
     const std::vector<calibration::CalibrationRecord>* savedProfiles { nullptr };
+
+    std::optional<calibration::LoopbackProfile> loadedProfile;
 };
 
 } // namespace abdaudiolab::gui::calibrationpanel

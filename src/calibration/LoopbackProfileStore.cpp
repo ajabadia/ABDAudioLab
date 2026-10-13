@@ -6,6 +6,7 @@
  */
 
 #include "LoopbackProfileStore.h"
+#include "../core/LabDataDirectories.h"
 #include <algorithm>
 #include <fstream>
 
@@ -21,8 +22,25 @@ LoopbackProfileStore::LoopbackProfileStore(juce::File storageDirectory)
         storageDir.createDirectory();
 }
 
+void LoopbackProfileStore::setStorageDirectory(const juce::File& newDir)
+{
+    storageDir = newDir.exists() || !newDir.getFullPathName().isEmpty()
+                     ? newDir
+                     : getDefaultStorageDirectory();
+    if (!storageDir.exists())
+        storageDir.createDirectory();
+}
+
 juce::File LoopbackProfileStore::getDefaultStorageDirectory()
 {
+    auto labDirs = core::resolveLabDataDirectories();
+    if (labDirs.loopbackProfiles.isDirectory() || labDirs.dataRoot.isDirectory())
+    {
+        if (!labDirs.loopbackProfiles.exists())
+            labDirs.loopbackProfiles.createDirectory();
+        return labDirs.loopbackProfiles;
+    }
+
     return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
         .getChildFile("ABDAudioLab")
         .getChildFile("loopback_profiles");
@@ -186,6 +204,29 @@ std::vector<LoopbackProfile> LoopbackProfileStore::listProfiles() const
     });
 
     return list;
+}
+
+std::vector<LoopbackProfile> LoopbackProfileStore::findProfilesForDevice(
+    const std::string& deviceName,
+    double sampleRate) const
+{
+    std::vector<LoopbackProfile> matches;
+    if (deviceName.empty())
+        return matches;
+
+    auto allProfiles = listProfiles();
+    const juce::String searchDev = juce::String(deviceName).trim().toLowerCase();
+
+    for (const auto& p : allProfiles)
+    {
+        const juce::String pDev = juce::String(p.deviceName).trim().toLowerCase();
+        const bool devMatch = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
+        const bool srMatch = (sampleRate <= 0.0) || (std::abs(p.sampleRate - sampleRate) <= 1.0);
+
+        if (devMatch && srMatch)
+            matches.push_back(p);
+    }
+    return matches;
 }
 
 bool LoopbackProfileStore::removeProfile(const std::string& hardwareKeyOrId)

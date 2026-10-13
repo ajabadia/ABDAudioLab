@@ -1,4 +1,5 @@
 #include "SessionReportManager.h"
+#include "../core/LabDataDirectories.h"
 #include "../synth/Sha256.h"
 #include <cmath>
 
@@ -21,7 +22,7 @@ void SessionReportManager::triggerSaveSessionAsync(const juce::File& initialLoca
 
     juce::File startDir = initialLocation.isDirectory() ? initialLocation : lastExportDirectory;
     if (!startDir.isDirectory())
-        startDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+        startDir = core::resolveLabDataDirectories().experiments;
 
     juce::File defaultFile = startDir.getChildFile(defaultName.isNotEmpty() ? defaultName : "session.abdlabtest");
 
@@ -61,7 +62,7 @@ void SessionReportManager::triggerLoadSessionAsync(const juce::File& initialLoca
 {
     juce::File startDir = initialLocation.isDirectory() ? initialLocation : lastExportDirectory;
     if (!startDir.isDirectory())
-        startDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+        startDir = core::resolveLabDataDirectories().experiments;
 
     fileChooser = std::make_unique<juce::FileChooser>(
         "Open ABDAudioLab Session Package (.abdlabtest)...",
@@ -94,7 +95,7 @@ void SessionReportManager::triggerSelectExportFolderAsync(const juce::File& init
 {
     juce::File startDir = initialFolder.isDirectory() ? initialFolder : lastExportDirectory;
     if (!startDir.isDirectory())
-        startDir = juce::File::getSpecialLocation(juce::File::userDocumentsDirectory);
+        startDir = core::resolveLabDataDirectories().exports;
 
     fileChooser = std::make_unique<juce::FileChooser>(
         "Select Output Directory for C++ Look-Up Tables & Reports",

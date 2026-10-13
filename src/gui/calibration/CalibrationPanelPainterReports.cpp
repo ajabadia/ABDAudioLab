@@ -300,8 +300,16 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
     switch (loopback)
     {
         case LoopbackState::Passed:
-            badgeLabel = "[ PASS ]";
-            badgeColour = SoundIdTheme::accentGreen;
+            if (view.loadedProfile.has_value())
+            {
+                badgeLabel = "[ CARGADO ]";
+                badgeColour = SoundIdTheme::accentBlue;
+            }
+            else
+            {
+                badgeLabel = "[ PASS ]";
+                badgeColour = SoundIdTheme::accentGreen;
+            }
             break;
         case LoopbackState::Stale:
             badgeLabel = "[ STALE ]";
@@ -341,7 +349,11 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
             break;
     }
 
-    drawReportHeader(g, meterArea, "2B PHYSICAL LOOPBACK REPORT",
+    const juce::String titleText = view.loadedProfile.has_value()
+                                       ? "2B LOOPBACK (.ABDLOOP CARGADO)"
+                                       : "2B PHYSICAL LOOPBACK REPORT";
+
+    drawReportHeader(g, meterArea, titleText,
                      loopback == LoopbackState::Passed ? SoundIdTheme::accentGreen : SoundIdTheme::textPrimary,
                      badgeLabel, badgeColour, 4.0f);
 
@@ -363,24 +375,60 @@ void paintLoopbackReport(juce::Graphics& g, const ViewState& view, juce::Rectang
     {
         case LoopbackState::Passed:
         {
-            g.setFont(font(12.0f));
-            g.setColour(SoundIdTheme::textPrimary);
-            g.drawText("Roundtrip Latency: " + juce::String(report.roundTripLatencyMs, 2) + " ms ("
-                           + juce::String(report.latencySamples) + " samples)",
-                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
-            g.drawText("Recommended Level Trim: " + formatTrimDb(report.recommendedTrimGain, 2),
-                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
-            g.drawText("Flatness Delta: " + juce::String(report.frequencyFlatnessDb, 1) + " dB [PASS < 6.0 dB]",
-                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
-            juce::String snrTag = (report.snrMethod == math::SnrMeasurementMethod::PhysicalNoiseBaseline)
-                                      ? " [PHYSICAL]"
-                                      : (report.snrMethod == math::SnrMeasurementMethod::LegacyAssumedNoiseFloor
-                                             ? " [ESTIMATED]"
-                                             : "");
-            g.drawText("SNR: " + juce::String(report.snrDb, 1) + " dB" + snrTag + " | THD+N: " + juce::String(report.thdPercent, 3) + "%",
-                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
-            g.drawText(juce::String("Polarity: ") + (report.phaseInverted ? "Inverted (180 deg)" : "Normal"),
-                       meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+            if (view.loadedProfile.has_value())
+            {
+                const auto& p = *view.loadedProfile;
+                juce::String cleanDate = juce::String(p.createdAt).replace("T", " ").upToFirstOccurrenceOf(".", false, false);
+                if (cleanDate.endsWith("Z")) cleanDate = cleanDate.dropLastCharacters(1);
+
+                g.setFont(font(12.5f, juce::Font::bold));
+                g.setColour(SoundIdTheme::textPrimary);
+                g.drawText(juce::String(p.deviceName) + " (" + juce::String(p.driverType) + ")",
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+
+                g.setFont(font(11.5f));
+                g.setColour(SoundIdTheme::textSecondary);
+                g.drawText(juce::String(p.sampleRate / 1000.0, 1) + " kHz • Buffer: " + juce::String(p.bufferSizeSamples)
+                               + " smp | " + juce::String(p.outputChannelLabel) + " -> " + juce::String(p.inputChannelLabel),
+                           meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+
+                g.setFont(font(11.0f));
+                g.setColour(SoundIdTheme::accentBlue);
+                g.drawText("Medición: " + cleanDate + " [DESDE DISCO]",
+                           meterArea.removeFromTop(14.0f), juce::Justification::centredLeft, true);
+
+                g.setFont(font(11.5f));
+                g.setColour(SoundIdTheme::textPrimary);
+                g.drawText("Latencia RTL: " + juce::String(p.roundTripLatencyMs, 2) + " ms ("
+                               + juce::String(p.latencySamples) + " samples)",
+                           meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+                g.drawText("Nivel Trim: " + formatTrimDb(p.recommendedTrimGain, 2)
+                               + " | Flatness: " + juce::String(p.frequencyFlatnessDb, 1) + " dB",
+                           meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+                g.drawText("SNR: " + juce::String(p.snrDb, 1) + " dB | THD+N: " + juce::String(p.thdPlusNoisePercent, 3) + "%",
+                           meterArea.removeFromTop(15.0f), juce::Justification::centredLeft, true);
+            }
+            else
+            {
+                g.setFont(font(12.0f));
+                g.setColour(SoundIdTheme::textPrimary);
+                g.drawText("Roundtrip Latency: " + juce::String(report.roundTripLatencyMs, 2) + " ms ("
+                               + juce::String(report.latencySamples) + " samples)",
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+                g.drawText("Recommended Level Trim: " + formatTrimDb(report.recommendedTrimGain, 2),
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+                g.drawText("Flatness Delta: " + juce::String(report.frequencyFlatnessDb, 1) + " dB [PASS < 6.0 dB]",
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+                juce::String snrTag = (report.snrMethod == math::SnrMeasurementMethod::PhysicalNoiseBaseline)
+                                          ? " [PHYSICAL]"
+                                          : (report.snrMethod == math::SnrMeasurementMethod::LegacyAssumedNoiseFloor
+                                                 ? " [ESTIMATED]"
+                                                 : "");
+                g.drawText("SNR: " + juce::String(report.snrDb, 1) + " dB" + snrTag + " | THD+N: " + juce::String(report.thdPercent, 3) + "%",
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+                g.drawText(juce::String("Polarity: ") + (report.phaseInverted ? "Inverted (180 deg)" : "Normal"),
+                           meterArea.removeFromTop(16.5f), juce::Justification::centredLeft, true);
+            }
 
             if (!view.saveFeedbackText.isEmpty())
             {

@@ -8,6 +8,7 @@
 
 #include "MeasurementContainerListPanel.h"
 #include "../AppTheme.h"
+#include "../../core/LabDataDirectories.h"
 
 namespace abdaudiolab::gui::measurement
 {
@@ -575,7 +576,7 @@ void MeasurementContainerListPanel::promptAddContainer()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
         "Seleccionar Carpeta de Contenedor FAIR/LNL...",
-        juce::File::getSpecialLocation(juce::File::userHomeDirectory),
+        core::resolveLabDataDirectories().experiments,
         "*",
         true);
 

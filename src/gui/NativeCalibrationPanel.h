@@ -8,6 +8,7 @@
 #include "../calibration/CalibrationProfileStore.h"
 #include "../calibration/CalibrationMatchEvaluator.h"
 #include "../calibration/CalibrationSnapshot.h"
+#include "../calibration/LoopbackProfile.h"
 
 #include "../audio/ScopedPhysicalLoopbackCapture.h"
 
@@ -86,12 +87,31 @@ public:
     [[nodiscard]] juce::String getCalibrationOutputChannel() const noexcept { return calibrationOutputChannelName; }
     [[nodiscard]] juce::String getCalibrationInputChannel() const noexcept { return calibrationInputChannelName; }
 
+    /**
+     * @brief Directly applies a loaded .abdloop profile, populating reports and metrics.
+     */
+    void applyLoadedLoopbackProfile(const calibration::LoopbackProfile& profile);
+    [[nodiscard]] const std::optional<calibration::LoopbackProfile>& getLoadedLoopbackProfile() const noexcept { return loadedLoopbackProfile_; }
+
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
     std::function<void()> onCalibrationSkipped;
     std::function<void()> onContinueToSession;
     std::function<void()> onVerifyDigitalRequested;
 
+    /** Hook to verify directory or prerequisites before starting measurement (proceed=true/false). */
+    std::function<void(std::function<void(bool proceed)>)> onPreflightCheck;
+
+    /** Hook fired when the user chooses to re-measure / reset active calibration. */
+    std::function<void()> onCalibrationResetRequested;
+
+    /** Hook fired when the user clicks to view/load from .abdloop profile history. */
+    std::function<void()> onOpenProfileHistory;
+
 private:
+    void executeStartNoiseBaselineCheck();
+    void executeStartPhysicalLoopbackSweep();
+
+    std::optional<calibration::LoopbackProfile> loadedLoopbackProfile_;
     //==========================================================================
     // Measurement lifecycle (NativeCalibrationPanelWorkflow.cpp)
     //==========================================================================

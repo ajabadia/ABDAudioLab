@@ -182,6 +182,20 @@ TEST_CASE("LoopbackProfileStore: Persistencia atomica en disco y tolerancia a fa
         // 5. Interfaz no existente
         auto noMatch = store.findMatchingProfile("Unknown Device", 48000.0, 256);
         CHECK(noMatch.has_value() == false);
+
+        // 6. Busqueda de historial para un dispositivo (findProfilesForDevice)
+        auto listFocusrite = store.findProfilesForDevice("Focusrite Scarlett 2i2 USB");
+        CHECK(listFocusrite.size() == 1);
+        CHECK(listFocusrite[0].deviceName == "Focusrite Scarlett 2i2 USB");
+
+        auto listSrMatch = store.findProfilesForDevice("Focusrite Scarlett 2i2 USB", 48000.0);
+        CHECK(listSrMatch.size() == 1);
+
+        auto listSrMismatch = store.findProfilesForDevice("Focusrite Scarlett 2i2 USB", 96000.0);
+        CHECK(listSrMismatch.empty());
+
+        auto listUnknown = store.findProfilesForDevice("Dispositivo Desconocido");
+        CHECK(listUnknown.empty());
     }
 
     tempDir.deleteRecursively();

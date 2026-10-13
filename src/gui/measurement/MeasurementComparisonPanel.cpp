@@ -7,6 +7,7 @@
 
 #include "MeasurementComparisonPanel.h"
 #include "../AppTheme.h"
+#include "../../core/LabDataDirectories.h"
 
 namespace abdaudiolab::gui::measurement
 {
@@ -124,7 +125,7 @@ void MeasurementComparisonPanel::exportComparisonReport()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
         "Guardar Informe Comparativo HTML...",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Measurement_Comparison_Report.html"),
+        core::resolveLabDataDirectories().reports.getChildFile("Measurement_Comparison_Report.html"),
         "*.html",
         true);
 
