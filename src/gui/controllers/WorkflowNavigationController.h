@@ -79,6 +79,9 @@ public:
     [[nodiscard]] const CanonicalWorkflowState& getCanonicalWorkflowState() const noexcept { return canonicalWorkflowState; }
 
     void setStepLocked(Step step, bool locked);
+    [[nodiscard]] bool isStepLocked(Step step) const;
+    [[nodiscard]] bool canNavigateToExportReport() const noexcept { return sidebarStepper.canNavigateToExportReport(); }
+    [[nodiscard]] bool isExportReportCompleted() const noexcept { return sidebarStepper.isExportReportCompleted(); }
 
     void resetToNewSession();
     void layoutStepViews(juce::Rectangle<int> centralBounds, float currentBottomH, bool isSplittingBalanced);

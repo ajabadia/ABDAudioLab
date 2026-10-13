@@ -162,7 +162,8 @@ TEST_CASE("ProfilingSessionController: Ciclo de vida completo y transiciones vá
     if (auto* coord = controller.getCoordinator())
     {
         coord->requestCancel();
-        coord->waitForWorkerToStop(1000);
+        coord->notify();
+        REQUIRE(coord->waitForWorkerToStop(2000));
     }
 }
 

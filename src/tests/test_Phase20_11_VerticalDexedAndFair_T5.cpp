@@ -57,7 +57,7 @@ DexedVerticalFixture createStandardDexedFixture(ExternalPluginFixture& plug)
 
 TEST_CASE("Fase 20.11 T5: Campaña Vertical Dexed Real y Exportacion FAIR/LNL", "[vertical_dexed][fair][t5]")
 {
-    juce::ScopedJuceInitialiser_GUI juceInit;
+    // JUCE GUI subsystem initialized globally by TestMain.cpp
 
     juce::File dexedFile = DexedVerticalCoordinator::resolveDexedBinary();
     if (!dexedFile.exists())

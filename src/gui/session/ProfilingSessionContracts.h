@@ -652,6 +652,32 @@ struct ProfilingSessionSnapshot
 };
 
 /**
+ * @brief Evalúa si el snapshot cuenta con un target real configurado (no synthetic_fixture_demo ni vacío).
+ */
+[[nodiscard]] inline bool hasRealTargetInSnapshot(const ProfilingSessionSnapshot& snap) noexcept
+{
+    if (snap.target.targetId.empty())
+        return false;
+    if (snap.target.targetId == "synthetic_fixture_demo")
+        return false;
+    return true;
+}
+
+/**
+ * @brief Evalúa si una sesión de perfilado puede iniciarse según las guardas metrológicas.
+ * Regla de autoridad única compartida:
+ * canStart = hasRealTarget && hasValidRecipe && requiredCalibrationIsAvailableOrBypassed && !sessionRunning;
+ */
+[[nodiscard]] inline bool canStartProfilingFromSnapshot(const ProfilingSessionSnapshot& snap, bool sessionRunning) noexcept
+{
+    const bool hasRealTarget = hasRealTargetInSnapshot(snap);
+    const bool hasValidRecipe = snap.excitation.isValid && (snap.excitation.status == RecipeStatus::Valid);
+    const bool calReady = snap.calibration.isReadyForProfiling();
+
+    return hasRealTarget && hasValidRecipe && calReady && !sessionRunning;
+}
+
+/**
  * @brief Evalúa las guardas metrológicas sobre cualquier snapshot inmutable de sesión.
  * Función pura sin efectos secundarios, autoridad compartida entre controlador, vistas y tests.
  */

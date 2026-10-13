@@ -143,6 +143,49 @@ public:
         return juce::FontOptions("Inter", 12.5f, juce::Font::plain);
     }
 
+    // =========================================================================
+    // BUTTON TOKENS & ACTION HIERARCHY
+    // =========================================================================
+    struct ButtonTokens
+    {
+        static constexpr int height { 36 };
+        static constexpr float cornerRadius { 6.0f };
+
+        static juce::Colour primaryBg() noexcept { return AppTheme::AccentActive; }
+        static juce::Colour primaryText() noexcept { return juce::Colours::white; }
+
+        static juce::Colour secondaryBg(bool isDark) noexcept { return isDark ? juce::Colour(0xff1e2329) : juce::Colour(0xfff1f3f5); }
+        static juce::Colour secondaryText(bool isDark) noexcept { return isDark ? juce::Colour(0xfff1f3f5) : juce::Colour(0xff1a1d20); }
+        static juce::Colour secondaryBorder(bool isDark) noexcept { return isDark ? juce::Colour(0xff333d47) : juce::Colour(0xffcbd5e1); }
+
+        static juce::Colour dangerText(bool isDark) noexcept { return isDark ? juce::Colour(0xfff87171) : juce::Colour(0xffdc2626); }
+
+        static juce::Colour tertiaryText(bool isDark) noexcept { return isDark ? juce::Colour(0xff38bdf8) : juce::Colour(0xff0284c7); }
+
+        static juce::Colour disabledBg(bool isDark) noexcept { return isDark ? juce::Colour(0xff252c33) : juce::Colour(0xffe2e8f0); }
+        static juce::Colour disabledText(bool isDark) noexcept { return isDark ? juce::Colour(0xff64748b) : juce::Colour(0xff94a3b8); }
+    };
+
+    // =========================================================================
+    // TELEMETRY & METER TOKENS
+    // =========================================================================
+    struct TelemetryTokens
+    {
+        static constexpr float trackHeight { 14.0f };
+        static constexpr float cornerRadius { 4.0f };
+        static constexpr float minDb { -90.0f };
+        static constexpr float maxDb { 0.0f };
+        static constexpr float warningThresholdDb { -6.0f };
+        static constexpr float clippingThresholdDb { -0.5f };
+
+        static juce::Colour trackBg(bool isDark) noexcept { return isDark ? juce::Colour(0xff101214) : juce::Colour(0xffe2e8f0); }
+        static juce::Colour trackBorder(bool isDark) noexcept { return isDark ? juce::Colour(0xff2a323d) : juce::Colour(0xffcbd5e1); }
+        static juce::Colour safeColour() noexcept { return AppTheme::AccentActive; }
+        static juce::Colour warningColour() noexcept { return AppTheme::AccentWarning; }
+        static juce::Colour clippingColour() noexcept { return AppTheme::AccentError; }
+        static juce::Colour peakNeedleColour(bool isDark) noexcept { return isDark ? juce::Colours::white : juce::Colour(0xff0f172a); }
+    };
+
     void drawButtonBackground(juce::Graphics& g, juce::Button& button,
                               const juce::Colour& backgroundColour,
                               bool shouldDrawButtonAsHighlighted,
@@ -170,30 +213,38 @@ public:
             return;
         }
 
-        // Hero Pill vs Standard Action Button
-        bool isPill = (button.getHeight() <= 40 && button.getWidth() > button.getHeight() * 1.8f) ||
-                      (button.getComponentID().containsIgnoreCase("pill") || button.getComponentID().containsIgnoreCase("run"));
-        float cornerSize = isPill ? (bounds.getHeight() * 0.5f) : AppTheme::cornerControl;
+        // Hero Pill vs Standard Action Button (6px standard corner radius)
+        bool isPill = button.getComponentID().containsIgnoreCase("pill");
+        float cornerSize = isPill ? (bounds.getHeight() * 0.5f) : ButtonTokens::cornerRadius;
 
-        // 2. Standard White / Neutral Card Button
+        const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
+
+        // Disabled button state: strictly neutral surface, never bright accent
+        if (!button.isEnabled())
+        {
+            g.setColour(ButtonTokens::disabledBg(isDark));
+            g.fillRoundedRectangle(bounds, cornerSize);
+            g.setColour(ButtonTokens::secondaryBorder(isDark));
+            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+            return;
+        }
+
+        // 2. Standard Neutral Surface Button
         if (baseColour == AppTheme::SurfaceCard || baseColour == AppTheme::SurfaceSubtle ||
             baseColour == AppTheme::SurfaceHover || baseColour == AppTheme::BackgroundApp ||
             baseColour == AppTheme::PillWhiteBg || baseColour == juce::Colours::white ||
             baseColour == bgCard || baseColour == bgCardHover || baseColour == surfaceSubtle ||
             baseColour == bgLight || baseColour == juce::Colour(0xfff1f3f5) || baseColour == juce::Colour(0xffe9ecef) ||
-            baseColour == juce::Colour(0xff24282d) || baseColour == juce::Colour(0xff2c3138))
+            baseColour == juce::Colour(0xff24282d) || baseColour == juce::Colour(0xff2c3138) ||
+            baseColour == juce::Colour(0xff1e2329))
         {
-            juce::Colour effectiveBase = (baseColour == AppTheme::SurfaceSubtle || baseColour == surfaceSubtle || baseColour == juce::Colour(0xfff1f3f5) || baseColour == juce::Colour(0xff24282d))
-                                            ? AppTheme::SurfaceSubtle
-                                            : ((baseColour == AppTheme::SurfaceHover || baseColour == bgCardHover || baseColour == juce::Colour(0xffe9ecef) || baseColour == juce::Colour(0xff2c3138))
-                                                ? AppTheme::SurfaceHover
-                                                : AppTheme::SurfaceCard);
+            juce::Colour effectiveBase = isDark ? juce::Colour(0xff1e2329) : juce::Colour(0xfff1f3f5);
             juce::Colour fillCol = shouldDrawButtonAsDown ? effectiveBase.darker(0.08f)
-                                 : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : effectiveBase);
+                                 : (shouldDrawButtonAsHighlighted ? (isDark ? juce::Colour(0xff2a323b) : AppTheme::SurfaceHover) : effectiveBase);
             g.setColour(fillCol);
             g.fillRoundedRectangle(bounds, cornerSize);
 
-            g.setColour(AppTheme::BorderCard);
+            g.setColour(ButtonTokens::secondaryBorder(isDark));
             g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
         }
         else if (baseColour == AppTheme::PillBlackBg)
@@ -208,7 +259,7 @@ public:
         }
         else
         {
-            // 3. Custom Accent Color Button (e.g. AccentActive, AccentWarning, AccentError)
+            // 3. Custom Accent Color Button (e.g. AccentActive)
             juce::Colour fillCol = shouldDrawButtonAsDown ? baseColour.darker(0.12f)
                                  : (shouldDrawButtonAsHighlighted ? baseColour.brighter(0.06f) : baseColour);
             g.setColour(fillCol);

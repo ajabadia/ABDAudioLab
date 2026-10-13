@@ -9,6 +9,8 @@
 
 #if __has_include(<HardwareDrivers/SysexPresetGenerator.h>)
 #include <HardwareDrivers/SysexPresetGenerator.h>
+#elif __has_include("../../../ABDShared/Code/HardwareDrivers/SysexPresetGenerator.h")
+#include "../../../ABDShared/Code/HardwareDrivers/SysexPresetGenerator.h"
 #elif __has_include("../../../ABDSharedCode/HardwareDrivers/SysexPresetGenerator.h")
 #include "../../../ABDSharedCode/HardwareDrivers/SysexPresetGenerator.h"
 #endif

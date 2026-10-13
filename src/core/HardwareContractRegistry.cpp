@@ -112,6 +112,11 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         if (jsonFile.getFileName().endsWithIgnoreCase(".schema.json"))
             return false;
 
+        // Descartar silenciosamente especificaciones de parámetros de sintetizadores (*_parameter_spec.json)
+        // que residen en contratos compartidos pero son para motores DSP y WebUI, no perfiles de hardware
+        if (jsonFile.getFileName().endsWithIgnoreCase("_parameter_spec.json"))
+            return false;
+
         // Descartar silenciosamente contratos de otros subsistemas que declaran su propio esquema ajeno a hardware_profile
         if (j.contains("$schema") && j["$schema"].is_string())
         {
@@ -154,8 +159,8 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         // contrato YA retenido sea visible como tal en cualquier consumidor que
         // lo reciba por otra via —el adaptador, un snapshot—, y no solo como una
         // ausencia en esta lista.
-        c.status = j.value("status", std::string());
-        c.statusReason = j.value("statusReason", std::string());
+        c.status = j.value(quarantine::campoEstado, std::string());
+        c.statusReason = j.value(quarantine::campoMotivo, std::string());
         c.brand = j.value("brand", std::string(""));
         c.brandLogo = j.value("brandLogo", std::string(""));
         c.modelImage = j.value("modelImage", std::string(""));
@@ -424,7 +429,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
             // cajon sin que nadie haya decidido que eso es lo correcto.
             const auto estado = contract.status;
 
-            if (!estado.empty() && estado != "quarantined")
+            if (!estado.empty() && estado != quarantine::valorEstado)
             {
                 const juce::String aviso = "Contrato '" + juce::String(contract.id)
                                            + "' lleva status '" + estado

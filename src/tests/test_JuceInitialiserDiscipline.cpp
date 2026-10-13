@@ -110,7 +110,6 @@ const std::map<std::string, int> kPresupuestoScopedJuce {
     { "test_PauseResume.cpp", 3 },
     { "test_Phase20_11_1_InteractiveViewerComparison.cpp", 1 },
     { "test_Phase20_11_2_SessionRobustnessAndA11y.cpp", 1 },
-    { "test_Phase20_11_VerticalDexedAndFair_T5.cpp", 1 },
     { "test_PlotterModulationTableRenderer.cpp", 1 },
     { "test_PlotterRenderers.cpp", 1 },
     { "test_PluginHostManager.cpp", 4 },

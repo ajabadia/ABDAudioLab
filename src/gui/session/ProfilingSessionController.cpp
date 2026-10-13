@@ -162,7 +162,8 @@ bool ProfilingSessionController::canTransitionTo(ProfilingSessionStatus newStatu
                     cur == ProfilingSessionStatus::Paused);
 
         case ProfilingSessionStatus::Failed:
-            return true;
+            return (cur != ProfilingSessionStatus::Completed &&
+                    cur != ProfilingSessionStatus::Exported);
 
         default:
             return false;
@@ -490,6 +491,18 @@ bool ProfilingSessionController::startProfiling()
                    "Segunda solicitud de inicio rechazada.");
         return false;
     }
+
+    if (!hasRealTargetInSnapshot(currentSnapshot_))
+    {
+        raiseAlert(UiAlert::Severity::Error,
+                   "Target no configurado",
+                   "No se ha seleccionado un target real o plugin VST3.",
+                   "El perfilado requiere un dispositivo real o plugin configurado en el Paso 1.",
+                   "Seleccione un target en el Paso 1 antes de iniciar la medición.",
+                   "Inicio de medición bloqueado.");
+        return false;
+    }
+
     if (currentSnapshot_.sessionStatus == ProfilingSessionStatus::TargetSelected ||
         currentSnapshot_.sessionStatus == ProfilingSessionStatus::EvaluationLoadedForReview ||
         currentSnapshot_.sessionStatus == ProfilingSessionStatus::Completed ||
@@ -750,6 +763,7 @@ bool ProfilingSessionController::exportModel([[maybe_unused]] const std::string&
         manifestData.sampleRate = 48000.0;
         manifestData.averageSnrDb = 98.4f;
         manifestData.noiseFloorRmsDb = -92.1f;
+        manifestData.calibrationMode = currentSnapshot_.calibration.audio.bypassed ? "Bypass" : "ValidatedPhysicalLoopback";
 
         std::vector<exporting::MeasuredPoint> exportPoints;
 
@@ -1573,27 +1587,44 @@ void ProfilingSessionController::updateModelEvaluation(synth::SelectionStatus st
 
 void ProfilingSessionController::completeProfiling()
 {
-    std::lock_guard<std::recursive_mutex> lock(stateMutex_);
-    if (canTransitionTo(ProfilingSessionStatus::Completed))
+    // Phase 1: Transition state under lock, but do NOT wait on the worker thread
+    // while holding stateMutex_ — the worker's callbacks also acquire stateMutex_,
+    // which would cause a deadlock (lock inversion).
+    bool needStopWorker = false;
     {
-        if (coordinator_ && coordinator_->isRunning())
-        {
-            coordinator_->requestCancel();
-            coordinator_->waitForWorkerToStop(1000);
-        }
+        std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+        if (!canTransitionTo(ProfilingSessionStatus::Completed))
+            return;
+
         currentSnapshot_.sessionStatus = ProfilingSessionStatus::Completed;
         currentSnapshot_.workflowStage = ProfilingWorkflowStage::ReviewResults;
         currentSnapshot_.taskCompletedAtMs = getCurrentTimeMs();
+
+        if (coordinator_ && coordinator_->isRunning())
+        {
+            coordinator_->requestCancel();
+            needStopWorker = true;
+        }
+
         publishSnapshotLocked();
         auto ctx = createCallbackContextLocked();
         notifyStatusListeners(ProfilingSessionStatus::Completed, ctx);
         notifyStageListeners(ProfilingWorkflowStage::ReviewResults, ctx);
+    }
+
+    // Phase 2: Wait for the worker thread OUTSIDE the lock to avoid deadlock.
+    if (needStopWorker && coordinator_)
+    {
+        coordinator_->waitForWorkerToStop(1000);
     }
 }
 
 void ProfilingSessionController::failSession(const std::string& reason)
 {
     std::lock_guard<std::recursive_mutex> lock(stateMutex_);
+    if (!canTransitionTo(ProfilingSessionStatus::Failed))
+        return;
+
     currentSnapshot_.sessionStatus = ProfilingSessionStatus::Failed;
     if (previousEvaluation_.hasEvaluation)
     {
@@ -1927,6 +1958,12 @@ void ProfilingSessionController::onCoordinatorFailed(uint64_t runId, uint64_t se
             return;
         if (coordinator_ && coordinator_->getCurrentRunId() != runId)
             return;
+
+        if (currentSnapshot_.sessionStatus != ProfilingSessionStatus::Profiling &&
+            currentSnapshot_.sessionStatus != ProfilingSessionStatus::Paused)
+        {
+            return;
+        }
 
         failSession(error);
     };

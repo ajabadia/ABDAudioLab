@@ -97,7 +97,9 @@ public:
 
     ~SoundIdSplashScreen() override
     {
+        juce::Logger::writeToLog("[Splash] ~SoundIdSplashScreen() entering...");
         stopTimer();
+        juce::Logger::writeToLog("[Splash] ~SoundIdSplashScreen() finished.");
     }
 
     void loadSplashArtImage()
@@ -125,6 +127,7 @@ public:
 
     void startDismissAnimation(std::function<void()> onDismissCompleted)
     {
+        juce::Logger::writeToLog("[Splash] startDismissAnimation() registered.");
         dismissCallback = std::move(onDismissCompleted);
         isDismissing = true;
     }
@@ -140,8 +143,14 @@ public:
             if (dismissAlpha <= 0.0f)
             {
                 stopTimer();
-                if (dismissCallback)
-                    dismissCallback();
+                juce::Logger::writeToLog("[Splash] Dismiss fade-out complete (alpha <= 0). Deferring dismissCallback via callAsync...");
+                auto cb = std::move(dismissCallback);
+                if (cb)
+                {
+                    juce::MessageManager::callAsync([cb = std::move(cb)]() {
+                        cb();
+                    });
+                }
                 return;
             }
             setAlpha(dismissAlpha);
@@ -327,7 +336,9 @@ public:
 
     ~SoundIdSplashWindow() override
     {
+        juce::Logger::writeToLog("[Splash] ~SoundIdSplashWindow() entering...");
         removeFromDesktop();
+        juce::Logger::writeToLog("[Splash] ~SoundIdSplashWindow() finished.");
     }
 
     void setStatus(const juce::String& msg, float progress = -1.0f)
@@ -347,16 +358,26 @@ public:
 
     void dismiss(std::function<void()> onDone)
     {
+        juce::Logger::writeToLog("[Splash] SoundIdSplashWindow::dismiss() called.");
         if (splashComp)
         {
             splashComp->startDismissAnimation([this, onDone = std::move(onDone)]() {
+                juce::Logger::writeToLog("[Splash] Dismiss animation done. Hiding SoundIdSplashWindow...");
                 setVisible(false);
-                if (onDone) onDone();
+                if (onDone)
+                {
+                    juce::Logger::writeToLog("[Splash] Invoking onDone callback via callAsync...");
+                    juce::MessageManager::callAsync([onDone = std::move(onDone)]() {
+                        onDone();
+                    });
+                }
             });
         }
         else if (onDone)
         {
-            onDone();
+            juce::MessageManager::callAsync([onDone = std::move(onDone)]() {
+                onDone();
+            });
         }
     }
 

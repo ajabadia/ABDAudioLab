@@ -22,15 +22,16 @@ TestConfigModal::TestConfigModal()
     editorViewport.setViewedComponent(&editorPanel, false);
     panel.addAndMakeVisible(editorViewport);
 
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
     btnCancel.setTooltip("Cancel - Discard parameter changes and close");
-    btnCancel.setColour(juce::TextButton::buttonColourId, AppTheme::SurfaceCard);
-    btnCancel.setColour(juce::TextButton::textColourOffId, AppTheme::TextPrimary);
+    btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+    btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
     btnCancel.onClick = [this] { dismissDialog(); };
     panel.addAndMakeVisible(btnCancel);
 
     btnApply.setTooltip("Apply & Save - Update test plan with modified parameters and sweep resolution");
-    btnApply.setColour(juce::TextButton::buttonColourId, AppTheme::AccentActive);
-    btnApply.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnApply.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
+    btnApply.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::primaryText());
     btnApply.onClick = [this] {
         if (onConfigurationConfirmed)
             onConfigurationConfirmed(editorPanel.getConfiguration());
@@ -97,9 +98,9 @@ void TestConfigModal::resized()
     lblTitle.setBounds(header);
 
     auto bottomBar = pBounds.removeFromBottom(56).reduced(16, 8);
-    btnApply.setBounds(bottomBar.removeFromRight(180).withHeight(38));
+    btnApply.setBounds(bottomBar.removeFromRight(180).withHeight(SoundIdTheme::ButtonTokens::height));
     bottomBar.removeFromRight(10);
-    btnCancel.setBounds(bottomBar.removeFromRight(100).withHeight(34));
+    btnCancel.setBounds(bottomBar.removeFromRight(100).withHeight(SoundIdTheme::ButtonTokens::height));
 
     editorViewport.setBounds(pBounds.reduced(16, 4));
 

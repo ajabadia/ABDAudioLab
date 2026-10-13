@@ -82,8 +82,21 @@ public:
     void setStepLocked(Step step, bool locked);
     [[nodiscard]] bool isStepLocked(Step step) const;
     [[nodiscard]] bool canNavigateTo(Step step) const;
+    [[nodiscard]] bool canNavigateToExportReport() const noexcept;
+    [[nodiscard]] bool isExportReportCompleted() const noexcept;
+    [[nodiscard]] bool isStepNavigable(Step step) const noexcept
+    {
+        return (step != currentStep) && canNavigateTo(step) && !isStepLocked(step);
+    }
     [[nodiscard]] juce::String getStepTitle(Step step) const { auto it = stepTitles.find(step); return it != stepTitles.end() ? it->second : ""; }
     [[nodiscard]] juce::String getStepDescription(Step step) const { auto it = stepDescriptions.find(step); return it != stepDescriptions.end() ? it->second : ""; }
+
+    // Visual contract metrics (Hallazgo 05)
+    static constexpr float getActiveIndicatorWidth() noexcept { return 2.5f; }
+    static constexpr float getActiveTitleFontSize() noexcept { return 13.0f; }
+    static constexpr float getActiveSubtitleFontSize() noexcept { return 10.5f; }
+    static constexpr float getStandardTitleFontSize() noexcept { return 12.0f; }
+    static constexpr float getStandardSubtitleFontSize() noexcept { return 10.0f; }
 
     // --- Collapsible Rail Control ---
     void setCollapsed(bool collapsed);
@@ -125,10 +138,10 @@ private:
             juce::Colour bg = shouldDrawButtonAsDown ? AppTheme::SurfaceHover.darker(0.08f)
                             : (shouldDrawButtonAsHighlighted ? AppTheme::SurfaceHover : AppTheme::SurfaceSubtle);
             g.setColour(bg);
-            g.fillRoundedRectangle(bounds, 4.0f);
+            g.fillRoundedRectangle(bounds, SoundIdTheme::ButtonTokens::cornerRadius);
 
             g.setColour(shouldDrawButtonAsHighlighted ? AppTheme::AccentActive : AppTheme::BorderSubtle);
-            g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
+            g.drawRoundedRectangle(bounds, SoundIdTheme::ButtonTokens::cornerRadius, 1.0f);
 
             juce::Path chevron;
             float cx = bounds.getCentreX();

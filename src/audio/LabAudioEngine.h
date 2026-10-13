@@ -11,6 +11,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include <juce_events/juce_events.h>
 #include "../math/PinkNoise.h"
 #include <atomic>
 #include <array>
@@ -29,8 +30,12 @@ namespace abdaudiolab::audio
 /**
  * @class LabAudioEngine
  * @brief High-performance standalone audio engine with real-time lock-free I/O dispatching.
+ *
+ * Also observes the device lifecycle (juce::ChangeListener on the owned AudioDeviceManager) so that
+ * callers can detect that the hardware interface was closed or disconnected while it was in use.
  */
-class LabAudioEngine : public juce::AudioIODeviceCallback
+class LabAudioEngine : public juce::AudioIODeviceCallback,
+                       public juce::ChangeListener
 {
 public:
     LabAudioEngine();
@@ -54,6 +59,33 @@ public:
      */
     juce::AudioDeviceManager& getDeviceManager() { return deviceManager; }
 
+    /** @brief Safely returns current buffer size in samples from active audio device (default 256). */
+    [[nodiscard]] int getCurrentBufferSizeSamples() const noexcept;
+
+    /** @brief Safely returns CPU usage percentage (0.0 to 100.0). */
+    [[nodiscard]] double getCpuUsagePercent() const noexcept;
+
+    /** @brief True while an audio device is open (non-null current device on the manager). */
+    [[nodiscard]] bool isAudioDeviceOpen() const noexcept;
+
+    /**
+     * @brief Samples the device-open state and latches the sticky "device lost" flag on an
+     *        open -> closed edge.
+     *
+     * Called from changeListenerCallback() so the edge is seen as soon as JUCE broadcasts it, and
+     * re-callable by consumers (e.g. from their timer) to catch back-ends that close the device
+     * without broadcasting a change. Idempotent and thread-safe.
+     */
+    void pollAudioDeviceState() noexcept;
+
+    /**
+     * @brief Returns (and clears) the sticky "device was closed" flag.
+     *
+     * Sticky until acknowledged, so the interruption survives the device coming straight back.
+     * Callers poll it from their own timer; a returned true must always be acted upon.
+     */
+    [[nodiscard]] bool consumeAudioDeviceLost() noexcept;
+
     /**
      * @brief Real-time audio I/O callback invoked by audio driver thread.
      */
@@ -74,6 +106,16 @@ public:
      */
     void audioDeviceStopped() override;
 
+    //==========================================================================
+    // juce::ChangeListener (message thread)
+    //==========================================================================
+
+    /**
+     * @brief Fired whenever the AudioDeviceManager broadcasts a change: a device was opened,
+     *        closed, its stream stopped, or the device list was re-scanned (unplug).
+     */
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+
     // Direct accessors to generator and receiver
     LabStimulusGenerator& getStimulusGenerator() noexcept { return generator; }
     LabAudioReceiver& getResponseReceiver() noexcept { return receiver; }
@@ -84,6 +126,7 @@ public:
      * @brief Attaches mock hardware controller for offline self-test loopback.
      */
     void setMockHardware(hardware::MockHardwareController* mock) noexcept { mockHardware = mock; }
+    [[nodiscard]] hardware::MockHardwareController* getMockHardware() const noexcept { return mockHardware; }
 
     /**
      * @brief Attaches active software plugin instance for direct internal digital loopback (VST3, AU, LV2).
@@ -222,6 +265,44 @@ public:
     [[nodiscard]] float getOutputRmsL() const noexcept { return outputRmsL.load(std::memory_order_relaxed); }
     [[nodiscard]] float getOutputRmsR() const noexcept { return outputRmsR.load(std::memory_order_relaxed); }
 
+    /**
+     * @brief Checks if audio callback has confirmed zero digital output rendered for at least minSilentBlocks.
+     * Guarantees no residual sweep, test tone, or metronome remains in the output queue.
+     */
+    [[nodiscard]] bool isOutputConfirmedSilent(int minSilentBlocks = 2) const noexcept
+    {
+        if (generator.isPlaying() || diagnosticToneActive.load(std::memory_order_relaxed) || auditionActive.load(std::memory_order_relaxed))
+            return false;
+        auto* dev = deviceManager.getCurrentAudioDevice();
+        if (dev == nullptr || !dev->isPlaying())
+            return true;
+        return silentOutputBlocksRendered.load(std::memory_order_acquire) >= minSilentBlocks;
+    }
+
+    /**
+     * @brief Enables or disables physical loopback isolation mode.
+     * When active, software plugins and mock hardware are strictly bypassed in the audio callback,
+     * ensuring receiver records purely from the physical ADC (input channel 0).
+     */
+    void setPhysicalLoopbackIsolation(bool isolated) noexcept
+    {
+        physicalLoopbackIsolation.store(isolated, std::memory_order_release);
+    }
+    [[nodiscard]] bool isPhysicalLoopbackIsolationActive() const noexcept
+    {
+        return physicalLoopbackIsolation.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Verifies whether the input capture path is guaranteed to be the physical ADC.
+     */
+    [[nodiscard]] bool isCaptureSourcePhysicalAdc() const noexcept
+    {
+        if (physicalLoopbackIsolation.load(std::memory_order_acquire))
+            return true;
+        return mockHardware == nullptr && activePlugin.load(std::memory_order_relaxed) == nullptr;
+    }
+
     // Auto-Trim input gain (scaling to -3 dBfs)
     void setInputAutoTrim(float linearGain) noexcept { inputTrimGain.store(linearGain, std::memory_order_release); }
     [[nodiscard]] float getInputAutoTrim() const noexcept { return inputTrimGain.load(std::memory_order_relaxed); }
@@ -304,6 +385,12 @@ private:
     std::atomic<float> outputPeakR { 0.0f };
     std::atomic<float> outputRmsL { 0.0f };
     std::atomic<float> outputRmsR { 0.0f };
+    std::atomic<int> silentOutputBlocksRendered { 0 };
+    std::atomic<bool> physicalLoopbackIsolation { false };
+
+    // Device lifecycle (message thread writes, any thread reads).
+    std::atomic<bool> audioDeviceOpen { false };  // Last sampled open state, for edge detection.
+    std::atomic<bool> audioDeviceLost { false };  // Sticky until consumed (see consumeAudioDeviceLost).
 
     std::atomic<float> inputTrimGain { 1.0f };
 

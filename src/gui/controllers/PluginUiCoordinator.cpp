@@ -36,13 +36,8 @@ PluginUiCoordinator::PluginUiCoordinator(core::PluginHostManager& hostManagerRef
     pluginHostManager.onPluginLoaded = [this](const core::PluginIdentity&) {
         if (pluginHostManager.hasActivePlugin())
         {
-            double sr = 44100.0;
-            int bs = 512;
-            if (auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice())
-            {
-                sr = device->getCurrentSampleRate();
-                bs = device->getCurrentBufferSizeSamples();
-            }
+            double sr = audioEngine.getCurrentSampleRate();
+            int bs = audioEngine.getCurrentBufferSizeSamples();
             applyActivePluginRoutingAndUi(pluginHostManager.getActivePluginDescription(), sr, bs);
         }
     };
@@ -81,13 +76,8 @@ void PluginUiCoordinator::loadPlugin(const juce::PluginDescription& description,
 {
     uint64_t opId = currentOpId.fetch_add(1) + 1;
 
-    double sr = 44100.0;
-    int bs = 512;
-    if (auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice())
-    {
-        sr = device->getCurrentSampleRate();
-        bs = device->getCurrentBufferSizeSamples();
-    }
+    double sr = audioEngine.getCurrentSampleRate();
+    int bs = audioEngine.getCurrentBufferSizeSamples();
 
     host.updatePluginLoadingState(false, "Cargando plugin: " + description.name);
 
@@ -105,13 +95,8 @@ void PluginUiCoordinator::loadPluginFromFile(const juce::File& file, std::functi
 {
     uint64_t opId = currentOpId.fetch_add(1) + 1;
 
-    double sr = 44100.0;
-    int bs = 512;
-    if (auto* device = audioEngine.getDeviceManager().getCurrentAudioDevice())
-    {
-        sr = device->getCurrentSampleRate();
-        bs = device->getCurrentBufferSizeSamples();
-    }
+    double sr = audioEngine.getCurrentSampleRate();
+    int bs = audioEngine.getCurrentBufferSizeSamples();
 
     host.updatePluginLoadingState(false, "Cargando plugin desde archivo: " + file.getFileName());
 

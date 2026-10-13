@@ -40,31 +40,9 @@ void MainContentComponent::setWorkflowMode(gui::session::UiWorkflowMode mode)
 
 void MainContentComponent::setupGuidedWorkflowInitialData()
 {
-    gui::session::TargetSelectionState target;
-    target.targetId = "synthetic_fixture_demo";
-    target.targetName = "Sintetizador Virtual de Prueba (Demo Snapshot)";
-    target.manufacturer = "ABDAudioLab";
-    target.version = "1.0.0";
-    target.kind = gui::session::TargetKind::SyntheticFixture;
-    target.isConnected = true;
-    target.isDeterministic = true;
-    target.availableDomainDescription = "Notas MIDI C1-C6, Vel 1-127, Controles de Filtro y Modulación";
-    target.parameterCount = 8;
-
-    profilingSessionController.selectTarget(target);
-    profilingSessionController.updateAuditResult(
-        synth::ApprovalStatus::Approved,
-        "100% Determinista (Fixture Digital)",
-        "Reset de fase instantaneo (0 ms)",
-        0.0,
-        false,
-        {},
-        "Target de prueba sintetico precalificado para validacion acustica");
-
-    // Precargar evaluacion de demostracion para que el usuario siempre tenga datos listos
-    profilingSessionController.loadPredefinedFixture("fixture_approved.json");
-    profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::ConfigureAndStart);
-
+    // Clean initial state: no artificial synthetic demo injected in production.
+    // Target starts clean (None Selected) and stepper begins at Step 1 (Target & Routing).
+    profilingSessionController.navigateToStage(gui::session::ProfilingWorkflowStage::TargetSelection);
     profilingSessionController.setWorkflowMode(currentWorkflowMode);
 }
 
@@ -165,56 +143,55 @@ bool MainContentComponent::cargarCatalogoDeContratos()
     // catalogo es de `core`, y llenarlo de `gui`.
     //
     // ──────────────────────────────────────────────────────────────────────────
-    std::vector<juce::File> roots;
-
-    if (const auto sharedAssets = core::sharedAssetsDir(); sharedAssets.isDirectory())
-        roots.push_back(sharedAssets.getChildFile("contracts"));
-
-    roots.push_back(core::optionalRepoResource("contracts/hardware").getParentDirectory().getParentDirectory());
-
-    for (auto root : roots)
+    // 1. Contratos compartidos centralizados (ABDShared/Contracts con fallback a ABDSharedAssets)
+    if (const auto sharedContracts = core::sharedContractsDir(); sharedContracts.isDirectory())
     {
-        // Direct ABDSharedAssets/contracts directory
-        if (root.isDirectory() && root.getFileName() == "contracts" && hardwareManager.getContractRegistry().loadContractsFromDirectory(root))
-            break;
+        hardwareManager.getContractRegistry().loadContractsFromDirectory(sharedContracts);
+    }
 
+    // 2. Fallback a snapshot local versionado (contracts/hardware)
+    if (!hardwareManager.getContractRegistry().hasContracts())
+    {
+        if (const auto localHardware = core::contractsHardwareDir(); localHardware.isDirectory())
+            hardwareManager.getContractRegistry().loadContractsFromDirectory(localHardware);
+    }
+
+    // 3. Ascenso heurístico en caso de ejecución desacoplada
+    if (!hardwareManager.getContractRegistry().hasContracts())
+    {
+        auto root = core::optionalRepoResource("contracts/hardware").getParentDirectory().getParentDirectory();
         for (int i = 0; i < 6; ++i)
         {
-            // 1. Check ABDSharedAssets/contracts (sibling or child)
-            auto shared = root.getChildFile("ABDSharedAssets").getChildFile("contracts");
-            if (shared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(shared))
-                break;
-
-            auto siblingShared = root.getParentDirectory().getChildFile("ABDSharedAssets").getChildFile("contracts");
-            if (siblingShared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(siblingShared))
-                break;
-
-            // 2. Fallback to local contracts/hardware
             auto direct = root.getChildFile("contracts").getChildFile("hardware");
             if (direct.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(direct))
                 break;
 
+            auto shared = root.getChildFile("ABDShared").getChildFile("Contracts");
+            if (shared.isDirectory() && hardwareManager.getContractRegistry().loadContractsFromDirectory(shared))
+                break;
+
             root = root.getParentDirectory();
         }
-        if (hardwareManager.getContractRegistry().hasContracts())
-            break;
     }
 
-    // 3. Cargar perfiles canónicos adaptados (profiles/targets)
-    for (auto root : roots)
+    // 4. Cargar perfiles canónicos adaptados (profiles/targets)
+    if (const auto targetsDir = core::canonicalTargetsDir(); targetsDir.isDirectory())
     {
+        hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(targetsDir);
+    }
+    else
+    {
+        auto root = core::optionalRepoResource("profiles/targets").getParentDirectory().getParentDirectory();
         for (int i = 0; i < 6; ++i)
         {
-            auto targetsDir = root.getChildFile("profiles").getChildFile("targets");
-            if (targetsDir.isDirectory())
+            auto dir = root.getChildFile("profiles").getChildFile("targets");
+            if (dir.isDirectory())
             {
-                hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(targetsDir);
+                hardwareManager.getContractRegistry().loadCanonicalTargetProfiles(dir);
                 break;
             }
             root = root.getParentDirectory();
         }
-        if (!hardwareManager.getContractRegistry().getCanonicalAdaptedContracts().empty())
-            break;
     }
 
     return hardwareManager.getContractRegistry().hasContracts();

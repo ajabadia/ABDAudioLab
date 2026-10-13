@@ -195,13 +195,34 @@ juce::File exportedLutsDir()           { return repoResource("exported_luts"); }
 
 juce::File sharedAssetsDir()
 {
-    // 1. Hermano de la raiz del repositorio: <repo>/../ABDSharedAssets.
+    // Resolvedor de contenido compartido durante la migracion de
+    // D:\desarrollos\ABDSynths\ABDSharedAssets y ABDSharedCode a
+    // D:\desarrollos\ABDSynths\ABDShared.
+    //
+    // Precedencia documentada:
+    //  1. <repo_root>/../ABDShared/Assets          (nuevo layout consolidado)
+    //  2. buscada ascendentemente desde el ejecutable: ...
+    //     <build_tree>/../ABDShared/Assets
+    //  3. <repo_root>/../ABDSharedAssets           (legado, si existe)
+    //  4. buscada ascendentemente desde el ejecutable: ...
+    //     <build_tree>/../ABDSharedAssets
+    //
+    // Se mantiene no fatal y sin heap allocation en la ruta ordinaria:
+    // la ausencia de assets compartidos no detiene la aplicacion.
+
+    // 1. Hermano del repositorio: <repo>/../ABDShared/Assets.
+    //    El layout consolidado de ABDShared mantiene la carpeta de assets en Assets.
     if (const auto root = resolveRepoRoot(); root.isResolved)
     {
-        const auto sibling = root.root.getParentDirectory().getChildFile("ABDSharedAssets");
+        const auto sibling = root.root.getParentDirectory().getChildFile("ABDShared");
 
         if (sibling.isDirectory())
-            return sibling;
+        {
+            const auto assets = sibling.getChildFile("Assets");
+
+            if (assets.isDirectory())
+                return assets;
+        }
     }
 
     // 2. Subiendo desde el ejecutable, que es donde vive el arbol de build.
@@ -210,12 +231,11 @@ juce::File sharedAssetsDir()
 
     for (int level = 0; level < 7 && current.isDirectory(); ++level)
     {
-        const auto candidate = current.getChildFile("ABDSharedAssets");
+        const auto parent = current.getParentDirectory();
+        const auto candidate = current.getChildFile("ABDShared").getChildFile("Assets");
 
         if (candidate.isDirectory())
             return candidate;
-
-        const auto parent = current.getParentDirectory();
 
         if (parent == current)
             break;
@@ -223,8 +243,107 @@ juce::File sharedAssetsDir()
         current = parent;
     }
 
+    // 3. Por compatibilidad con clones viejos o builds en vivo sin migrar,
+    //    acepta tambien la ubicacion antigua de ABDSharedAssets.
+    if (const auto root = resolveRepoRoot(); root.isResolved)
+    {
+        const auto legacy = root.root.getParentDirectory().getChildFile("ABDSharedAssets");
+
+        if (legacy.isDirectory())
+            return legacy;
+    }
+
+    auto currentLegacy = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                           .getParentDirectory();
+
+    for (int level = 0; level < 7 && currentLegacy.isDirectory(); ++level)
+    {
+        const auto candidate = currentLegacy.getChildFile("ABDSharedAssets");
+
+        if (candidate.isDirectory())
+            return candidate;
+
+        const auto parent = currentLegacy.getParentDirectory();
+
+        if (parent == currentLegacy)
+            break;
+
+        currentLegacy = parent;
+    }
+
     // No lanza a proposito: la ausencia de assets compartidos no es un error fatal.
     return {};
 }
 
+juce::File sharedContractsDir()
+{
+    // Resolvedor de contratos compartidos durante la migracion a
+    // D:\desarrollos\ABDSynths\ABDShared.
+    //
+    // Precedencia:
+    //  1. <repo_root>/../ABDShared/Contracts
+    //  2. buscada ascendentemente desde el ejecutable: ...
+    //     <build_tree>/../ABDShared/Contracts
+    //  3. <resolved_shared_assets>/contracts       (legado via sharedAssetsDir())
+    //  4. <repo_root>/../ABDSharedAssets/contracts (legado directo)
+
+    // 1. Hermano del repositorio: <repo>/../ABDShared/Contracts
+    if (const auto root = resolveRepoRoot(); root.isResolved)
+    {
+        const auto sibling = root.root.getParentDirectory().getChildFile("ABDShared");
+
+        if (sibling.isDirectory())
+        {
+            const auto contracts = sibling.getChildFile("Contracts");
+
+            if (contracts.isDirectory())
+                return contracts;
+        }
+    }
+
+    // 2. Subiendo desde el ejecutable
+    auto current = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                       .getParentDirectory();
+
+    for (int level = 0; level < 7 && current.isDirectory(); ++level)
+    {
+        const auto parent = current.getParentDirectory();
+        const auto candidate = current.getChildFile("ABDShared").getChildFile("Contracts");
+
+        if (candidate.isDirectory())
+            return candidate;
+
+        if (parent == current)
+            break;
+
+        current = parent;
+    }
+
+    // 3. Fallback a legacy: <repo>/../ABDSharedAssets/contracts
+    if (const auto assets = sharedAssetsDir(); assets.isDirectory())
+    {
+        const auto contracts = assets.getChildFile("contracts");
+
+        if (contracts.isDirectory())
+            return contracts;
+    }
+
+    // 4. Fallback directo a ABDSharedAssets/contracts
+    if (const auto root = resolveRepoRoot(); root.isResolved)
+    {
+        const auto legacy = root.root.getParentDirectory().getChildFile("ABDSharedAssets");
+
+        if (legacy.isDirectory())
+        {
+            const auto contracts = legacy.getChildFile("contracts");
+
+            if (contracts.isDirectory())
+                return contracts;
+        }
+    }
+
+    return {};
+}
+
 } // namespace abdaudiolab::core
+

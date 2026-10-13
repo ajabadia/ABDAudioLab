@@ -58,7 +58,7 @@ public:
 
         for (size_t i = 0; i < audioEngine.getScopeCollector().getTapCount(); ++i)
         {
-            if (auto* tap = const_cast<abd::scope::ScopeTap*>(audioEngine.getScopeCollector().getTap(i)))
+            if (auto* tap = audioEngine.getScopeCollector().getTap(i))
                 tap->setActive(true);
         }
         if (auto* ws = dynamic_cast<abd::scope::JuceWebScopeComponent*>(getContentComponent()))

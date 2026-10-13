@@ -32,20 +32,12 @@ ProfilingSessionCoordinator::~ProfilingSessionCoordinator()
     requestCancel();
     notify();
 
-    if (isThreadRunning())
+    const bool stopped = waitForWorkerToStop(2000);
+    if (!stopped)
     {
-        bool stopped = waitForThreadToExit(3000);
-        if (!stopped)
-        {
-            juce::Logger::writeToLog("CRITICAL: ProfilingSessionCoordinator worker thread did not stop within 3000ms! Applying safe shutdown wait policy...");
-            // Política de espera segura extendida para proteger recursos y estabilidad del proceso
-            stopped = waitForThreadToExit(5000);
-            if (!stopped)
-            {
-                juce::Logger::writeToLog("FATAL: ProfilingSessionCoordinator worker thread remained active after 8000ms shutdown timeout.");
-            }
-        }
+        juce::Logger::writeToLog("CRITICAL: ProfilingSessionCoordinator worker thread did not stop within 2000ms during destruction!");
     }
+    jassert(stopped);
 }
 
 void ProfilingSessionCoordinator::setListener(ICoordinatorListener* listener)
@@ -147,38 +139,46 @@ bool ProfilingSessionCoordinator::isRunning() const
     return isThreadRunning() || st == CoordinatorState::Preparing || st == CoordinatorState::Running || st == CoordinatorState::Paused;
 }
 
-void ProfilingSessionCoordinator::waitForWorkerToStop(int timeoutMs)
+bool ProfilingSessionCoordinator::waitForWorkerToStop(int timeoutMs)
 {
-    if (isThreadRunning())
+    notify();
+    const int effectiveTimeout = (timeoutMs > 0) ? timeoutMs : 3000;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(effectiveTimeout);
+
+    while (isThreadRunning() && std::chrono::steady_clock::now() < deadline)
     {
-        waitForThreadToExit(timeoutMs);
-    }
+        notify();
+        waitForThreadToExit(20);
+
 #if defined(_WIN32)
-    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
-    {
-        if (mm->isThisTheMessageThread())
+        if (auto* mm = juce::MessageManager::getInstanceWithoutCreating())
         {
-            MSG msg;
-            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+            if (mm->isThisTheMessageThread())
             {
-                if (msg.message == WM_QUIT)
-                    break;
-                if (msg.hwnd == nullptr || IsWindow(msg.hwnd))
+                MSG msg;
+                while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
                 {
-                    __try
+                    if (msg.message == WM_QUIT)
+                        break;
+                    if (msg.hwnd == nullptr || IsWindow(msg.hwnd))
                     {
-                        TranslateMessage(&msg);
-                        DispatchMessage(&msg);
-                    }
-                    __except (EXCEPTION_EXECUTE_HANDLER)
-                    {
-                        // Safely discard exceptions from stale windows of unloaded in-process DLLs (e.g. VST3 plugins)
+                        __try
+                        {
+                            TranslateMessage(&msg);
+                            DispatchMessage(&msg);
+                        }
+                        __except (EXCEPTION_EXECUTE_HANDLER)
+                        {
+                            // Safely discard exceptions from stale windows of unloaded in-process DLLs (e.g. VST3 plugins)
+                        }
                     }
                 }
             }
         }
-    }
 #endif
+    }
+
+    return !isThreadRunning();
 }
 
 void ProfilingSessionCoordinator::publishSnapshot(CoordinatorState state, double progress, int trial, int total,
@@ -283,8 +283,13 @@ void ProfilingSessionCoordinator::run()
     if (threadShouldExit() || cancelRequested_.load(std::memory_order_acquire))
     {
         publishSnapshot(CoordinatorState::Cancelled, 0.0, 0, totalTrialsToRun_, -120.0f, -120.0f, 0.0f, AcousticHealth::Normal, true);
-        if (listener_ && token->load(std::memory_order_acquire))
-            listener_->onCoordinatorCancelled(runId, gen);
+        ICoordinatorListener* l = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            l = listener_;
+        }
+        if (l && token->load(std::memory_order_acquire))
+            l->onCoordinatorCancelled(runId, gen);
         return;
     }
 
@@ -296,8 +301,13 @@ void ProfilingSessionCoordinator::run()
         if (threadShouldExit() || cancelRequested_.load(std::memory_order_acquire))
         {
             publishSnapshot(CoordinatorState::Cancelled, latestSnapshot_.progress, trial - 1, totalTrialsToRun_, -120.0f, -120.0f, 0.0f, AcousticHealth::Normal, true);
-            if (listener_ && token->load(std::memory_order_acquire))
-                listener_->onCoordinatorCancelled(runId, gen);
+            ICoordinatorListener* l = nullptr;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                l = listener_;
+            }
+            if (l && token->load(std::memory_order_acquire))
+                l->onCoordinatorCancelled(runId, gen);
             return;
         }
 
@@ -308,8 +318,13 @@ void ProfilingSessionCoordinator::run()
             if (threadShouldExit() || cancelRequested_.load(std::memory_order_acquire))
             {
                 publishSnapshot(CoordinatorState::Cancelled, latestSnapshot_.progress, trial - 1, totalTrialsToRun_, -120.0f, -120.0f, 0.0f, AcousticHealth::Normal, true);
-                if (listener_ && token->load(std::memory_order_acquire))
-                    listener_->onCoordinatorCancelled(runId, gen);
+                ICoordinatorListener* l = nullptr;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    l = listener_;
+                }
+                if (l && token->load(std::memory_order_acquire))
+                    l->onCoordinatorCancelled(runId, gen);
                 return;
             }
         }
@@ -429,8 +444,13 @@ void ProfilingSessionCoordinator::run()
             if (threadShouldExit() || cancelRequested_.load(std::memory_order_acquire))
             {
                 publishSnapshot(CoordinatorState::Cancelled, prog, trial, totalTrialsToRun_, -120.0f, -120.0f, 0.0f, AcousticHealth::Normal, true);
-                if (listener_ && token->load(std::memory_order_acquire))
-                    listener_->onCoordinatorCancelled(runId, gen);
+                ICoordinatorListener* l = nullptr;
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    l = listener_;
+                }
+                if (l && token->load(std::memory_order_acquire))
+                    l->onCoordinatorCancelled(runId, gen);
                 return;
             }
         }
@@ -439,8 +459,13 @@ void ProfilingSessionCoordinator::run()
     if (threadShouldExit() || cancelRequested_.load(std::memory_order_acquire))
     {
         publishSnapshot(CoordinatorState::Cancelled, 100.0, totalTrialsToRun_, totalTrialsToRun_, -120.0f, -120.0f, 0.0f, AcousticHealth::Normal, true);
-        if (listener_ && token->load(std::memory_order_acquire))
-            listener_->onCoordinatorCancelled(runId, gen);
+        ICoordinatorListener* l = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            l = listener_;
+        }
+        if (l && token->load(std::memory_order_acquire))
+            l->onCoordinatorCancelled(runId, gen);
         return;
     }
 

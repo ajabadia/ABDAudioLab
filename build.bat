@@ -5,9 +5,12 @@ echo ===========================================================================
 echo  ABDAudioLab - Build and Compilation Script
 echo ==============================================================================
 
-:: Terminate running instance if open
+:: Terminate running instance or orphaned compiler processes if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
 taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
+taskkill /f /im cl.exe >nul 2>nul
+taskkill /f /im link.exe >nul 2>nul
+taskkill /f /im vctip.exe >nul 2>nul
 ping -n 2 127.0.0.1 >nul 2>nul
 
 :: 1. Detect Visual Studio Environment using vswhere
@@ -80,6 +83,7 @@ rem junctions era verde siempre. No es hipotetico: nacia en la linea 119.
 set "BUILD_FATAL=0"
 
 set "SHARED_ASSETS=..\ABDSharedAssets"
+if not exist "!SHARED_ASSETS!" if exist "..\ABDShared\Assets" set "SHARED_ASSETS=..\ABDShared\Assets"
 if exist "!SHARED_ASSETS!" (
     call :avisarSiEsEnlace "contracts\hardware" "es una copia versionada que el preflight y el test de drift vigilan"
     call :crearEnlaceSiProcede "contracts/hardware" "contracts\hardware" "!SHARED_ASSETS!\contracts"
@@ -170,6 +174,18 @@ if "!IS_TEST_ONLY!"=="0" (
 echo [Info] Building ABDAudioLab Release !BUILD_TARGET!...
 cmake --build build --config Release !BUILD_TARGET! --parallel
 if %errorlevel% neq 0 (
+    echo.
+    echo ==============================================================================
+    echo  Build failed.
+    echo ==============================================================================
+    echo.
+    echo El script se queda abierto para que puedas leer el error sin que se cierre.
+    echo Si quieres salir ahora, pulsa Ctrl+C, o pulsa una tecla cuando estes listo.
+    echo.
+    echo Revisa el bloque de arriba buscando 'error' o 'fatal'.
+    echo Si el fallo es otro archivo, vuelve a ejecutar build.bat despues de arreglarlo.
+    echo.
+    pause
     echo [Error] Build failed.
     exit /b 1
 )

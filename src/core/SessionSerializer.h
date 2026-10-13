@@ -16,6 +16,9 @@
 #include "../audio/LabStimulusGenerator.h"
 #include "../gui/TestConfigModal.h"
 #include "../export/LutExporter.h"
+#include "../calibration/CalibrationSnapshot.h"
+#include "../calibration/ActiveCalibrationContext.h"
+#include "../math/LoopbackCalibrator.h"
 
 namespace abdaudiolab::core
 {
@@ -41,7 +44,19 @@ struct SessionManifest
     
     double sampleRate { 96000.0 };                       /**< Audio sampling rate in Hz. */
     float lineCalibrationGainDb { -3.0f };               /**< Analog loopback calibration gain offset in dB. */
-    float noiseFloorThresholdDb { -85.0f };             /**< Baseline noise floor threshold in dBFS. */
+    float noiseFloorThresholdDb { -85.0f };             /**< Baseline noise floor threshold in dBFS (Acceptance Policy). */
+
+    // Physical noise baseline observation (strictly decoupled from acceptance policy threshold)
+    std::optional<float> measuredNoiseFloorRmsDbfs;
+    std::optional<float> measuredNoiseFloorPeakDbfs;
+    calibration::NoiseBaselineStatus noiseBaselineStatus { calibration::NoiseBaselineStatus::NotMeasured };
+    bool hasPhysicalNoiseBaseline { false };
+    math::SnrMeasurementMethod snrMeasurementMethod { math::SnrMeasurementMethod::NotAvailable };
+
+    // 1.8 Calibration Provenance & Composite Input Gain Plan
+    std::string calibrationMode { "ValidatedPhysicalLoopback" };         /**< Loopback calibration mode ("ValidatedPhysicalLoopback" or "Bypass"). */
+    std::optional<calibration::CalibrationSnapshot> calibrationSnapshot; /**< Immutable loopback calibration snapshot. */
+    calibration::InputGainPlan gainPlan;                                 /**< Structured composite gain plan. */
 
     std::vector<gui::TestConfiguration> tests;           /**< Configured test suite definitions. */
     int totalMeasuredPoints { 0 };                       /**< Total measured point count in session. */
