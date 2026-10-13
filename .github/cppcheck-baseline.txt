@@ -1,0 +1,44 @@
+# Baseline cppcheck de ABDAudioLab — generado midiendo HEAD (3283d50) con el
+# comando exacto de la CI (cppcheck 2.21) ya CON la exclusion
+# --suppress='*:BuildVersion.h' del fichero estampado. No hay terceros ni
+# .gen. bajo src/ (barrido hecho el 2026-10-13). Firma: severidad|archivo|
+# mensaje (sin linea, paths con /). El gate solo bloquea hallazgos que NO
+# esten aqui.
+error|src/apps/Vst3ValidationMain.cpp|There is an unknown macro here somewhere. Configuration is required. If JUCE_STRINGIFY is a macro then please configure it.
+error|src/gui/MeasurementFloatingWindow.h|There is an unknown macro here somewhere. Configuration is required. If JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR is a macro then please configure it.
+error|src/tests/support/TestTelemetry.cpp|There is an unknown macro here somewhere. Configuration is required. If CATCH_REGISTER_LISTENER is a macro then please configure it.
+performance|src/calibration/CalibrationProfileStore.cpp|Ineffective call of function 'substr' because a prefix of the string is assigned to itself. Use resize() or pop_back() instead.
+performance|src/core/GeneratedAcousticModel.cpp|Function parameter 'domain' should be passed by const reference.
+performance|src/core/HardwareManager.cpp|Variable 'mockController' is assigned in constructor body. Consider performing initialization in initialization list.
+performance|src/core/ModelHoldoutValidator.cpp|Function parameter 'config' should be passed by const reference.
+performance|src/export/ModelExportNaming.cpp|Ineffective call of function 'substr' because a prefix of the string is assigned to itself. Use resize() or pop_back() instead.
+performance|src/fixtures/reference_vst3/ReferenceSynthProcessor.h|Function 'getPrivateGroundTruthForTesting()' should return member 'groundTruthState_' by const reference.
+performance|src/gui/controllers/SessionIoController.cpp|Variable 'exportDirectory' is assigned in constructor body. Consider performing initialization in initialization list.
+performance|src/gui/session/ProfilingSessionCoordinator.cpp|Variable 'hr' is assigned in constructor body. Consider performing initialization in initialization list.
+performance|src/math/WienerHammersteinFitter.cpp|Function parameter 'cfg' should be passed by const reference.
+performance|src/profiling/ExperimentPlanCompiler.h|Function 'computeExperimentPlanHash()' should return member 'planHash' by const reference.
+performance|src/profiling/RecipePromotionService.cpp|Searching before insertion is not necessary.
+performance|src/tests/test_Phase20_11_2_SessionRobustnessAndA11y.cpp|Variable 'dir' is assigned in constructor body. Consider performing initialization in initialization list.
+performance|src/tests/test_Phase20_11_3_DigitalExpansion.cpp|Variable 'dir' is assigned in constructor body. Consider performing initialization in initialization list.
+performance|src/tests/test_TargetProfilePhysicalDispatch.cpp|Function parameter 'targetId' should be passed by const reference.
+warning|src/export/ReportExportService.cpp|Member variable 'PlannedArtifact::kind' has no initializer.
+warning|src/export/ReportExportService.h|Member variable 'ReportArtifact::kind' has no initializer.
+warning|src/measurement/adapters/EnvelopeMeasurementAdapter.cpp|Invalid std::log10() argument nr 1. The value is 0 but the valid values are '4.94066e-324:'.
+warning|src/synth/Sha256.h|Member variable 'Sha256::buffer_' is not initialized in the constructor.
+warning|src/synth/SynthEnvelopeAnalyzer.cpp|Invalid std::log10() argument nr 1. The value is 0 but the valid values are '4.94066e-324:'.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'FilterRunConfig::candidateCutoffDriftFactor' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'FilterRunConfig::cutoffHz' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'FilterRunConfig::q' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'NoteConfig::freqHz' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'PluckProfile::attackMs' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'PluckProfile::decayMs' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'PluckProfile::noteOffMs' has no initializer.
+warning|src/tests/test_AudioABValidationRuns.cpp|Member variable 'PluckProfile::sustainGain' has no initializer.
+warning|src/tests/test_DexedEnvelopeMeasurement_T5.cpp|Return value of function outStream.release() is not used.
+warning|src/tests/test_GuidedPluginLoad_Dexed.cpp|Possible null pointer dereference: cutoffParam
+warning|src/tests/test_OfficialLutGeneration.cpp|Member variable 'OfficialModelSpec::baseThd' has no initializer.
+warning|src/tests/test_OfficialLutGeneration.cpp|Member variable 'OfficialModelSpec::sigmaBase' has no initializer.
+warning|src/tests/test_TargetProfileDexedBehavior.cpp|Possible null pointer dereference: cutoffParam
+warning|src/tests/test_TargetProfileLegacyConsumerParity.cpp|Member variable 'RetirementGateRow::controlledAbsence' has no initializer.
+warning|src/tests/test_TargetProfileLegacyConsumerParity.cpp|Member variable 'RetirementGateRow::directConsumers' has no initializer.
+warning|src/tests/test_TargetProfileLegacyConsumerParity.cpp|Member variable 'RetirementGateRow::parityE2E' has no initializer.
