@@ -63,6 +63,11 @@ private:
     juce::Label warningsLabel_;
 
     // Auditoría de Nivel 2: Procedencia y Hash Canónico
+    // Primer plano de lectura guiada: qué hiciste / qué salió / qué puedes hacer después
+    juce::Label resultDidLabel_;
+    juce::Label resultOutcomeLabel_;
+    juce::Label resultNextLabel_;
+
     juce::Label hashAuditLabel_;
     juce::Label hashVerifiedBadgeLabel_;
     juce::TextButton copyHashButton_;
@@ -79,6 +84,8 @@ private:
     juce::TextButton viewAuditDetailsButton_;
     juce::TextButton restartSessionButton_;
 
+    bool showResultPlano_ { false };
+
     void openHtmlReport();
 
     std::shared_ptr<juce::FileChooser> fileChooser_;
@@ -86,6 +93,7 @@ private:
     bool hasEvaluation_ { false };
     bool canExport_ { false };
     bool hashVerified_ { false };
+
     std::string fullCanonicalHash_;
     synth::SelectionStatus currentVerdict_ { synth::SelectionStatus::Inconclusive };
 
@@ -98,6 +106,7 @@ private:
     bool modelAudioAvailable_ { false };
     bool residualAudioAvailable_ { false };
     bool htmlReportAvailable_ { false };
+
     juce::File targetAudioFile_;
     juce::File modelAudioFile_;
     juce::File residualAudioFile_;

@@ -66,11 +66,17 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ARA_SDK)
 
 # ------------------------------------------------------------------------------
-# ABDSharedCode (Shared Libraries: AutoUpdater, etc.)
+# ABDShared / ABDSharedCode (Shared Libraries: AutoUpdater, Scope, HardwareDrivers, etc.)
 # ------------------------------------------------------------------------------
-set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
+set(ABDSHARED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared")
+set(ABDSHARED_CODE_DIR "${ABDSHARED_DIR}/Code")
+
 if(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
-    message(STATUS "ABDSharedCode: Using local at ${ABDSHARED_CODE_DIR}")
+    message(STATUS "ABDShared: Using local consolidated tree at ${ABDSHARED_CODE_DIR}")
+    add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDShared_Code")
+elseif(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
+    set(ABDSHARED_CODE_DIR "${ABDSHARED_CODE_DIR}")
+    message(STATUS "ABDSharedCode: Using legacy local at ${ABDSHARED_CODE_DIR}")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDSharedCode")
 else()
     include(FetchContent)
@@ -180,6 +186,7 @@ target_sources(ABDAudioLab
         # Mathematical & Statistical Processing
         src/math/LabAnalyticEngine.h
         src/math/LabAnalyticEngine.cpp
+    src/math/LabEnvelopeCurveAnalyzer.cpp
         src/math/analytics/FilterAnalytics.h
         src/math/analytics/FilterAnalytics.cpp
         src/math/analytics/EnvelopeAnalytics.h
@@ -252,18 +259,18 @@ target_sources(ABDAudioLab
         src/hardware/transport/JuceMidiTransport.cpp
         src/hardware/adapter/SharedMidiHardwareAdapter.h
         src/hardware/adapter/SharedMidiHardwareAdapter.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/JunoTapeModem.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/SysExCodec.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/NRPNParser.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Alignment.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Spectral.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABVerdictEngine.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/WebView2Bridge/WebView2ResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioCzVirtualController.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioNibbleCodec.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/FskAudioModem.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/JunoTapeModem.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/SysExCodec.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/NRPNParser.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Alignment.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Spectral.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABVerdictEngine.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
+        ${ABDSHARED_CODE_DIR}/WebView2Bridge/WebView2ResourceProvider.cpp
         
         # Plugin Hosting & Software Target (VST3, AU, LV2, ARA)
         src/core/plugins/PluginHostManager.h
@@ -567,14 +574,14 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdResultsSummaryView.h
         src/gui/soundid/SoundIdResultsSummaryView.cpp
         src/gui/ScopeWebFloatingWindow.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/JuceStudioTopologyComponent.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyFloatingWindow.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/JuceMidiKeyboardComponent.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardFloatingWindow.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/StudioTopology/JuceStudioTopologyComponent.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyFloatingWindow.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardResourceProvider.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/JuceMidiKeyboardComponent.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardFloatingWindow.h
         src/gui/MeasurementHealthPanel.h
         src/gui/OperatorCardsContainerComponent.h
         src/gui/OperatorCardsContainerComponent.cpp
@@ -585,9 +592,9 @@ target_sources(ABDAudioLab
         src/gui/SessionReportManager.cpp
         src/gui/MainHeaderController.h
         src/gui/MainHeaderController.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/AudioMidiInterfaceDetector.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.cpp
+        ${ABDSHARED_CODE_DIR}/StudioTopology/AudioMidiInterfaceDetector.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.cpp
         src/gui/SessionExecutionCoordinator.h
         src/gui/SessionExecutionCoordinator.cpp
         src/gui/controllers/SessionIoController.h
@@ -634,6 +641,7 @@ target_sources(ABDAudioLab
         src/export/LutExporter.cpp
         src/export/CertificationReportExporter.h
         src/export/CertificationReportExporter.cpp
+    src/export/CurveReportExporter.cpp
         src/export/ReportExportService.h
         src/export/ReportExportService.cpp
         src/gui/controllers/IReportExportHost.h
@@ -661,7 +669,7 @@ target_sources(ABDAudioLab
 target_include_directories(ABDAudioLab
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+        ${ABDSHARED_CODE_DIR}
         ${ara_sdk_SOURCE_DIR}
 )
 
@@ -829,6 +837,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_DynamicsMeasurementAdapter.cpp
     src/tests/test_ModulationMeasurementAdapter.cpp
     src/tests/test_DynamicsAndModulationExport.cpp
+    src/math/UnitTests/EnvelopeAnalysisTests.cpp
     src/tests/test_MeasurementStimulusCapture.cpp
     src/tests/test_MeasurementAudioThroughCapture.cpp
     src/tests/test_MeasurementPersistenceAndReport.cpp
@@ -940,6 +949,7 @@ add_executable(ABDAudioLab_Tests
     src/math/FarinaDeconvolver.cpp
     src/math/IntermodulationAnalyzer.cpp
     src/math/LabAnalyticEngine.cpp
+    src/math/LabEnvelopeCurveAnalyzer.cpp
     src/math/analytics/FilterAnalytics.cpp
     src/math/analytics/EnvelopeAnalytics.cpp
     src/math/analytics/DynamicsAnalytics.cpp
@@ -957,18 +967,18 @@ add_executable(ABDAudioLab_Tests
     src/calibration/CalibrationCompatibilityEvaluator.cpp
     src/calibration/ActiveCalibrationContext.cpp
     src/hardware/MidiIdentityDetector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/JunoTapeModem.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/SysExCodec.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/NRPNParser.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Alignment.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Spectral.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABVerdictEngine.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/WebView2Bridge/WebView2ResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioCzVirtualController.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioNibbleCodec.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/FskAudioModem.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/JunoTapeModem.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/SysExCodec.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/NRPNParser.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Alignment.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Spectral.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABVerdictEngine.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
+    ${ABDSHARED_CODE_DIR}/WebView2Bridge/WebView2ResourceProvider.cpp
     src/core/AutoTestPresetEngine.cpp
     src/core/presets/FilterPresetCatalog.cpp
     src/core/presets/ModulationPresetCatalog.cpp
@@ -1015,6 +1025,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/soundid/SoundIdSidebarStepper.cpp
     src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
     src/export/CertificationReportExporter.cpp
+    src/export/CurveReportExporter.cpp
     src/export/ModelExportNaming.cpp
     src/ipc/Win32NamedPipe.cpp
     src/ipc/WorkerProcessHost.cpp
@@ -1121,11 +1132,11 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_TargetProfileLegacyConsumerParity.cpp
     src/tests/test_TargetProfileLegacyHotplugParity.cpp
     src/tests/test_TargetProfilePhysicalPreflightBench.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_JuceMidiHardwareBackendStrictOpen.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_HardwareMidiDetectorIdentityState.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/MidiEndpointSafetyPolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicyWiring.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_JuceMidiHardwareBackendStrictOpen.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_HardwareMidiDetectorIdentityState.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/MidiEndpointSafetyPolicy.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_MidiEndpointSafetyPolicy.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_MidiEndpointSafetyPolicyWiring.cpp
     src/hardware/adapter/SharedMidiHardwareAdapter.cpp
     src/tests/test_SharedMidiHardwareIntegrationContract.cpp
     src/tests/test_AudioABCanonicalPresetRuns5D.cpp
@@ -1187,7 +1198,7 @@ add_custom_command(TARGET ABDAudioLab_PluginWorker POST_BUILD
 target_include_directories(ABDAudioLab_Tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+        ${ABDSHARED_CODE_DIR}
 )
 
 target_compile_definitions(ABDAudioLab_Tests

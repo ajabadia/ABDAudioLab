@@ -283,6 +283,48 @@ void SoundIdResultsSummaryView::updateFromSnapshot(const session::ProfilingSessi
     modelAudioFile_ = valSum.modelFile;
     residualAudioFile_ = valSum.residualFile;
 
+    // --- PRIMER PLANO DE LECTURA: "Qué hiciste / qué salió / qué puedes hacer después" ---
+    // Se rellena aquí para que el usuario tenga una lectura rápida antes de las métricas técnicas.
+    if (eval.hasEvaluation)
+    {
+        // --- Qué hiciste ---
+        juce::String didYou;
+        if (eval.recommendedModelType.empty())
+            didYou = juce::String::fromUTF8(u8"Medición guiada sin modelo recomendado");
+        else
+            didYou = juce::String::fromUTF8(u8"Medición guiada del ")
+                     + juce::String::fromUTF8(eval.recommendedModelType.c_str())
+                     + juce::String::fromUTF8(u8" — Condición básica: sesión guiada, hardware conectado");
+        resultDidLabel_.setText(didYou, juce::dontSendNotification);
+
+        // --- Qué salió ---
+        juce::String outcome;
+        if (validationVerdict_ == core::ValidationUiSummary::Verdict::pass)
+            outcome = juce::String::fromUTF8(u8"Sesión completada. Modelo aceptado dentro de tolerancias metrológicas");
+        else if (validationVerdict_ == core::ValidationUiSummary::Verdict::passWithLimitations)
+            outcome = juce::String::fromUTF8(u8"Sesión completada. Modelo aceptado con advertencias");
+        else if (validationVerdict_ == core::ValidationUiSummary::Verdict::fail)
+            outcome = juce::String::fromUTF8(u8"Resultado rechazado — No cumple criterio metrológico o faltan datos holdout");
+        else if (validationVerdict_ == core::ValidationUiSummary::Verdict::notAvailable)
+            outcome = juce::String::fromUTF8(u8"Resultado no disponible — Fallo de integridad criptográfica");
+        else
+            outcome = juce::String::fromUTF8(u8"Sesión completada");
+        resultOutcomeLabel_.setText(outcome, juce::dontSendNotification);
+
+        // --- Qué puedes hacer después ---
+        resultNextLabel_.setText(juce::String::fromUTF8(
+            u8"Exportar paquete de producción • Revisar informe HTML • Comparar o reanalizar"),
+            juce::dontSendNotification);
+    }
+    else
+    {
+        // Sin evaluación aún: mensaje de bienvenida al paso 4
+        resultDidLabel_.setText(juce::String::fromUTF8(u8"Awaiting measurement or load evaluation."), juce::dontSendNotification);
+        resultOutcomeLabel_.setText(juce::String::fromUTF8(u8"Iniciar o cargar una sesión para ver resultados"), juce::dontSendNotification);
+        resultNextLabel_.setText(juce::String::fromUTF8(u8"Configurar target y iniciar sesión"), juce::dontSendNotification);
+    }
+    // -------------------------------------------------------------------------
+
     // Estado técnico (Status badge)
     switch (validationStatus_)
     {
@@ -498,6 +540,15 @@ void SoundIdResultsSummaryView::resized()
 
     headerTitle_.setBounds(area.removeFromTop(28));
     headerSubtitle_.setBounds(area.removeFromTop(22));
+
+    // --- PRIMER PLANO DE LECTURA (3 frases breves) ---
+    // "Qué hiciste" / "Qué salió" / "Qué puedes hacer después"
+    // Posicionado justo debajo del subtítulo y encima de la tarjeta del modelo
+    resultDidLabel_.setBounds(area.removeFromTop(20));
+    resultOutcomeLabel_.setBounds(area.removeFromTop(20));
+    resultNextLabel_.setBounds(area.removeFromTop(20));
+    // ------------------------------------------------
+
     area.removeFromTop(12);
 
     // Tarjeta del Modelo Recomendado
