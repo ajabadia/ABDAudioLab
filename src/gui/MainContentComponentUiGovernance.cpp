@@ -41,7 +41,13 @@ void MainContentComponent::updateGovernanceUi()
         btnPromoteToRecipe.setVisible(false);
         btnPrimaryAction.setVisible(false);
         btnCancelAction.setVisible(false);
-        lblActionReasonBanner.setVisible(false);
+        
+        // Excepto si la sesión está cargada para revisar: mostramos el banner explicativo
+        if (profilingSessionController.getCurrentSnapshot().sessionStatus != 
+            gui::session::ProfilingSessionStatus::EvaluationLoadedForReview)
+        {
+            lblActionReasonBanner.setVisible(false);
+        }
         return;
     }
 
@@ -502,6 +508,34 @@ void MainContentComponent::onSessionSnapshotUpdated(const gui::session::Profilin
         profilingRunView->updateFromSnapshot(snapshot);
     if (resultsSummaryView != nullptr)
         resultsSummaryView->updateFromSnapshot(snapshot);
+
+    // --- Mensaje explicativo de estado de sesión cargada ---
+    // Según UX: cuando sessionStatus es EvaluationLoadedForReview,
+    // el usuario debe saber si puede continuar o si es solo revisión
+    if (snapshot.sessionStatus == gui::session::ProfilingSessionStatus::EvaluationLoadedForReview)
+    {
+        // Verificar si hay suficiente contexto para continuar
+        bool hasTarget = gui::session::hasRealTargetInSnapshot(snapshot);
+        
+        if (hasTarget)
+        {
+            // Sesión con suficiente contexto: puede continuar
+            lblActionReasonBanner.setText("Sesión cargada. Puede continuar la medición o revisar los resultados.", juce::dontSendNotification);
+            lblActionReasonBanner.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
+        }
+        else
+        {
+            // Sesión con contexto limitado: solo revisión
+            lblActionReasonBanner.setText("Sesión cargada para revisión. Datos limitados: no se puede reanudar la medición automáticamente.", juce::dontSendNotification);
+            lblActionReasonBanner.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentAmber);
+        }
+        lblActionReasonBanner.setVisible(true);
+    }
+    else
+    {
+        // Para otros estados, esconder el banner (o dejar el comportamiento actual)
+        lblActionReasonBanner.setVisible(false);
+    }
 }
 
 void MainContentComponent::onAlertRaised(const gui::session::UiAlert& alert)

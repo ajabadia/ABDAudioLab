@@ -112,6 +112,11 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         if (jsonFile.getFileName().endsWithIgnoreCase(".schema.json"))
             return false;
 
+        // Descartar silenciosamente especificaciones de parámetros de sintetizadores (*_parameter_spec.json)
+        // que residen en contratos compartidos pero son para motores DSP y WebUI, no perfiles de hardware
+        if (jsonFile.getFileName().endsWithIgnoreCase("_parameter_spec.json"))
+            return false;
+
         // Descartar silenciosamente contratos de otros subsistemas que declaran su propio esquema ajeno a hardware_profile
         if (j.contains("$schema") && j["$schema"].is_string())
         {

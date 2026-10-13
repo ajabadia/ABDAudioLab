@@ -761,6 +761,57 @@ bool CertificationReportExporter::exportReportToHtml(const std::string& targetPa
     file << "  <div class=\"section-title\">THD% & Signal Quality Measurement Log</div>\n";
     file << thdTable << "\n";
 
+    // ============================================================
+    // NUEVO: PRIMER PLANO DE LECTURA RÁPIDO (modo guiado y clásico idéntico)
+    // ============================================================
+    file << "  <div class=\"quick-summary-section\" style=\"background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 24px; margin-top: 16px;\">\n";
+    file << "    <div style=\"font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 12px;\">RESUMEN EJECUTIVO</div>\n";
+    file << "    <div style=\"font-size: 14px; color: #334155; line-height: 1.6;\">\n";
+    
+    // Construir el texto "Qué hiciste / qué salió / qué puedes hacer después"
+    std::string summary;
+    
+    // Qué hiciste: target y función
+    if (!manifest.hardwareName.empty())
+    {
+        summary += "Medición de " + std::string(manifest.hardwareName) + "";
+        if (!manifest.functionName.empty() && manifest.functionName != manifest.hardwareName)
+            summary += " (" + std::string(manifest.functionName) + ")";
+    }
+    else if (!manifest.functionName.empty())
+    {
+        summary += "Medición de " + std::string(manifest.functionName);
+    }
+    else
+    {
+        summary += "Medición sin target seleccionado";
+    }
+    
+    // Qué salió: basarse en verdict y status
+    if (effectiveValidation != nullptr && effectiveValStatus == "completed")
+    {
+        if (verdictStr == "PASS")
+            summary += " — Sesión completada. Modelo aceptado dentro de tolerancias metrológicas";
+        else if (verdictStr == "PASS_WITH_LIMITATIONS")
+            summary += " — Sesión completada. Modelo aceptado con advertencias";
+        else if (verdictStr == "FAIL")
+            summary += " — Resultado rechazado. No cumple criterio metrológico o faltan datos holdout";
+        else
+            summary += " — Resultado no disponible";
+    }
+    else
+    {
+        summary += " — Aún sin validación completada";
+    }
+    
+    // Qué puedes hacer después (siempre igual)
+    summary += " • Exportar paquete de producción • Revisar informe HTML • Comparar o reanalizar";
+    
+    file << summary;
+    file << "    </div>\n";
+    file << "  </div>\n";
+    file << "  <!-- /QUICK SUMMARY -->\n";
+    
     file << "  <div class=\"stamp-footer\">\n";
     file << "    <div>SESSION INTEGRITY: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VALID") << " | Integrity: " << (validationStatus == "corrupt" ? "COMPROMISED" : "VERIFIED") << " | CHECKSUM: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << crc << std::dec << "</div>\n";
     file << "    <div>ENGINE: ABDAudioLab v0.3.2-PRO</div>\n";
