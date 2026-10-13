@@ -227,10 +227,13 @@ void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rect
         g.setColour(textMuted.withAlpha(0.35f));
         g.drawText(juce::String(getStepBadgeNumber(step)), badgeRect, juce::Justification::centred, false);
     }
-    else if (status == StepStatus::Completed)
+    else if (status == StepStatus::Completed || status == StepStatus::LoadedFromHistory)
     {
-        // Completed: solid filled green badge with white checkmark path (mojibake-free vector)
-        g.setColour(accentGreen);
+        // Completed: solid filled green badge. LoadedFromHistory: solid filled cyan badge.
+        const auto badgeColour = (status == StepStatus::LoadedFromHistory)
+                                     ? juce::Colour(0xff06b6d4)
+                                     : accentGreen;
+        g.setColour(badgeColour);
         g.fillEllipse(badgeRect);
 
         juce::Path checkmark;
@@ -307,6 +310,17 @@ void SoundIdSidebarStepper::drawStepRow(juce::Graphics& g, Step step, juce::Rect
             g.setFont(juce::FontOptions(getActiveSubtitleFontSize(), juce::Font::plain));
             g.setColour(textSecondary);
             g.drawText(stepDescriptions[step], descArea, juce::Justification::centredLeft, true);
+        }
+        else if (status == StepStatus::LoadedFromHistory)
+        {
+            // LoadedFromHistory: standard 12.0f plain title in textPrimary and cyan "Cargado de historial" subtitle
+            g.setFont(juce::FontOptions(getStandardTitleFontSize(), juce::Font::plain));
+            g.setColour(textPrimary);
+            g.drawText(stepTitles[step], titleArea, juce::Justification::centredLeft, true);
+
+            g.setFont(juce::FontOptions(getStandardSubtitleFontSize(), juce::Font::plain));
+            g.setColour(juce::Colour(0xff06b6d4));
+            g.drawText("Cargado de historial", descArea, juce::Justification::centredLeft, true);
         }
         else if (status == StepStatus::Completed)
         {

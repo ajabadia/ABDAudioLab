@@ -39,6 +39,8 @@
 #include "gui/AboutModalDialog.h"
 #include "gui/NativeCalibrationPanel.h"
 #include "calibration/ActiveCalibrationContext.h"
+#include "calibration/LoopbackProfileStore.h"
+#include "calibration/AsyncLoopbackProfileLoader.h"
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
@@ -135,6 +137,7 @@ public:
     void confirmManualStep();
     void openAudioMidiSettings();
     void showAboutDialog();
+    void triggerAsyncLoopbackProfileDetection();
 
     core::ProfilingSession buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr);
     void startTargetedPatchSession(const std::vector<std::pair<int, int>>& pointsToPatch);
@@ -231,6 +234,8 @@ private:
     gui::PluginScanDirectoriesModal pluginScanModal;
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
     std::shared_ptr<calibration::ActiveCalibrationContext> activeCalibrationContext { std::make_shared<calibration::ActiveCalibrationContext>() };
+    calibration::LoopbackProfileStore loopbackProfileStore;
+    juce::ThreadPool backgroundThreadPool { 2 };
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
 

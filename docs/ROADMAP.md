@@ -278,6 +278,80 @@ Un hito o fase se considera terminado únicamente cuando:
 
 ---
 
+## 12. Plan de Mejoras de Calidad (Post-Review Oct 2026)
+
+### Estado
+Revisión de calidad realizada identificó mejoras menores de memory ordering en thread-safety.
+
+### Estado de la revisión de calidad (post-revisión y post-auditoría en este hilo)
+- **MEJ-01 (ALTO)**: `LabStimulusGenerator` - en este repositorio, `processBlock()` ya lee `playing`, `finished`, `currentSampleIndex` y `totalSamples` con `acquire`, y la finalización publica `playing=false` y `finished=true` con `release`. Tarea considerada como ya implementada en este punto del código. Detalle en [PLAN_MEJORAS_CALIDAD.md](PLAN_MEJORAS_CALIDAD.md).
+- **MEJ-02 (MEDIO)**: `LabAudioEngine` - corregido en este hilo: ahora el callback de audio lee `diagnosticToneFreq`, `diagnosticToneLevel` y `diagnosticToneActive` con `acquire`, y `isDiagnosticTestToneActive()` también usa `acquire`. Detalle en [PLAN_MEJORAS_CALIDAD.md](PLAN_MEJORAS_CALIDAD.md).
+- [ ] **MEJ-03 (OBLIGATORIO)**: Compilar, ejecutar tests de audio (`[audio]`, `[AudioEngine]`) y suite completa. Verificar 0 regresiones.
+
+**Detalle completo**: Ver [PLAN_MEJORAS_CALIDAD.md](PLAN_MEJORAS_CALIDAD.md)
+
+---
+
+## 13. Plan Maestro de Usabilidad, Persistencia y Rediseño de Flujo (Inspirado en Sonarworks SoundID Reference)
+
+### 13.1 Diagnóstico de Fricción Metrológica (Problema Actual)
+ABDAudioLab posee un motor científico de perfilado y clonación de hardware maduro, pero sufre de sobrecarga cognitiva y fricción operativa ("síndrome del laboratorio de física"):
+1. **Fatiga de recableado (Loopback repetitivo)**: Cada sesión exige recablear físicamente salida a entrada para calibrar la tarjeta de sonido, aunque el hardware de audio y la sala no hayan cambiado.
+2. **Rigidez de bloque único**: Una medición es monolítica. Si se produce un glitch aislado de SysEx o ruido en 1 de 32 puntos, la sesión se declara fallida o exige repetir los 32 puntos desde cero.
+3. **Sobrecarga visual de laboratorio**: Mostrar simultáneamente FFT cruda, curvas de fase, THD en dBFS y matrices dispersas abruma al músico/productor.
+4. **Falta de persistencia integral**: No existe un formato de entrega comercial para empaquetar, transportar y reabrir perfiles de hardware medidos.
+
+### 13.2 Principios de Diseño Sustractivo ("Habla en Músico, Piensa en Ingeniero")
+- **Embudo lineal obligatorio (3 Pasos)**: 1. Setup/Conexión (con test rápido de comprobación) $\rightarrow$ 2. Captura (botón central con barra de progreso limpia) $\rightarrow$ 3. Resultado (huella y acciones directas).
+- **Safe Defaults**: Ocultar el 90% de los parámetros de metrología matemática bajo un botón o pestaña secundaria de "Inspección de Ingeniería".
+- **Traducción psicoacústica**: THD $\rightarrow$ "Carácter / Calidez", Fase $\rightarrow$ "Alineación de Fase (Semáforo)", FFT $\rightarrow$ Curva suavizada a 1/3 de octava por defecto.
+
+### 13.3 Fases de Ejecución
+
+#### Sprint 1: Perfiles de Infraestructura (`.abdloop`)
+- **Objetivo**: Eliminar la fatiga de recablear la interfaz de audio en cada sesión.
+- **Implementación**:
+  - Almacenamiento local en `AppData/Roaming/ABDAudioLab/<hash>.abdloop` desacoplado del target.
+  - Clave de hash unívoca: `(audioDeviceName, sampleRate, bufferSize)`.
+  - Detección automática al seleccionar driver en Paso 0 / Paso 2.
+  - Estado visual en stepper: `StepStatus::LoadedFromHistory` (indicador oliva/historial).
+  - Opciones de UI: `[Omitir Calibración (Usar Guardada)]` (bypass instantáneo al Paso 3) | `[Volver a Calibrar]`.
+
+#### Sprint 2: Banco de Pruebas Interactivo (Edición Quirúrgica en Pantalla)
+- **Objetivo**: Tratar los datos de medición como un lienzo editable, reparando puntos corruptos sin repetir toda la sesión.
+- **Implementación**:
+  - Matriz 2D de parámetros con indexación plana (`0..31`) mapeada a filas/columnas (`4x8`).
+  - Menú contextual asíncrono vía `juce::PopupMenu::showMenuAsync` con salvaguarda `Component::SafePointer`:
+    - `Re-Medir Punto Singular`: Bloqueo controlado de la UI (`setMatrixInteractionEnabled(false)`), disparo de barrido puntual sin alterar el hilo de audio DSP en tiempo real (cero heap allocation).
+    - `Interpolar / Vecinos`: Reparación matemática mediante promedio de vecinos válidos (gestión segura de bordes y esquinas 2D).
+    - `Eliminar / Omitir de la Huella`: Exclusión del nodo como outlier para el reporte final.
+
+#### Sprint 3: Contenedor de Huella Universal (`.abdprofile`)
+- **Objetivo**: Persistencia unificada y portable de sesiones de hardware.
+- **Estructura del archivo (ZIP nativo via `juce::ZipFile`)**:
+  - `metadata.json`: UUID, nombre de hardware, fabricante, carácter analógico, fecha, operario, enlace de infraestructura (`infrastructureLink`).
+  - `infrastructure_snap.json`: Estado metrológico, validez, tipo de suavizado (1/3 octava).
+  - `model_matrix.dat`: Stream binario puro de los 32 floats de coeficientes (`writeInt` + `write` crudos).
+- **Carga Cruzada Inteligente (ProfileLoader)**:
+  - Comparación de `infrastructureLink` contra el hardware activo actual.
+  - Coincidencia idéntica: Carga completa en caliente.
+  - Discrepancia de interfaz: `AlertWindow::showOkCancelBoxAsync` con fallback controlado a "Modo Offline / Sólo Lectura" (`StepStatus::Warning`, bloqueo de bypass de loopback).
+
+#### Sprint 4: Refinamiento de Usabilidad y Evaluación de Convergencia WebView2
+- **Objetivo**: Consolidar la experiencia de usuario hacia un estándar comercial prémium.
+- **Actividades**:
+  - Presets de medición declarativos ("Pedal de Saturación", "Sintetizador Dinámico", "Procesador Lineal").
+  - Capa de presentación simplificada (curva suavizada 1/3 octava, semáforo de fase, tarjeta de fidelidad de captura).
+  - Ocultación de visores densos (Lab Bench) tras un panel colapsable ("Consola de Telemetría").
+  - Evaluación arquitectónica para unificar las ventanas flotantes actuales de WebView2 (Scope y Topología) en un shell SPA integrado con el backend C++.
+
+### 13.4 Condicionantes y Dependencias Identificadas en el Roadmap
+1. **Alineación con ADR-001 / PARITY-01**: La convergencia entre modo guiado y libre debe basarse en un único `ExperimentPlan` canónico; los nuevos presets de medición son la realización directa de esta directiva.
+2. **Cierre de MEJ-03 (Obligatorio previo)**: Antes de introducir nueva lógica de persistencia, se debe asegurar que las modificaciones de memory ordering en `LabAudioEngine` y `LabStimulusGenerator` compilen sin errores y mantengan la suite de tests en verde.
+3. **Invariantes DSP en Tiempo Real**: Prohibición de asignaciones dinámicas o bloqueos en el hilo de audio durante operaciones de re-medición o guardado (la UI se deshabilita localmente, el motor de audio procesa asíncronamente).
+
+---
+
 ## Detalle Histórico de Fases Precedentes (Fase 1 a 20)
 
 

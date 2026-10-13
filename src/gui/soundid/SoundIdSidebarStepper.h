@@ -42,6 +42,7 @@ public:
         Pending, 
         Current, 
         Completed, 
+        LoadedFromHistory,
         Skipped,
         Warning 
     };

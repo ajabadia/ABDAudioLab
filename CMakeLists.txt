@@ -68,6 +68,18 @@ FetchContent_MakeAvailable(ARA_SDK)
 # ------------------------------------------------------------------------------
 # ABDShared (Shared Libraries: DspCore, SynthCore, AutoUpdater, Scope, etc.)
 # ------------------------------------------------------------------------------
+# Consumo canonico del repositorio consolidado ABDShared.
+#
+# Preferencias de origen del codigo compartido:
+#  1. Arbol consolidado local: ${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code
+#  2. Legacy local viejo (repositivo hermano pre-consolidacion): ...
+#     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+#  3. Descarga remota legacy como ultimo recurso (repo/hermano viejo).
+#
+# La rama legacy local y la descarga remota legacy existen solo por compatibilidad
+# transitoria durante la migracion desde ABDSharedCode/ABDSharedAssets a
+# la estructura consolidada en ${ABDSHARED_DIR}.
+# ------------------------------------------------------------------------------
 set(ABDSHARED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared")
 set(ABDSHARED_CODE_DIR "${ABDSHARED_DIR}/Code")
 
@@ -76,7 +88,7 @@ if(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDShared_Code")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/CMakeLists.txt")
     set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
-    message(STATUS "ABDSharedCode: Using legacy local fallback at ${ABDSHARED_CODE_DIR}")
+    message(STATUS "ABDSharedCode: Using legacy local fallback at ${ABDSHARED_CODE_DIR} (legacy, during migration)")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDSharedCode")
 else()
     include(FetchContent)
@@ -87,19 +99,24 @@ else()
       SOURCE_SUBDIR  Code
     )
     FetchContent_MakeAvailable(ABDShared)
+    set(ABDSHARED_DIR "${abdshared_SOURCE_DIR}")
+    set(ABDSHARED_CODE_DIR "${abdshared_SOURCE_DIR}/Code")
+    message(STATUS "ABDShared: Using FetchContent at ${ABDSHARED_CODE_DIR}")
 endif()
 
 # ------------------------------------------------------------------------------
-# ABDScope -> ABDSharedCode (subtree desde v0.4.0)
+# ABDScope -> consolidated tree (historically subtree under ABDSharedCode/Scope)
 # ------------------------------------------------------------------------------
-# El modulo Scope vive ahora en ABDSharedCode/Scope y se registra al anadir
-# ABDSharedCode mas arriba (targets ABDShared::ScopeCore y
-# ABDShared::ScopeCoreHeaders). Este bloque se borraba: mantener un segundo
-# add_subdirectory del mismo modulo haria duplicar los targets ABDScopeCore y
-# romper la configuracion con "add_library cannot create target ABDScopeCore...".
+# El modulo Scope se consume desde el arbol consolidado de codigo compartido,
+# y se registra al anadir ese arbol: targets ABDShared::ScopeCore y
+# ABDShared::ScopeCoreHeaders).
 #
-# NOTA: El pin de arriba para FetchContent de ABDSharedCode (55e77bb, 2026-10-07)
-# ya incluye la absorcion del modulo Scope.
+# Este bloque se borraba: mantener un segundo add_subdirectory del mismo
+# modulo haria duplicar los targets ABDScopeCore y romper la configuracion
+# con "add_library cannot create target ABDScopeCore...".
+#
+# NOTA: El pin de FetchContent consolidado de arriba rastrea la rama/etiqueta
+# que ya contiene la absorcion del modulo Scope.
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab (Standalone Executable)
@@ -220,6 +237,12 @@ target_sources(ABDAudioLab
         src/calibration/CalibrationCompatibilityEvaluator.cpp
         src/calibration/ActiveCalibrationContext.h
         src/calibration/ActiveCalibrationContext.cpp
+        src/calibration/LoopbackProfile.h
+        src/calibration/LoopbackProfile.cpp
+        src/calibration/LoopbackProfileStore.h
+        src/calibration/LoopbackProfileStore.cpp
+        src/calibration/AsyncLoopbackProfileLoader.h
+        src/calibration/AsyncLoopbackProfileLoader.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/ModulationMatrixProfile.h
@@ -967,6 +990,9 @@ add_executable(ABDAudioLab_Tests
     src/calibration/CalibrationNoiseBaselineRunner.cpp
     src/calibration/CalibrationCompatibilityEvaluator.cpp
     src/calibration/ActiveCalibrationContext.cpp
+    src/calibration/LoopbackProfile.cpp
+    src/calibration/LoopbackProfileStore.cpp
+    src/calibration/AsyncLoopbackProfileLoader.cpp
     src/hardware/MidiIdentityDetector.cpp
     ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioCzVirtualController.cpp
     ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioNibbleCodec.cpp
@@ -1149,6 +1175,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PinkNoiseGenerator.cpp
     src/tests/test_ScopeContractsAndLifetime.cpp
     src/tests/test_ScopeBundleAndThemeParity.cpp
+    src/tests/test_LoopbackProfileStore.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso

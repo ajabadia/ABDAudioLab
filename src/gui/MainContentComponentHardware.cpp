@@ -564,7 +564,9 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
     targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     auto calStatus = sidebarStepper.getStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
-    if (calStatus != gui::SoundIdSidebarStepper::StepStatus::Completed && calStatus != gui::SoundIdSidebarStepper::StepStatus::Skipped)
+    if (calStatus != gui::SoundIdSidebarStepper::StepStatus::Completed &&
+        calStatus != gui::SoundIdSidebarStepper::StepStatus::Skipped &&
+        calStatus != gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory)
     {
         sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
         workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);

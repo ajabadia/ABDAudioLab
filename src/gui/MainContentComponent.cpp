@@ -480,6 +480,25 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         summary.loopbackCalibrated = true;
         summary.loopbackSnrDb = cal.snrDb > 0.0f ? cal.snrDb : 90.0f;
         sidebarStepper.setSessionSummary(summary);
+
+        // Sprint 1: Automatically persist .abdloop infrastructure profile for subsequent auto-detection
+        auto* currentDev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+        if (currentDev != nullptr && cal.isCalibrated && !cal.clippingDetected)
+        {
+            auto loopProfile = calibration::LoopbackProfile::fromCalibrationData(
+                cal,
+                currentDev->getName().toStdString(),
+                currentDev->getTypeName().toStdString(),
+                currentDev->getCurrentSampleRate(),
+                currentDev->getCurrentBufferSizeSamples(),
+                0, nativeCalibrationPanel.getCalibrationInputChannel().toStdString(),
+                0, nativeCalibrationPanel.getCalibrationOutputChannel().toStdString());
+            if (loopProfile.has_value())
+            {
+                loopbackProfileStore.saveProfile(*loopProfile, true);
+            }
+        }
+
         resized();
     };
     nativeCalibrationPanel.onCalibrationSkipped = [this] {
@@ -1578,6 +1597,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         resultsSummaryView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     report("Listo.", 1.0f);
+    triggerAsyncLoopbackProfileDetection();
     juce::Logger::writeToLog("[MainComponent] Constructor finished successfully.");
 }
 
@@ -1635,6 +1655,9 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
         {
             toggleStudioTopologyWindow();
         }
+
+        // Sprint 1: Auto-detect loopback profile (.abdloop) upon device change
+        triggerAsyncLoopbackProfileDetection();
     }
 }
 
@@ -1681,6 +1704,56 @@ bool MainContentComponent::keyPressed(const juce::KeyPress& key, juce::Component
         }
     }
     return false;
+}
+
+void MainContentComponent::triggerAsyncLoopbackProfileDetection()
+{
+    auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+    if (dev == nullptr)
+        return;
+
+    const std::string devName = dev->getName().toStdString();
+    const double sRate = dev->getCurrentSampleRate();
+    const int bufSize = dev->getCurrentBufferSizeSamples();
+
+    calibration::AsyncLoopbackProfileLoader::dispatch(
+        backgroundThreadPool,
+        loopbackProfileStore,
+        devName,
+        sRate,
+        bufSize,
+        [this, sRate](std::optional<calibration::LoopbackProfile> profileOpt) {
+            if (!profileOpt.has_value())
+                return;
+
+            const auto& p = *profileOpt;
+            auto calData = p.toCalibrationData();
+
+            // Set input auto trim in audio engine
+            audioEngine.setInputAutoTrim(calData.recommendedTrimGain);
+
+            // Update stepper status to LoadedFromHistory
+            sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback,
+                                         gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory);
+            workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                                gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory);
+
+            canonicalCalibrationState.isCalibrated = true;
+            canonicalCalibrationState.sampleRate = calData.sampleRate;
+            canonicalCalibrationState.isSkipped = false;
+            mainHeader.updateCalibrationStatus(true, calData.sampleRate, false);
+
+            auto summary = sidebarStepper.getSessionSummary();
+            summary.loopbackCalibrated = true;
+            summary.loopbackSnrDb = calData.snrDb > 0.0f ? calData.snrDb : 90.0f;
+            sidebarStepper.setSessionSummary(summary);
+
+            manualPromptLabel.setText(juce::String("Perfil de infraestructura (.abdloop) cargado desde el historial."), juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            hidePromptAfterDelay(4000);
+            resized();
+            repaint();
+        });
 }
 
 } // namespace abdaudiolab
