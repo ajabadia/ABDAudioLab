@@ -458,6 +458,14 @@ target_sources(ABDAudioLab
         src/synth/ModelEvaluationTypes.h
         src/synth/ModelEvaluationBuilder.h
         src/synth/ModelEvaluationBuilder.cpp
+        src/synth/CandidateEvaluators.h
+        src/synth/MultiObjectiveModelSelector.h
+        src/synth/MultiObjectiveModelSelector.cpp
+        src/synth/SyntheticGroundTruthFixtures.h
+        src/synth/HoldoutStimulusGenerator.h
+        src/synth/HoldoutStimulusGenerator.cpp
+        src/synth/OutOfSampleHoldoutEngine.h
+        src/synth/OutOfSampleHoldoutEngine.cpp
         src/synth/AdaptiveExperimentPlanner.h
         src/synth/AdaptiveExperimentPlanner.cpp
 
@@ -665,7 +673,11 @@ target_sources(ABDAudioLab
         src/export/LutExporter.cpp
         src/export/CertificationReportExporter.h
         src/export/CertificationReportExporter.cpp
-    src/export/CurveReportExporter.cpp
+        src/export/ProfileValidationScopeReportExporter.h
+        src/export/ProfileValidationScopeReportExporter.cpp
+        src/export/ExportReadinessEvaluator.h
+        src/export/ExportReadinessEvaluator.cpp
+        src/export/CurveReportExporter.cpp
         src/export/ReportExportService.h
         src/export/ReportExportService.cpp
         src/gui/controllers/IReportExportHost.h
@@ -956,6 +968,9 @@ add_executable(ABDAudioLab_Tests
     src/synth/ExternalPluginFixture.cpp
     src/synth/SynthTargetLifecycleAdapters.cpp
     src/synth/ModelEvaluationBuilder.cpp
+    src/synth/MultiObjectiveModelSelector.cpp
+    src/synth/HoldoutStimulusGenerator.cpp
+    src/synth/OutOfSampleHoldoutEngine.cpp
     src/synth/AdaptiveExperimentPlanner.cpp
     src/gui/session/ProfilingSessionCoordinator.cpp
     src/gui/session/ProfilingSessionController.cpp
@@ -1176,6 +1191,13 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ScopeContractsAndLifetime.cpp
     src/tests/test_ScopeBundleAndThemeParity.cpp
     src/tests/test_LoopbackProfileStore.cpp
+    src/tests/test_SyntheticGroundTruthFixtures.cpp
+    src/tests/test_MultiObjectiveModelSelector.cpp
+    src/tests/test_OutOfSampleHoldoutEngine.cpp
+    src/export/ProfileValidationScopeReportExporter.cpp
+    src/tests/test_ProfileValidationScopeReportExporter.cpp
+    src/export/ExportReadinessEvaluator.cpp
+    src/tests/test_ConditionalExportWithMetadata.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso
