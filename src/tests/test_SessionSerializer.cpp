@@ -165,3 +165,38 @@ TEST_CASE("SessionSerializer: Legacy Session Decoupling Without Physical Baselin
 
     tempPackageFile.deleteFile();
 }
+
+TEST_CASE("SessionSerializer: Rule of 5 Move Semantics & Safe Temp Dir Ownership", "[core][serializer][ruleof5]")
+{
+    STATIC_REQUIRE_FALSE(std::is_copy_constructible_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE_FALSE(std::is_copy_assignable_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE(std::is_nothrow_move_constructible_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE(std::is_nothrow_move_assignable_v<abdaudiolab::core::SessionSerializer>);
+
+    juce::File movedFromDir;
+    {
+        abdaudiolab::core::SessionSerializer s1;
+        juce::File originalDir = s1.getWorkingTempDirectory();
+        REQUIRE(originalDir.isDirectory());
+
+        // Move constructor transfers directory ownership
+        abdaudiolab::core::SessionSerializer s2(std::move(s1));
+        CHECK(s2.getWorkingTempDirectory() == originalDir);
+        CHECK(s1.getWorkingTempDirectory() == juce::File());
+
+        // Move assignment
+        abdaudiolab::core::SessionSerializer s3;
+        juce::File s3OldDir = s3.getWorkingTempDirectory();
+        REQUIRE(s3OldDir.isDirectory());
+
+        s3 = std::move(s2);
+        CHECK(s3.getWorkingTempDirectory() == originalDir);
+        CHECK(s2.getWorkingTempDirectory() == juce::File());
+        // s3's previous directory was cleaned up
+        CHECK_FALSE(s3OldDir.isDirectory());
+
+        movedFromDir = originalDir;
+    }
+    // When s3 goes out of scope, originalDir is cleaned up
+    CHECK_FALSE(movedFromDir.isDirectory());
+}

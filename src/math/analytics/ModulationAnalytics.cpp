@@ -79,7 +79,18 @@ CyclicModulatorAnalysisData ModulationAnalytics::analyzeCyclicModulator(const st
         }
         float depth = (maxEnv > 1e-4f) ? ((maxEnv - minEnv) / maxEnv) * 100.0f : 0.0f;
         depths.push_back(std::clamp(depth, 0.0f, 100.0f));
-        asymmetries.push_back(0.02f); // nominal balanced LFO
+
+        // 4. Asymmetry: imbalance between positive and negative envelope peaks relative to center
+        float center = (maxEnv + minEnv) * 0.5f;
+        float posPeak = 0.0f, negPeak = 0.0f;
+        for (float v : env)
+        {
+            float diff = v - center;
+            if (diff > posPeak) posPeak = diff;
+            else if (-diff > negPeak) negPeak = -diff;
+        }
+        float asym = (posPeak + negPeak > 1e-6f) ? std::abs(posPeak - negPeak) / (posPeak + negPeak) : 0.0f;
+        asymmetries.push_back(std::clamp(asym, 0.0f, 1.0f));
     }
 
     result.rateHz = FilterAnalytics::calculateStatistics(rates);

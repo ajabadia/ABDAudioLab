@@ -7,12 +7,12 @@
 
 #pragma once
 
+#include "../math/LoopbackCalibrator.h"
+#include <juce_core/juce_core.h>
+#include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-#include <nlohmann/json.hpp>
-#include <juce_core/juce_core.h>
-#include "../math/LoopbackCalibrator.h"
 
 namespace abdaudiolab::calibration
 {
@@ -26,33 +26,33 @@ namespace abdaudiolab::calibration
  */
 struct LoopbackProfile
 {
-    static constexpr int kCurrentSchemaVersion = 1;
+    static constexpr int kCurrentSchemaVersion  = 1;
     static constexpr const char* kFileExtension = ".abdloop";
 
-    int schemaVersion { kCurrentSchemaVersion };
-    std::string profileId;          // e.g. "loopback-focusrite_usb_asio_48000_256"
-    std::string createdAt;          // ISO 8601 UTC timestamp
-    std::string deviceName;         // Hardware device identifier
-    std::string driverType { "Unknown" };
-    double sampleRate { 48000.0 };
-    int bufferSizeSamples { 256 };
-    int inputChannelIndex { 0 };
-    std::string inputChannelLabel { "Input 1" };
-    int outputChannelIndex { 0 };
-    std::string outputChannelLabel { "Output 1" };
+    int schemaVersion{kCurrentSchemaVersion};
+    std::string profileId;  // e.g. "loopback-focusrite_usb_asio_48000_256"
+    std::string createdAt;  // ISO 8601 UTC timestamp
+    std::string deviceName; // Hardware device identifier
+    std::string driverType{"Unknown"};
+    double sampleRate{48000.0};
+    int bufferSizeSamples{256};
+    int inputChannelIndex{0};
+    std::string inputChannelLabel{"Input 1"};
+    int outputChannelIndex{0};
+    std::string outputChannelLabel{"Output 1"};
 
     // Calibration measurement metrics
-    bool isCalibrated { false };
-    float peakInDbfs { -100.0f };
-    float recommendedTrimGain { 1.0f };
-    float targetHeadroomDbfs { -3.0f };
-    float roundTripLatencyMs { 0.0f };
-    int latencySamples { 0 };
-    float thdPlusNoisePercent { 0.001f };
-    float snrDb { 90.0f };
-    float frequencyFlatnessDb { 0.1f };
-    bool phaseInversionDetected { false };
-    bool clippingDetected { false };
+    bool isCalibrated{false};
+    float peakInDbfs{-100.0f};
+    float recommendedTrimGain{1.0f};
+    float targetHeadroomDbfs{-3.0f};
+    float roundTripLatencyMs{0.0f};
+    int latencySamples{0};
+    float thdPlusNoisePercent{0.001f};
+    float snrDb{90.0f};
+    float frequencyFlatnessDb{0.1f};
+    bool phaseInversionDetected{false};
+    bool clippingDetected{false};
 
     // Transfer function and inverse filter correction
     std::vector<float> freqsHz;
@@ -85,9 +85,9 @@ struct LoopbackProfile
         const std::string& driver,
         double sRate,
         int bufSize,
-        int inCh = 0,
-        const std::string& inLabel = "Input 1",
-        int outCh = 0,
+        int inCh                    = 0,
+        const std::string& inLabel  = "Input 1",
+        int outCh                   = 0,
         const std::string& outLabel = "Output 1");
 
     [[nodiscard]] math::LoopbackCalibrationData toCalibrationData() const;

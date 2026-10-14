@@ -197,12 +197,18 @@ void MainHeaderController::showFileMenu()
     menu.addItem(13, juce::String::fromUTF8(u8"Abrir Comparador Multicontenedor..."));
     menu.addSeparator();
     menu.addItem(6, "Export Certification Report (PDF/HTML)...");
-    menu.addItem(7, "Open Export Folder");
-    menu.addItem(11, "Open Experiments Folder");
-    menu.addItem(14, "Open Reports Folder");
     menu.addSeparator();
     menu.addItem(15, "Set Working Directory...");
-    menu.addItem(16, "Open Working Directory Folder");
+    menu.addItem(16, "Open Working Directory (Root)");
+
+    juce::PopupMenu subFoldersMenu;
+    subFoldersMenu.addItem(7,  "Exports (C++ Code & LUTs)");
+    subFoldersMenu.addItem(14, "Reports (Certification HTML/PDF)");
+    subFoldersMenu.addItem(11, "Experiments (Sessions)");
+    subFoldersMenu.addItem(17, "Presets (.abdpre)");
+    subFoldersMenu.addItem(18, "Loopback Profiles (.abdloop)");
+    menu.addSubMenu("Explore Working Subfolders", subFoldersMenu);
+
     menu.addSeparator();
     menu.addItem(9, "Scan Plugin Directories...");
     menu.addItem(10, "Virtual MIDI Keyboard...");
@@ -231,6 +237,8 @@ void MainHeaderController::showFileMenu()
             case 14: if (safeThis->onOpenReportsFolder) safeThis->onOpenReportsFolder(); break;
             case 15: if (safeThis->onSetWorkingDirectory) safeThis->onSetWorkingDirectory(); break;
             case 16: if (safeThis->onOpenWorkingDirectoryFolder) safeThis->onOpenWorkingDirectoryFolder(); break;
+            case 17: if (safeThis->onOpenPresetsFolder) safeThis->onOpenPresetsFolder(); break;
+            case 18: if (safeThis->onOpenLoopbackProfilesFolder) safeThis->onOpenLoopbackProfilesFolder(); break;
             default: break;
         }
     });

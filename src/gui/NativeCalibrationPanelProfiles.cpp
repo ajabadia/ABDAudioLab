@@ -128,15 +128,12 @@ void NativeCalibrationPanel::selectRelativeProfile(int delta)
     repaint();
 }
 
-void NativeCalibrationPanel::reuseMatchingProfile()
+void NativeCalibrationPanel::applyProfileRecord(const calibration::CalibrationRecord& record)
 {
-    if (!matchingProfile_.has_value() || !matchEvaluation_.isActionableMatch)
-        return;
-
     stopTimer();
 
-    calibrationData = matchingProfile_->calibrationResult;
-    activeCalibrationRecord_ = *matchingProfile_;
+    calibrationData = record.calibrationResult;
+    activeCalibrationRecord_ = record;
     activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
     currentState = State::Success;
 
@@ -157,7 +154,7 @@ void NativeCalibrationPanel::reuseMatchingProfile()
     if (activeSnapshot_.has_value())
         txtDisplayName.setText(juce::String(activeSnapshot_->displayName), false);
 
-    saveFeedbackText_ = "Saved calibration profile reused successfully.";
+    saveFeedbackText_ = "Calibration profile applied successfully.";
 
     if (onCalibrationApplied)
         onCalibrationApplied(calibrationData);
@@ -165,6 +162,14 @@ void NativeCalibrationPanel::reuseMatchingProfile()
     startTimerHz(10);
     resized();
     repaint();
+}
+
+void NativeCalibrationPanel::reuseMatchingProfile()
+{
+    if (!matchingProfile_.has_value() || !matchEvaluation_.isActionableMatch)
+        return;
+
+    applyProfileRecord(*matchingProfile_);
 }
 
 void NativeCalibrationPanel::saveCurrentCalibrationProfile()

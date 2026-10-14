@@ -67,6 +67,8 @@ public:
     std::function<void()> onOpenExportFolder;
     std::function<void()> onOpenExperimentsFolder;
     std::function<void()> onOpenReportsFolder;
+    std::function<void()> onOpenPresetsFolder;
+    std::function<void()> onOpenLoopbackProfilesFolder;
     std::function<void()> onSetWorkingDirectory;
     std::function<void()> onOpenWorkingDirectoryFolder;
     std::function<void()> onExitApp;

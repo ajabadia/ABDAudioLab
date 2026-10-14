@@ -8,18 +8,28 @@ namespace abdaudiolab::audio
 {
 
 LabAudioReceiver::LabAudioReceiver()
-    : fifo(1)
 {
+    activeFifo = std::make_unique<juce::AbstractFifo>(1);
+    pendingFifo = std::make_unique<juce::AbstractFifo>(1);
     prepare(96000.0, 6.0);
 }
 
 void LabAudioReceiver::prepare(double newSampleRate, double maxBufferSeconds)
 {
-    sampleRate = (newSampleRate > 0.0) ? newSampleRate : 96000.0;
-    int newSize = static_cast<int>(std::ceil(sampleRate * maxBufferSeconds)) + 4096;
+    sampleRate.store((newSampleRate > 0.0) ? newSampleRate : 96000.0, std::memory_order_release);
+    const double sr = sampleRate.load(std::memory_order_relaxed);
+    int newSize = static_cast<int>(std::ceil(sr * maxBufferSeconds)) + 4096;
     
-    ringBuffer.assign(static_cast<size_t>(newSize), 0.0f);
-    fifo.setTotalSize(newSize);
+    // Prepare new buffers and FIFO (can be called from message thread)
+    pendingBuffer.assign(static_cast<size_t>(newSize), 0.0f);
+    pendingFifo->setTotalSize(newSize);
+    
+    // Atomic swap - audio thread will see the new buffers on next processBlock
+    activeBuffer = std::move(pendingBuffer);
+    activeFifo = std::move(pendingFifo);
+    pendingFifo = std::make_unique<juce::AbstractFifo>(1);
+    activeBufferPtr.store(&activeBuffer, std::memory_order_release);
+    activeFifoPtr.store(activeFifo.get(), std::memory_order_release);
     ringBufferSize.store(newSize, std::memory_order_release);
     
     reset();
@@ -28,7 +38,11 @@ void LabAudioReceiver::prepare(double newSampleRate, double maxBufferSeconds)
 void LabAudioReceiver::reset()
 {
     state.store(ReceiverState::Idle, std::memory_order_relaxed);
-    fifo.reset();
+    
+    // Get current active FIFO and reset it
+    if (auto* fifoPtr = activeFifoPtr.load(std::memory_order_acquire))
+        fifoPtr->reset();
+    
     recordedCount.store(0, std::memory_order_relaxed);
     targetSamples.store(0, std::memory_order_relaxed);
     resetOverloadGuard();
@@ -91,6 +105,12 @@ void LabAudioReceiver::processBlock(const float* inputBuffer, int numSamples) no
         return;
 
     if (inputBuffer == nullptr || numSamples <= 0)
+        return;
+
+    // Get active buffer and FIFO pointers (lock-free read)
+    auto* buffer = activeBufferPtr.load(std::memory_order_acquire);
+    auto* fifoPtr = activeFifoPtr.load(std::memory_order_acquire);
+    if (!buffer || !fifoPtr)
         return;
 
     // 0. Physical Noise Baseline Safety: immediate first-block abort on emergency peak (> -6 dBFS) or clipping
@@ -185,18 +205,18 @@ void LabAudioReceiver::processBlock(const float* inputBuffer, int numSamples) no
         if (samplesToWrite > 0)
         {
             int start1, size1, start2, size2;
-            fifo.prepareToWrite(samplesToWrite, start1, size1, start2, size2);
+            fifoPtr->prepareToWrite(samplesToWrite, start1, size1, start2, size2);
 
             if (size1 > 0)
             {
-                std::copy_n(inputBuffer + sampleOffset, size1, ringBuffer.data() + start1);
+                std::copy_n(inputBuffer + sampleOffset, size1, buffer->data() + start1);
             }
             if (size2 > 0)
             {
-                std::copy_n(inputBuffer + sampleOffset + size1, size2, ringBuffer.data() + start2);
+                std::copy_n(inputBuffer + sampleOffset + size1, size2, buffer->data() + start2);
             }
 
-            fifo.finishedWrite(size1 + size2);
+            fifoPtr->finishedWrite(size1 + size2);
             recordedCount.fetch_add(size1 + size2, std::memory_order_relaxed);
         }
 
@@ -245,13 +265,19 @@ bool LabAudioReceiver::retrieveRecordedData(std::vector<float>& destination)
     int totalToRead = recordedCount.load(std::memory_order_relaxed);
     int latency = std::max(0, latencyCompensation.load(std::memory_order_relaxed));
 
+    // Get active buffer and FIFO pointers (lock-free read)
+    auto* buffer = activeBufferPtr.load(std::memory_order_acquire);
+    auto* fifoPtr = activeFifoPtr.load(std::memory_order_acquire);
+    if (!buffer || !fifoPtr)
+        return false;
+
     int start1, size1, start2, size2;
-    fifo.prepareToRead(totalToRead, start1, size1, start2, size2);
+    fifoPtr->prepareToRead(totalToRead, start1, size1, start2, size2);
 
     if (totalToRead <= latency)
     {
         destination.clear();
-        fifo.finishedRead(size1 + size2);
+        fifoPtr->finishedRead(size1 + size2);
         return false;
     }
 
@@ -261,9 +287,9 @@ bool LabAudioReceiver::retrieveRecordedData(std::vector<float>& destination)
     if (latency == 0)
     {
         if (size1 > 0)
-            std::copy_n(ringBuffer.data() + start1, size1, destination.data());
+            std::copy_n(buffer->data() + start1, size1, destination.data());
         if (size2 > 0)
-            std::copy_n(ringBuffer.data() + start2, size2, destination.data() + size1);
+            std::copy_n(buffer->data() + start2, size2, destination.data() + size1);
     }
     else
     {
@@ -280,7 +306,7 @@ bool LabAudioReceiver::retrieveRecordedData(std::vector<float>& destination)
             {
                 int offset = latency;
                 int toCopy = size1 - offset;
-                std::copy_n(ringBuffer.data() + start1 + offset, toCopy, destination.data() + destIdx);
+                std::copy_n(buffer->data() + start1 + offset, toCopy, destination.data() + destIdx);
                 destIdx += toCopy;
                 skipped = latency;
             }
@@ -292,18 +318,18 @@ bool LabAudioReceiver::retrieveRecordedData(std::vector<float>& destination)
             {
                 int offset = latency - skipped;
                 int toCopy = size2 - offset;
-                std::copy_n(ringBuffer.data() + start2 + offset, toCopy, destination.data() + destIdx);
+                std::copy_n(buffer->data() + start2 + offset, toCopy, destination.data() + destIdx);
                 destIdx += toCopy;
             }
             else
             {
-                std::copy_n(ringBuffer.data() + start2, size2, destination.data() + destIdx);
+                std::copy_n(buffer->data() + start2, size2, destination.data() + destIdx);
                 destIdx += size2;
             }
         }
     }
 
-    fifo.finishedRead(size1 + size2);
+    fifoPtr->finishedRead(size1 + size2);
     return true;
 }
 
@@ -503,20 +529,29 @@ CaptureStatus LabAudioReceiver::retrieveFinalizedSnapshot(std::vector<float>& de
         return status;
     }
 
+    // Get active buffer and FIFO pointers (lock-free read)
+    auto* buffer = activeBufferPtr.load(std::memory_order_acquire);
+    auto* fifoPtr = activeFifoPtr.load(std::memory_order_acquire);
+    if (!buffer || !fifoPtr)
+    {
+        status.result = CaptureResult::Invalid;
+        return status;
+    }
+
     int start1, size1, start2, size2;
-    fifo.prepareToRead(totalToRead, start1, size1, start2, size2);
+    fifoPtr->prepareToRead(totalToRead, start1, size1, start2, size2);
 
     destination.resize(static_cast<size_t>(totalToRead));
     if (size1 > 0)
     {
-        std::copy_n(ringBuffer.data() + start1, size1, destination.data());
+        std::copy_n(buffer->data() + start1, size1, destination.data());
     }
     if (size2 > 0)
     {
-        std::copy_n(ringBuffer.data() + start2, size2, destination.data() + size1);
+        std::copy_n(buffer->data() + start2, size2, destination.data() + size1);
     }
 
-    fifo.finishedRead(size1 + size2);
+    fifoPtr->finishedRead(size1 + size2);
 
     status.result = CaptureResult::Complete;
     return status;

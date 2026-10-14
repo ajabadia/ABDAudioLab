@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include <juce_core/juce_core.h>
-#include <juce_events/juce_events.h>
 #include "LoopbackProfileStore.h"
 #include <functional>
+#include <juce_core/juce_core.h>
+#include <juce_events/juce_events.h>
 #include <memory>
 #include <optional>
 
@@ -54,8 +54,8 @@ public:
 private:
     LoopbackProfileStore store_;
     std::string deviceName_;
-    double sampleRate_ { 48000.0 };
-    int bufferSize_ { 256 };
+    double sampleRate_{48000.0};
+    int bufferSize_{256};
     CompletionCallback onComplete_;
 };
 

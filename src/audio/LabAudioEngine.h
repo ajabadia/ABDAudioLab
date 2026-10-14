@@ -131,8 +131,14 @@ public:
     /**
      * @brief Attaches mock hardware controller for offline self-test loopback.
      */
-    void setMockHardware(hardware::MockHardwareController* mock) noexcept { mockHardware = mock; }
-    [[nodiscard]] hardware::MockHardwareController* getMockHardware() const noexcept { return mockHardware; }
+    void setMockHardware(hardware::MockHardwareController* mock) noexcept
+    {
+        mockHardware.store(mock, std::memory_order_release);
+    }
+    [[nodiscard]] hardware::MockHardwareController* getMockHardware() const noexcept
+    {
+        return mockHardware.load(std::memory_order_acquire);
+    }
 
     /**
      * @brief Attaches active software plugin instance for direct internal digital loopback (VST3, AU, LV2).
@@ -242,21 +248,21 @@ public:
     /**
      * @brief Gets current active sampling rate in Hz.
      */
-    [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate; }
+    [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate.load(std::memory_order_relaxed); }
     [[nodiscard]] double getCurrentSampleRate() const noexcept { return getSampleRate(); }
     void setSampleRate(double newSampleRate) noexcept
     {
         if (newSampleRate > 1000.0)
         {
-            currentSampleRate = newSampleRate;
-            generator.prepare(currentSampleRate);
-            receiver.prepare(currentSampleRate);
-            liveMidiCollector.reset(currentSampleRate);
+            currentSampleRate.store(newSampleRate, std::memory_order_release);
+            generator.prepare(newSampleRate);
+            receiver.prepare(newSampleRate);
+            liveMidiCollector.reset(newSampleRate);
         }
     }
 
     // Telemetry Multi-Tap Collector & Serializer for ABDScope
-    [[nodiscard]] abd::scope::ScopeTap& getScopeTap() noexcept { return *tapHardwareIn; }
+    [[nodiscard]] abd::scope::ScopeTap& getScopeTap() noexcept { return *tapHardwareIn.load(std::memory_order_acquire); }
     [[nodiscard]] abd::scope::ScopeDataCollector& getScopeCollector() noexcept { return scopeCollector; }
     [[nodiscard]] abd::scope::ScopeFrameSerializer& getFrameSerializer() noexcept { return frameSerializer; }
 
@@ -306,7 +312,7 @@ public:
     {
         if (physicalLoopbackIsolation.load(std::memory_order_acquire))
             return true;
-        return mockHardware == nullptr && activePlugin.load(std::memory_order_relaxed) == nullptr;
+        return mockHardware.load(std::memory_order_relaxed) == nullptr && activePlugin.load(std::memory_order_relaxed) == nullptr;
     }
 
     // Auto-Trim input gain (scaling to -3 dBfs)
@@ -355,13 +361,13 @@ public:
     void triggerMetronomeTick() noexcept
     {
         metronomeCurrentSample.store(0, std::memory_order_relaxed);
-        int totalSamples = static_cast<int>(std::lround(0.015 * currentSampleRate));
+        int totalSamples = static_cast<int>(std::lround(0.015 * currentSampleRate.load(std::memory_order_relaxed)));
         metronomeTotalSamples.store(totalSamples > 0 ? totalSamples : 1440, std::memory_order_release);
     }
 
 private:
     juce::AudioDeviceManager deviceManager;
-    double currentSampleRate { 96000.0 };
+    std::atomic<double> currentSampleRate { 96000.0 };
 
     // Metronome pulse state for manual rhythm guide (real-time lock-free)
     std::atomic<int> metronomeCurrentSample { 0 };
@@ -369,7 +375,7 @@ private:
 
     LabStimulusGenerator generator;
     LabAudioReceiver receiver;
-    hardware::MockHardwareController* mockHardware { nullptr };
+    std::atomic<hardware::MockHardwareController*> mockHardware { nullptr };
     std::atomic<juce::AudioPluginInstance*> activePlugin { nullptr };
     std::atomic<bool> pluginMonitoringEnabled { false };
     juce::MidiBuffer pluginMidiMessages;
@@ -411,9 +417,9 @@ private:
     std::vector<float> tempProcessBufferL;
     std::vector<float> tempProcessBufferR;
     abd::scope::ScopeDataCollector scopeCollector;
-    abd::scope::ScopeTap* tapHardwareIn { nullptr };
-    abd::scope::ScopeTap* tapStimulus   { nullptr };
-    abd::scope::ScopeTap* tapDiagTone   { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapHardwareIn { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapStimulus   { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapDiagTone   { nullptr };
     double diagTonePhase { 0.0 };
     double diagToneSpreadPhase { 0.0 };
     abd::scope::ScopeFrameSerializer frameSerializer { 512 };

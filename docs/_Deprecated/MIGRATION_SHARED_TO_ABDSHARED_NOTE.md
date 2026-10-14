@@ -38,7 +38,7 @@ Antes de reorientar el build, se verificó que `ABDShared/Code` carecía de vari
 ## 3. Cambios en `ABDAudioLab`
 
 ### A. Sistema de Compilación (`CMakeLists.txt`)
-- Se reorientó la variable `ABDSHARED_CODE_DIR` para buscar primero `${ABDSHARED_DIR}/Code` (`../ABDShared/Code`), manteniendo fallback ordenado a `../ABDSharedCode`.
+- Se reorientó la variable `ABDSHARED_CODE_DIR` para buscar primero `${ABDSHARED_DIR}/Code` (`../ABDShared/Code`), manteniendo un fallback ordenado a `../ABDSharedCode` solo como compatibilidad durante la migración.
 - Se eliminaron 44 rutas relativas hardcodeadas (`${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/...`) sustituyéndolas por `${ABDSHARED_CODE_DIR}` en fuentes de prueba y utilidades.
 - Todos los targets consumen los alias canónicos: `ABDShared::DspCore`, `ABDShared::SynthCore`, `ABDShared::AudioComparator`, `ABDShared::HardwareMidiDetect`, etc.
 

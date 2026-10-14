@@ -24,9 +24,30 @@ SessionSerializer::~SessionSerializer()
     cleanupTempSession();
 }
 
+SessionSerializer::SessionSerializer(SessionSerializer&& other) noexcept
+    : workingTempDir(std::move(other.workingTempDir)),
+      activeSessionFile(std::move(other.activeSessionFile)),
+      autoSaveFile(std::move(other.autoSaveFile))
+{
+    other.workingTempDir = juce::File();
+}
+
+SessionSerializer& SessionSerializer::operator=(SessionSerializer&& other) noexcept
+{
+    if (this != &other)
+    {
+        cleanupTempSession();
+        workingTempDir = std::move(other.workingTempDir);
+        activeSessionFile = std::move(other.activeSessionFile);
+        autoSaveFile = std::move(other.autoSaveFile);
+        other.workingTempDir = juce::File();
+    }
+    return *this;
+}
+
 void SessionSerializer::cleanupTempSession()
 {
-    if (workingTempDir.isDirectory())
+    if (workingTempDir != juce::File() && workingTempDir.isDirectory())
     {
         workingTempDir.deleteRecursively();
     }

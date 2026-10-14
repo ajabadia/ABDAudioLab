@@ -103,6 +103,12 @@ public:
     SessionSerializer();
     ~SessionSerializer();
 
+    SessionSerializer(const SessionSerializer&) = delete;
+    SessionSerializer& operator=(const SessionSerializer&) = delete;
+
+    SessionSerializer(SessionSerializer&& other) noexcept;
+    SessionSerializer& operator=(SessionSerializer&& other) noexcept;
+
     /**
      * @brief Gets the temporary working folder for current session artifacts.
      */

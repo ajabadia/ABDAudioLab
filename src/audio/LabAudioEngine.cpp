@@ -15,13 +15,13 @@ LabAudioEngine::LabAudioEngine()
     // was closed or unplugged while it was in use.
     deviceManager.addChangeListener(this);
 
-    tapHardwareIn = scopeCollector.registerTap("Hardware In (DUT)", abd::scope::ScopeTapType::StereoAudio, 8192, "hardware_in");
-    tapStimulus   = scopeCollector.registerTap("Stimulus Generator", abd::scope::ScopeTapType::StereoAudio, 8192, "stimulus");
-    tapDiagTone   = scopeCollector.registerTap("Diagnostic 1kHz", abd::scope::ScopeTapType::StereoAudio, 8192, "diag_tone");
+    tapHardwareIn.store(scopeCollector.registerTap("Hardware In (DUT)", abd::scope::ScopeTapType::StereoAudio, 8192, "hardware_in"), std::memory_order_release);
+    tapStimulus.store(scopeCollector.registerTap("Stimulus Generator", abd::scope::ScopeTapType::StereoAudio, 8192, "stimulus"), std::memory_order_release);
+    tapDiagTone.store(scopeCollector.registerTap("Diagnostic 1kHz", abd::scope::ScopeTapType::StereoAudio, 8192, "diag_tone"), std::memory_order_release);
 
-    if (tapHardwareIn != nullptr) tapHardwareIn->setActive(true);
-    if (tapStimulus != nullptr)   tapStimulus->setActive(true);
-    if (tapDiagTone != nullptr)   tapDiagTone->setActive(true);
+    if (auto* tap = tapHardwareIn.load(std::memory_order_relaxed)) tap->setActive(true);
+    if (auto* tap = tapStimulus.load(std::memory_order_relaxed))   tap->setActive(true);
+    if (auto* tap = tapDiagTone.load(std::memory_order_relaxed))   tap->setActive(true);
     juce::Logger::writeToLog("[AudioEngine] LabAudioEngine constructor completed.");
 }
 
@@ -144,7 +144,7 @@ void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, 
         if (sampleRate > 0.0)
             setSampleRate(sampleRate);
 
-        double sr = currentSampleRate;
+        double sr = currentSampleRate.load(std::memory_order_relaxed);
         if (sr <= 0.0) sr = 44100.0;
         int bs = blockSize > 0 ? blockSize : static_cast<int>(tempProcessBufferL.size());
         if (bs <= 0) bs = 512;
@@ -176,31 +176,32 @@ void LabAudioEngine::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
     if (device != nullptr)
     {
-        currentSampleRate = device->getCurrentSampleRate();
+        currentSampleRate.store(device->getCurrentSampleRate(), std::memory_order_release);
         int bufferSize = device->getCurrentBufferSizeSamples();
         tempProcessBufferL.assign(static_cast<size_t>(std::max(bufferSize, 16384)), 0.0f);
         tempProcessBufferR.assign(static_cast<size_t>(std::max(bufferSize, 16384)), 0.0f);
     }
     else
     {
-        currentSampleRate = 96000.0;
+        currentSampleRate.store(96000.0, std::memory_order_release);
         tempProcessBufferL.assign(16384, 0.0f);
         tempProcessBufferR.assign(16384, 0.0f);
     }
 
-    generator.prepare(currentSampleRate);
-    receiver.prepare(currentSampleRate);
-    liveMidiCollector.reset(currentSampleRate);
+    const double sr = currentSampleRate.load(std::memory_order_relaxed);
+    generator.prepare(sr);
+    receiver.prepare(sr);
+    liveMidiCollector.reset(sr);
     silentOutputBlocksRendered.store(0, std::memory_order_relaxed);
-    if (mockHardware != nullptr)
-        mockHardware->resetDsp(currentSampleRate);
+    if (auto* mock = mockHardware.load(std::memory_order_acquire))
+        mock->resetDsp(sr);
 
     if (auto* plugin = activePlugin.load(std::memory_order_acquire))
     {
         int bufferSize = (device != nullptr) ? device->getCurrentBufferSizeSamples() : 512;
         juce::Logger::writeToLog("[AudioEngine] Audio device starting: preparing plugin '" + plugin->getName()
-            + "' for SR: " + juce::String(currentSampleRate) + ", BS: " + juce::String(bufferSize));
-        plugin->prepareToPlay(currentSampleRate, bufferSize);
+            + "' for SR: " + juce::String(sr) + ", BS: " + juce::String(bufferSize));
+        plugin->prepareToPlay(sr, bufferSize);
     }
 }
 
@@ -350,7 +351,9 @@ void LabAudioEngine::renderDiagnosticTone(float* const* outputChannelData, int n
 {
     float freq = diagnosticToneFreq.load(std::memory_order_acquire);
     float level = diagnosticToneLevel.load(std::memory_order_acquire);
-    double phaseIncrement = (2.0 * std::numbers::pi * freq) / currentSampleRate;
+    double sr = currentSampleRate.load(std::memory_order_relaxed);
+    if (sr <= 0.0) sr = 48000.0;
+    double phaseIncrement = (2.0 * std::numbers::pi * freq) / sr;
     for (int i = 0; i < samplesToProcess; ++i)
     {
         float toneVal = static_cast<float>(std::sin(diagnosticTonePhase)) * level;
@@ -365,10 +368,11 @@ void LabAudioEngine::renderDiagnosticTone(float* const* outputChannelData, int n
         }
     }
 
-    if (tapDiagTone != nullptr && tapDiagTone->isActive() && numOutputChannels > 0 && outputChannelData[0] != nullptr)
+    auto* tap = tapDiagTone.load(std::memory_order_acquire);
+    if (tap != nullptr && tap->isActive() && numOutputChannels > 0 && outputChannelData[0] != nullptr)
     {
         const float* outR = (numOutputChannels > 1 && outputChannelData[1] != nullptr) ? outputChannelData[1] : outputChannelData[0];
-        tapDiagTone->writeStereo(outputChannelData[0], outR, static_cast<size_t>(samplesToProcess));
+        tap->writeStereo(outputChannelData[0], outR, static_cast<size_t>(samplesToProcess));
     }
 }
 
@@ -384,7 +388,8 @@ void LabAudioEngine::renderAuditionPreview(float* const* outputChannelData, int 
 
     auditionFilter.setVoiceParameters(0, cutoff, reso);
 
-    const double sr = (currentSampleRate > 0.0) ? currentSampleRate : 96000.0;
+    const double curSr = currentSampleRate.load(std::memory_order_relaxed);
+    const double sr = (curSr > 0.0) ? curSr : 96000.0;
     const double oscFreq = 130.8128; // C3
     const double twoPi = 2.0 * std::numbers::pi;
     const double phaseInc = (twoPi * oscFreq) / sr;
@@ -443,7 +448,8 @@ void LabAudioEngine::renderStimulusAndRoute(float* const* outputChannelData, int
     int currentMetSample = metronomeCurrentSample.load(std::memory_order_relaxed);
     if (totalMetSamples > 0 && currentMetSample < totalMetSamples)
     {
-        const double sr = (currentSampleRate > 0.0) ? currentSampleRate : 96000.0;
+        const double curEngineSr = currentSampleRate.load(std::memory_order_relaxed);
+        const double sr = (curEngineSr > 0.0) ? curEngineSr : 96000.0;
         const double twoPi = 2.0 * std::numbers::pi;
         const float gainLinear = 0.0630957f; // -24 dBFS
         int samplesToRender = std::min(samplesToProcess, totalMetSamples - currentMetSample);
@@ -467,8 +473,11 @@ void LabAudioEngine::renderStimulusAndRoute(float* const* outputChannelData, int
     if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
         std::copy_n(tempProcessBufferL.data(), samplesToProcess, outputChannelData[1]);
 
-    if (tapStimulus != nullptr && tapStimulus->isActive() && samplesToProcess > 0)
-        tapStimulus->writeStereo(tempProcessBufferL.data(), tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess));
+    if (auto* tap = tapStimulus.load(std::memory_order_acquire))
+    {
+        if (tap->isActive() && samplesToProcess > 0)
+            tap->writeStereo(tempProcessBufferL.data(), tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess));
+    }
 
     // Measure Output Levels (Peak & RMS)
     float outSumSqL = 0.0f, outPeakValL = 0.0f;
@@ -584,9 +593,10 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
     }
 
     // If Mock Hardware is active and isolation is NOT active, process signal through simulated DSP loopback
-    if (!isIsolated && mockHardware != nullptr)
+    auto* mock = mockHardware.load(std::memory_order_acquire);
+    if (!isIsolated && mock != nullptr)
     {
-        mockHardware->processAudioBlock(tempProcessBufferL.data(), tempProcessBufferL.data(), samplesToProcess);
+        mock->processAudioBlock(tempProcessBufferL.data(), tempProcessBufferL.data(), samplesToProcess);
         if (std::abs(trim - 1.0f) > 0.001f)
         {
             for (int i = 0; i < samplesToProcess; ++i)
@@ -718,44 +728,51 @@ void LabAudioEngine::accumulateFft(const float* sourceData, int sourceLen) noexc
 
 void LabAudioEngine::updateTelemetryTaps(const float* inL, const float* inR, int samplesToProcess) noexcept
 {
-    if (tapHardwareIn != nullptr && tapHardwareIn->isActive() && samplesToProcess > 0)
+    if (auto* tapHw = tapHardwareIn.load(std::memory_order_acquire))
     {
-        if (inL != nullptr)
+        if (tapHw->isActive() && samplesToProcess > 0)
         {
-            const float* rightChannel = (inR != nullptr) ? inR : inL;
-            tapHardwareIn->writeStereo(inL, rightChannel, static_cast<size_t>(samplesToProcess));
-        }
-        else
-        {
-            // If no physical input device is present or active, stream zero baseline so scope draws 0V reticle
-            tapHardwareIn->writeStereo(tempProcessBufferL.data(), tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
+            if (inL != nullptr)
+            {
+                const float* rightChannel = (inR != nullptr) ? inR : inL;
+                tapHw->writeStereo(inL, rightChannel, static_cast<size_t>(samplesToProcess));
+            }
+            else
+            {
+                // If no physical input device is present or active, stream zero baseline so scope draws 0V reticle
+                tapHw->writeStereo(tempProcessBufferL.data(), tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
+            }
         }
     }
 
     // Diagnostic 1kHz reference tone generator with stereo spread (for dynamic Lissajous and Phase meter)
-    if (tapDiagTone != nullptr && tapDiagTone->isActive() && samplesToProcess > 0)
+    if (auto* tapDt = tapDiagTone.load(std::memory_order_acquire))
     {
-        double rate = currentSampleRate > 0.0 ? currentSampleRate : 48000.0;
-        double phaseIncr = (2.0 * std::numbers::pi * 1000.0) / rate;
-        double spreadIncr = (2.0 * std::numbers::pi * 0.5) / rate; // 0.5 Hz continuous rotation
-
-        for (int i = 0; i < samplesToProcess; ++i)
+        if (tapDt->isActive() && samplesToProcess > 0)
         {
-            float sL = 0.5f * static_cast<float>(std::sin(diagTonePhase));
-            float sR = 0.5f * static_cast<float>(std::sin(diagTonePhase + diagToneSpreadPhase));
+            double curSr = currentSampleRate.load(std::memory_order_relaxed);
+            double rate = curSr > 0.0 ? curSr : 48000.0;
+            double phaseIncr = (2.0 * std::numbers::pi * 1000.0) / rate;
+            double spreadIncr = (2.0 * std::numbers::pi * 0.5) / rate; // 0.5 Hz continuous rotation
 
-            tempProcessBufferL[static_cast<size_t>(i)] = sL;
-            tempProcessBufferR[static_cast<size_t>(i)] = sR;
+            for (int i = 0; i < samplesToProcess; ++i)
+            {
+                float sL = 0.5f * static_cast<float>(std::sin(diagTonePhase));
+                float sR = 0.5f * static_cast<float>(std::sin(diagTonePhase + diagToneSpreadPhase));
 
-            diagTonePhase += phaseIncr;
-            if (diagTonePhase >= 2.0 * std::numbers::pi)
-                diagTonePhase -= 2.0 * std::numbers::pi;
+                tempProcessBufferL[static_cast<size_t>(i)] = sL;
+                tempProcessBufferR[static_cast<size_t>(i)] = sR;
 
-            diagToneSpreadPhase += spreadIncr;
-            if (diagToneSpreadPhase >= 2.0 * std::numbers::pi)
-                diagToneSpreadPhase -= 2.0 * std::numbers::pi;
+                diagTonePhase += phaseIncr;
+                if (diagTonePhase >= 2.0 * std::numbers::pi)
+                    diagTonePhase -= 2.0 * std::numbers::pi;
+
+                diagToneSpreadPhase += spreadIncr;
+                if (diagToneSpreadPhase >= 2.0 * std::numbers::pi)
+                    diagToneSpreadPhase -= 2.0 * std::numbers::pi;
+            }
+            tapDt->writeStereo(tempProcessBufferL.data(), tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
         }
-        tapDiagTone->writeStereo(tempProcessBufferL.data(), tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
     }
 }
 
@@ -770,7 +787,8 @@ float LabAudioEngine::calibratePluginDigitalTrim(float targetHeadroomDbfs, doubl
     if (plugin == nullptr)
         return 1.0f;
 
-    double sr = currentSampleRate > 0.0 ? currentSampleRate : 48000.0;
+    double curSr = currentSampleRate.load(std::memory_order_relaxed);
+    double sr = curSr > 0.0 ? curSr : 48000.0;
     int totalSamples = static_cast<int>(std::lround(testDurationSec * sr));
     if (totalSamples <= 0)
         totalSamples = 2048;

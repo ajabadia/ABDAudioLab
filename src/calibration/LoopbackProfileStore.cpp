@@ -63,9 +63,9 @@ LoopbackProfileStore::SaveResult LoopbackProfileStore::saveProfile(const Loopbac
         return res;
     }
 
-    const juce::String key = juce::String(profile.getHardwareKey());
+    const juce::String key      = juce::String(profile.getHardwareKey());
     const juce::File targetFile = storageDir.getChildFile(key + LoopbackProfile::kFileExtension);
-    const juce::File tmpFile = storageDir.getChildFile(key + LoopbackProfile::kFileExtension + ".tmp");
+    const juce::File tmpFile    = storageDir.getChildFile(key + LoopbackProfile::kFileExtension + ".tmp");
 
     if (targetFile.existsAsFile() && !overwrite)
     {
@@ -100,7 +100,7 @@ LoopbackProfileStore::SaveResult LoopbackProfileStore::saveProfile(const Loopbac
             return res;
         }
 
-        res.success = true;
+        res.success  = true;
         res.filePath = targetFile.getFullPathName().toStdString();
         return res;
     }
@@ -125,7 +125,7 @@ std::optional<LoopbackProfile> LoopbackProfileStore::loadProfile(const juce::Fil
             return std::nullopt;
 
         const auto j = nlohmann::json::parse(text.toStdString());
-        auto prof = LoopbackProfile::fromJson(j);
+        auto prof    = LoopbackProfile::fromJson(j);
         if (!prof.has_value() || !prof->isCalibrated)
             return std::nullopt;
 
@@ -156,9 +156,9 @@ std::optional<LoopbackProfile> LoopbackProfileStore::findMatchingProfile(
     for (const auto& p : allProfiles)
     {
         const juce::String pDev = juce::String(p.deviceName).trim().toLowerCase();
-        const bool devMatch = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
-        const bool srMatch = std::abs(p.sampleRate - sampleRate) <= 1.0;
-        const bool bufMatch = (bufferSize <= 0) || (p.bufferSizeSamples == bufferSize);
+        const bool devMatch     = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
+        const bool srMatch      = std::abs(p.sampleRate - sampleRate) <= 1.0;
+        const bool bufMatch     = (bufferSize <= 0) || (p.bufferSizeSamples == bufferSize);
 
         if (devMatch && srMatch && bufMatch)
             return p;
@@ -170,8 +170,8 @@ std::optional<LoopbackProfile> LoopbackProfileStore::findMatchingProfile(
         for (const auto& p : allProfiles)
         {
             const juce::String pDev = juce::String(p.deviceName).trim().toLowerCase();
-            const bool devMatch = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
-            const bool srMatch = std::abs(p.sampleRate - sampleRate) <= 1.0;
+            const bool devMatch     = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
+            const bool srMatch      = std::abs(p.sampleRate - sampleRate) <= 1.0;
 
             if (devMatch && srMatch)
                 return p;
@@ -214,14 +214,14 @@ std::vector<LoopbackProfile> LoopbackProfileStore::findProfilesForDevice(
     if (deviceName.empty())
         return matches;
 
-    auto allProfiles = listProfiles();
+    auto allProfiles             = listProfiles();
     const juce::String searchDev = juce::String(deviceName).trim().toLowerCase();
 
     for (const auto& p : allProfiles)
     {
         const juce::String pDev = juce::String(p.deviceName).trim().toLowerCase();
-        const bool devMatch = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
-        const bool srMatch = (sampleRate <= 0.0) || (std::abs(p.sampleRate - sampleRate) <= 1.0);
+        const bool devMatch     = (pDev == searchDev) || pDev.contains(searchDev) || searchDev.contains(pDev);
+        const bool srMatch      = (sampleRate <= 0.0) || (std::abs(p.sampleRate - sampleRate) <= 1.0);
 
         if (devMatch && srMatch)
             matches.push_back(p);

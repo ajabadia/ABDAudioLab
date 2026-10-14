@@ -84,9 +84,13 @@ bool MeasurementContainerExporter::writeWavFile(const juce::File& file,
 
     file.getParentDirectory().createDirectory();
 
+    auto outStream = std::unique_ptr<juce::FileOutputStream>(file.createOutputStream());
+    if (outStream == nullptr)
+        return false;
+
     juce::WavAudioFormat wav;
     std::unique_ptr<juce::AudioFormatWriter> writer(wav.createWriterFor(
-        new juce::FileOutputStream(file),
+        outStream.get(),
         sampleRateHz,
         static_cast<unsigned int>(std::max(1, numChannels)),
         16,
@@ -95,6 +99,8 @@ bool MeasurementContainerExporter::writeWavFile(const juce::File& file,
 
     if (writer == nullptr)
         return false;
+
+    outStream.release(); // AudioFormatWriter took ownership
 
     if (samples.empty())
         return true;

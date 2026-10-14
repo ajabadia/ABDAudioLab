@@ -1,9 +1,8 @@
-# Baseline cppcheck de ABDAudioLab — generado midiendo HEAD (3283d50) con el
-# comando exacto de la CI (cppcheck 2.21) ya CON la exclusion
-# --suppress='*:BuildVersion.h' del fichero estampado. No hay terceros ni
-# .gen. bajo src/ (barrido hecho el 2026-10-13). Firma: severidad|archivo|
-# mensaje (sin linea, paths con /). El gate solo bloquea hallazgos que NO
-# esten aqui.
+# Baseline cppcheck de ABDAudioLab — deuda medida midiendo HEAD (3283d50) con el
+# comando exacto de la CI (cppcheck 2.21). Exclusiones: ver
+# .github/cppcheck-excludes.txt (su unica fuente; esta cabecera no las lista
+# para que no puedan divergir). Firma: severidad|archivo|mensaje (sin linea,
+# paths con /). El gate solo bloquea hallazgos que NO esten aqui.
 error|src/apps/Vst3ValidationMain.cpp|There is an unknown macro here somewhere. Configuration is required. If JUCE_STRINGIFY is a macro then please configure it.
 error|src/gui/MeasurementFloatingWindow.h|There is an unknown macro here somewhere. Configuration is required. If JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR is a macro then please configure it.
 error|src/tests/support/TestTelemetry.cpp|There is an unknown macro here somewhere. Configuration is required. If CATCH_REGISTER_LISTENER is a macro then please configure it.

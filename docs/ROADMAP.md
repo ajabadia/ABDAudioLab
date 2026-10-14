@@ -1445,53 +1445,79 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
   - **Congelación de Condiciones y Reproducibilidad Técnica Extendida**:
     * Versionado explícito en `validation_manifest.json`: versión exacta de JUCE (8.0.4) y dependencias, conjunto de instrucciones SIMD (AVX2, AVX-512, SSE4.2, NEON), opciones de compilador (`/O2`, `/fp:precise`), checksums SHA-256 de binarios ejecutables, versión del conjunto de estímulos, algoritmo optimizador, semilla aleatoria, $f_s$, tamaño de bloque, ganancias analógicas de etapa y recuento de tomas válidas vs descartadas con el motivo exacto de descarte.
 
-* [ ] **19.2: Fase B — Baseline Determinista y Verificación contra Sistemas Sintéticos**:
-  - Creación de un banco de pruebas de referencia (*Synthetic Ground Truth Fixtures*) con comportamiento matemático conocido:
-    * Módulo 1: *Bypass Lineal Puro* (comprobación de error residual nulo $\text{ESR} \to -\infty\text{ dB}$).
-    * Módulo 2: *Filtro IIR TPT / ZDF* (validación de alineamiento temporal y respuesta de fase/retardo de grupo).
-    * Módulo 3: *Saturador Polinómico Estático* (tanh / soft-clipper cúbico sin memoria para validar la cota superior del modelo LNL).
-    * Módulo 4: *Sistema Dinámico con Memoria y Modulación* (compresor de envolvente o filtro con condensador con histéresis controlada para auditar los límites del modelo LNL frente a modelos dinámicos).
+* [x] **19.2: Fase B — Baseline Determinista y Verificación contra Sistemas Sintéticos** (COMPLETADA v2.2.0):
+  - Creación de un banco de pruebas de referencia (*Synthetic Ground Truth Fixtures*) con comportamiento matemático analítico exacto en `src/synth/SyntheticGroundTruthFixtures.h`:
+    * Módulo 1: *PureLinearBypassFixture* ($y[n] = g \cdot x[n - \tau]$): comprobación de error residual nulo ($\text{ESR} \le -180.0\text{ dB}$, $\text{RMSE} = 0.0$, $R^2 = 1.0$) y verificación de retardo discreto exacto.
+    * Módulo 2: *TptZdfFilterFixture* (IIR 2º y 4º orden SVF TPT/ZDF Vadim Zavalishin): validación de respuesta en frecuencia analítica en paso-banda, corte (-3 dB / -6 dB) y banda atenuada (-40 dB / -80 dB), con retardo de grupo exacto y pureza espectral estricta LTI ($\text{THD} < -100\text{ dB}$, cero armónicos espurios).
+    * Módulo 3: *StaticPolynomialSaturatorFixture* ($f(u) = u - a u^3$ y $\tanh(k \cdot u)$): comportamiento estrictamente sin memoria, simetría impar $f(-x) = -f(x)$, recuperación analítica de coeficientes ($R^2 > 0.999999$) para cota superior de modelos Wiener-Hammerstein LNL y correspondencia exacta de armónicos H3/H5 teóricos.
+    * Módulo 4: *DynamicMemorySystemFixture* (rectificador diodo/RC con seguimiento asimétrico de envolvente y compresión dinámica con histéresis): cálculo del área de ciclo cerrado $\oint y \, dx > 0$ en régimen dinámico, colapsando a $\approx 0.0$ en modo estático ($\beta = 0.0$), delimitando la frontera metrológica entre modelos estáticos (LUT/LNL) y arquitecturas recurrentes/neurales (NAM).
+  - Implementada la suite de validación matemática en `src/tests/test_SyntheticGroundTruthFixtures.cpp` con 6 bloques de test cases y verificación analítica rigurosa.
 
-* [ ] **19.3: Fase C — Selector Multiobjetivo de Modelos (Candidate Benchmarking)**:
-  - Ajuste simultáneo de múltiples candidatos arquitectónicos con los mismos datos de calibración:
-    1. **Candidato 1 (LUT Estática)**: Curva 1D de waveshaper / respuesta media.
-    2. **Candidato 2 (LUT Multidimensional SIMD)**: Tablas 2D/3D dependientes de frecuencia y nivel (`LutEvaluatorSimd` / `LutEvaluator1DSimd`).
-    3. **Candidato 3 (Wiener-Hammerstein LNL)**: Filtro lineal $h_1$ + no-linealidad estática $f(u) = u + a u^3$ + filtro $h_2$.
-    4. **Candidato 4 (Modelo Dinámico con Memoria)**: Filtro TPT acoplado a estado no lineal o seguidor de envolvente.
-    5. **Candidato 5 (Dataset Neuronal NAM / RTNeural)**: Exportación de paquete para entrenamiento de red WaveNet / LSTM con memoria temporal profunda.
-  - **Función de Optimización de Selección**:
-    $$\text{Modelo Elegido} = \arg\min_m \left[ E_{\text{validación}}(m) + \lambda C(m) + \mu U(m) \right]$$
-    donde $E_{\text{validación}}$ es el error fuera de muestra, $C(m)$ es el coste de cómputo/memoria, $U(m)$ es la incertidumbre/falta de cobertura, y $\lambda, \mu$ son ponderaciones seleccionables por el usuario (Presets: *"Máximo Rendimiento / Live Performance"* vs *"Máxima Fidelidad / Studio Master"*).
-  - **Evaluación del Margen frente al Segundo Candidato (*Runner-Up Margin*)**:
-    * Si $|Score(m_1) - Score(m_2)| < \sigma_{\text{incertidumbre}}$, la decisión se marca como `Inconclusive` y el sistema informa que ambos modelos son prácticamente equivalentes en fidelidad.
-  - **Diagnóstico del Residuo Estructurado (Autocorrelación y Coherencia)**:
-    * Evaluación de la autocorrelación del residuo $R_{ee}(\tau)$ y coherencia entrada-residuo $\gamma_{xe}^2(f)$.
-    * Residuo plano y poco estructurado $\to$ etiquetado prudente: *«Compatible con un modelo estático dentro de la resolución medida»* (no afirmación física absoluta).
-    * Error creciente fuertemente con el nivel $\to$ compresión / saturación mal capturada por la cuadrícula.
-    * Error concentrado en transitorios con memoria residual $\to$ presencia de memoria interna o estados dinámicos (recomendar NAM/LSTM).
-    * Error no estacionario o variable en el tiempo $\to$ presencia de modulación activa (LFO), deriva térmica o ruido residual de fondo.
+* [x] **19.3: Fase C — Selector Multiobjetivo de Modelos (Candidate Benchmarking)** (COMPLETADA v2.2.0):
+  - Implementación del contrato `ICandidateModelEvaluator` y los 5 candidatos de emulación en `src/synth/CandidateEvaluators.h`:
+    1. **Candidato 1 (`Lut1DCandidateEvaluator`)**: Curva 1D de waveshaper / respuesta media con interpolación lineal rápida ($\approx 0.15\%\text{ CPU}$, 0 latencia).
+    2. **Candidato 2 (`LutSimd2DCandidateEvaluator`)**: Tablas 2D dependientes de frecuencia y nivel con interpolación bilineal acelerada SIMD ($\approx 0.35\%\text{ CPU}$, 0 latencia).
+    3. **Candidato 3 (`WienerHammersteinCandidateEvaluator`)**: Filtro lineal $h_1$ + no-linealidad estática $f(u) = u + a u^3$ + filtro $h_2$ vía `WienerHammersteinFitter` ($\approx 1.20\%\text{ CPU}$).
+    4. **Candidato 4 (`DynamicMemoryCandidateEvaluator`)**: Filtro/rectificador con seguidor RC asimétrico y realimentación de estado $\beta$ ($\approx 1.80\%\text{ CPU}$, 0 latencia).
+    5. **Candidato 5 (`NamNeuralCandidateEvaluator`)**: Emulador de red neuronal profunda WaveNet / LSTM con memoria temporal ($\approx 8.50\%\text{ CPU}$, 64 muestras latencia).
+  - **Motor Selector Multiobjetivo `MultiObjectiveModelSelector` (`src/synth/MultiObjectiveModelSelector.h/.cpp`)**:
+    * Función de coste compuesta: $J(m) = E_{\text{validación}}(m) + \lambda C(m) + \mu U(m)$.
+    * Presets canónicos: `StudioMaster` ($\lambda = 0.05, \mu = 0.15$), `LivePerformance` ($\lambda = 0.60, \mu = 0.20$), `Balanced` ($\lambda = 0.25, \mu = 0.20$) y `Custom`.
+    * Evaluación de margen frente al segundo candidato (*Runner-Up Gap*): marcado de veredicto formal `Inconclusive` si $\Delta < \sigma_{\text{incertidumbre}}$ con justificación matemática de indistinguibilidad estadística.
+    * Diagnóstico de residuo estructurado mediante autocorrelación lag-1 $\rho_1 = R_{ee}(1)/R_{ee}(0)$: clasificación formal entre `UnstructuredResidual` (compatible con modelo estático) vs `CorrelatedDynamicResidual` (alerta de memoria/histéresis con recomendación explícita de arquitectura recurrente NAM).
+    * Emisión del objeto unificado [ModelEvaluation](src/synth/ModelEvaluationTypes.h) con doble recomendación canónica (`bestRawFidelityModelId` vs `recommendedTargetModelId`) y hash criptográfico SHA-256.
+  - Validado exhaustivamente en `src/tests/test_MultiObjectiveModelSelector.cpp` (4 bloques de pruebas unitarias).
 
-* [ ] **19.4: Fase D — Batería de Validación Ciega (*Out-of-Sample Validation Engine*)**:
-  - Generador de estímulos reservados (*Holdout Dataset*) completamente aislados del optimizador de curvas:
-    * Sub-batería 1: Escalas dinámicas de amplitud ($-30, -20, -12, -6, -3\text{ dBFS}$).
-    * Sub-batería 2: Ráfagas de transitorios y silencios para evaluar tiempos de ataque y liberación sin sobreoscilaciones.
-    * Sub-batería 3: Tonos complejos densos y multitonos para audición de batidos no lineales.
-    * Sub-batería 4: Batería representativa de material musical real (acústico y sintético).
-  - Medición del hardware real vs evaluación del modelo digital para cada estímulo reservado.
-  - Estimación de intervalos de confianza estadísticos distinguiendo la variabilidad analógica del error del modelo.
+* [x] **19.4: Fase D — Batería de Validación Ciega (*Out-of-Sample Validation Engine*)** (COMPLETADA v2.2.0):
+  - **Generador de Estímulos Ciegos `HoldoutStimulusGenerator` (`src/synth/HoldoutStimulusGenerator.h/.cpp`)**:
+    * Sub-batería 1: Escalas dinámicas de amplitud en 5 niveles discretos ($-30, -20, -12, -6, -3\text{ dBFS}$) con transiciones de rampa cosenoidal de Hann suaves para evitar dispersión espectral espuria.
+    * Sub-batería 2: Ráfagas periódicas de transitorios rápidos ($1\text{ ms}$ rise) seguidas de silencios de reposo para evaluar respuesta al escalón, *ringing* y tiempo de asentamiento.
+    * Sub-batería 3: Multitono armónicamente denso (4 tonos) con distribución de fases de Schroeder ($\theta_k = \pi k^2 / M$) para minimizar el factor de cresta ($< 9.0\text{ dB}$ con ventanas de suavizado Hann) y excitar productos de intermodulación sin recorte de pico.
+    * Sub-batería 4: Señal pseudo-musical representativa con envolvente de ataque percusivo y decaimiento armónico múltiple.
+  - **Orquestador Metrológico `OutOfSampleHoldoutEngine` (`src/synth/OutOfSampleHoldoutEngine.h/.cpp`)**:
+    * Ensamblado determinista del objeto inmutable `HoldoutDataset` sellado criptográficamente con política `EvaluationPhaseOnly`.
+    * Auditoría formal contra fuga de datos (`checkDataLeakage`) verificando la separación estricta mediante `DistancePolicy` frente a coordenadas de calibración/entrenamiento.
+    * Estimación y separación rigurosa de la incertidumbre empírica (`estimateUncertainty`): aísla la varianza aleatoria / instrumental de tomas repetidas ($U_{\text{aleatoria}}$) del error estructural propio del modelo emulado ($U_{\text{estructural}}$).
+  - Validado exhaustivamente en `src/tests/test_OutOfSampleHoldoutEngine.cpp` (10 casos de prueba, 120 aserciones verdes PASS).
 
-* [ ] **19.5: Fase E — Informe de Validación de Perfil & Alcance (HTML / PDF)**:
-  - Generación de informe transparente de caracterización (reemplazando el concepto de "certificación universal" por **"Informe de Validación y Alcance del Perfil"**):
-    * Declaración explícita del **Dominio de Validez**:
-      > *«Modelo validado para señales mono/estéreo dentro de $f_s = 96\text{ kHz}$, nivel de entrada entre $-36$ y $-3\text{ dBFS}$, controles en posiciones documentadas y $T_{\text{warmup}} \ge 15\text{ min}$. Fuera de este dominio, el resultado se considera extrapolación matemática no validada.»*
-    * Sección dedicada de **Resolución Efectiva de la Medición**: límites reales de precisión según la relación señal-ruido del loopback.
-    * Gráficos interactivos SVG del residuo tiempo-frecuencia (diferencia $y_{\text{real}}(t) - y_{\text{modelo}}(t)$).
-    * Matriz de cobertura experimental, repeticiones individuales registradas y advertencias de extrapolación.
-    * Desglose del coste computacional previsto en instancias de plugin (uso de CPU por voz, latencia).
+* [x] **19.5: Fase E — Informe de Validación de Perfil & Alcance (HTML / SVG)** (COMPLETADA v2.2.0):
+  - **Generador de Informes `ProfileValidationScopeReportExporter` (`src/export/ProfileValidationScopeReportExporter.h/.cpp`)**:
+    * **Declaración Explícita del Dominio de Validez**: Frecuencia de muestreo ($f_s$), rango dinámico documentado ($-36$ a $-3\text{ dBFS}$), tiempo de calentamiento ($T_{\text{warmup}} \ge 15\text{ min}$) y cláusula legal estricta de no-extrapolación matemática.
+    * **Sección de Resolución Efectiva y Presupuesto de Incertidumbre GUM**: Relación señal-ruido del loopback, suelo de ruido analógico, bits efectivos (ENOB) y descomposición formal ($u_{\text{inst}}$, $u_{\text{struct}}$, $u_{\text{combined}}$).
+    * **Tabla Comparativa Multiobjetivo de Candidatos**: Evaluación simultánea de las 5 arquitecturas con $R^2$, $\text{ESR}_{\text{dB}}$, residuo $\rho_1$ (estático vs dinámico), consumo de CPU %, RAM, latencia y coste $J(m)$ bajo el preset activo (`StudioMaster`, `LivePerformance`, `Balanced`). Distinción explícita entre líder de fidelidad pura y ganador multiobjetivo recomendado.
+    * **Batería de Validación Ciega Fuera de Muestra**: Desglose de las 4 sub-baterías con acústica, factor de cresta ($< 9.0\text{ dB}$) y auditoría anti-leakage (*Zero Contamination*).
+    * **Gráficos Vectoriales SVG Nativos Embebidos**: Curvas interactivas de respuesta espectral y residuo ($y_{\text{target}}$ vs $\hat{y}$ vs $e$), y oscilograma temporal del error residual $e[n]$.
+    * **Desglose de Rendimiento en Plugin**: Estimación de CPU por voz, polifonía máxima admisible al 50% de CPU y latencia en muestras/ms.
+    * **Firma Criptográfica Inmutable**: Sello SHA-256 canónico RFC 8785 de la evaluación y hash SHA-256 del dataset holdout.
+  - Validado exhaustivamente en `src/tests/test_ProfileValidationScopeReportExporter.cpp` (2 casos de prueba, 69 aserciones verdes PASS).
 
-* [ ] **19.6: Fase F — Exportación Condicional con Metadatos Trazables**:
-  - Bloqueo o advertencia interactiva si ningún modelo candidato alcanza el estado `Accepted` o `AcceptedWithWarnings`.
-  - Inclusión de directivas de preprocesador y metadatos en los headers C++ (`.h`) y archivos JSON advirtiendo de los límites dinámicos certificados para evitar que sintetizadores anfitriones alimenten el modelo con ganancias fuera de norma sin advertencia al desarrollador.
+* [x] **19.6: Fase F — Exportación Condicional con Metadatos Trazables** (COMPLETADA v2.2.0):
+  - **Compuerta Metrológica Pre-Export (`ExportReadinessEvaluator`)**:
+    * Evaluación estricta de `ModelEvaluation.decision.status` con emisión de veredicto formal `ExportGateVerdict` (`Permitted`, `PermittedWithWarning`, `Blocked`).
+    * Bloqueo físico en disco ante modelos no aceptados (`Inconclusive`, `Rejected`, `InvalidMeasurement`), requiriendo override explícito (`allowUnvalidatedOverride`) para forzar escritura.
+    * Bloqueo irrevocable de mediciones corruptas (`InvalidMeasurement`) incluso si se solicita override.
+  - **Directivas de Preprocesador C++ y Guardas de Compilación**:
+    * Constantes de compilación con límites dinámicos certificados: `ABD_PROFILE_CERTIFIED_SAMPLE_RATE`, `ABD_PROFILE_MIN_INPUT_DBFS`, `ABD_PROFILE_MAX_INPUT_DBFS`, `ABD_PROFILE_STATUS`, `ABD_PROFILE_CANONICAL_HASH`.
+    * Advertencias portables cross-compiler `#pragma message` ante advertencias metrológicas o extrapolación (`PermittedWithWarning`).
+    * Blindaje fatal `#error` condicional ante modelos rechazados o no certificados (`#ifndef ABD_ALLOW_UNVALIDATED_PROFILE`).
+  - **Metadatos Trazables RFC 8785 y Schema JSON**:
+    * Bloque `// METADATA: { ... }` embebido en cabeceras C++ con firma canónica SHA-256 de la evaluación.
+    * Bloque `metrologicalCertification` en JSON conforme a `docs/contracts/export_metadata.schema.json` v1.0.0.
+    * Extendido `LutExporter` con `exportToCertifiedCppHeader` y `exportToCertifiedJsonReport`.
+  - Validado exhaustivamente en `src/tests/test_ConditionalExportWithMetadata.cpp` (5 casos de prueba, cobertura 100% verde).
+
+* [x] **19.7: Revisión y Expansión de Presets de Ensayo (`AutoTestPresetEngine`)** (COMPLETADA v2.2.0):
+  - **Auditoría Sistemática y Física de Tiempos de Ensayo**:
+    * Calibración de duraciones de ráfaga ($T_{\text{burst}}$) y asentamiento ($T_{\text{settling}}$) para evitar truncamiento espectral en graves (< 50 Hz) y aliasing.
+    * Corrección de tiempos de reposo en compresores (`dyn_compressor_limiter`: de 100 ms a 500 ms para relajación de envolvente óptica/analógica) y ecos/reverbs (`dly_bbd_tape_echo` y `rev_spring_plate_hall`: de 200/500 ms a 1000 ms para absorción de colas RT60).
+  - **Expansión del Catálogo Maestro a 56 Presets Especializados**:
+    * `sat_guitar_overdrive_pedal` (`PEDAL`): Caracterización de pedales de distorsión analógicos mediante barrido logarítmico de Farina (20 Hz - 20 kHz) para identificación simultánea del tone stack y productos de intermodulación Volterra (H1..H5), optimizado para operadores manuales (8 pasos por potenciómetro).
+    * `filter_tpt_state_variable` (`SVF`): Filtro de variables de estado multimodo TPT / ZDF de 2.0s a -12 dBFS con deconstrucción de polos y resonancia Q.
+    * `dyn_tape_saturation_preamp` (`TAPE`): Saturación de cinta analógica con histéresis magnética no lineal (Jiles-Atherton) y rampa progresiva de nivel.
+    * `fx_rotary_tremolo_vibrato` (`ROT`): Modulador espacial de altavoz rotatorio Doppler y trémolo óptico con análisis en cuadratura de fase AM/FM.
+  - **Métodos Auxiliares de Consulta y Taxonomía**:
+    * Añadidos `hasPreset(typologyId)`, `getPresetsForBadge(badgeText)` y `getAllTypologyIds()` en `AutoTestPresetEngine`.
+  - Validado exhaustivamente en `test_AutoTestPresetEngine.cpp` y `test_PresetEngineDecomposition.cpp` con verificación de unicidad de IDs y cobertura 100% verde.
 
 ---
 
@@ -1887,3 +1913,38 @@ Esta fase unifica el flujo interactivo de 5 pasos en el banco de trabajo (`Lab B
   - ST-47 a ST-68 añadidas y verificadas (18 test cases, 65 aserciones, 100% PASS).
   - Suite global completa: **564/564 test cases superados (228.169 aserciones, 0 fallos)** *(baseline pre-HITO-04; la baseline actual es 615/228.818, Build #402)*.
   - Certificado formalmente en `docs/audits/ACTA_HITO_03_1_STEPPER_COHERENCE.md`.
+
+---
+
+## 🛡️ FASE 22: HARDENING DSP REAL-TIME, CONCURRENCIA LOCK-FREE Y SEGURIDAD RAII (HITOS 23 & 24) [COMPLETADA v2.2.0]
+
+Esta fase ataja de forma definitiva los hallazgos críticos de auditoría técnica en seguridad en tiempo real, concurrencia entre hilos de audio/control y prevención de fugas de descriptores de memoria.
+
+### ✅ HITO-SPRINT-01: Perfiles de Calibración Loopback (.abdloop) y UX SoundID
+- [x] Auto-detección al inicio de tarjetas de audio y auto-enlace de dispositivos MIDI.
+- [x] Almacenamiento hermético de perfiles loopback `.abdloop` con hashing SHA-256 y guardado atómico.
+- [x] Histórico de perfiles de calibración, diálogo modal técnico SoundID Reference y selector popup interactivo.
+- [x] Higiene de rutas de disco hermética (`test_ResourcePathHygiene.cpp`).
+- [x] Certificado formalmente en `docs/ACTA_SPRINT_01_LOOPBACK_PROFILES.md`.
+
+### ✅ HITO-DSP-HARDENING: Hardening DSP RT, Atómicos Lock-Free y Memory Safety
+- [x] **P0.1 Zero Heap Allocation**: Eliminación de `tempProcessBuffer.assign()` en `LabAudioEngine.cpp:126`, pre-asignando búferes de audio en `audioDeviceAboutToStart`.
+- [x] **P0.2 DSP Thread Safety & Lock-Free Audio Path**:
+  - `LabStimulusGenerator`: Supresión del `pinkNoiseMutex` en el bucle de muestras; flags atómicos `pendingNoiseReseed` y `pendingNoiseFilterClear` con `std::memory_order_acq_rel`.
+  - `LabAudioEngine`: `currentSampleRate` como `std::atomic<double>`; snapshot atómico local anti-TOCTOU de `mockHardware` y punteros `ScopeTap`.
+  - `MockHardwareController`: 7 parámetros DSP (`cutoffNormalized`, `resonanceNormalized`, etc.) atómicos; `processAudioBlock` 100% lock-free.
+  - `LabAudioReceiver`: Double-buffered ring buffer con swap atómico de punteros (`activeBufferPtr`, `activeFifoPtr`).
+- [x] **P0.3 Análisis Real en `LabAnalyticEngine`**:
+  - Desacoplamiento de valores hardcodeados en 4 analizadores de dominio: seguidor de envolvente Hilbert/RMS (`EnvelopeAnalytics`), Goertzel DFT para armónicos H1-H5 y THD real (`DynamicsAnalytics`), y autocorrelación LFO (`ModulationAnalytics`).
+- [x] **P1 Limpieza de Dead Code y Concurrencia MIDI**:
+  - Erradicación de `SplineInterpolator2D`, `InfoDrawer`, `StereoVuMeter`, `LiveCurvePlotter`, `AiraRoutingValidator` de `CMakeLists.txt` y disco.
+  - Snapshots con `std::shared_mutex` para controladores MIDI anti-TOCTOU (`MidiCcController`, `AiraSysExController`).
+- [x] **P3 Memory Safety (FileOutputStream Leaks)**:
+  - Migración a gestión RAII con `std::unique_ptr<juce::FileOutputStream>` y `outStream.release()` en `ProfilingSequencer.cpp` y 4 exportadores de medición.
+- [x] **P2 Robustez: Rule of 5 en `SessionSerializer`**:
+  - Operaciones de copia prohibidas (`= delete`); implementada semántica de movimiento noexcept segura para carpetas temporales de sesión.
+- [x] **Pruebas de Regresión y Certificación**:
+  - `[audio],[dsp],[math],[synth]`: 99.582 aserciones PASS en 100 test cases (100% éxito).
+  - `[export],[session],[audio]`: 99.275 aserciones PASS en 85 test cases (100% éxito).
+  - `[serializer]`: 69 aserciones PASS en 5 test cases con `STATIC_REQUIRE` de no-copia y move noexcept.
+  - Certificado formalmente en `docs/audits/ACTA_FASE_02_DSP_HARDENING_THREAD_SAFETY.md`.

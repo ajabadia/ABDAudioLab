@@ -93,6 +93,11 @@ public:
     void applyLoadedLoopbackProfile(const calibration::LoopbackProfile& profile);
     [[nodiscard]] const std::optional<calibration::LoopbackProfile>& getLoadedLoopbackProfile() const noexcept { return loadedLoopbackProfile_; }
 
+    /**
+     * @brief Directly applies a calibration record from saved profile storage.
+     */
+    void applyProfileRecord(const calibration::CalibrationRecord& record);
+
     std::function<void(const math::LoopbackCalibrationData&)> onCalibrationApplied;
     std::function<void()> onCalibrationSkipped;
     std::function<void()> onContinueToSession;
@@ -106,6 +111,9 @@ public:
 
     /** Hook fired when the user clicks to view/load from .abdloop profile history. */
     std::function<void()> onOpenProfileHistory;
+
+    /** Hook fired when the user requests technical details breakdown for a profile. */
+    std::function<void(const calibration::CalibrationRecord&)> onRequestShowProfileDetails;
 
 private:
     void executeStartNoiseBaselineCheck();
@@ -192,9 +200,9 @@ private:
     juce::String calibrationInputChannelName { "Input 1" };
 
     juce::TextButton btnStartMeasure { "Start Loopback Calibration" };
-    juce::TextButton btnRecheckBaseline { "↺ Re-check Baseline (2A)" };
+    juce::TextButton btnRecheckBaseline { "Re-check Baseline (2A)" };
     juce::TextButton btnSkip { "Bypass Calibration" };
-    juce::TextButton btnContinue { "Continue to Step 3 ➔" };
+    juce::TextButton btnContinue { "Continue to Step 3 ->" };
     juce::TextButton btnRetry { "Retry Calibration" };
     juce::TextButton btnVerifyDigital { "Verify Digital Latency" };
 
@@ -203,8 +211,8 @@ private:
     juce::TextButton btnToggleSavedProfiles { "Saved Profiles" };
     juce::TextButton btnDeleteProfile { "Delete" };
     juce::TextButton btnViewProfileDetails { "View Details" };
-    juce::TextButton btnPrevProfile { "◀" };
-    juce::TextButton btnNextProfile { "▶" };
+    juce::TextButton btnPrevProfile { "<" };
+    juce::TextButton btnNextProfile { ">" };
 
     calibration::ActiveCalibrationAlignment activeAlignment { calibration::ActiveCalibrationAlignment::None };
     std::optional<calibration::CalibrationRecord> matchingProfile_;

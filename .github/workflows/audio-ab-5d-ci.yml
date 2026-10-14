@@ -61,12 +61,12 @@ jobs:
           path: ABDAudioLab
           fetch-depth: 1
 
-      - name: Checkout ABDSharedCode (Immutable Sibling Ref)
+      - name: Checkout ABDShared (sibling repo, legacy repo checkout retained for contract gate until legacy layout is removed)
         uses: actions/checkout@v7
         with:
           repository: ajabadia/ABDSharedCode
           ref: 55e77bb180aa560a9a5aceff1480fd78b121f360
-          path: ABDSharedCode
+          path: ABDShared
           fetch-depth: 1
 
       # ESTE HERMANO ES LO QUE HACE QUE EL GATE 7 EXISTA.

@@ -74,7 +74,7 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     [this] { runActiveSubViewAction(); });
 
     addActionButton(*this, btnRecheckBaseline,
-                    { "↺ Back to Baseline (2A)",
+                    { "<- Back to Baseline (2A)",
                       "Navigates between Step 2A (Noise Baseline) and Step 2B (Loopback Sweep)",
                       SoundIdTheme::bgCardHover, SoundIdTheme::accentBlue },
                     [this] { toggleActiveSubView(); });
@@ -92,7 +92,7 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
                     [this] { skipCalibration(); });
 
     addActionButton(*this, btnContinue,
-                    { "Continue to Step 3 ➔",
+                    { "Continue to Step 3 ->",
                       "Proceed to Step 3: session excitation and profiling",
                       SoundIdTheme::accentGreen, juce::Colours::white },
                     [this] {
@@ -159,21 +159,29 @@ NativeCalibrationPanel::NativeCalibrationPanel(audio::LabAudioEngine& engine)
 
     addActionButton(*this, btnViewProfileDetails,
                     { "View Details",
-                      "Shows or hides technical details for the saved calibration",
+                      "Shows detailed technical breakdown and metrics for this profile",
                       SoundIdTheme::bgCardHover, SoundIdTheme::accentBlue },
                     [this] {
-                        showProfileDetails_ = !showProfileDetails_;
-                        repaint();
+                        if (onRequestShowProfileDetails && selectedProfileIndex_ >= 0
+                            && selectedProfileIndex_ < static_cast<int>(savedProfiles.size()))
+                        {
+                            onRequestShowProfileDetails(savedProfiles[static_cast<size_t>(selectedProfileIndex_)]);
+                        }
+                        else
+                        {
+                            showProfileDetails_ = !showProfileDetails_;
+                            repaint();
+                        }
                     });
 
     addActionButton(*this, btnPrevProfile,
-                    { "◀",
+                    { "<",
                       "Shows the previous saved calibration profile",
                       SoundIdTheme::bgCardHover, SoundIdTheme::textSecondary },
                     [this] { selectRelativeProfile(-1); });
 
     addActionButton(*this, btnNextProfile,
-                    { "▶",
+                    { ">",
                       "Shows the next saved calibration profile",
                       SoundIdTheme::bgCardHover, SoundIdTheme::textSecondary },
                     [this] { selectRelativeProfile(+1); });

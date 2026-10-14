@@ -48,13 +48,13 @@ if /i "%1"=="clean" (
     if "%2"=="" goto end
 )
 
-:: 2.5. Link Shared Assets from ABDSharedAssets via NTFS Junctions (Zero-Copy)
+:: 2.5. Link Shared Assets via NTFS Junctions (Zero-Copy; consolidated ABDShared tree with legacy layout compat)
 ::
 :: WHAT THIS MUST NOT DO, AND WHY THE RULE IS PER PATH.
 ::
 :: A junction here is only legitimate where nothing versioned is underneath.
 :: `assets/models` and `assets/brands` are gitignored on purpose, so pointing
-:: them at the sibling repo is exactly what they are for. `contracts/hardware`
+:: them at the consolidated shared tree is exactly what they are for. `contracts/hardware`
 :: is the opposite: the .gitignore says "contracts/ is deliberately NOT
 :: ignored", and 40 contract JSONs are tracked there, because a clean clone
 :: and the CI of this repo have no sibling to link to.

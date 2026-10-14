@@ -210,14 +210,49 @@ jobs:
     # opcional: cppcheck escribe los hallazgos en stderr, y medir sin el
     # siempre cuenta 0.
     #
-    # EXCLUIDOS del conteo por --suppress='*:nombre' (coincidencia por sufijo,
-    # verificada con cppcheck 2.21): src/BuildVersion.h, fichero estampado en
-    # cada build, no codigo revisable. No hay codigo de terceros ni ficheros
-    # .gen. bajo src/ (barrido hecho el 2026-10-13).
+    # EXCLUIDOS: el listado con el motivo de cada exclusion viven en
+    # .github/cppcheck-excludes.txt, que este gate lee antes de medir; aqui no se
+    # enumeran para que workflow, comentario y baseline no puedan divergir. Se
+    # excluyen tambien los que hoy aportan 0 firmas, para que la estampacion o
+    # generacion futura no cuente como deuda medida.
+    - name: Cache de cppcheck 2.21.0
+      uses: actions/cache@v6
+      with:
+        path: ~/cppcheck-2.21.0
+        key: cppcheck-2.21.0-${{ runner.os }}
+
+    # cppcheck SIN fijar usa la version que traiga la imagen, y la baseline es
+    # por firma (severidad|archivo|mensaje): un cppcheck de otra version cambia
+    # mensajes y anade/quita hallazgos, y el gate mentiria en las dos direcciones.
+    # La unica version aceptada es 2.21.0, con la que se midio la baseline en
+    # local. apt no la trae, asi que se compila desde el tag oficial (PCRE es
+    # opcional: `make` solo necesita g++/make) y el binario se cachea por
+    # version: un cache-miss cuesta ~5 min de compilacion.
+    - name: Install cppcheck 2.21.0 (fijado a la version de las baselines)
+      shell: bash
+      run: |
+        v=2.21.0
+        pre="$HOME/cppcheck-$v"
+        if ! "$pre/bin/cppcheck" --version 2>/dev/null | grep -F "Cppcheck $v" >/dev/null; then
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++ make
+          src=$(mktemp -d)
+          git clone --depth 1 --branch "$v" https://github.com/cppcheck-opensource/cppcheck.git "$src/cppcheck"
+          # FILESDIR hace dos cosas a la vez: sin el, el objetivo install del
+          # Makefile aborta con "FILESDIR must be set!", y con el compilado el
+          # binario sabe donde estan cfg/addons/platforms bajo el prefijo.
+          make -C "$src/cppcheck" -j"$(nproc)" FILESDIR="$pre/share/cppcheck"
+          make -C "$src/cppcheck" PREFIX="$pre" FILESDIR="$pre/share/cppcheck" install
+        fi
+        "$pre/bin/cppcheck" --version
+        if ! "$pre/bin/cppcheck" --version | grep -F "Cppcheck $v" >/dev/null; then
+          echo "::error title=cppcheck::se esperaba cppcheck 2.21.0, la version con la que se midieron las baselines."
+          exit 1
+        fi
+        echo "$pre/bin" >> "$GITHUB_PATH"
+
     - name: Static analysis (cppcheck) - bloqueante (baseline)
       run: |
-        sudo apt-get update -qq && sudo apt-get install -y -qq cppcheck
-        cppcheck --version
         baseline=.github/cppcheck-baseline.txt
         if [ ! -f "$baseline" ]; then
           echo "::error title=cppcheck::no existe $baseline: sin baseline no se puede separar deuda de regresion."
@@ -227,8 +262,30 @@ jobs:
         # grep -f no casaria nada y TODO pareceria hallazgo nuevo.
         bl=$(mktemp)
         tr -d '\r' < "$baseline" > "$bl"
+        # Exclusiones: UNICA fuente .github/cppcheck-excludes.txt — una entrada por
+        # linea ('#' comenta); sin '-' inicial es patron de --suppress y con '-' es
+        # flag literal. Un fichero ausente es error: sin el, workflow, comentario y
+        # baseline divergirian, que es exactamente lo que este diseno evita.
+        excludes=.github/cppcheck-excludes.txt
+        if [ ! -f "$excludes" ]; then
+          echo "::error title=cppcheck::no existe $excludes: las exclusiones viven ahi y solo ahi."
+          exit 1
+        fi
+        supresiones=()
+        while IFS= read -r linea || [ -n "$linea" ]; do
+          linea=${linea%%#*}
+          linea=${linea#"${linea%%[![:space:]]*}"}
+          linea=${linea%"${linea##*[![:space:]]}"}
+          [ -z "$linea" ] && continue
+          if [ "${linea:0:1}" = "-" ]; then
+            read -r -a partes <<< "$linea"
+            supresiones+=("${partes[@]}")
+          else
+            supresiones+=("--suppress=$linea")
+          fi
+        done < "$excludes"
         set +e
-        salida=$(cppcheck --enable=warning,performance,portability --std=c++20 --suppress=missingIncludeSystem --suppress='*:BuildVersion.h' --template='{severity}|{file}|{line}|{message}' src/ 2>&1)
+        salida=$(cppcheck --enable=warning,performance,portability --std=c++20 --suppress=missingIncludeSystem "${supresiones[@]}" --template='{severity}|{file}|{line}|{message}' src/ 2>&1)
         codigo=$?
         set -e
         if [ -z "$salida" ]; then

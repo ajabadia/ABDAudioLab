@@ -7,11 +7,11 @@
 
 #pragma once
 
-#include <juce_core/juce_core.h>
 #include "LoopbackProfile.h"
+#include <juce_core/juce_core.h>
 #include <optional>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace abdaudiolab::calibration
 {
@@ -25,7 +25,7 @@ class LoopbackProfileStore
 public:
     struct SaveResult
     {
-        bool success { false };
+        bool success{false};
         std::string profileId;
         std::string filePath;
         std::string errorMessage;

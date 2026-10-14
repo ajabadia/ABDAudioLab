@@ -885,11 +885,11 @@ void NativeCalibrationPanel::applyLoadedLoopbackProfile(const calibration::Loopb
     noiseBaselineState_ = NoiseBaselineState::Passed;
     activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
 
-    btnRetry.setButtonText(juce::String::fromUTF8(u8"↺ Volver a Medir"));
-    btnRetry.setTooltip("Descarta la medición cargada y reinicia el proceso de calibración");
+    btnRetry.setButtonText("Volver a Medir");
+    btnRetry.setTooltip(juce::String::fromUTF8(u8"Descarta la medición cargada y reinicia el proceso de calibración"));
     applyResolvedButtonLayout(false, false);
 
-    saveFeedbackText_ = "Perfil de infraestructura (.abdloop) cargado activamente.";
+    saveFeedbackText_ = juce::String::fromUTF8(u8"Perfil de infraestructura (.abdloop) cargado activamente.");
     resized();
     repaint();
 }

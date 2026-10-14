@@ -3,6 +3,7 @@
 #include <juce_core/juce_core.h>
 #include <vector>
 #include <atomic>
+#include <memory>
 
 namespace abdaudiolab::audio
 {
@@ -217,17 +218,24 @@ public:
     }
 
 private:
-    double sampleRate { 96000.0 };
+    std::atomic<double> sampleRate { 96000.0 };
     std::atomic<ReceiverState> state { ReceiverState::Idle };
 
-    std::vector<float> ringBuffer;
+    // Double-buffered ring buffer for thread-safe resize from message thread (setSampleRate)
+    // Audio thread reads from 'activeBuffer', message thread writes to 'pendingBuffer' then swaps.
+    std::vector<float> activeBuffer;
+    std::vector<float> pendingBuffer;
+    std::atomic<std::vector<float>*> activeBufferPtr { nullptr };
     std::atomic<int> ringBufferSize { 0 };
+
+    // FIFOs are not copyable - use unique_ptr for atomic swap
+    std::unique_ptr<juce::AbstractFifo> activeFifo;
+    std::unique_ptr<juce::AbstractFifo> pendingFifo;
+    std::atomic<juce::AbstractFifo*> activeFifoPtr { nullptr };
 
     std::atomic<int> targetSamples { 0 };
     std::atomic<int> recordedCount { 0 };
     std::atomic<float> triggerThreshold { 0.01f };
-
-    juce::AbstractFifo fifo;
 
     // Safety Guard: Sustained clipping detector
     std::atomic<bool> overloadTriggered { false };

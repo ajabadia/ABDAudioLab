@@ -14,6 +14,10 @@ CMakeSettings.json
 # falta un XML como fixture dentro del repo, esta regla no lo tapa.
 /*.xml
 
+# Fase 4 — artefactos volátiles de barrido físico de curvas
+# (offline reports, sweeps JSON, telemetría). Prohibido commitar.
+/build/ABDAudioLab_artefacts/CapturedSweeps/
+
 # Exported LUTs and raw measurement datasets (RNF-10)
 exported_luts/
 captures/

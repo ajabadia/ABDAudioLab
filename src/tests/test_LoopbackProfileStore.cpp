@@ -5,61 +5,60 @@
  * @date 2026
  */
 
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
+#include "calibration/AsyncLoopbackProfileLoader.h"
 #include "calibration/LoopbackProfile.h"
 #include "calibration/LoopbackProfileStore.h"
-#include "calibration/AsyncLoopbackProfileLoader.h"
+#include "support/LabTestScratch.h"
 
 using namespace abdaudiolab;
 using namespace abdaudiolab::calibration;
 
 namespace
 {
-    juce::File createTempTestDirectory()
-    {
-        const auto tempDir = juce::File::getSpecialLocation(juce::File::tempDirectory)
-            .getChildFile("ABDAudioLab_Tests_Loopback_" + juce::String::toHexString(juce::Random::getSystemRandom().nextInt64()));
-        tempDir.createDirectory();
-        return tempDir;
-    }
-
-    LoopbackProfile createSampleProfile(const std::string& devName, double sRate, int bufSize)
-    {
-        LoopbackProfile p;
-        p.schemaVersion = LoopbackProfile::kCurrentSchemaVersion;
-        p.deviceName = devName;
-        p.driverType = "ASIO";
-        p.sampleRate = sRate;
-        p.bufferSizeSamples = bufSize;
-        p.inputChannelIndex = 0;
-        p.inputChannelLabel = "Input 1";
-        p.outputChannelIndex = 0;
-        p.outputChannelLabel = "Output 1";
-        p.profileId = "loopback-" + p.getHardwareKey();
-        p.createdAt = "2026-10-13T16:00:00Z";
-
-        p.isCalibrated = true;
-        p.peakInDbfs = -3.2f;
-        p.recommendedTrimGain = 1.05f;
-        p.targetHeadroomDbfs = -3.0f;
-        p.roundTripLatencyMs = 5.333f;
-        p.latencySamples = 256;
-        p.thdPlusNoisePercent = 0.002f;
-        p.snrDb = 98.5f;
-        p.frequencyFlatnessDb = 0.15f;
-        p.phaseInversionDetected = false;
-        p.clippingDetected = false;
-
-        p.freqsHz = { 20.0f, 100.0f, 1000.0f, 10000.0f, 20000.0f };
-        p.magnitudeDb = { -0.1f, 0.0f, 0.05f, -0.05f, -0.2f };
-        p.inverseCorrectionDb = { 0.1f, 0.0f, -0.05f, 0.05f, 0.2f };
-
-        p.sha256Hash = p.computeSha256();
-        return p;
-    }
+juce::File createTempTestDirectory()
+{
+    static int s_counter = 0;
+    return abdaudiolab::test::scratchDir("loopback_store_test_" + juce::String(++s_counter));
 }
+
+LoopbackProfile createSampleProfile(const std::string& devName, double sRate, int bufSize)
+{
+    LoopbackProfile p;
+    p.schemaVersion      = LoopbackProfile::kCurrentSchemaVersion;
+    p.deviceName         = devName;
+    p.driverType         = "ASIO";
+    p.sampleRate         = sRate;
+    p.bufferSizeSamples  = bufSize;
+    p.inputChannelIndex  = 0;
+    p.inputChannelLabel  = "Input 1";
+    p.outputChannelIndex = 0;
+    p.outputChannelLabel = "Output 1";
+    p.profileId          = "loopback-" + p.getHardwareKey();
+    p.createdAt          = "2026-10-13T16:00:00Z";
+
+    p.isCalibrated           = true;
+    p.peakInDbfs             = -3.2f;
+    p.recommendedTrimGain    = 1.05f;
+    p.targetHeadroomDbfs     = -3.0f;
+    p.roundTripLatencyMs     = 5.333f;
+    p.latencySamples         = 256;
+    p.thdPlusNoisePercent    = 0.002f;
+    p.snrDb                  = 98.5f;
+    p.frequencyFlatnessDb    = 0.15f;
+    p.phaseInversionDetected = false;
+    p.clippingDetected       = false;
+
+    p.freqsHz             = {20.0f, 100.0f, 1000.0f, 10000.0f, 20000.0f};
+    p.magnitudeDb         = {-0.1f, 0.0f, 0.05f, -0.05f, -0.2f};
+    p.inverseCorrectionDb = {0.1f, 0.0f, -0.05f, 0.05f, 0.2f};
+
+    p.sha256Hash = p.computeSha256();
+    return p;
+}
+} // namespace
 
 TEST_CASE("LoopbackProfile: Serializacion y Deserializacion .abdloop", "[calibration][abdloop]")
 {
@@ -67,7 +66,7 @@ TEST_CASE("LoopbackProfile: Serializacion y Deserializacion .abdloop", "[calibra
 
     SECTION("Serializacion a JSON y parseo simetrico")
     {
-        const auto json = original.toJson();
+        const auto json      = original.toJson();
         const auto parsedOpt = LoopbackProfile::fromJson(json);
 
         REQUIRE(parsedOpt.has_value());
@@ -115,7 +114,7 @@ TEST_CASE("LoopbackProfileStore: Persistencia atomica en disco y tolerancia a fa
 
     SECTION("Guardado atomico en dos fases y lectura")
     {
-        const auto profile = createSampleProfile("RME Babyface Pro", 96000.0, 128);
+        const auto profile    = createSampleProfile("RME Babyface Pro", 96000.0, 128);
         const auto saveResult = store.saveProfile(profile, true);
 
         REQUIRE(saveResult.success == true);
@@ -153,7 +152,7 @@ TEST_CASE("LoopbackProfileStore: Persistencia atomica en disco y tolerancia a fa
     SECTION("Autodeteccion y matching de perfiles por hardware")
     {
         const auto profFocusrite = createSampleProfile("Focusrite Scarlett 2i2 USB", 48000.0, 256);
-        const auto profMotu = createSampleProfile("MOTU M4", 44100.0, 512);
+        const auto profMotu      = createSampleProfile("MOTU M4", 44100.0, 512);
 
         REQUIRE(store.saveProfile(profFocusrite).success == true);
         REQUIRE(store.saveProfile(profMotu).success == true);
@@ -219,7 +218,7 @@ TEST_CASE("AsyncLoopbackProfileLoader: Carga asincrona no bloqueante", "[calibra
         48000.0,
         256,
         [&](std::optional<LoopbackProfile> res) {
-            loadedResult = std::move(res);
+            loadedResult  = std::move(res);
             callbackFired = true;
         });
 

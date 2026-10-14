@@ -11,9 +11,17 @@ inline constexpr const char* CANCEL                 = "CANCEL";
 inline constexpr const char* VIEW_RESULTS_EXPORT    = "VIEW RESULTS / EXPORT";
 
 // Workspace Interaction Modes
-inline constexpr const char* MODE_GUIDED            = "Mode: Guided";
-inline constexpr const char* MODE_LAB               = "Mode: Lab Bench";
-inline constexpr const char* MODE_FREE              = "Mode: Free Capture";
+// Los modos se explican como niveles de edición, no como dos productos separados.
+// Según UX: "un flujo con automatización visible que ya existe, y un modo con distinto nivel de edición".
+inline constexpr const char* MODE_GUIDED            = "Guided: less editing, more preset";
+inline constexpr const char* MODE_LAB               = "Classic: more control, advanced setup";
+inline constexpr const char* MODE_FREE              = "Free: no restrictions";
+
+// Sprint 3 additions: Mode strings and tooltips for ProfileLoader validation
+inline constexpr const char* MODE_CLASSIC           = "Classic";
+inline constexpr const char* TOOLTIP_MODE_GUIDED      = "Modo Guiado: menos edición, más preset";
+inline constexpr const char* TOOLTIP_MODE_CLASSIC     = "Modo Clásico: más control, setup avanzado";
+inline constexpr const char* TOOLTIP_MODE_FREE         = "Modo Libre: acceso total a parámetros";
 
 // Ad-hoc / Free Capture Controls
 inline constexpr const char* FREE_CAPTURE           = "Capture Free Take";
@@ -43,7 +51,11 @@ inline constexpr const char* BTN_VIRTUAL_KEYBOARD   = "Virtual Keyboard";
 inline constexpr const char* TOOLTIP_KEYBOARD       = "Virtual MIDI Keyboard - Open interactive on-screen keyboard to play plugins.";
 
 // Tooltips & Action Reasons
-inline constexpr const char* TOOLTIP_MODE_TOGGLE    = "Switch between Guided Mode (clean execution view) and Lab Bench Mode (technical curves & test queue)";
+// Según UX: explicar en términos de "qué necesita el usuario", no "qué modo usas"
+// UX_REVISION_NIVEL_PRACTICO.md: "Modo actual: automatiza lo que ya puedes definir tú"
+//                          "Modo guiado: menos edición, más cosas prefijadas."
+//                          "Modo clásico: más control, requiere configuración avanzada."
+inline constexpr const char* TOOLTIP_MODE_TOGGLE    = "Guided: less editing, more preset. Classic: more control, advanced setup.";
 inline constexpr const char* TOOLTIP_CONFIRM_MANUAL = "Confirm physical knob position (Spacebar)";
 inline constexpr const char* TOOLTIP_START_READY    = "Start automated recipe execution";
 inline constexpr const char* TOOLTIP_START_BLOCKED  = "Please configure or select target hardware/plugin with a valid recipe before starting";

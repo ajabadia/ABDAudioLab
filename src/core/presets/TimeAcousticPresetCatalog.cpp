@@ -70,7 +70,7 @@ std::vector<ComponentPresetRecommendation> TimeAcousticPresetCatalog::getPresets
     }
 
     // =========================================================================
-    // 2. Efectos de Tiempo & Espaciales Clásicos (3 presets)
+    // 2. Efectos de Tiempo & Espaciales Clásicos (4 presets)
     // =========================================================================
     {
         ComponentPresetRecommendation p;
@@ -85,7 +85,7 @@ std::vector<ComponentPresetRecommendation> TimeAcousticPresetCatalog::getPresets
         p.recommendedFftSize = 8192;
         p.burstDurationSec = 4.0f;
         p.preRollMs = 50.0f;
-        p.settlingWaitMs = 200.0f;
+        p.settlingWaitMs = 1000.0f; // 1000ms to allow multi-tap feedback ring out
         p.recommendedSteps = 16;
         p.stimulusDescription = "Dirac Delta pulse with extended echo listening window";
         p.routingNotes = "Wet output only or 50% mix to capture repeated taps.";
@@ -112,6 +112,25 @@ std::vector<ComponentPresetRecommendation> TimeAcousticPresetCatalog::getPresets
     }
     {
         ComponentPresetRecommendation p;
+        p.typologyId = "fx_rotary_tremolo_vibrato";
+        p.displayName = "Rotary Speaker / Optical Tremolo & Vibrato";
+        p.category = ComponentCategory::TimeAndSpatialEffects;
+        p.badgeText = "ROT";
+        p.algorithmName = "Doppler Pitch Modulation + Amplitude Modulation Phase Quadrature";
+        p.stimulusType = audio::StimulusType::SineWave1kHz;
+        p.captureMode = "FIXED_TIME";
+        p.recommendedSamples = 192000; // 4.0s @ 48kHz
+        p.recommendedFftSize = 8192;
+        p.burstDurationSec = 4.0f;
+        p.preRollMs = 100.0f;
+        p.settlingWaitMs = 100.0f;
+        p.recommendedSteps = 12;
+        p.stimulusDescription = "Sustained pure 1 kHz tone or harmonic multi-tone for AM/FM separation";
+        p.routingNotes = "DAC Out -> Rotary/Tremolo In -> Stereo L/R ADC In";
+        list.push_back(p);
+    }
+    {
+        ComponentPresetRecommendation p;
         p.typologyId = "rev_spring_plate_hall";
         p.displayName = "Reverberation (Spring, Plate, Hall, Convo, Shimmer)";
         p.category = ComponentCategory::TimeAndSpatialEffects;
@@ -123,7 +142,7 @@ std::vector<ComponentPresetRecommendation> TimeAcousticPresetCatalog::getPresets
         p.recommendedFftSize = 16384;
         p.burstDurationSec = 5.0f;
         p.preRollMs = 100.0f;
-        p.settlingWaitMs = 500.0f;
+        p.settlingWaitMs = 1000.0f; // 1000ms to allow full RT60 reverberant decay
         p.recommendedSteps = 8;
         p.stimulusDescription = "Log Sweep (2.5s) followed by 2.5s reverberant decay";
         p.routingNotes = "100% Wet reverb output preferred for RT60 deconvolution.";

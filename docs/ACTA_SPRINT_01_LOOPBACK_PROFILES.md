@@ -133,19 +133,23 @@ All tests passed (178 assertions in 14 test cases)
 | Archivo | Estado | Rol |
 |---|---|---|
 | `src/audio/LabAudioEngine.{h,cpp}` | Modificado | Autodetección de interfaces de audio y auto-enlace de dispositivos MIDI |
+| `src/audio/LabAudioReceiver.{h,cpp}` | Modificado | Redimensionado atómico de `activeFifo` con `setTotalSize` sin copia de `juce::AbstractFifo` |
 | `src/core/LabDataDirectories.{h,cpp}` | Modificado | Servicio centralizado de datos, 5 subcarpetas y persistencia en disco |
 | `src/calibration/LoopbackProfile.{h,cpp}` | Creado | Modelo y hashing de calibración de loopback |
 | `src/calibration/LoopbackProfileStore.{h,cpp}` | Creado / Modificado | Almacén persistente seguro vinculado a `loopback_profiles/`, búsqueda por dispositivo |
 | `src/calibration/AsyncLoopbackProfileLoader.{h,cpp}` | Creado | Worker no bloqueante para detección en arranque |
-| `src/gui/NativeCalibrationPanel.{h,cpp}` | Modificado | Inyección de `applyLoadedLoopbackProfile`, hooks preflight e historial |
-| `src/gui/NativeCalibrationPanelWorkflow.cpp` | Modificado | Preflight check antes de medir ruido/loopback y soporte de perfiles cargados |
+| `src/gui/NativeCalibrationPanel.{h,cpp}` | Modificado | Inyección de `applyLoadedLoopbackProfile`, hooks preflight, ASCII limpio y cableado de `View Details` modal |
+| `src/gui/NativeCalibrationPanelWorkflow.cpp` | Modificado | Preflight check antes de medir ruido/loopback, soporte de perfiles y texto limpio sin mojibake |
+| `src/gui/NativeCalibrationPanelProfiles.cpp` | Modificado | Implementación de `applyProfileRecord` para carga unificada desde modal o histórico |
 | `src/gui/NativeCalibrationPanelUiState.cpp` | Modificado | Limpieza y reset de estado ante re-medición |
 | `src/gui/calibration/CalibrationPanelViewState.h` | Modificado | Soporte de `loadedProfile` para renderizado de metadatos |
 | `src/gui/calibration/CalibrationPanelPainterReports.cpp` | Modificado | Tarjeta visual SoundID Reference con fecha, interface, resolución y métricas |
+| `src/gui/drawers/DrawerFileSessionTab.cpp` | Modificado | Corrección de codificación UTF-8 en `Ambient Temp (°C)` |
 | `src/gui/soundid/SoundIdSidebarStepper.{h,cpp}` | Modificado | Renderizado visual del estado `LoadedFromHistory` |
-| `src/gui/MainHeaderController.{h,cpp}` | Modificado | Menú File con selector de Directorio de Trabajo y accesos directos |
-| `src/gui/MainContentComponent.{h,cpp}` | Modificado | Preflight modal, guardado interactivo/inteligente y menú popup de historial |
-| `src/gui/MainContentComponentHardware.cpp` | Modificado | Métodos de interfaz para selección y navegación a directorios |
+| `src/gui/MainHeaderController.{h,cpp}` | Modificado | Menú File con selector de Directorio de Trabajo y submenú `Explore Working Subfolders` |
+| `src/gui/MainContentComponent.{h,cpp}` | Modificado | Preflight modal, guardado interactivo, modal completo de `View Details`, eliminación de apertura invasiva del drawer |
+| `src/gui/MainContentComponentHardware.cpp` | Modificado | Métodos de interfaz para navegación a directorios y eliminación de apertura forzada de drawer |
+| `src/gui/MainContentComponentReport.cpp` | Modificado | Enrutamiento canónico de reportes de certificación HTML/PDF a `labDirs.reports` |
 | `src/gui/SessionReportManager.cpp` | Modificado | Normalización de fallbacks de guardado y carga a `LabDataDirectories` |
 | `src/gui/controllers/SessionIoController.cpp` | Modificado | Inicialización canónica de exportaciones a `labDirs.exports` |
 | `src/gui/measurement/MeasurementViewerPanel.cpp` | Modificado | Selector de contenedor FAIR/LNL vinculado a `labDirs.experiments` |
@@ -160,10 +164,61 @@ All tests passed (178 assertions in 14 test cases)
 
 ---
 
-## 5. Dictamen
+## 5. Auditoría de UI, Mojibake y Ergonomía de Carpetas (Refinamiento Post-Sprint 1)
 
-El Sprint 1, la infraestructura de almacenamiento unificado y el flujo de calibración inteligente quedan formalmente **CERRADOS Y CERTIFICADOS**:
+Tras la primera sesión de validación interactiva, se detectaron y resolvieron cuatro anomalías de usabilidad:
+
+### 5.1. Desactivación de Apertura Invasiva del Drawer «FILE & SESSION STORAGE»
+* **Causa Raíz:** En `MainContentComponentHardware.cpp:510`, la función `applyWorkingDirectory()` ejecutaba `drawer.openFileDrawer(...)`, abriendo el cajón lateral deslizante automáticamente cada vez que se iniciaba la aplicación o se establecía la carpeta de trabajo.
+* **Solución:** Se retiró la invocación automática. La configuración del directorio de trabajo ahora notifica mediante un banner superior no bloqueante (`manualPromptLabel`) sin tapar el espacio de trabajo. Igualmente, al guardar la sesión (`Ctrl+S`), se reemplazó la apertura del drawer por una confirmación sutil.
+
+### 5.2. Erradicación de Mojibake y Símbolos Corruptos
+* **Causa Raíz:** En compilaciones MSVC sobre Windows, los literales UTF-8 multi-byte en el código fuente (`"◀"`, `"▶"`, `"↺"`, `"➔"`, `"°C"`) se interpretaban como Windows-1252 (ANSI) si no se envolvían explícitamente en `juce::String::fromUTF8(...)`.
+* **Solución:**
+  * En `DrawerFileSessionTab.cpp`, se corrigió la etiqueta `Ambient Temp (°C)` con UTF-8 explícito.
+  * En `NativeCalibrationPanel.{h,cpp}`, los botones de navegación y flujo se estandarizaron con glifos ASCII limpios (`<`, `>`, `<-`, `->`).
+  * En `NativeCalibrationPanelWorkflow.cpp`, se limpió el texto del botón `Volver a Medir`.
+
+### 5.3. Reestructuración Ergonómica del Menú «File ▾» y Destino de Exportaciones
+* **Causa Raíz:** El menú `File` acumulaba accesos directos planos a carpetas individuales, omitiendo las subcarpetas de `presets/` y `loopback_profiles/`, mientras que los reportes HTML/PDF se volcaban a `exports/` en lugar de a `reports/`.
+* **Solución:**
+  * Se diseñó el submenú jerárquico **`Explore Working Subfolders ‣`**, permitiendo explorar con un clic cualquiera de las 5 carpetas funcionales (`Exports`, `Reports`, `Experiments`, `Presets`, `Loopback Profiles`) más la carpeta raíz.
+  * En `MainContentComponentReport.cpp`, se reorientó la generación de informes HTML de certificación a `labDirs.reports`, reservando `exports/` exclusivamente para código C++20 y volcados de datos DSP.
+
+### 5.4. Ficha Técnica Modal Interactiva para «View Details»
+* **Causa Raíz:** El botón `View Details` solo alternaba una línea de texto plano comprimida bajo la botonera, sin permitir interacción ni ofrecer una inspección real.
+* **Solución:** Se conectó al diálogo modal `ConfirmationModalDialog` (`SoundID Reference Theme`). Al pulsarlo, el usuario puede inspeccionar:
+  * Hardware y driver de audio (nombre y tipo).
+  * Frecuencia de muestreo y tamaño de búfer en muestras.
+  * Canales físicos de routing (salida y entrada).
+  * Fecha y hora formateada de la medición.
+  * Latencia RTL exacta (ms y muestras de compensación).
+  * SNR (dB), Planitud de frecuencia (dB) y THD+N (%).
+  * Trim Gain recomendado, polaridad de fase y ausencia de saturación/clipping.
+  * Botón interactivo para **«Apply This Calibration»** directamente al motor o **«Close»**.
+
+---
+
+## 6. Dictamen Final y Certificación de Tests
+
+El Sprint 1, la infraestructura de almacenamiento unificado, el flujo de calibración inteligente y su ergonomía visual quedan formalmente **CERRADOS Y CERTIFICADOS**:
 1. **Autodetección al entrar**: Detección automática de interfaces de audio y auto-enlace de dispositivos MIDI.
 2. **Preflight Guard**: Alerta modal interactiva antes de medir si el directorio de trabajo no ha sido configurado expresamente.
 3. **Guardado Inteligente**: Auto-guardado en el directorio de trabajo si es la primera medición, o diálogo modal de confirmación si ya existía una medición para la interfaz/sample rate.
-4. **Histórico y Estética SoundID Reference**: Carga por defecto del más reciente, selector popup interactivo para cargar mediciones anteriores y tarjeta visual detallada (fecha, interface, resolución, búfer, RTL, SNR, THD, trim).
+4. **Histórico y Ficha Técnica SoundID**: Carga por defecto del más reciente, selector popup interactivo para cargar mediciones anteriores y modal interactivo de detalles técnicos con carga directa.
+5. **Ergonomía de Archivos y Menús**: Desacoplamiento del cajón invasivo, menú File con submenú limpio para las 5 subcarpetas y erradicación total de caracteres mojibake.
+6. **Validación Automatizada de la Suite (Clean Green)**:
+   * **Assertions:** 228.485 passed | 0 failed | 0 skipped (100% éxito).
+   * **Exit Code:** `0` (Clean).
+   * **Higiene de Rutas y Scratch Hermético:** 0 infracciones en `test_ResourcePathHygiene.cpp` tras migrar `test_LoopbackProfileStore.cpp` al helper oficial `abdaudiolab::test::scratchDir()` y sanitizar referencias locales en `docs/`.
+
+---
+
+## 7. Próximos Pasos: Sprint 1.5 (Hardening DSP & Audio RT)
+
+Antes de abordar el Sprint 2 (caracterización no lineal profunda y síntesis física/neural), se atajarán los hallazgos críticos de auditoría técnica:
+* **P0.1 (Zero Heap Allocation):** Pre-asignar `tempProcessBuffer` en `audioDeviceAboutToStart` para eliminar `tempProcessBuffer.assign()` en `LabAudioEngine.cpp:126`.
+* **P0.2 (Thread Safety):** Migrar variables de control compartidas entre UI y Audio Thread a `std::atomic<T>` con memory ordering adecuado en `LabAudioEngine`, `LabStimulusGenerator` y `LabAudioReceiver`.
+* **P0.3 (Análisis Real):** Conectar algoritmos reales (FFT Blackman-Harris para THD/SNR, regresión sobre envolvente Hilbert/RMS para decay/release) en `LabAnalyticEngine`.
+* **P1.1 (Desacoplo de Dead Code):** Extraer `TelemetryInfo` a `DrawerDataModels.h` y eliminar los 5 archivos muertos de forma segura.
+* **P1.2 (Seguridad TOCTOU):** Proteger punteros en controladores MIDI mediante snapshots atómicos.

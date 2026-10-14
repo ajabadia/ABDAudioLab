@@ -706,19 +706,26 @@ void ProfilingSequencer::run()
                     auto wavFile = rawDir.getChildFile(wavFileName);
 
                     juce::WavAudioFormat wavFormat;
-                    std::unique_ptr<juce::AudioFormatWriter> writer(wavFormat.createWriterFor(
-                        new juce::FileOutputStream(wavFile),
-                        sampleRate,
-                        1,
-                        24,
-                        {},
-                        0));
-
-                    if (writer != nullptr && !recordedData.empty())
+                    if (auto outStream = std::unique_ptr<juce::FileOutputStream>(wavFile.createOutputStream()))
                     {
-                        juce::AudioBuffer<float> tempBuf(1, static_cast<int>(recordedData.size()));
-                        tempBuf.copyFrom(0, 0, recordedData.data(), static_cast<int>(recordedData.size()));
-                        writer->writeFromAudioSampleBuffer(tempBuf, 0, tempBuf.getNumSamples());
+                        std::unique_ptr<juce::AudioFormatWriter> writer(wavFormat.createWriterFor(
+                            outStream.get(),
+                            sampleRate,
+                            1,
+                            24,
+                            {},
+                            0));
+
+                        if (writer != nullptr)
+                        {
+                            outStream.release(); // Writer took ownership
+                            if (!recordedData.empty())
+                            {
+                                juce::AudioBuffer<float> tempBuf(1, static_cast<int>(recordedData.size()));
+                                tempBuf.copyFrom(0, 0, recordedData.data(), static_cast<int>(recordedData.size()));
+                                writer->writeFromAudioSampleBuffer(tempBuf, 0, tempBuf.getNumSamples());
+                            }
+                        }
                     }
                 }
 

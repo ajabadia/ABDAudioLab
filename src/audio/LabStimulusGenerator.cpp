@@ -12,7 +12,7 @@ LabStimulusGenerator::LabStimulusGenerator()
 
 void LabStimulusGenerator::prepare(double newSampleRate)
 {
-    sampleRate = (newSampleRate > 0.0) ? newSampleRate : 96000.0;
+    sampleRate.store((newSampleRate > 0.0) ? newSampleRate : 96000.0, std::memory_order_release);
     reset();
 }
 
@@ -22,62 +22,76 @@ void LabStimulusGenerator::reset()
     finished.store(false, std::memory_order_relaxed);
     currentSampleIndex.store(0, std::memory_order_relaxed);
     totalSamples.store(0, std::memory_order_relaxed);
-    pinkNoise.reseed (math::PinkNoiseGenerator::defaultSeed);
+    pendingNoiseReseed.store(true, std::memory_order_release);
+    pinkNoise.reseed(math::PinkNoiseGenerator::defaultSeed);
 }
 
 void LabStimulusGenerator::setStimulus(StimulusType type, double durationSeconds, float startFreqHz, float endFreqHz)
 {
-    currentType = type;
-    sweepDurationSec = (durationSeconds > 0.01) ? durationSeconds : 2.0;
-    startFreq = (startFreqHz > 1.0f) ? startFreqHz : 20.0f;
-    endFreq = (endFreqHz > startFreq) ? endFreqHz : static_cast<float>(sampleRate * 0.49);
+    currentType.store(type, std::memory_order_release);
+    sweepDurationSec.store((durationSeconds > 0.01) ? durationSeconds : 2.0, std::memory_order_release);
+    startFreq.store((startFreqHz > 1.0f) ? startFreqHz : 20.0f, std::memory_order_release);
+    float sf = startFreq.load(std::memory_order_relaxed);
+    double sr = sampleRate.load(std::memory_order_relaxed);
+    endFreq.store((endFreqHz > sf) ? endFreqHz : static_cast<float>(sr * 0.49), std::memory_order_release);
 
-    totalSamples.store(static_cast<int64_t>(std::lround(sweepDurationSec * sampleRate)), std::memory_order_relaxed);
+    totalSamples.store(static_cast<int64_t>(std::lround(sweepDurationSec.load(std::memory_order_relaxed) * sr)), std::memory_order_relaxed);
     currentSampleIndex.store(0, std::memory_order_relaxed);
     finished.store(false, std::memory_order_relaxed);
     playing.store(true, std::memory_order_release);
 
-    // Aqui solo se limpia el filtro y NO la semilla, a proposito: cambiar de
-    // estimulo corta el Voss-McCartney para que no arrastre el color del
-    // anterior, pero la serie de azar sigue donde estaba. Si tambien se
-    // reiniciase la semilla, dos estimulos seguidos de la misma sesion
-    // empezarian con el mismo patron de ruido.
+    // Lock-free flag: el hilo de audio limpiara el filtro al entrar a su siguiente bloque
+    // garantizando cero contencion de mutex en el audio callback de tiempo real.
+    pendingNoiseFilterClear.store(true, std::memory_order_release);
     pinkNoise.clearFilterState();
 }
 
 void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noexcept
 {
-    if (!playing.load(std::memory_order_relaxed) || finished.load(std::memory_order_relaxed) || outputBuffer == nullptr)
+    if (!playing.load(std::memory_order_acquire) || finished.load(std::memory_order_acquire) || outputBuffer == nullptr)
     {
         if (outputBuffer != nullptr)
             std::fill_n(outputBuffer, numSamples, 0.0f);
         return;
     }
 
+    // Procesa flags de reinicio de ruido de forma lock-free
+    if (pendingNoiseReseed.exchange(false, std::memory_order_acq_rel))
+        pinkNoise.reseed(math::PinkNoiseGenerator::defaultSeed);
+    else if (pendingNoiseFilterClear.exchange(false, std::memory_order_acq_rel))
+        pinkNoise.clearFilterState();
+
+    // Snapshot atomic parameters at block start (lock-free)
+    const double sr = sampleRate.load(std::memory_order_relaxed);
+    const StimulusType type = currentType.load(std::memory_order_acquire);
+    const double sf = startFreq.load(std::memory_order_relaxed);
+    const double ef = endFreq.load(std::memory_order_relaxed);
+    const double swDur = sweepDurationSec.load(std::memory_order_relaxed);
+
     const double twoPi = 2.0 * std::numbers::pi;
-    const double w1 = twoPi * startFreq;
-    const double w2 = twoPi * endFreq;
-    const double T = sweepDurationSec;
+    const double w1 = twoPi * sf;
+    const double w2 = twoPi * ef;
+    const double T = swDur;
     const double logRatio = std::log(w2 / w1);
     const double K = (w1 * T) / logRatio;
     const double L = T / logRatio;
 
     for (int i = 0; i < numSamples; ++i)
     {
-        int64_t currentIndex = currentSampleIndex.load(std::memory_order_relaxed);
-        int64_t total = totalSamples.load(std::memory_order_relaxed);
+        int64_t currentIndex = currentSampleIndex.load(std::memory_order_acquire);
+        int64_t total = totalSamples.load(std::memory_order_acquire);
         if (currentIndex >= total)
         {
             outputBuffer[i] = 0.0f;
-            playing.store(false, std::memory_order_relaxed);
+            playing.store(false, std::memory_order_release);
             finished.store(true, std::memory_order_release);
             continue;
         }
 
-        double t = static_cast<double>(currentIndex) / sampleRate;
+        double t = static_cast<double>(currentIndex) / sr;
         float sampleVal = 0.0f;
 
-        switch (currentType)
+        switch (type)
         {
             case StimulusType::Silence:
             {

@@ -374,18 +374,18 @@ enum class ProfilingSessionStatus
     switch (status)
     {
         case ProfilingSessionStatus::Idle:                      return "Idle";
-        case ProfilingSessionStatus::TargetSelected:            return "TargetSelected";
+        case ProfilingSessionStatus::TargetSelected:            return "Target selected";
         case ProfilingSessionStatus::Auditing:                  return "Auditing";
-        case ProfilingSessionStatus::ReadyToProfile:            return "ReadyToProfile";
+        case ProfilingSessionStatus::ReadyToProfile:            return "Ready to profile";
         case ProfilingSessionStatus::Profiling:                 return "Profiling";
         case ProfilingSessionStatus::Paused:                    return "Paused";
         case ProfilingSessionStatus::Completed:                 return "Completed";
-        case ProfilingSessionStatus::EvaluationLoadedForReview: return "EvaluationLoadedForReview";
+        case ProfilingSessionStatus::EvaluationLoadedForReview: return "Loaded for review";
         case ProfilingSessionStatus::Exporting:                 return "Exporting";
         case ProfilingSessionStatus::Exported:                  return "Exported";
-        case ProfilingSessionStatus::AuditRejected:             return "AuditRejected";
-        case ProfilingSessionStatus::UnsupportedTarget:         return "UnsupportedTarget";
-        case ProfilingSessionStatus::MeasurementInvalid:        return "MeasurementInvalid";
+        case ProfilingSessionStatus::AuditRejected:             return "Audit rejected";
+        case ProfilingSessionStatus::UnsupportedTarget:         return "Unsupported target";
+        case ProfilingSessionStatus::MeasurementInvalid:        return "Measurement invalid";
         case ProfilingSessionStatus::Cancelled:                 return "Cancelled";
         case ProfilingSessionStatus::Failed:                    return "Failed";
         default:                                                return "Unknown";

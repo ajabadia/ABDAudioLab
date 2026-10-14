@@ -507,7 +507,6 @@ void MainContentComponent::applyWorkingDirectory(const juce::File& newRoot)
         exportDirectory = labDirs.exports;
         sessionIoController.setExportDirectory(exportDirectory);
         loopbackProfileStore.setStorageDirectory(labDirs.loopbackProfiles);
-        drawer.openFileDrawer(exportDirectory.getFullPathName());
 
         triggerAsyncLoopbackProfileDetection();
 

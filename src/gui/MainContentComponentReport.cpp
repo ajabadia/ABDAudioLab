@@ -6,6 +6,7 @@
  */
 
 #include "MainContentComponent.h"
+#include "core/LabDataDirectories.h"
 
 namespace abdaudiolab
 {
@@ -314,7 +315,8 @@ gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() con
     snapshot.manifest.targetModule = targetModule.toStdString();
 
     snapshot.measuredPoints = sessionManager.getMeasuredPoints();
-    snapshot.exportDirectory = sessionIoController.getExportDirectory().getFullPathName().toStdString();
+    auto labDirs = core::resolveLabDataDirectories();
+    snapshot.exportDirectory = labDirs.reports.getFullPathName().toStdString();
 
     juce::String base = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
     snapshot.baseFileName = base.toStdString();
@@ -324,6 +326,46 @@ gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() con
     snapshot.operatorNotes = drawer.getOperatorNotes().toStdString();
     snapshot.ambientTemperatureC = drawer.getAmbientTemperature();
     snapshot.warmupMinutes = drawer.getWarmupTimeMinutes();
+
+    // --- Rellenar resultado de lectura rápida (modo guiado y modo clásico idéntico) ---
+    // Construimos el texto "Qué hiciste / qué salió / qué puedes hacer después"
+    // usando los datos disponibles del manifiesto y la sesión.
+    std::string summary;
+
+    // Qué hiciste: target/plugin y función medidos
+    if (!hwName.isEmpty())
+    {
+        summary = "Medición de " + std::string(hwName.toRawUTF8());
+        if (!funcName.isEmpty() && funcName != hwName)
+            summary += " (" + std::string(funcName.toRawUTF8()) + ")";
+    }
+    else if (!funcId.isEmpty())
+    {
+        summary = "Medición de " + std::string(funcId.toRawUTF8());
+    }
+    else
+    {
+        summary = "Medición sin target seleccionado";
+    }
+
+    // Añadimos qué salió basado en los puntos medidos
+    auto measuredPoints = sessionManager.getMeasuredPoints();
+    if (!measuredPoints.empty())
+    {
+        // Ya hay datos de medición, el resultado depende de la validación
+        // Usar un texto genérico coherente con el modo guiado
+        summary += " — Sesión completada con " + std::to_string(measuredPoints.size()) + " punto(s) medido(s)";
+    }
+    else
+    {
+        summary += " — Aún sin datos de medición";
+    }
+
+    // Qué puedes hacer después (siempre las mismas acciones)
+    summary += " • Exportar paquete de producción • Revisar informe HTML • Comparar o reanalizar";
+
+    snapshot.resultSummaryText = summary;
+    // ------------------------------------------------------------
 
     return snapshot;
 }
