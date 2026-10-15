@@ -8,9 +8,9 @@ namespace abdaudiolab::audio
 {
 
 LabAudioReceiver::LabAudioReceiver()
+    : activeFifo(std::make_unique<juce::AbstractFifo>(1)),
+      pendingFifo(std::make_unique<juce::AbstractFifo>(1))
 {
-    activeFifo = std::make_unique<juce::AbstractFifo>(1);
-    pendingFifo = std::make_unique<juce::AbstractFifo>(1);
     prepare(96000.0, 6.0);
 }
 
