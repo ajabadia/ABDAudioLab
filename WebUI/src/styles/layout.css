@@ -1,0 +1,678 @@
+/* ==========================================================================
+   WORKSPACE LAYOUT, SIDEBAR STEPPER, METERS & SPLITTERS
+   Homogenized with ABD Shared Design Tokens (--color-*, --radius-*, --font-*)
+   ========================================================================== */
+
+/* -------------------------------------------------------------------------- */
+/* Main Workspace Layout (SoundID Reference Ergonomics)                       */
+/* -------------------------------------------------------------------------- */
+.workspace-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 52px);
+  background: var(--color-bg-base);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Left Sidebar - SoundID Guided Workflow Stepper (Collapsible)               */
+/* -------------------------------------------------------------------------- */
+.workflow-sidebar {
+  width: 250px;
+  background: var(--color-panel-bg);
+  border-right: 1px solid var(--color-panel-border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: var(--space-3, 6px);
+  flex-shrink: 0;
+  transition: width var(--transition-normal, 0.22s cubic-bezier(0.4, 0, 0.2, 1)),
+              padding var(--transition-normal, 0.22s cubic-bezier(0.4, 0, 0.2, 1));
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  min-height: 28px;
+}
+
+.sidebar-title {
+  font-size: var(--text-md, 10.5px);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sidebar-collapse-btn {
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-chassis, 6px);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: var(--text-lg, 12px);
+  transition: all var(--transition-fast, 0.15s ease);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--color-accent-dim);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Navigation Bar Status Pill (Audio & MIDI Indicators)                       */
+/* -------------------------------------------------------------------------- */
+.nav-status-pill {
+  position: relative;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  color: var(--color-text-main);
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4, 8px);
+  height: 28px;
+  box-sizing: border-box;
+  transition: all var(--transition-fast, 0.15s ease);
+  user-select: none;
+}
+
+.nav-status-pill:hover {
+  background: var(--color-panel-surface-elevated);
+  border-color: var(--color-accent);
+}
+
+.nav-status-pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.nav-status-pill .status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-md, 10px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Stepper Navigation Items                                                   */
+/* -------------------------------------------------------------------------- */
+.stepper-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6, 12px);
+  padding: 10px 12px;
+  border-radius: var(--radius-lg, 8px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+  border: 1px solid transparent;
+}
+
+.stepper-item:hover {
+  background: var(--color-panel-surface);
+}
+
+.stepper-item.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.stepper-item.locked:hover {
+  background: transparent;
+}
+
+.stepper-item.completed .step-icon {
+  background: var(--color-accent);
+  color: var(--color-bg-base);
+  border: none;
+  font-weight: 800;
+}
+
+.stepper-item.completed .step-title {
+  color: var(--color-text-main);
+}
+
+.stepper-item.active {
+  background: var(--color-accent-dim);
+  border-color: var(--color-panel-border-strong);
+}
+
+.stepper-item.active .step-icon {
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-dim);
+  box-shadow: 0 0 12px var(--color-accent-dim);
+}
+
+.stepper-item.active .step-title {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.step-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base, 11px);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.step-title {
+  font-size: var(--text-xl, 13px);
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.step-sub {
+  font-size: var(--text-base, 11px);
+  color: var(--color-text-dim);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Session Summary Card at Bottom of Sidebar                                  */
+/* -------------------------------------------------------------------------- */
+.sidebar-summary-card {
+  margin-top: auto;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 8px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  overflow: hidden;
+  min-height: 82px;
+  box-sizing: border-box;
+}
+
+.sidebar-card-art-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 48%;
+  max-width: 110px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.sidebar-card-art-img {
+  width: 100%;
+  height: 100%;
+  max-height: 74px;
+  object-fit: contain;
+  object-position: right center;
+  display: block;
+  opacity: 0.75;
+  mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.8) 45%, transparent 100%);
+  transition: opacity var(--transition-normal, 0.2s ease), transform var(--transition-normal, 0.2s ease);
+}
+
+.sidebar-card-art-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to left, transparent 20%, var(--color-panel-surface) 95%);
+  pointer-events: none;
+}
+
+.sidebar-card-art-fallback {
+  position: absolute;
+  right: 14px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text-dim);
+  opacity: 0.2;
+  user-select: none;
+}
+
+.sidebar-summary-card:hover .sidebar-card-art-img {
+  opacity: 0.95;
+  transform: scale(1.04);
+}
+
+.sidebar-card-body {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 72%;
+}
+
+.summary-card-title {
+  font-size: var(--text-sm, 9.5px);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.summary-target-name {
+  font-size: var(--text-xl, 13px);
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.summary-status-line {
+  font-size: var(--text-base, 11px);
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.summary-progress-line {
+  font-size: var(--text-md, 10.5px);
+  color: var(--color-text-dim);
+  margin-top: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Collapsed Sidebar State                                                    */
+/* -------------------------------------------------------------------------- */
+.workflow-sidebar.collapsed {
+  width: 58px;
+  padding: 16px 6px;
+  align-items: center;
+  overflow: visible;
+  z-index: var(--z-dropdown, 50);
+}
+
+.workflow-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  width: 100%;
+  padding: 0 0 14px 0;
+}
+
+.workflow-sidebar.collapsed .sidebar-title,
+.workflow-sidebar.collapsed .step-text,
+.workflow-sidebar.collapsed .sidebar-card-body,
+.workflow-sidebar.collapsed .sidebar-summary-card > .summary-card-title,
+.workflow-sidebar.collapsed .sidebar-summary-card > .summary-target-name,
+.workflow-sidebar.collapsed .sidebar-summary-card > .summary-status-line,
+.workflow-sidebar.collapsed .sidebar-summary-card > .summary-progress-line,
+.workflow-sidebar.collapsed .sidebar-card-art-fade {
+  display: none !important;
+}
+
+.workflow-sidebar.collapsed .stepper-item {
+  padding: 7px 0;
+  width: 44px;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+}
+
+.workflow-sidebar.collapsed .stepper-item.active {
+  background: var(--color-accent-dim);
+  border: 1.5px solid var(--color-accent-active);
+  border-radius: var(--radius-lg, 8px);
+}
+
+.workflow-sidebar.collapsed .stepper-item.active .step-icon {
+  box-shadow: none;
+  background: transparent;
+  border: none;
+}
+
+.workflow-sidebar.collapsed .sidebar-summary-card {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin-left: auto;
+  margin-right: auto;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
+  cursor: pointer;
+  border-radius: var(--radius-lg, 8px);
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.workflow-sidebar.collapsed #sidebarAudioDeviceCard {
+  margin-top: auto;
+  margin-bottom: 8px;
+}
+
+.workflow-sidebar.collapsed #sidebarSummaryCard {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.workflow-sidebar.collapsed .sidebar-summary-card:hover {
+  background: var(--color-panel-surface-elevated);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-dim);
+}
+
+.workflow-sidebar.collapsed .sidebar-card-art-wrap {
+  position: static;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  right: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-chassis, 6px);
+  overflow: hidden;
+}
+
+.workflow-sidebar.collapsed .sidebar-card-art-img {
+  width: auto;
+  height: auto;
+  max-width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+  object-position: center;
+  opacity: 1;
+  mask-image: none;
+  -webkit-mask-image: none;
+  transform: none;
+}
+
+.workflow-sidebar.collapsed .sidebar-card-art-fallback {
+  position: static;
+  font-size: var(--text-base, 11px);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+/* Popup for Collapsed Sidebar Cards */
+.sidebar-card-popup {
+  display: none;
+}
+
+.workflow-sidebar.collapsed .sidebar-card-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: absolute;
+  left: calc(100% + 12px);
+  bottom: 0;
+  width: 230px;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 8px);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-elevation-2);
+  z-index: var(--z-dropdown, 50);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-6px);
+  transition: opacity var(--transition-fast, 0.16s ease),
+              transform var(--transition-fast, 0.16s ease),
+              visibility var(--transition-fast, 0.16s ease);
+  pointer-events: none;
+  white-space: normal;
+  text-align: left;
+}
+
+.workflow-sidebar.collapsed .sidebar-card-popup::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  bottom: 17px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-panel-surface);
+  border-left: 1px solid var(--color-panel-border);
+  border-bottom: 1px solid var(--color-panel-border);
+  transform: rotate(45deg);
+}
+
+.workflow-sidebar.collapsed .sidebar-summary-card:hover .sidebar-card-popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Center Stage Viewport & Headers                                            */
+/* -------------------------------------------------------------------------- */
+.stage-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+  gap: 14px;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.stage-header h2 {
+  font-size: var(--text-2xl, 18px);
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.stage-header p {
+  font-size: var(--text-lg, 12px);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.stage4-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  flex: 1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Right Sidebar - VU Meters & Controls                                       */
+/* -------------------------------------------------------------------------- */
+.meters-sidebar {
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  background: var(--color-panel-bg);
+  border-left: 1px solid var(--color-panel-border);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  align-items: center;
+  gap: var(--space-8, 16px);
+}
+
+.meters-title {
+  font-size: var(--text-md, 10px);
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+}
+
+.vu-meters-container,
+.abd-vumeter-group {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.abd-meter-strip,
+.meter-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.meter-label {
+  font-size: var(--text-md, 10px);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  width: 36px;
+  text-align: center;
+  display: inline-block;
+}
+
+.meter-track {
+  flex: 1;
+  width: 12px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-panel-border-dim);
+  border-radius: var(--radius-chassis, 6px);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.meter-bar {
+  width: 100%;
+  height: 0%;
+  background: var(--color-vu-gradient, linear-gradient(to top, var(--color-success) 0%, var(--color-warning) 70%, var(--color-danger) 95%));
+  border-radius: var(--radius-md, 4px);
+  transition: height 0.05s ease-out;
+}
+
+.meter-db-readout {
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm, 9.5px);
+  color: var(--color-text-dim);
+  width: 36px;
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.clip-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-panel-border-dim);
+  border: 1px solid var(--color-panel-border);
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.clip-led.active {
+  background: var(--color-danger);
+  box-shadow: 0 0 8px var(--color-danger);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Theme Styling Overrides                                                    */
+/* -------------------------------------------------------------------------- */
+#navThemeToggleBtn:hover {
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Center Splitter Bar & Folding Layout                                       */
+/* -------------------------------------------------------------------------- */
+.center-splitter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  height: 10px;
+  min-height: 10px;
+  cursor: row-resize;
+  user-select: none;
+  transition: background-color var(--transition-fast, 0.15s ease);
+  margin: 1px 0;
+  z-index: var(--z-panel, 10);
+}
+
+.center-splitter-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--color-panel-border);
+  transition: background-color var(--transition-fast, 0.15s ease);
+}
+
+.center-splitter-bar:hover::before,
+.center-splitter-bar.is-dragging::before {
+  background: var(--color-accent);
+  opacity: 0.7;
+}
+
+.center-splitter-bar .splitter-handle-pill {
+  position: relative;
+  z-index: 2;
+  width: 44px;
+  height: 4px;
+  border-radius: var(--radius-sm, 2px);
+  background: var(--color-text-dim);
+  opacity: 0.5;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.center-splitter-bar:hover .splitter-handle-pill,
+.center-splitter-bar.is-dragging .splitter-handle-pill {
+  background: var(--color-accent);
+  opacity: 1;
+  width: 52px;
+}

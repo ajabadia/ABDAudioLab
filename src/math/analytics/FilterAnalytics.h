@@ -70,12 +70,20 @@ class FilterAnalytics
 public:
     static FilterStatisticalPair calculateStatistics(const std::vector<float>& dataset);
 
+    /**
+     * @brief Computes the Synchronous Time-Domain Average (STA) across multiple phase-locked passes:
+     *        y_bar[n] = (1/K) * sum_{k=0}^{K-1} y_k[n], reducing uncorrelated thermal noise by 10*log10(K) dB.
+     */
+    static std::vector<float> computeSynchronousTimeDomainAverage(
+        const std::vector<std::vector<float>>& recordedPasses);
+
     static FilterAnalysisData analyzeFilterPasses(const std::vector<std::vector<float>>& recordedPasses,
                                                   const std::vector<float>& inverseFilter,
                                                   double sampleRate,
                                                   double durationSec,
                                                   float startFreqHz,
-                                                  float endFreqHz);
+                                                  float endFreqHz,
+                                                  bool useKirkebyRegularization = true);
 
     /**
      * @brief Detailed metrological analysis of a deconvolved filter frequency response.

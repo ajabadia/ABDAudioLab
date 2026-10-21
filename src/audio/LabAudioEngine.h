@@ -23,6 +23,7 @@
 #include <Core/ScopeDataCollector.h>
 #include <Core/ScopeFrameSerializer.h>
 #include "../dsp/AnalogLutFilterModule.h"
+#include "../math/LoopbackCalibrator.h"
 
 namespace abdaudiolab::audio
 {
@@ -174,6 +175,12 @@ public:
     [[nodiscard]] bool isPluginMonitoringEnabled() const noexcept { return pluginMonitoringEnabled.load(std::memory_order_acquire); }
 
     /**
+     * @brief Enables or disables direct audio passthrough monitoring for physical hardware inputs.
+     */
+    void setDirectMonitoringEnabled(bool enabled) noexcept { directMonitoringActive.store(enabled, std::memory_order_release); }
+    [[nodiscard]] bool isDirectMonitoringEnabled() const noexcept { return directMonitoringActive.load(std::memory_order_acquire); }
+
+    /**
      * @brief Posts live MIDI messages (from Virtual Keyboard or hardware MIDI) to active plugin in a thread-safe manner.
      */
     void postLiveMidiMessage(const juce::MidiMessage& message);
@@ -211,16 +218,54 @@ public:
     [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_acquire); }
 
     /**
+     * @brief Plays an in-memory audio buffer directly through the physical DAC outputs.
+     * Thread-safe and lock-free on the audio thread.
+     */
+    void playPreviewBuffer(const juce::AudioBuffer<float>& buffer)
+    {
+        previewPlaying.store(false, std::memory_order_release);
+        previewBuffer.setSize(buffer.getNumChannels(), buffer.getNumSamples());
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            previewBuffer.copyFrom(ch, 0, buffer, ch, 0, buffer.getNumSamples());
+        previewReadPos.store(0, std::memory_order_release);
+        previewPlaying.store(true, std::memory_order_release);
+    }
+
+    void stopPreviewBuffer() noexcept
+    {
+        previewPlaying.store(false, std::memory_order_release);
+    }
+
+    [[nodiscard]] bool isPreviewPlaying() const noexcept
+    {
+        return previewPlaying.load(std::memory_order_relaxed);
+    }
+
+    enum class AuditionKind : int
+    {
+        Model = 0,
+        Residual = 1
+    };
+
+    /**
      * @brief Enables or disables real-time audition mode ("Comprobar cómo sonaría").
      */
-    void enableAuditionMode(bool enable) noexcept
+    void enableAuditionMode(bool enable, AuditionKind kind = AuditionKind::Model, float boostDb = 0.0f) noexcept
     {
+        auditionKind.store(kind, std::memory_order_release);
+        float boostLin = std::pow(10.0f, juce::jlimit(0.0f, 36.0f, boostDb) / 20.0f);
+        auditionResidualBoostLinear.store(boostLin, std::memory_order_release);
         auditionActive.store(enable, std::memory_order_release);
     }
 
     [[nodiscard]] bool isAuditionActive() const noexcept
     {
         return auditionActive.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] AuditionKind getAuditionKind() const noexcept
+    {
+        return auditionKind.load(std::memory_order_relaxed);
     }
 
     void setAuditionParameters(float cutoff, float resonance) noexcept
@@ -354,6 +399,24 @@ public:
     }
 
     /**
+     * @brief Closed-loop Dead-Time Compensated PID Auto-Trim step (HITO-DSP-24.5).
+     *        Adjusts inputTrimGain accounting for hardware round-trip latency and anti-windup.
+     */
+    void configureAutoTrimPid(const math::DeadTimePidConfig& cfg) noexcept { autoTrimPidController.configure(cfg); }
+    void resetAutoTrimPid(float initialGainDb = 0.0f) noexcept { autoTrimPidController.reset(initialGainDb); }
+    math::DeadTimePidState stepAutoGainTrimPid(float targetHeadroomDbfs = -3.0f,
+                                               double chunkDurationSec = 0.05,
+                                               double roundTripDelaySec = 0.01) noexcept;
+
+    /**
+     * @brief Loads a minimum-phase inverse FIR kernel into the real-time zero-latency
+     *        partitioned convolver (Gardner 1995, HITO-DSP-24.7) for live ADC de-coloring.
+     */
+    bool loadInputDeColoringFir(const std::vector<float>& firKernel, size_t partitionSize = 64);
+    void setInputDeColoringEnabled(bool enabled) noexcept { inputDeColoringEnabled.store(enabled, std::memory_order_release); }
+    [[nodiscard]] bool isInputDeColoringEnabled() const noexcept { return inputDeColoringEnabled.load(std::memory_order_acquire); }
+
+    /**
      * @brief Triggers a gentle 800 Hz metronome tick (-24 dBFS, 15ms Hann window)
      *        to guide the operator during manual continuous sweeps.
      *        Thread-safe and real-time audio safe (zero allocations).
@@ -378,8 +441,14 @@ private:
     std::atomic<hardware::MockHardwareController*> mockHardware { nullptr };
     std::atomic<juce::AudioPluginInstance*> activePlugin { nullptr };
     std::atomic<bool> pluginMonitoringEnabled { false };
+    std::atomic<bool> directMonitoringActive { false };
     juce::MidiBuffer pluginMidiMessages;
     juce::MidiMessageCollector liveMidiCollector;
+
+    // Take audio preview playback state
+    juce::AudioBuffer<float> previewBuffer;
+    std::atomic<int> previewReadPos { 0 };
+    std::atomic<bool> previewPlaying { false };
 
     // Diagnostic tone state
     std::atomic<bool> diagnosticToneActive { false };
@@ -405,6 +474,13 @@ private:
     std::atomic<bool> audioDeviceLost { false };  // Sticky until consumed (see consumeAudioDeviceLost).
 
     std::atomic<float> inputTrimGain { 1.0f };
+    math::DeadTimeCompensatedPidController autoTrimPidController {};
+
+    // Real-time zero-latency hardware de-coloring convolver (Gardner 1995)
+    juce::SpinLock deColorConvolverLock;
+    math::ZeroLatencyPartitionedConvolver deColorConvolverL {};
+    math::ZeroLatencyPartitionedConvolver deColorConvolverR {};
+    std::atomic<bool> inputDeColoringEnabled { false };
 
     // Plugin MIDI delivery & audio verification telemetry
     std::atomic<int> pluginMidiEventsDelivered { 0 };
@@ -435,6 +511,8 @@ private:
 
     // Audition preview state (real-time DSP preview of trained LUT)
     std::atomic<bool> auditionActive { false };
+    std::atomic<AuditionKind> auditionKind { AuditionKind::Model };
+    std::atomic<float> auditionResidualBoostLinear { 1.0f };
     std::atomic<float> auditionCutoff { 0.5f };
     std::atomic<float> auditionResonance { 0.5f };
     std::atomic<int> auditionWaveform { 0 }; // 0: Saw, 1: Square, 2: Noise

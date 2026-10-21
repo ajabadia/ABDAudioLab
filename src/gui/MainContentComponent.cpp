@@ -787,6 +787,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Wire cascading catalog selector
     catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
+    catalogSelector.setAudioDeviceManager(&audioEngine.getDeviceManager());
     catalogSelector.onSelectionChanged = [this](const juce::String& hwId, const juce::String& funcId) {
         if (catalogSelector.isPluginVirtualMode())
         {
@@ -820,11 +821,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         drawer.setSelectedHardwareId(hwId);
         onHardwareSelected(hwId, funcId);
+        const auto* c = hardwareManager.findContractById(hwId.toStdString());
         gui::SoundIdSidebarStepper::SessionSummaryInfo summary = sidebarStepper.getSessionSummary();
-        summary.hardwareName = hwId;
+        if (c != nullptr)
+        {
+            summary.hardwareName = juce::String(c->displayName);
+            summary.hardwareCategory = juce::String(c->deviceType);
+        }
+        else
+        {
+            summary.hardwareName = hwId.isNotEmpty() ? hwId : "None Selected";
+        }
         sidebarStepper.setSessionSummary(summary);
 
-        const auto* c = hardwareManager.findContractById(hwId.toStdString());
         suiteList.setStandardTestAvailable(c != nullptr && !c->functions.empty());
 
         // Actualizar ProfilingSessionController para target hardware físico (HITO-03.1)
@@ -1758,7 +1767,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     suiteList.setStandardTestAvailable(false);
     suiteList.clearQueue();
 
-    setSize(1240, 780);
+    setSize(1520, 920);
 
     report("Precalentando Monitor Reactivo de Hardware MIDI...", 0.88f);
     // Pre-warm MIDI Hardware Hotplug Monitor & Detector in background
@@ -1864,6 +1873,7 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
     {
         mainHeader.updateAudioMidiStatus();
         updateSetupDrawerInfo();
+        catalogSelector.refreshTopology();
 
         if (topologyController.isWindowVisible())
         {

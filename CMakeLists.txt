@@ -130,10 +130,8 @@ juce_add_gui_app(ABDAudioLab
 )
 
 # Source files
-target_sources(ABDAudioLab
-    PRIVATE
-        src/main.cpp
-        src/BuildVersion.h
+set(ABDAUDIOLAB_COMMON_SOURCES
+    src/BuildVersion.h
         
         # Core Architecture
         src/core/ProfilingSession.h
@@ -702,6 +700,12 @@ target_sources(ABDAudioLab
         src/config/AutoUpdaterConfig.h
 )
 
+target_sources(ABDAudioLab
+    PRIVATE
+        src/main.cpp
+        ${ABDAUDIOLAB_COMMON_SOURCES}
+)
+
 target_include_directories(ABDAudioLab
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -749,6 +753,78 @@ target_link_libraries(ABDAudioLab
         ABDShared::HardwareMidiDetect
         ABDShared::StudioTopologyAssets
 )
+
+# ------------------------------------------------------------------------------
+# Target: ABDAudioLab_Web (Modern WebView2 Target with Browser-First Workflow)
+# ------------------------------------------------------------------------------
+juce_add_gui_app(ABDAudioLab_Web
+    PRODUCT_NAME "ABDAudioLab Web"
+    VERSION "1.1.0"
+    COMPANY_NAME "ABDSynths"
+    BUNDLE_ID "com.abdsynths.abdaudiolab.web"
+    NEEDS_WEBVIEW2 TRUE
+)
+
+target_sources(ABDAudioLab_Web
+    PRIVATE
+        src/main_web.cpp
+        src/gui/web/AudioLabWebComponent.h
+        src/gui/web/AudioLabWebComponent.cpp
+        src/gui/web/LabWebApplication.h
+        ${ABDAUDIOLAB_COMMON_SOURCES}
+)
+
+target_include_directories(ABDAudioLab_Web
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${ABDSHARED_CODE_DIR}
+        ${ara_sdk_SOURCE_DIR}
+)
+
+target_compile_definitions(ABDAudioLab_Web
+    PRIVATE
+        JUCE_WEB_BROWSER=1
+        JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+        JUCE_USE_CURL=0
+        JUCE_ASIO=0
+        JUCE_WASAPI=1
+        JUCE_DIRECTSOUND=1
+        JUCE_ALSA=0
+        JUCE_JACK=0
+        JUCE_REPORT_APP_USAGE=0
+        JUCE_SILENCE_XCODE_15_LINKER_WARNING=1
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        JUCE_PLUGINHOST_LV2=1
+        JUCE_PLUGINHOST_ARA=1
+)
+
+target_link_libraries(ABDAudioLab_Web
+    PRIVATE
+        juce::juce_core
+        juce::juce_events
+        juce::juce_data_structures
+        juce::juce_audio_basics
+        juce::juce_audio_devices
+        juce::juce_audio_formats
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_audio_utils
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+        nlohmann_json::nlohmann_json
+        ABDShared::ScopeCore
+        ABDShared::AutoUpdater
+        ABDShared::HardwareMidiDetect
+        ABDShared::StudioTopologyAssets
+        ABDShared::WebView2Bridge
+)
+
+if (WIN32)
+    target_link_libraries(ABDAudioLab PRIVATE dwmapi)
+    target_link_libraries(ABDAudioLab_Web PRIVATE dwmapi)
+endif()
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab_Tests (Unit Test Suite with Catch2 / CTest)
@@ -1021,6 +1097,8 @@ add_executable(ABDAudioLab_Tests
     ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABVerdictEngine.cpp
     ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
     ${ABDSHARED_CODE_DIR}/WebView2Bridge/WebView2ResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.cpp
     src/core/AutoTestPresetEngine.cpp
     src/core/presets/FilterPresetCatalog.cpp
     src/core/presets/ModulationPresetCatalog.cpp
@@ -1257,6 +1335,8 @@ target_compile_definitions(ABDAudioLab_Tests
         NOMINMAX
         JUCE_PLUGINHOST_VST3=1
         JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
         ABD_TESTING=1
         # Necesario para MessageManager::runDispatchLoopUntil(): el runner Catch2 es
         # headless y debe bombear el message loop de JUCE para materializar las
@@ -1281,10 +1361,14 @@ target_link_libraries(ABDAudioLab_Tests
         nlohmann_json::nlohmann_json
         ABDShared::ScopeCore
         ABDShared::HardwareMidiDetect
+        ABDShared::StudioTopologyAssets
 )
 
 if(WIN32)
     target_link_libraries(ABDAudioLab_Tests PRIVATE dbghelp)
+    if(TARGET juce::juce_webview2)
+        target_link_libraries(ABDAudioLab_Tests PRIVATE juce::juce_webview2)
+    endif()
 endif()
 
 if(MSVC)

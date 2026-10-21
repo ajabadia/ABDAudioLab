@@ -39,7 +39,7 @@ public:
             },
             contracts,
             config,
-            AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light"
+            AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light"
         );
 
         setContentOwned(picker, true);
@@ -86,7 +86,7 @@ public:
         setBackgroundColour(AppTheme::BackgroundApp);
         if (auto* picker = dynamic_cast<abd::hwid::JuceHardwareMidiPicker*>(getContentComponent()))
         {
-            picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+            picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light");
         }
         repaint();
     }

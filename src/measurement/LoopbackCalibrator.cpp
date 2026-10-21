@@ -116,13 +116,11 @@ LoopbackCalibrationRecord LoopbackCalibrator::analyzeLoopback(const std::vector<
 
     // 1. Nivel pico (peakDbfs) y detección de clipping
     float maxVal = 0.0f;
-    double sumSamples = 0.0;
     for (float s : responseAudio)
     {
         float absVal = std::abs(s);
         if (absVal > maxVal)
             maxVal = absVal;
-        sumSamples += static_cast<double>(s);
     }
 
     record.peakDbfs = (maxVal > 1e-12f) ? static_cast<double>(20.0f * std::log10(maxVal)) : -120.0;

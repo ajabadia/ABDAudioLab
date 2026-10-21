@@ -1,0 +1,235 @@
+/* ==========================================================================
+   UNIFIED CARD ARCHITECTURE, METRICS & HARDWARE IMAGES
+   ========================================================================== */
+
+/* 1. Unified Card Models */
+.card,
+.panel-card,
+.stage4-hero-card,
+.stage2-step-card,
+.stage2-merged-metrics-module,
+.model-card,
+.stage3-param-card,
+.stage3-wizard-art-card,
+.vst-plugin-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--transition-fast, 0.15s ease),
+              box-shadow var(--transition-fast, 0.15s ease);
+  box-sizing: border-box;
+}
+
+.card:hover,
+.panel-card:hover,
+.stage4-hero-card:hover,
+.stage2-step-card:hover,
+.stage2-merged-metrics-module:hover,
+.model-card:hover,
+.stage3-param-card:hover,
+.stage3-wizard-art-card:hover,
+.vst-plugin-card:hover {
+  border-color: var(--color-panel-border-strong);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card.active,
+.panel-card.active,
+.vst-plugin-card.active,
+.stage3-param-card.active {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), var(--shadow-card);
+}
+
+/* 2. Unified Section Typography */
+.section-title,
+.stage1-section-title,
+.stage2-step-title,
+.stage3-section-title,
+.hero-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.section-subtitle,
+.stage1-section-sub,
+.stage2-step-subtitle,
+.stage3-section-sub,
+.hero-subtitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: 0.3px;
+}
+
+/* 3. Universal Metrics & KPI Grid Architecture */
+.metric-grid,
+.stage4-metrics-grid,
+.stage2-metrics-4col,
+.kpi-grid {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.metric-tile,
+.kpi-cell,
+.health-metric-box {
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md, 6px);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.metric-lbl,
+.kpi-label,
+.stage2-stat-lbl,
+.health-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-val,
+.kpi-value,
+.stage2-stat-val,
+.health-val {
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-val.accent,
+.stage2-stat-val.accent {
+  color: var(--color-accent);
+}
+
+/* 4. Unified Hardware & Target Images */
+.model-thumb-img,
+.target-choice-img,
+.target-type-header-icon,
+.brand-logo-img,
+.fossil-thumb-card img,
+.device-node .node-image,
+.device-node img,
+.theme-img-interface,
+.theme-img-nodevice,
+.theme-img-hard,
+.theme-img-vst,
+.theme-img-eurorack,
+.model-item-card img,
+img[src*="models/"],
+img[src*="interfaces/"] {
+  filter: none !important;
+  box-shadow: none !important;
+}
+
+/* All Image Containers: Transparent, borderless, shadowless across entire app */
+.node-image-container,
+.fossil-thumb-card,
+.target-choice-img-box {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Model & Hardware Thumbnails: Strict dimensioning & zero overflow */
+.model-thumb-box {
+  width: 100% !important;
+  height: 72px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 2px !important;
+  box-sizing: border-box !important;
+}
+
+.model-thumb-img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  display: block !important;
+  margin: 0 auto !important;
+  transition: transform 0.25s ease !important;
+}
+
+.model-item-card:hover .model-thumb-img {
+  transform: scale(1.06) !important;
+}
+
+.fossil-thumb-card {
+  width: 110px !important;
+  height: 76px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+.fossil-thumb-card img {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+/* Light Mode: Contrast & Brightness normalization */
+[data-theme="audiolab-light"] .model-thumb-img,
+[data-theme="audiolab-light"] .target-choice-img,
+[data-theme="audiolab-light"] .target-type-header-icon,
+[data-theme="audiolab-light"] .fossil-thumb-card img,
+[data-theme="audiolab-light"] .device-node .node-image,
+[data-theme="audiolab-light"] .device-node img,
+[data-theme="audiolab-light"] .theme-img-interface,
+[data-theme="audiolab-light"] .theme-img-nodevice,
+[data-theme="audiolab-light"] .theme-img-hard,
+[data-theme="audiolab-light"] .theme-img-vst,
+[data-theme="audiolab-light"] .theme-img-eurorack,
+[data-theme="audiolab-light"] .model-item-card img,
+[data-theme="audiolab-light"] img[src*="models/"],
+[data-theme="audiolab-light"] img[src*="interfaces/"] {
+  filter: contrast(1.06) brightness(1.04) !important;
+}
+
+/* Dark Mode: pristine rendering without artificial shadows or filters */
+[data-theme="audiolab"] .model-thumb-img,
+[data-theme="audiolab"] .target-choice-img,
+[data-theme="audiolab"] .target-type-header-icon,
+[data-theme="audiolab"] .fossil-thumb-card img,
+[data-theme="audiolab"] .device-node .node-image,
+[data-theme="audiolab"] .device-node img,
+[data-theme="audiolab"] .model-item-card img,
+[data-theme="audiolab"] img[src*="models/"],
+[data-theme="audiolab"] img[src*="interfaces/"] {
+  filter: none !important;
+}

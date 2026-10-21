@@ -81,17 +81,17 @@ private:
     MeasurementFrequencyCurveComponent freqCurveComponent_;
 
     // Audio Track Selector (for filter measurements)
-    juce::TextButton btnTrackOutput_ { "Salida (Captura)" };
-    juce::TextButton btnTrackInput_ { "Entrada (Barrido)" };
-    juce::TextButton btnTrackIr_ { "Respuesta Impulsional (IR)" };
+    juce::TextButton btnTrackOutput_ { "Output (Capture)" };
+    juce::TextButton btnTrackInput_ { "Input (Sweep)" };
+    juce::TextButton btnTrackIr_ { "Impulse Response (IR)" };
 
     // Audio Player
     MeasurementAudioPlayerComponent audioPlayerComponent_;
 
     // Action buttons
-    juce::TextButton btnLoadContainer_ { "Cargar Contenedor..." };
-    juce::TextButton btnOpenReport_ { "Abrir Informe HTML" };
-    juce::TextButton btnVerifyManifest_ { "Verificar Manifiesto" };
+    juce::TextButton btnLoadContainer_ { "Load Container..." };
+    juce::TextButton btnOpenReport_ { "Open HTML Report" };
+    juce::TextButton btnVerifyManifest_ { "Verify Manifest" };
 
     std::unique_ptr<juce::FileChooser> fileChooser_;
 

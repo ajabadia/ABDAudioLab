@@ -845,6 +845,27 @@ struct ProfilingSessionSnapshot
 }
 
 /**
+ * @brief Modo de ejecución del proceso de adquisición acústica.
+ */
+enum class AcquisitionExecutionMode
+{
+    Realtime = 0,    ///< Tiempo real a través del driver de audio con audición en monitores.
+    FastOffline = 1, ///< Render digital directo en RAM a velocidad de CPU (plugins VST3).
+    SafeSlow = 2     ///< Tiempo real con pausas de estabilización (settling) y purga de notas para plugins que se traban.
+};
+
+inline const char* acquisitionExecutionModeToString(AcquisitionExecutionMode mode) noexcept
+{
+    switch (mode)
+    {
+        case AcquisitionExecutionMode::FastOffline: return "FastOffline";
+        case AcquisitionExecutionMode::SafeSlow:    return "SafeSlow";
+        case AcquisitionExecutionMode::Realtime:
+        default:                                   return "Realtime";
+    }
+}
+
+/**
  * @brief Interfaz pura para envío de comandos desde la GUI (Command segregation).
  */
 class IProfilingSessionCommands
@@ -854,7 +875,11 @@ public:
 
     virtual bool selectTarget(const TargetSelectionState& target) = 0;
     virtual bool requestAudit() = 0;
-    virtual bool startProfiling() = 0;
+    virtual bool startProfiling(int totalTrials = 20,
+                                double trialDurationSec = 2.0,
+                                bool adaptiveTailEnabled = false,
+                                double tailThresholdDb = -60.0,
+                                AcquisitionExecutionMode executionMode = AcquisitionExecutionMode::Realtime) = 0;
     virtual bool pauseProfiling() = 0;
     virtual bool resumeProfiling() = 0;
     virtual bool cancelProfiling() = 0;

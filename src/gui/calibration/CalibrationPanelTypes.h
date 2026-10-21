@@ -92,6 +92,10 @@ struct LoopbackReport
     bool clippingDetected { false };
     int clippedSamples { 0 };
     bool passed { false };
+    bool firDeColoringActive { false };
+    std::vector<float> freqsHz;
+    std::vector<float> magnitudeDb;
+    std::vector<float> inverseCorrectionDb;
     juce::String failureReason;
     juce::String timestampIso;
 };

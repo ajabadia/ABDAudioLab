@@ -21,15 +21,6 @@ using namespace abdaudiolab::calibration;
 namespace
 {
 
-void simulateClick(juce::Component& comp, juce::Point<int> pt)
-{
-    auto mouseSource = juce::Desktop::getInstance().getMainMouseSource();
-    juce::Point<float> ptf(static_cast<float>(pt.x), static_cast<float>(pt.y));
-    juce::MouseEvent e(mouseSource, ptf, juce::ModifierKeys(), 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-                       &comp, &comp, juce::Time::getCurrentTime(), ptf, juce::Time::getCurrentTime(), 1, false);
-    comp.mouseDown(e);
-}
-
 void passNoiseBaseline2A(NativeCalibrationPanel& panel, audio::LabAudioEngine& engine)
 {
     panel.startNoiseBaselineCheck();
@@ -58,6 +49,12 @@ TEST_CASE("NativeCalibrationPanel: Tabs de navegacion pura y botones de accion f
     audio::LabAudioEngine engine;
     NativeCalibrationPanel panel(engine);
     panel.setSize(800, 600);
+    panel.stopTimer();
+
+    // Ensure layout and painters have run an initial pass
+    juce::Image dummyImg(juce::Image::ARGB, 800, 600, true);
+    juce::Graphics g(dummyImg);
+    panel.paint(g);
 
     SECTION("Click en tarjeta 2A y 2B solo cambia subvista activa y NUNCA inicia audio ni sweep")
     {
@@ -67,16 +64,18 @@ TEST_CASE("NativeCalibrationPanel: Tabs de navegacion pura y botones de accion f
         CHECK(panel.getState() == NativeCalibrationPanel::State::ReadyToMeasure);
 
         // Click en Tarjeta 2B: solo navega a 2B
+        CHECK_FALSE(panel.getStepCard2BBounds().isEmpty());
         auto card2BCentre = panel.getStepCard2BBounds().getCentre();
-        simulateClick(panel, card2BCentre);
+        panel.handleCardClick(card2BCentre);
 
         CHECK(panel.getActiveSubView() == NativeCalibrationPanel::CalibrationSubView::PhysicalLoopback_2B);
         CHECK(engine.getResponseReceiver().getState() == audio::ReceiverState::Idle);
         CHECK(panel.getState() == NativeCalibrationPanel::State::ReadyToMeasure);
 
         // Click en Tarjeta 2A: regresa a 2A
+        CHECK_FALSE(panel.getStepCard2ABounds().isEmpty());
         auto card2ACentre = panel.getStepCard2ABounds().getCentre();
-        simulateClick(panel, card2ACentre);
+        panel.handleCardClick(card2ACentre);
 
         CHECK(panel.getActiveSubView() == NativeCalibrationPanel::CalibrationSubView::NoiseBaseline_2A);
         CHECK(engine.getResponseReceiver().getState() == audio::ReceiverState::Idle);
@@ -87,6 +86,7 @@ TEST_CASE("NativeCalibrationPanel: Tabs de navegacion pura y botones de accion f
     {
         panel.stopTimer(); // Manejo determinista manual
         panel.startNoiseBaselineCheck();
+        panel.stopTimer();
 
         CHECK(panel.getState() == NativeCalibrationPanel::State::MeasuringNoiseBaseline);
         CHECK(panel.getNoiseBaselineState() == NativeCalibrationPanel::NoiseBaselineState::Checking);
@@ -100,11 +100,13 @@ TEST_CASE("NativeCalibrationPanel: Tabs de navegacion pura y botones de accion f
     {
         panel.stopTimer();
         panel.resetToInitialState();
+        panel.stopTimer();
         CHECK(panel.getLoopbackState() == NativeCalibrationPanel::LoopbackState::Locked);
         CHECK(panel.getNoiseBaselineState() == NativeCalibrationPanel::NoiseBaselineState::NotChecked);
 
         panel.setActiveSubView(NativeCalibrationPanel::CalibrationSubView::PhysicalLoopback_2B);
         panel.startPhysicalLoopbackSweep();
+        panel.stopTimer();
 
         // Permanece Locked, no inicia captura
         CHECK(panel.getLoopbackState() == NativeCalibrationPanel::LoopbackState::Locked);
@@ -116,6 +118,7 @@ TEST_CASE("NativeCalibrationPanel: Tabs de navegacion pura y botones de accion f
     {
         panel.stopTimer();
         panel.resetToInitialState();
+        panel.stopTimer();
 
         // Simular que 2A pasa exitosamente
         passNoiseBaseline2A(panel, engine);

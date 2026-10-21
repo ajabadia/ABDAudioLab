@@ -62,6 +62,8 @@ void NativeCalibrationPanel::neutralizeActiveTrim()
     activeDraft_ = std::nullopt;
     activeSnapshot_ = std::nullopt;
     audioEngine.setInputAutoTrim(1.0f);
+    audioEngine.setInputDeColoringEnabled(false);
+    loopbackReport_.firDeColoringActive = false;
 }
 
 void NativeCalibrationPanel::setActiveSubView(CalibrationSubView view) noexcept
@@ -118,6 +120,7 @@ void NativeCalibrationPanel::ensurePhysicalIsolation()
 //==============================================================================
 void NativeCalibrationPanel::startCalibrationSweep()
 {
+    autoAdvanceToSweep_ = true;
     if (currentState == State::NoiseBaselinePassed)
         startPhysicalLoopbackSweep();
     else
@@ -126,6 +129,10 @@ void NativeCalibrationPanel::startCalibrationSweep()
 
 void NativeCalibrationPanel::startNoiseBaselineCheck()
 {
+    // If not called via startCalibrationSweep, do not auto advance
+    if (currentState != State::MeasuringNoiseBaseline && !autoAdvanceToSweep_)
+        autoAdvanceToSweep_ = false;
+
     if (onPreflightCheck)
     {
         onPreflightCheck([this](bool proceed) {
@@ -334,6 +341,11 @@ void NativeCalibrationPanel::handleNoiseBaselineTick()
     }
 
     progressValue = progressFromTicks(baselineTicks_, kBaselineWindowSeconds);
+    if (onCalibrationProgress)
+    {
+        const float curDb = juce::Decibels::gainToDecibels(liveInputPeak, -120.0f);
+        onCalibrationProgress("NoiseBaseline_2A", static_cast<float>(progressValue), "Checking baseline noise...", curDb);
+    }
 
     // 2. Emergency abort on the first block: feedback loop or clipping under mute.
     if (receiver.isOverloadTriggered())
@@ -419,6 +431,13 @@ void NativeCalibrationPanel::handleNoiseBaselineTick()
     if (loopbackState_ == LoopbackState::Locked)
         loopbackState_ = LoopbackState::Ready;
 
+    if (autoAdvanceToSweep_)
+    {
+        autoAdvanceToSweep_ = false;
+        startPhysicalLoopbackSweep();
+        return;
+    }
+
     stopTimer();
     startTimerHz(30);
 
@@ -442,6 +461,11 @@ void NativeCalibrationPanel::handleLoopbackTick()
     {
         ++preflightTicks_;
         progressValue = progressFromTicks(preflightTicks_, kPreflightWindowSeconds);
+        if (onCalibrationProgress)
+        {
+            const float curDb = juce::Decibels::gainToDecibels(liveInputPeak, -120.0f);
+            onCalibrationProgress("PhysicalLoopback_2B_Preflight", static_cast<float>(progressValue * 0.3), "Loopback preflight check...", curDb);
+        }
 
         if (receiver.isOverloadTriggered() || std::max(inL, inR) > 0.5f) // > -6 dBFS
         {
@@ -465,6 +489,11 @@ void NativeCalibrationPanel::handleLoopbackTick()
                                         ? static_cast<double>(activeCaptureRequirements_.requiredSamples) / sampleRate
                                         : 1.30;
     progressValue = std::min(1.0, (measurementStep * kTickSeconds) / totalDurationSec);
+    if (onCalibrationProgress)
+    {
+        const float curDb = juce::Decibels::gainToDecibels(liveInputPeak, -120.0f);
+        onCalibrationProgress("PhysicalLoopback_2B_Sweep", static_cast<float>(0.3 + progressValue * 0.7), "Measuring loopback sweep...", curDb);
+    }
 
     // Handshake: ask for the finalized snapshot as soon as the receiver is done or the
     // contractual UI deadline expires.
@@ -561,6 +590,8 @@ void NativeCalibrationPanel::failNoiseBaselineStep(NoiseBaselineState failure,
     lastDiagnostics_.clippingDetected = clippingDetected;
 
     applyFailureButtonLayout();
+    if (onCalibrationComplete)
+        onCalibrationComplete(false, calibrationData, reason);
     startTimerHz(30);
     resized();
     repaint();
@@ -582,6 +613,8 @@ void NativeCalibrationPanel::failLoopbackStep(LoopbackState failure,
     scopedCapture_.reset();
 
     applyFailureButtonLayout();
+    if (onCalibrationComplete)
+        onCalibrationComplete(false, calibrationData, reason);
     startTimerHz(30);
     resized();
     repaint();
@@ -622,6 +655,9 @@ void NativeCalibrationPanel::publishLoopbackReport()
     loopbackReport_.phaseInverted = calibrationData.phaseInversionDetected;
     loopbackReport_.clippingDetected = calibrationData.clippingDetected;
     loopbackReport_.clippedSamples = calibrationData.clippedSamplesCount;
+    loopbackReport_.freqsHz = calibrationData.freqsHz;
+    loopbackReport_.magnitudeDb = calibrationData.magnitudeDb;
+    loopbackReport_.inverseCorrectionDb = calibrationData.inverseCorrectionDb;
     loopbackReport_.timestampIso = calibration::CalibrationProfileStore::getCurrentUtcIsoTimestamp();
 }
 
@@ -758,6 +794,13 @@ void NativeCalibrationPanel::completeSuccessfulCalibration()
 
     audioEngine.setInputAutoTrim(calibrationData.recommendedTrimGain);
 
+    // Synthesize and arm real-time zero-latency minimum-phase FIR de-coloring
+    auto firDesign = math::LoopbackCalibrator::synthesizeMinimumPhaseFir(calibrationData);
+    if (firDesign.isValid && !firDesign.impulseResponse.empty())
+        loopbackReport_.firDeColoringActive = audioEngine.loadInputDeColoringFir(firDesign.impulseResponse, 64);
+    else
+        audioEngine.setInputDeColoringEnabled(false);
+
     const auto compat = buildCompatibility(activeCalibrationRecord_);
     const auto captureMeta = buildCaptureMetadata(activeCaptureRequirements_.requiredSamples,
                                                   lastCaptureStatus_.samplesCaptured);
@@ -785,6 +828,9 @@ void NativeCalibrationPanel::completeSuccessfulCalibration()
 
     if (onCalibrationApplied)
         onCalibrationApplied(calibrationData);
+
+    if (onCalibrationComplete)
+        onCalibrationComplete(true, calibrationData, {});
 }
 
 void NativeCalibrationPanel::completeFailedCalibration()
@@ -821,6 +867,9 @@ void NativeCalibrationPanel::completeFailedCalibration()
 
     // A failed sweep must offer navigation back to 2A, retry and bypass.
     applyFailureButtonLayout();
+
+    if (onCalibrationComplete)
+        onCalibrationComplete(false, calibrationData, loopbackReport_.failureReason);
 }
 
 void NativeCalibrationPanel::skipCalibration()
@@ -851,6 +900,9 @@ void NativeCalibrationPanel::skipCalibration()
     else if (onCalibrationApplied)
         onCalibrationApplied(calibrationData);
 
+    if (onCalibrationComplete)
+        onCalibrationComplete(false, calibrationData, "Calibration Bypassed");
+
     repaint();
 }
 
@@ -859,6 +911,13 @@ void NativeCalibrationPanel::applyLoadedLoopbackProfile(const calibration::Loopb
     stopTimer();
     loadedLoopbackProfile_ = profile;
     calibrationData = profile.toCalibrationData();
+
+    audioEngine.setInputAutoTrim(calibrationData.recommendedTrimGain);
+    auto firDesign = math::LoopbackCalibrator::synthesizeMinimumPhaseFir(calibrationData);
+    if (firDesign.isValid && !firDesign.impulseResponse.empty())
+        loopbackReport_.firDeColoringActive = audioEngine.loadInputDeColoringFir(firDesign.impulseResponse, 64);
+    else
+        audioEngine.setInputDeColoringEnabled(false);
 
     // Populate Step 2B loopback report from loaded profile
     loopbackReport_.passed = true;
@@ -870,6 +929,9 @@ void NativeCalibrationPanel::applyLoadedLoopbackProfile(const calibration::Loopb
     loopbackReport_.snrDb = profile.snrDb;
     loopbackReport_.thdPercent = profile.thdPlusNoisePercent;
     loopbackReport_.phaseInverted = profile.phaseInversionDetected;
+    loopbackReport_.freqsHz = profile.freqsHz;
+    loopbackReport_.magnitudeDb = profile.magnitudeDb;
+    loopbackReport_.inverseCorrectionDb = profile.inverseCorrectionDb;
     loopbackReport_.timestampIso = juce::String(profile.createdAt);
     loopbackReport_.snrMethod = math::SnrMeasurementMethod::PhysicalNoiseBaseline;
 
@@ -885,11 +947,11 @@ void NativeCalibrationPanel::applyLoadedLoopbackProfile(const calibration::Loopb
     noiseBaselineState_ = NoiseBaselineState::Passed;
     activeAlignment = calibration::ActiveCalibrationAlignment::AlignedAndActive;
 
-    btnRetry.setButtonText("Volver a Medir");
-    btnRetry.setTooltip(juce::String::fromUTF8(u8"Descarta la medición cargada y reinicia el proceso de calibración"));
+    btnRetry.setButtonText("Retry Loopback (2B)");
+    btnRetry.setTooltip("Discards the loaded loopback profile and restarts the calibration sweep");
     applyResolvedButtonLayout(false, false);
 
-    saveFeedbackText_ = juce::String::fromUTF8(u8"Perfil de infraestructura (.abdloop) cargado activamente.");
+    saveFeedbackText_ = "Infrastructure loopback profile (.abdloop) loaded and active.";
     resized();
     repaint();
 }

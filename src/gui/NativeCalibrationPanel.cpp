@@ -361,18 +361,21 @@ void NativeCalibrationPanel::paint(juce::Graphics& g)
 }
 
 //==============================================================================
-void NativeCalibrationPanel::mouseDown(const juce::MouseEvent& e)
+void NativeCalibrationPanel::handleCardClick(juce::Point<int> pos)
 {
     if (isDigitalMode_)
         return;
-
-    const auto pos = e.getPosition();
 
     // Clicking a navigation card ONLY switches sub-view. It NEVER starts audio or a sweep.
     if (stepCard2ABounds_.contains(pos))
         setActiveSubView(CalibrationSubView::NoiseBaseline_2A);
     else if (stepCard2BBounds_.contains(pos))
         setActiveSubView(CalibrationSubView::PhysicalLoopback_2B);
+}
+
+void NativeCalibrationPanel::mouseDown(const juce::MouseEvent& e)
+{
+    handleCardClick(e.getPosition());
 }
 
 void NativeCalibrationPanel::mouseMove(const juce::MouseEvent& e)

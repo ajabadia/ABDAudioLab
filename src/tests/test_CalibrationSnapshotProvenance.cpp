@@ -338,6 +338,23 @@ TEST_CASE("CalibrationCompatibilityEvaluator: Reglas de compatibilidad de audio"
         CHECK_FALSE(eval.isCompatible());
         CHECK(eval.verdict == CompatibilityVerdict::InvalidSnapshot);
     }
+
+    SECTION("Controladores ASIO en lista negra full-duplex -> BlacklistedDriver (HITO-DSP-24.6)")
+    {
+        std::string reason;
+        CHECK(CalibrationCompatibilityEvaluator::isKnownProblematicAsioDriver("ASIO DirectX Full Duplex Driver", &reason));
+        CHECK_FALSE(reason.empty());
+        CHECK(CalibrationCompatibilityEvaluator::isKnownProblematicAsioDriver("Novation USB ASIO Driver"));
+        CHECK_FALSE(CalibrationCompatibilityEvaluator::isKnownProblematicAsioDriver("Focusrite USB ASIO"));
+
+        auto dxSnap = createTestSnapshot("ASIO DirectX Full Duplex Driver", "ASIO", 44100.0, 256);
+        auto dxCur = createCurrentConfig("ASIO DirectX Full Duplex Driver", "ASIO", 44100.0, 256);
+        auto eval = CalibrationCompatibilityEvaluator::evaluate(dxSnap, dxCur);
+        CHECK_FALSE(eval.isCompatible());
+        CHECK_FALSE(eval.isActionable);
+        CHECK(eval.verdict == CompatibilityVerdict::BlacklistedDriver);
+        CHECK_FALSE(eval.mismatchDetails.empty());
+    }
 }
 
 TEST_CASE("ActiveCalibrationContext: Proyeccion y control en tiempo de ejecucion", "[calibration][context]")

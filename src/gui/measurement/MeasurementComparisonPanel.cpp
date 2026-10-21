@@ -22,21 +22,6 @@ MeasurementComparisonPanel::MeasurementComparisonPanel()
     addAndMakeVisible(lblHeader_);
     lblHeader_.setFont(juce::FontOptions(16.0f));
 
-    addAndMakeVisible(cmbMetricMode_);
-    cmbMetricMode_.addItem("Nivel (dBFS)", 1);
-    cmbMetricMode_.addItem("Timbre (Centroide Hz)", 2);
-    cmbMetricMode_.addItem("Timbre (Rolloff Hz)", 3);
-    cmbMetricMode_.setSelectedId(1, juce::dontSendNotification);
-    cmbMetricMode_.onChange = [this]()
-    {
-        const int id = cmbMetricMode_.getSelectedId();
-        if (id == 1)
-            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::LevelDbfs);
-        else if (id == 2)
-            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::TimbreCentroidHz);
-        else if (id == 3)
-            comparisonCurveComponent_.setComparisonMode(DynamicsComparisonMode::TimbreRolloffHz);
-    };
 
     addAndMakeVisible(btnExportReport_);
     btnExportReport_.onClick = [this]() { exportComparisonReport(); };
@@ -57,10 +42,6 @@ void MeasurementComparisonPanel::updateTheme()
     lblHeader_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
     lblProvenance_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
 
-    cmbMetricMode_.setColour(juce::ComboBox::backgroundColourId, gui::AppTheme::SurfaceCard);
-    cmbMetricMode_.setColour(juce::ComboBox::textColourId, gui::AppTheme::TextPrimary);
-    cmbMetricMode_.setColour(juce::ComboBox::outlineColourId, gui::AppTheme::BorderSubtle);
-    cmbMetricMode_.setColour(juce::ComboBox::arrowColourId, gui::AppTheme::TextSecondary);
 
     btnExportReport_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
     btnExportReport_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
@@ -103,14 +84,14 @@ void MeasurementComparisonPanel::updateActiveAudioPlayer(int activeContainerId)
 
     if (activeContainerId == -1)
     {
-        lblProvenance_.setText("Fuente de Audio: Ninguna", juce::dontSendNotification);
+        lblProvenance_.setText("Audio Source: None", juce::dontSendNotification);
         return;
     }
 
     auto optEntry = session_.getContainerById(activeContainerId);
     if (!optEntry.has_value() || !optEntry->isPlayable())
     {
-        lblProvenance_.setText("Fuente de Audio: Bloqueada (Contenedor no verificado o corrupto)", juce::dontSendNotification);
+        lblProvenance_.setText("Audio Source: Blocked (Unverified or corrupt container)", juce::dontSendNotification);
         return;
     }
 
@@ -118,13 +99,13 @@ void MeasurementComparisonPanel::updateActiveAudioPlayer(int activeContainerId)
     audioPlayerComponent_.setAudioFile(vm.audioFile, vm.expectedAudioSha256, true);
 
     juce::String name = vm.dutName.isNotEmpty() ? vm.dutName : optEntry->containerDir.getFileName();
-    lblProvenance_.setText("Audio Verificado: " + name + " | SHA: " + vm.expectedAudioSha256.substring(0, 12) + "...", juce::dontSendNotification);
+    lblProvenance_.setText("Verified Audio: " + name + " | SHA: " + vm.expectedAudioSha256.substring(0, 12) + "...", juce::dontSendNotification);
 }
 
 void MeasurementComparisonPanel::exportComparisonReport()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
-        "Guardar Informe Comparativo HTML...",
+        "Save Comparative HTML Report...",
         core::resolveLabDataDirectories().reports.getChildFile("Measurement_Comparison_Report.html"),
         "*.html",
         true);
@@ -150,38 +131,43 @@ void MeasurementComparisonPanel::paint(juce::Graphics& g)
 
 void MeasurementComparisonPanel::resized()
 {
-    auto area = getLocalBounds().reduced(8);
+    auto area = getLocalBounds().reduced(12);
 
-    // Top master bar
+    // 1. Top Header: Title across top bar
     auto topBar = area.removeFromTop(32);
-    btnExportReport_.setBounds(topBar.removeFromRight(170));
-    topBar.removeFromRight(8);
-    cmbMetricMode_.setBounds(topBar.removeFromRight(190));
-    topBar.removeFromRight(8);
     lblHeader_.setBounds(topBar);
 
-    area.removeFromTop(6);
+    area.removeFromTop(8);
 
-    // Bottom section: Audio player and provenance
-    auto bottomArea = area.removeFromBottom(105);
-    lblProvenance_.setBounds(bottomArea.removeFromTop(18));
-    audioPlayerComponent_.setBounds(bottomArea);
+    // 2. Bottom Action Bar: Export HTML Report button placed at the bottom (coherent with Viewer panel!)
+    auto actionBar = area.removeFromBottom(34);
+    btnExportReport_.setBounds(actionBar.removeFromLeft(200));
 
-    area.removeFromBottom(6);
+    area.removeFromBottom(8);
 
-    // Right sidebar: State Equivalence Card
-    const int rightSidebarW = 320;
+    // 3. Audio Player Row: Directly above action bar, matching MeasurementViewerPanel layout
+    auto audioArea = area.removeFromBottom(105);
+    lblProvenance_.setBounds(audioArea.removeFromTop(18));
+    audioPlayerComponent_.setBounds(audioArea);
+
+    area.removeFromBottom(8);
+
+    // 4. Central Work Area
+    // Right sidebar: Pairwise State Equivalence Card
+    const int rightSidebarW = 300;
     auto rightArea = area.removeFromRight(rightSidebarW);
     equivalenceCard_.setBounds(rightArea);
 
-    area.removeFromRight(6);
+    area.removeFromRight(8);
 
-    // Split remaining area between container list (left) and dynamics comparison (center)
-    const int leftListW = 320;
+    // Left column: Container list (width 260px, fits all pills without truncation)
+    const int leftListW = 260;
     auto leftArea = area.removeFromLeft(leftListW);
     listPanel_.setBounds(leftArea);
 
-    area.removeFromLeft(6);
+    area.removeFromLeft(8);
+
+    // Center area: Multi-curve dynamics/timbre comparison
     comparisonCurveComponent_.setBounds(area);
 }
 

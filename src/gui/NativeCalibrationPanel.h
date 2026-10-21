@@ -46,6 +46,7 @@ public:
     void timerCallback() override;
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseMove(const juce::MouseEvent& e) override;
+    void handleCardClick(juce::Point<int> pos);
 
     void resetToInitialState();
     void startCalibrationSweep();
@@ -102,6 +103,12 @@ public:
     std::function<void()> onCalibrationSkipped;
     std::function<void()> onContinueToSession;
     std::function<void()> onVerifyDigitalRequested;
+
+    /** Hook to report calibration measurement progress (stage, progress 0-1, statusText, currentInDb). */
+    std::function<void(const juce::String& stage, float progress, const juce::String& statusText, float currentDb)> onCalibrationProgress;
+
+    /** Hook fired on calibration completion or failure. */
+    std::function<void(bool success, const math::LoopbackCalibrationData& data, const juce::String& errorReason)> onCalibrationComplete;
 
     /** Hook to verify directory or prerequisites before starting measurement (proceed=true/false). */
     std::function<void(std::function<void(bool proceed)>)> onPreflightCheck;
@@ -243,6 +250,7 @@ private:
     bool finalizingCapture_ { false };
     bool baselineArmed_ { false };
     int baselineTicks_ { 0 };
+    bool autoAdvanceToSweep_ { false };
     audio::CaptureRequirements activeCaptureRequirements_;
     audio::CaptureStatus lastCaptureStatus_;
 

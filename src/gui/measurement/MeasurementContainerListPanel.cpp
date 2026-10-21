@@ -61,7 +61,7 @@ public:
         chkCompare_.setToggleState(entry.selectedForComparison && isVerified, juce::dontSendNotification);
 
         btnAudioSource_.setEnabled(entry.isPlayable());
-        btnAudioSource_.setButtonText(isActiveAudio ? "[ACTIVO]" : "[Audio]");
+        btnAudioSource_.setButtonText(isActiveAudio ? "[ACTIVE]" : "[Audio]");
         btnAudioSource_.setColour(juce::TextButton::buttonColourId, isActiveAudio ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceSubtle);
         btnAudioSource_.setColour(juce::TextButton::textColourOffId, isActiveAudio ? juce::Colours::white : gui::AppTheme::TextPrimary);
 
@@ -70,16 +70,16 @@ public:
 
         if (isCorrupt)
         {
-            chkCompare_.setTooltip("Contenedor corrupto: excluido de comparaciones (" + entry.diagnosticReason + ")");
-            btnAudioSource_.setTooltip("Audio bloqueado: fallo de integridad criptográfica");
+            chkCompare_.setTooltip("Corrupt container: excluded from comparison (" + entry.diagnosticReason + ")");
+            btnAudioSource_.setTooltip("Audio blocked: cryptographic integrity failure");
         }
         else
         {
-            chkCompare_.setTooltip("Superponer en curvas comparativas");
-            btnAudioSource_.setTooltip("Seleccionar como fuente de audio");
+            chkCompare_.setTooltip("Overlay on comparative curves");
+            btnAudioSource_.setTooltip("Select as audio source");
         }
 
-        btnDelete_.setTooltip("Eliminar contenedor de la sesión");
+        btnDelete_.setTooltip("Remove container from session");
 
         repaint();
     }
@@ -206,8 +206,8 @@ public:
         else if (entry_.viewModel != nullptr)
         {
             g.setColour(gui::AppTheme::TextSecondary);
-            g.drawText(juce::String::fromUTF8(u8"Métricas: ") + juce::String(static_cast<int>(entry_.viewModel->metrics.size())) +
-                       " | Puntos: " + juce::String(static_cast<int>(entry_.viewModel->curve.x.size())),
+            g.drawText("Metrics: " + juce::String(static_cast<int>(entry_.viewModel->metrics.size())) +
+                       " | Points: " + juce::String(static_cast<int>(entry_.viewModel->curve.x.size())),
                        70, 22, getWidth() - 250, 14, juce::Justification::centredLeft, true);
         }
 
@@ -326,26 +326,69 @@ void MeasurementContainerListPanel::paint(juce::Graphics& g)
     g.drawRect(getLocalBounds(), 1);
 }
 
+void MeasurementContainerListPanel::paintOverChildren(juce::Graphics& g)
+{
+    if (cachedEntries_.empty())
+    {
+        auto boxBounds = listBox_.getBounds().toFloat();
+        if (boxBounds.getHeight() > 80.0f)
+        {
+            auto guideBox = boxBounds.reduced(8.0f);
+            g.setColour(gui::AppTheme::SurfaceCard);
+            g.fillRoundedRectangle(guideBox, 6.0f);
+            g.setColour(gui::AppTheme::BorderSubtle);
+            g.drawRoundedRectangle(guideBox, 6.0f, 1.0f);
+
+            auto textBounds = guideBox.reduced(16.0f, 12.0f).toNearestInt();
+
+            g.setColour(gui::AppTheme::TextPrimary);
+            g.setFont(juce::Font(juce::FontOptions(13.0f)).boldened());
+            g.drawFittedText("No containers loaded", 
+                             textBounds.removeFromTop(22), juce::Justification::centred, 1);
+
+            textBounds.removeFromTop(6);
+            g.setColour(gui::AppTheme::TextSecondary);
+            g.setFont(juce::Font(juce::FontOptions(11.5f)));
+
+            juce::String guide = "1. Click '+ Add Container...' above to select an .abdmeas folder\n"
+                                 "2. Check the boxes of containers you wish to overlay\n"
+                                 "3. Compare frequency curves, timbre centroid, and state equivalence";
+            g.drawFittedText(guide, textBounds, juce::Justification::centredTop, 4);
+        }
+    }
+}
+
 void MeasurementContainerListPanel::resized()
 {
     auto area = getLocalBounds().reduced(8);
-    auto topArea = area.removeFromTop(28);
 
-    lblTitle_.setBounds(topArea.removeFromLeft(180));
-    btnClear_.setBounds(topArea.removeFromRight(65));
-    topArea.removeFromRight(6);
-    btnAdd_.setBounds(topArea.removeFromRight(150));
+    // Row 1: Title and Clear button
+    auto row1 = area.removeFromTop(24);
+    btnClear_.setBounds(row1.removeFromRight(60));
+    row1.removeFromRight(6);
+    lblTitle_.setBounds(row1);
 
     area.removeFromTop(6);
+
+    // Row 2: Full-width + Add Container button (never squished)
+    auto row2 = area.removeFromTop(28);
+    btnAdd_.setBounds(row2);
+
+    area.removeFromTop(6);
+
+    // Row 3: 4 Filter Pills (All, Offline, Real-Time, Loopback) equally divided
     auto filterArea = area.removeFromTop(24);
-    const int filterBtnW = 90;
-    btnFilterAll_.setBounds(filterArea.removeFromLeft(filterBtnW));
-    filterArea.removeFromLeft(4);
-    btnFilterOffline_.setBounds(filterArea.removeFromLeft(filterBtnW));
-    filterArea.removeFromLeft(4);
-    btnFilterRealtime_.setBounds(filterArea.removeFromLeft(filterBtnW));
-    filterArea.removeFromLeft(4);
-    btnFilterHardware_.setBounds(filterArea.removeFromLeft(filterBtnW));
+    const int gap = 4;
+    const int totalGaps = gap * 3;
+    const int btnW = (filterArea.getWidth() - totalGaps) / 4;
+
+    btnFilterAll_.setBounds(filterArea.removeFromLeft(btnW));
+    filterArea.removeFromLeft(gap);
+    btnFilterOffline_.setBounds(filterArea.removeFromLeft(btnW));
+    filterArea.removeFromLeft(gap);
+    btnFilterRealtime_.setBounds(filterArea.removeFromLeft(btnW));
+    filterArea.removeFromLeft(gap);
+    btnFilterHardware_.setBounds(filterArea);
 
     area.removeFromTop(6);
     listBox_.setBounds(area);
@@ -554,7 +597,7 @@ void MeasurementContainerListPanel::updateDomainFilterButtons()
     auto styleFilterBtn = [](juce::TextButton& btn) {
         if (btn.getToggleState())
         {
-            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::PillBlackBg);
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::AccentActive);
             btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
             btn.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
         }
@@ -575,7 +618,7 @@ void MeasurementContainerListPanel::updateDomainFilterButtons()
 void MeasurementContainerListPanel::promptAddContainer()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
-        "Seleccionar Carpeta de Contenedor FAIR/LNL...",
+        "Select FAIR / LNL Container Folder...",
         core::resolveLabDataDirectories().experiments,
         "*",
         true);

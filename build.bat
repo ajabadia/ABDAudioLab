@@ -7,6 +7,7 @@ echo ===========================================================================
 
 :: Terminate running instance or orphaned compiler processes if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
+taskkill /f /im ABDAudioLab_Web.exe >nul 2>nul
 taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
 taskkill /f /im cl.exe >nul 2>nul
 taskkill /f /im link.exe >nul 2>nul
@@ -155,6 +156,9 @@ if /i "%1"=="tests" (
 ) else if /i "%1"=="app" (
     set "BUILD_TARGET=--target ABDAudioLab"
     echo [Info] Compiling ABDAudioLab app only.
+) else if /i "%1"=="web" (
+    set "BUILD_TARGET=--target ABDAudioLab_Web --target ABDAudioLab_PluginWorker"
+    echo [Info] Compiling ABDAudioLab_Web app and PluginWorker.
 ) else if /i "%1"=="perf" (
     rem Compila los tests y cronometra la suite. `perf` y no `tests` porque es
     rem OTRO trabajo: medirla cuesta minutos, y quien compila para iterar no los
@@ -190,16 +194,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 7. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe for portable/isolated execution (only when building app/all)
+:: 7. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe / ABDAudioLab_Web.exe for portable/isolated execution (only when building app/all)
 if "!IS_TEST_ONLY!"=="0" (
     if exist "build\Release\ABDAudioLab_PluginWorker.exe" (
         if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
         copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_artefacts\Release\" >nul
+        if not exist "build\ABDAudioLab_Web_artefacts\Release" mkdir "build\ABDAudioLab_Web_artefacts\Release"
+        copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_Web_artefacts\Release\" >nul
         echo [Info] Synced ABDAudioLab_PluginWorker.exe to artefacts directory.
     )
     if exist "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" (
         if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
         xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_artefacts\Release\ReferenceSynth.vst3" >nul
+        if not exist "build\ABDAudioLab_Web_artefacts\Release" mkdir "build\ABDAudioLab_Web_artefacts\Release"
+        xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_Web_artefacts\Release\ReferenceSynth.vst3" >nul
         echo [Info] Synced ReferenceSynth.vst3 to artefacts directory.
     )
 )

@@ -16,6 +16,8 @@ class SoundIdTheme : public juce::LookAndFeel_V4
 public:
     // Aliases to AppTheme for backward compatibility and direct convenience
     static inline juce::Colour bgLight          = AppTheme::BackgroundApp;
+    static inline juce::Colour bgMain           = AppTheme::BackgroundApp;
+    static inline juce::Colour bgDark           { 0xff121417 };
     static inline juce::Colour bgCard           = AppTheme::SurfaceCard;
     static inline juce::Colour bgCardHover      = AppTheme::SurfaceHover;
     static inline juce::Colour surfaceSubtle    = AppTheme::SurfaceSubtle;
@@ -32,9 +34,12 @@ public:
     static inline juce::Colour accentPurpleFill { 0x288b5cf6 }; // 16% opacity lilac
     static inline juce::Colour accentAmber      = AppTheme::AccentWarning;
     static inline juce::Colour accentRed        = AppTheme::AccentError;
+    static inline juce::Colour accentCyan       { 0xff06b6d4 };
 
     static inline juce::Colour pillBlackBg      = AppTheme::PillBlackBg;
     static inline juce::Colour pillWhiteBg      = AppTheme::PillWhiteBg;
+
+    static bool isDarkMode() noexcept { return AppTheme::currentMode == AppTheme::ThemeMode::Dark; }
 
     SoundIdTheme()
     {

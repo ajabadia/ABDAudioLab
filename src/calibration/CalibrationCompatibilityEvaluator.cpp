@@ -14,13 +14,47 @@ namespace abdaudiolab::calibration
 
 namespace
 {
+    juce::String normalizeName(const std::string& s)
+    {
+        return juce::String(s).toLowerCase().removeCharacters(" :;()-_[]").trim();
+    }
+
     bool matchNormalizedNames(const std::string& a, const std::string& b)
     {
-        auto norm = [](juce::String s) {
-            return s.toLowerCase().replaceCharacters(" :;()-_[]", "").trim();
-        };
-        return norm(juce::String(a)) == norm(juce::String(b));
+        return normalizeName(a) == normalizeName(b);
     }
+}
+
+bool CalibrationCompatibilityEvaluator::isKnownProblematicAsioDriver(
+    const std::string& deviceOrDriverName,
+    std::string* reasonOut)
+{
+    if (deviceOrDriverName.empty())
+        return false;
+
+    const juce::String norm = normalizeName(deviceOrDriverName);
+
+    if (norm.contains("asiodirectxfullduplex"))
+    {
+        if (reasonOut != nullptr)
+        {
+            *reasonOut = "El wrapper 'ASIO DirectX Full Duplex Driver' introduce buffers DirectSound "
+                         "asimétricos no deterministas e inestabilidad de reloj full-duplex.";
+        }
+        return true;
+    }
+
+    if (norm.contains("novationusbasio"))
+    {
+        if (reasonOut != nullptr)
+        {
+            *reasonOut = "El controlador 'Novation USB ASIO Driver' presenta deriva de fase/latencia "
+                         "en captura síncrona full-duplex de precisión.";
+        }
+        return true;
+    }
+
+    return false;
 }
 
 CompatibilityEvaluation CalibrationCompatibilityEvaluator::evaluate(
@@ -55,6 +89,18 @@ CompatibilityEvaluation CalibrationCompatibilityEvaluator::evaluate(
         eval.verdict = CompatibilityVerdict::NoActiveDevice;
         eval.isActionable = false;
         eval.summary = "No hay interfaz de audio activa configurada.";
+        return eval;
+    }
+
+    // 2b. Check Known Problematic ASIO Full-Duplex Blacklist (HITO-DSP-24.6)
+    std::string blacklistReason;
+    if (isKnownProblematicAsioDriver(current.deviceName, &blacklistReason) ||
+        isKnownProblematicAsioDriver(current.driverType, &blacklistReason))
+    {
+        eval.verdict = CompatibilityVerdict::BlacklistedDriver;
+        eval.isActionable = false;
+        eval.summary = "Controlador ASIO en lista negra por inestabilidad full-duplex conocida.";
+        eval.mismatchDetails.push_back(blacklistReason);
         return eval;
     }
 

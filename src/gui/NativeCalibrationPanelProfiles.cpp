@@ -139,6 +139,14 @@ void NativeCalibrationPanel::applyProfileRecord(const calibration::CalibrationRe
 
     audioEngine.setInputAutoTrim(calibrationData.recommendedTrimGain);
 
+    auto firDesign = math::LoopbackCalibrator::synthesizeMinimumPhaseFir(calibrationData);
+    if (firDesign.isValid && !firDesign.impulseResponse.empty())
+        loopbackReport_.firDeColoringActive = audioEngine.loadInputDeColoringFir(firDesign.impulseResponse, 64);
+    else
+        audioEngine.setInputDeColoringEnabled(false);
+
+    publishLoopbackReport();
+
     const auto compat = buildCompatibility(activeCalibrationRecord_);
     activeDraft_ = calibration::CalibrationDraft::fromMeasurement(
         buildProfileDisplayName(compat),

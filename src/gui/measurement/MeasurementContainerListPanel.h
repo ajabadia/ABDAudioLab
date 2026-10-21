@@ -24,6 +24,7 @@ public:
 
     void updateTheme();
     void paint(juce::Graphics& g) override;
+    void paintOverChildren(juce::Graphics& g) override;
     void resized() override;
 
     // ListBoxModel interface
@@ -55,14 +56,14 @@ private:
     MeasurementComparisonSession& session_;
     std::vector<LoadedContainerEntry> cachedEntries_;
 
-    juce::Label lblTitle_ { {}, "Contenedores FAIR / LNL" };
-    juce::TextButton btnAdd_ { "+ Cargar Contenedor..." };
-    juce::TextButton btnClear_ { "Limpiar" };
+    juce::Label lblTitle_ { {}, "FAIR / LNL Containers" };
+    juce::TextButton btnAdd_ { "+ Add Container..." };
+    juce::TextButton btnClear_ { "Clear" };
 
     // Domain filters
-    juce::TextButton btnFilterAll_ { "Todos" };
-    juce::TextButton btnFilterOffline_ { "Offline Digital" };
-    juce::TextButton btnFilterRealtime_ { "Tiempo Real" };
+    juce::TextButton btnFilterAll_ { "All" };
+    juce::TextButton btnFilterOffline_ { "Offline" };
+    juce::TextButton btnFilterRealtime_ { "Real-Time" };
     juce::TextButton btnFilterHardware_ { "Loopback" };
 
     juce::ListBox listBox_;

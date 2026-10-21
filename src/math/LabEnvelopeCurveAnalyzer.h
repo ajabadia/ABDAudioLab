@@ -63,6 +63,35 @@ struct EnvelopeBreakpointResult
 };
 
 /**
+ * @brief Modo de estimación adaptativa de decaimiento acústico/envolvente ISO 3382 (HITO-DSP-24.4).
+ */
+enum class ReverbEstimatorMode
+{
+    None,
+    T30, /**< Regresión lineal entre -5 dB y -35 dB (extrapolada a -60 dB). */
+    T20, /**< Regresión lineal entre -5 dB y -25 dB (fallback por rango dinámico limitado). */
+    T10  /**< Regresión lineal entre -5 dB y -15 dB (fallback de bajo SNR). */
+};
+
+/**
+ * @brief Resultado de la integral retrógrada de Schroeder con truncamiento por Noise-Floor Knee
+ * y regresión adaptativa T30/T20/T10 con validación R^2 (HITO-DSP-24.4).
+ */
+struct SchroederDecayResult
+{
+    std::vector<float> edcDb;          /**< Curva de decaimiento energético normalizada L_EDC[n] en dB (desde pico hasta knee). */
+    size_t peakSampleIndex { 0 };      /**< Índice del pico inicial desde el que arranca la integración. */
+    size_t kneeSampleIndex { 0 };      /**< Índice de truncamiento N_knee (+6 dB sobre suelo de ruido estacionario). */
+    float noiseFloorDbfs { -120.0f };  /**< Potencia media del suelo de ruido en cola (segunda mitad) en dBFS. */
+    float rt60Seconds { 0.0f };        /**< Tiempo de reverberación / decaimiento extrapolado a -60 dB: RT60 = -60 / m. */
+    float slopeDbPerSec { 0.0f };      /**< Pendiente ajustada m (dB/s). */
+    float interceptDb { 0.0f };        /**< Intercepto ajustado c (dB). */
+    float rSquared { 0.0f };           /**< Coeficiente de determinación R^2 del tramo seleccionado. */
+    ReverbEstimatorMode modeUsed { ReverbEstimatorMode::None };
+    bool valid { false };
+};
+
+/**
  * @class LabEnvelopeCurveAnalyzer
  * @brief Motor offline para responder a la pregunta central de la Fase 4:
  *
@@ -72,6 +101,8 @@ struct EnvelopeBreakpointResult
  *        - Obtiene los residuos muestra a muestra y el coeficiente R^2.
  *        - Detecta breakpoints por desaceleración de la pendiente local (\(\Delta Hz / \Delta t \to 0\))
  *          combinada con signo persistente de los residuos.
+ *        - Integra decaimientos mediante Integral Retrógrada de Schroeder con truncamiento
+ *          por Noise-Floor Knee y estimación adaptativa T30/T20/T10 (HITO-DSP-24.4).
  */
 class LabEnvelopeCurveAnalyzer
 {
@@ -83,6 +114,13 @@ public:
     // Regresión lineal sobre trayectoria
     // ------------------------------------------------------------------
     static EnvelopeRegressionResult analyzeTrajectory(const std::vector<EnvelopePoint>& points);
+
+    // ------------------------------------------------------------------
+    // Integral Retrógrada de Schroeder con Noise-Floor Knee y T30/T20/T10 (HITO-DSP-24.4)
+    // ------------------------------------------------------------------
+    static SchroederDecayResult analyzeSchroederDecay(const std::vector<float>& impulseResponse,
+                                                      double sampleRate,
+                                                      float minRSquared = 0.95f);
 
     // ------------------------------------------------------------------
     // Detección de breakpoint / saturación
@@ -98,15 +136,7 @@ public:
     // ------------------------------------------------------------------
     [[nodiscard]] static float residualsMean(const std::vector<float>& residuals) noexcept;
     [[nodiscard]] static float residualsStdDev(const std::vector<float>& residuals) noexcept;
-
-private:
-    static EnvelopeRegressionResult computeLeastSquares(const std::vector<EnvelopePoint>& points);
-    static EnvelopeBreakpointResult findFirstSaturationBreakpoint(
-        const std::vector<EnvelopePoint>& points,
-        const std::vector<float>& residuals,
-        float slopeWindowSamples,
-        float residualPersistenceWindow,
-        float slopeDropRatioThreshold);
 };
 
 } // namespace abdaudiolab::math
+

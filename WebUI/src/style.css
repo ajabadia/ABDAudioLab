@@ -1,0 +1,59 @@
+/**
+ * ABDAudioLab - Master WebUI Stylesheet
+ * =====================================
+ * Clean modular architecture orchestrating ABDShared shared components
+ * and dedicated stage modules.
+ */
+
+/* 1. ABDShared Core Framework, Tokens & Components */
+@import '@styles/tokens.css';
+@import '@styles/themes/audiolab.css';
+@import '@styles/themes/audiolab-light.css';
+@import '@styles/components/panels.css';
+@import '@styles/components/buttons.css';
+@import '@styles/components/badges.css';
+@import '@styles/components/controls.css';
+@import '@styles/components/navbar.css';
+@import '@styles/components/lcd.css';
+@import '@styles/components/scope.css';
+@import '@styles/components/about-dialog.css';
+@import '@styles/components/modals.css';
+
+/* 2. Modular Application Styles */
+@import './styles/cards.css';
+@import './styles/layout.css';
+@import './styles/topology.css';
+@import './styles/keyboard-drawer.css';
+
+/* 3. Workflow Stage Modules */
+@import './styles/stage1.css';
+@import './styles/stage2.css';
+@import './styles/stage3.css';
+@import './styles/stage4.css';
+
+/* 4. Dialogs & Modals */
+@import './styles/modals.css';
+
+/* 5. Global Resets & Application Base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-main);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}

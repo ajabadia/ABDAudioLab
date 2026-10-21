@@ -40,7 +40,7 @@ CalibrationRecord createSyntheticRecord(
     rec.calibrationResult.peakInDbfs = -12.0f;
     rec.calibrationResult.frequencyFlatnessDb = 0.5f;
     rec.calibrationResult.latencySamples = 128;
-    rec.calibrationResult.roundTripLatencyMs = 2.666;
+    rec.calibrationResult.roundTripLatencyMs = 2.666f;
     rec.calibrationResult.recommendedTrimGain = trimGain;
 
     rec.provenance.applicationVersion = "2.1.0";

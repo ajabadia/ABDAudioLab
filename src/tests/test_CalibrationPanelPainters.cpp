@@ -448,3 +448,28 @@ TEST_CASE("CalibrationPanelPainters: DeviceStopped reads as an error in the card
         CHECK(noiseReportFingerprint(pendingView) != noiseReportFingerprint(stoppedView));
     }
 }
+
+TEST_CASE("CalibrationPanelPainters: Step 2B passed report renders spectral sparkline and FIR status",
+          "[gui][calibration][paint]")
+{
+    const juce::Rectangle<float> meterArea { 0.0f, 0.0f, 356.0f, 240.0f };
+
+    auto basePassed = makePassedLoopbackView();
+
+    auto withSparkline = basePassed;
+    withSparkline.loopbackReport.firDeColoringActive = true;
+    withSparkline.loopbackReport.freqsHz = { 20.0f, 100.0f, 1000.0f, 10000.0f, 20000.0f };
+    withSparkline.loopbackReport.magnitudeDb = { -1.8f, -0.3f, 0.0f, -0.6f, -2.4f };
+    withSparkline.loopbackReport.inverseCorrectionDb = { 1.8f, 0.3f, 0.0f, 0.6f, 2.4f };
+
+    Canvas baseCanvas;
+    Canvas sparklineCanvas;
+
+    auto area1 = meterArea;
+    auto area2 = meterArea;
+    CHECK_NOTHROW(painter::paintLoopbackReport(baseCanvas.graphics, basePassed, area1));
+    CHECK_NOTHROW(painter::paintLoopbackReport(sparklineCanvas.graphics, withSparkline, area2));
+
+    CHECK(baseCanvas.fingerprint() != sparklineCanvas.fingerprint());
+}
+

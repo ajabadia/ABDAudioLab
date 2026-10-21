@@ -1,8 +1,8 @@
 # Fundamentos Matemáticos y Modelos DSP — ABDAudioLab
 
 **Proyecto:** ABDAudioLab — Universal Black-Box Musical Hardware & Synth Profiler  
-**Versión:** 2.0.0  
-**Actualizado:** 2026-09-13  
+**Versión:** 2.4.0 (Fase 24 Implementada y Verificada)  
+**Actualizado:** 2026-10-16  
 
 ---
 
@@ -34,6 +34,25 @@ $$\Delta t_N = T \cdot \frac{\ln(N)}{\ln(\omega_2 / \omega_1)}$$
 * **Ganancia en SNR**: $> 60 \text{ dB}$ frente a impulsos Dirac individuales.
 * **Cálculo de Distorsión Armónica Total (THD %)**:
   $$\text{THD} = \sqrt{\frac{\sum_{N=2}^{M} E(h_N)}{E(h_{\text{lineal}})}} \times 100\%$$
+
+### 1.4 Enventanado Asimétrico Anti-Gibbs y Silencios de Guarda
+*(FarinaDeconvolver.h/.cpp)*
+
+Un inicio o corte abrupto de $x(t)$ en los extremos de banda ($f_1 = 20\text{ Hz}$, $f_2 = 20\text{ kHz}$) introduce discontinuidades de derivada que generan rizado espectral (*fenómeno de Gibbs*) y transitorios de conmutación en convertidores y etapas analógicas acopladas por condensador. Para erradicarlo, se aplica una envolvente de ventana Tukey asimétrica (*Half-Hann*) diferenciada entre emisión y captura:
+
+$$w_{\text{out}}[n] = \begin{cases} 
+\frac{1}{2}\left(1 - \cos\left(\frac{\pi n}{N_{\text{in}}}\right)\right) & 0 \le n < N_{\text{in}} \\
+1.0 & N_{\text{in}} \le n < N - N_{\text{out}} \\
+\frac{1}{2}\left(1 + \cos\left(\frac{\pi (n - (N - N_{\text{out}}))}{N_{\text{out}}}\right)\right) & N - N_{\text{out}} \le n < N
+\end{cases}$$
+
+Parámetros temporales canónicos:
+* **Rampa de entrada de emisión (`outputFadeIn`)**: $\tau_{\text{in,out}} = 30\text{ ms}$ ($N_{\text{in}} = \lfloor 0.030 \cdot f_s \rfloor$), suavizando el arranque sub-grave en $f_1$.
+* **Rampa de salida de emisión (`outputFadeOut`)**: $\tau_{\text{out,out}} = 5\text{ ms}$ ($N_{\text{out}} = \lfloor 0.005 \cdot f_s \rfloor$), extinguiendo limpiamente los últimos ciclos en $f_2$ sin recortar ancho de banda agudo.
+* **Rampas de ventana de captura (`inputFadeIn` / `inputFadeOut`)**: $\tau_{\text{in,cap}} = \tau_{\text{out,cap}} = 10\text{ ms}$ en los extremos de la ventana de grabación antes de la FFT.
+* **Márgenes de silencio de guarda**:
+  - `safeSilence` = $15\text{ ms}$ (pre-roll antes de la excitación para asegurar estabilidad del buffer DMA).
+  - `interSignalSilence` = $650\text{ ms}$ (post-roll entre barridos sucesivos para garantizar la extinción completa de colas de reverberación/relajación de condensadores por debajo de $-90\text{ dBFS}$).
 
 ---
 
@@ -301,4 +320,150 @@ $$u_{\text{combined}}^2 = u_{\text{inst}}^2 + u_{\text{struct}}^2$$
 - **Incertidumbre Instrumental** ($u_{\text{inst}}$): Derivada del límite metrológico de la cadena de captura (ruido de cuantización, jitter, SNR de la interfaz analógica).
 - **Incertidumbre Estructural** ($u_{\text{struct}}$): Varianza residual intrínseca entre la respuesta predicha por la arquitectura candidata $\hat{y}[n]$ y la respuesta de referencia $y_{\text{target}}[n]$ en datos no observados.
 
+---
 
+## 12. Síntesis de Filtros FIR de Fase Mínima por Cepstrum Real, Ventana de Kaiser y Convolución Overlap-Add
+
+*(Fase 24.1 — LoopbackCalibrator.h/.cpp)*
+
+La compensación inversa de bucle cerrado en bloques FFT contiguos sin solapamiento y con fase cero ($H_{\text{inv}}(e^{j\omega}) \in \mathbb{R}^+$) produce *pre-ringing* acausal simétrico y discontinuidades de borde por convolución circular. Para garantizar causalidad física estricta, mínima latencia de grupo y ausencia total de artefactos de bloque, el ecualizador inverso de calibración se sintetiza como un filtro FIR de fase mínima enventanado mediante Kaiser y aplicado por **Overlap-Add (OLA)**.
+
+### 12.1 Reconstrucción de Fase Mínima vía Cepstrum Real (Hilbert Discreto)
+Dada la respuesta en magnitud inversa regularizada y acotada $|H_{\text{inv}}[k]|$ sobre una rejilla FFT de tamaño $N$ ($N = 4096$):
+
+1. **Cepstrum Real** $\hat{c}[n]$:
+   $$\hat{c}[n] = \text{IFFT}\Big( \ln\big(\max(|H_{\text{inv}}[k]|, \epsilon)\big) \Big), \quad \epsilon = 10^{-6}$$
+2. **Enventanado Causal en el Dominio Quefrencial (*Minimum-Phase Lifter*)** $w_{\text{min}}[n]$:
+   $$w_{\text{min}}[n] = \begin{cases} 
+   1 & n = 0 \;\text{ ó }\; n = N/2 \\
+   2 & 1 \le n < N/2 \\
+   0 & N/2 < n < N
+   \end{cases}$$
+3. **Espectro Complejo de Fase Mínima y Respuesta al Impulso Causal**:
+   $$H_{\text{min}}[k] = \exp\Big( \text{FFT}\big( w_{\text{min}}[n] \cdot \hat{c}[n] \big) \Big), \qquad h_{\text{min}}[n] = \Re\Big\{ \text{IFFT}(H_{\text{min}}[k]) \Big\}$$
+
+### 12.2 Truncado FIR con Ventana de Kaiser y Aproximación de Abramowitz & Stegun para $I_0(x)$
+Para truncar el núcleo causal $h_{\text{min}}[n]$ a $M$ coeficientes ($M = 1024$) maximizando la concentración de energía en el lóbulo principal y suprimiendo los lóbulos laterales por debajo de $-90\text{ dB}$, se aplica una ventana de Kaiser con parámetro de forma $\beta \in [7.0, 9.0]$:
+
+$$w_K[n] = \frac{I_0\left( \beta \sqrt{1 - \left(\frac{2n}{M - 1} - 1\right)^2} \right)}{I_0(\beta)}, \quad 0 \le n < M$$
+
+La función de Bessel modificada de primera especie y orden cero $I_0(x)$ se evalúa en punto flotante de doble precisión mediante la aproximación polinomial de Chebyshev de **Abramowitz & Stegun (9.8.1 y 9.8.2)** (error relativo $|\epsilon| < 1.6 \times 10^{-7}$):
+
+* **Régimen axial** $|x| < 3.75$, definiendo $t = (x / 3.75)^2 = x^2 / 14.0625$:
+  $$I_0(x) \approx 1 + 3.5156229\,t + 3.0899424\,t^2 + 1.2067492\,t^3 + 0.2659732\,t^4 + 0.0360768\,t^5 + 0.0045813\,t^6$$
+* **Régimen asintótico** $|x| \ge 3.75$, definiendo $t = 3.75 / |x|$:
+  $$I_0(x) \approx \frac{e^{|x|}}{\sqrt{|x|}} \Big( 0.39894228 + 0.01328592\,t + 0.00225319\,t^2 - 0.00157565\,t^3 + 0.00916281\,t^4 - 0.02057706\,t^5 + 0.02635537\,t^6 - 0.01647633\,t^7 + 0.00392377\,t^8 \Big)$$
+
+### 12.3 Convolución Lineal Rápida por Overlap-Add (OLA) y Techo Dinámico Anti-Clipping
+Con un kernel FIR $h_{\text{cal}}[n] = h_{\text{min}}[n] \cdot w_K[n]$ de longitud $M = 1024$ y bloques de entrada de longitud $L = 1024$, se emplea una FFT de longitud $N_{\text{OLA}} \ge L + M - 1$ ($N_{\text{OLA}} = 2048$) rellenando con ceros (*zero-padding*) los últimos $N_{\text{OLA}} - L$ puntos de cada bloque, y sumando la cola transitoria de $M - 1$ muestras al bloque siguiente.
+
+Adicionalmente, el sintetizador calcula dos métricas acopladas sobre $h_{\text{cal}}[n]$:
+1. **Nivel de potencia media del filtro** ($L_{\text{pow}}$):
+   $$L_{\text{pow, dB}} = 10 \log_{10}\left( \frac{1}{K_{\text{band}}} \sum_{k \in [20\text{ Hz}, 20\text{ kHz}]} |H_{\text{cal}}[k]|^2 \right)$$
+2. **Límite de realce seguro (`maxBoost` / `avoidClippingEnabled`)**:
+   $$G_{\text{headroom, dB}} = -20 \log_{10}\left( \max_{k} |H_{\text{cal}}[k]| \right)$$
+
+---
+
+## 13. Suavizado Psicoacústico ERB (Glasberg & Moore) e Interpolación por Splines Cúbicos
+
+*(Fase 24.2 — LoopbackCalibrator.h/.cpp, AudioABComparator.h)*
+
+El suavizado de media móvil uniforme en bins lineales de la FFT sobre-suaviza la región modal grave ($20\text{–}300\text{ Hz}$) y deja rizado espurio de peine en alta frecuencia ($> 5\text{ kHz}$). Para alinear la inversión espectral y la comparación espectral A/B con la resolución de los filtros auditivos humanos, se adopta la escala de **Ancho de Banda Rectangular Equivalente (ERB)** de **Glasberg & Moore (Hearing Research, 1990)**.
+
+### 13.1 Escala ERB y Tasa de Bandas Auditivas $E(f)$
+Para una frecuencia central $f$ expresada en hercios ($\text{Hz}$):
+$$\text{ERB}(f) = 24.7 \cdot (0.00437\,f + 1) = 0.107939 \cdot (f + 228.833)\;\text{[Hz]}$$
+
+El número de banda ERB (escala perceptual logarítmica-lineal $E(f)$ en $\text{Cams}$) viene dado por:
+$$E(f) = 21.4 \log_{10}(0.00437\,f + 1) = 9.2939\,\ln(0.00437\,f + 1)$$
+
+Y su transformación inversa para proyectar nodos equiespaciados en la escala perceptual de vuelta al eje de frecuencias físicas:
+$$f(E) = \frac{10^{E / 21.4} - 1}{0.00437}$$
+
+### 13.2 Suavizado en Potencia con Ventana Proporcional a $\text{ERB}(f_k)$ ó $1/12$ de Octava
+Para cada frecuencia objetivo $f_k$, la magnitud suavizada $|\tilde{H}(f_k)|$ se calcula integrando la densidad espectral de potencia con un kernel gaussiano o triangular cuyo semi-ancho de banda $\Delta f(f_k)$ es proporcional a $\text{ERB}(f_k)$ o a una fracción de octava ($\Delta_{\text{oct}} = 1/12 \approx 0.083333336$):
+$$|\tilde{H}(f_k)|^2 = \frac{\sum_{i=i_{\min}(k)}^{i_{\max}(k)} W\left(\frac{f_i - f_k}{\Delta f(f_k)}\right) |H(f_i)|^2}{\sum_{i=i_{\min}(k)}^{i_{\max}(k)} W\left(\frac{f_i - f_k}{\Delta f(f_k)}\right)}$$
+
+### 13.3 Interpolación por Splines Cúbicos Naturales ($C^2$)
+Para evaluar la curva de corrección sobre cualquier tamaño de FFT o tasa de muestreo ($44.1\text{ kHz} \dots 192\text{ kHz}$) sin esquinas de derivada discontinua, la curva suavizada se parametriza sobre $K$ nodos estrictamente crecientes $\{(x_j, y_j)\}_{j=0}^{K-1}$ con $x_j = \ln(f_j)$ e $y_j = 20\log_{10}|\tilde{H}(f_j)|$ mediante **Splines Cúbicos Naturales** ($S''(x_0) = S''(x_{K-1}) = 0$):
+$$S_j(x) = a_j + b_j(x - x_j) + c_j(x - x_j)^2 + d_j(x - x_j)^3, \quad x \in [x_j, x_{j+1}]$$
+resolviendo el sistema tridiagonal en $\mathcal{O}(K)$ mediante el algoritmo de Thomas.
+
+---
+
+## 14. Integración Inversa de Schroeder con Truncado de Rodilla de Ruido y Regresión Adaptativa ($R^2 \ge 0.95$)
+
+*(Fase 24.3 — LabEnvelopeCurveAnalyzer.h/.cpp, FarinaDeconvolver.h/.cpp)*
+
+De acuerdo con la norma **ISO 3382** y el método de **M. R. Schroeder (JASA, 1965)**, la curva de decaimiento energético (*Energy Decay Curve*, EDC) se obtiene integrando hacia atrás el cuadrado de la respuesta al impulso $h[n]$. Sin embargo, la presencia de un piso de ruido estacionario $\sigma_{\text{noise}}^2$ en la mitad final de la captura desvía la cola hacia una rampa lineal artificial que falsea el tiempo de decaimiento si no se trunca en la rodilla de intersección (*noise-floor knee*).
+
+### 14.1 Estimación del Piso de Ruido en la Segunda Mitad de la Cola
+Dada una respuesta al impulso deconvolucionada $h[n]$ de longitud $N$, se estima la potencia media de ruido por muestra a partir de la mitad terminal $[N/2, N-1]$:
+$$P_{\text{noise}} = \frac{1}{N - \lfloor N/2 \rfloor} \sum_{n=\lfloor N/2 \rfloor}^{N-1} h^2[n], \qquad L_{\text{noise, dB}} = 10 \log_{10}(P_{\text{noise}} + \epsilon)$$
+
+### 14.2 Detección de la Rodilla de Ruido (*Noise-Floor Knee*) e Integración Truncada
+Se evalúa la envolvente suavizada local de energía en bloques cortos y se localiza el índice de truncado $n_{\text{knee}}$ donde la relación señal-ruido local cae por debajo de un margen de seguridad $\Delta_{\text{knee}} = 6.0\text{ dB}$ sobre $L_{\text{noise, dB}}$. La integral inversa de Schroeder compensada se evalúa únicamente desde $n_{\text{knee}}$ hasta el pico directo $n_{\text{peak}}$:
+$$E_{\text{EDC}}[n] = \sum_{k=n}^{n_{\text{knee}}} \max\big(h^2[k] - P_{\text{noise}},\, 0\big), \qquad L_{\text{EDC}}[n] = 10 \log_{10}\left( \frac{E_{\text{EDC}}[n]}{E_{\text{EDC}}[n_{\text{peak}}]} \right)\;\text{[dB]}$$
+
+### 14.3 Regresión Lineal Adaptativa ($T_{30} \to T_{20} \to T_{10}$) y Criterio de Calificación $R^2 \ge 0.95$
+Sobre la curva $L_{\text{EDC}}(t)$ en $\text{dB}$, se ajusta una recta por mínimos cuadrados ordinarios $L_{\text{EDC}}(t) \approx \alpha + \beta\,t$ (con pendiente $\beta < 0$ en $\text{dB/s}$) seleccionando adaptativamente el rango dinámico disponible antes de la rodilla de ruido:
+1. **$T_{30}$ (Preferente)**: Rango $[-5\text{ dB}, -35\text{ dB}]$ si $L_{\text{EDC}}[n_{\text{knee}}] \le -40\text{ dB}$.
+2. **$T_{20}$ (Fallback intermedio)**: Rango $[-5\text{ dB}, -25\text{ dB}]$ si $L_{\text{EDC}}[n_{\text{knee}}] \le -30\text{ dB}$.
+3. **$T_{10}$ (Fallback corto)**: Rango $[-5\text{ dB}, -15\text{ dB}]$ si $L_{\text{EDC}}[n_{\text{knee}}] \le -20\text{ dB}$.
+
+El tiempo de caída extrapolado a $-60\text{ dB}$ es $\text{RT}_{60} = -60.0 / \beta$, y su validez metrológica exige superar el umbral del coeficiente de determinación:
+$$R^2 = 1 - \frac{\sum_{i} \big(L_{\text{EDC}}(t_i) - (\alpha + \beta t_i)\big)^2}{\sum_{i} \big(L_{\text{EDC}}(t_i) - \bar{L}_{\text{EDC}}\big)^2} \ge 0.95$$
+Si $R^2 < 0.95$, la medición de decaimiento se marca como `NonExponentialOrNoisyDecay` para prevenir inferencias espurias.
+
+---
+
+## 15. Controlador PID de Bucle Cerrado con Compensación de Tiempo Muerto (Auto-Trim Analógico)
+
+*(Fase 24.4 — LoopbackCalibrator.h/.cpp)*
+
+El ajuste automático del nivel de envío analógico (*Auto-Trim*) debe converger rápidamente al nivel objetivo $L_{\text{target}}$ (ej. $-12.0\text{ dBFS} \pm 0.5\text{ dB}$) a pesar del retardo de transporte round-trip $\tau_d$ de la interfaz de audio, evitando oscilaciones de sobreimpulso (*overshoot*) y el bloqueo por saturación del integrador (*integral windup*).
+
+### 15.1 Ganancias PID Parametrizadas por Razón de Tiempo Muerto
+Sea $\Delta T_c$ la duración de cada bloque de medición RMS (en $\text{ms}$) y $\tau_d$ la latencia round-trip estimada del bucle analógico. Se define el factor de amortiguamiento por tiempo muerto $\eta = \frac{\Delta T_c}{\Delta T_c + \tau_d} \in (0, 1]$. Dado el error instantáneo en decibelios $e[k] = L_{\text{target}} - L_{\text{meas}}[k]$:
+
+$$u_{\text{dB}}[k] = K_p(\eta)\,e[k] + K_i(\eta)\,I[k] + K_d(\eta)\,\frac{e[k] - e[k-1]}{\Delta T_c}$$
+
+donde las ganancias se escalan proporcionalmente a $\eta$:
+$$K_p(\eta) = K_{p,0}\cdot \eta, \qquad K_i(\eta) = K_{i,0}\cdot \eta^2 \cdot \Delta T_c, \qquad K_d(\eta) = K_{d,0}\cdot \eta \cdot \Delta T_c$$
+
+### 15.2 Anti-Windup con Reset en Saturación y Criterio de Convergencia por Ventana Estable
+1. **Protección Anti-Windup (`[LIMIT-PID RESET]`)**:
+   Si la ganancia acumulada $G_{\text{dB}}[k] = G_{\text{dB}}[k-1] + u_{\text{dB}}[k]$ alcanza los límites de seguridad $[G_{\min}, G_{\max}]$ (ej. $[-36\text{ dB}, +12\text{ dB}]$) o si el pico instantáneo en la entrada supera $-1.0\text{ dBFS}$ (*clipping guard*), el acumulador integral $I[k]$ se purga inmediatamente a $0.0$ y se aplica una atenuación de seguridad inmediata de $-6.0\text{ dB}$.
+2. **Convergencia Estadística (`stabilityMinChunks`)**:
+   El bucle cerrado sólo declara `CalibrationTrimLocked` cuando el error se mantiene dentro de la banda de tolerancia $|e[k]| \le \epsilon_{\text{tol}}$ ($\pm 0.5\text{ dB}$) y la desviación estándar inter-bloque es $\sigma_L \le 0.2\text{ dB}$ durante al menos $N_{\text{stable}} \ge 4$ bloques consecutivos.
+
+---
+
+## 16. Detección de Deriva de Reloj por Doble Piloto, Inversión de Kirkeby y Convolución Particionada de Latencia Cero
+
+*(Fase 24.7 — FarinaDeconvolver.h/.cpp, LoopbackCalibrator.h/.cpp)*
+
+### 16.1 Detección Sub-Muestra de Deriva de Reloj (*Clock Drift*) y *Dropouts* ASIO
+Se enmarca el barrido logarítmico entre dos pulsos piloto sinc pasabanda enventanados con Hann ($p[n] = w_{\text{Hann}}[n]\cdot (2 f_{H}\operatorname{sinc}(2 f_{H} x) - 2 f_{L}\operatorname{sinc}(2 f_{L} x))$) separados por una distancia nominal exacta $\Delta N_{\text{nom}}$. En recepción se evalúa la correlación cruzada $R_{yp}[\tau]$ en las ventanas anterior y posterior al barrido y se refina la posición de cada pico mediante interpolación parabólica de 3 puntos:
+
+$$\hat{\tau} = \tau_0 + \frac{R[\tau_0 - 1] - R[\tau_0 + 1]}{2\left(R[\tau_0 - 1] - 2 R[\tau_0] + R[\tau_0 + 1]\right)}$$
+
+La deriva de reloj en partes por millón y la condición de *dropout* se obtienen como:
+
+$$\Delta N_{\text{drift}} = (\hat{\tau}_{\text{post}} - \hat{\tau}_{\text{pre}}) - \Delta N_{\text{nom}}, \qquad \text{Drift}_{\text{ppm}} = 10^6 \cdot \frac{\Delta N_{\text{drift}}}{\Delta N_{\text{nom}}}$$
+
+### 16.2 Deconvolución Regularizada Dependiente de la Frecuencia (Método de Kirkeby)
+Para evitar la amplificación de ruido fuera de la banda excitada $[f_1, f_2]$, la inversión espectral aplica un perfil de regularización $\epsilon(f_k)$ con transición *raised-cosine* en octavas logarítmicas entre $\epsilon_{\text{in}}$ (dentro de banda) y $\epsilon_{\text{out}}$ (en DC y Nyquist):
+
+$$H(k) = \frac{Y(k)\cdot X^*(k)}{|X(k)|^2 + \epsilon(f_k)\cdot \max_m |X(m)|^2}$$
+
+### 16.3 Convolución Particionada Híbrida de Latencia Cero (Gardner, 1995)
+Para aplicar filtros FIR de fase mínima $h[0\dots M-1]$ en tiempo real con **latencia algorítmica nula** ($0\text{ muestras}$) y cero asignaciones de memoria en el hilo de audio (`ZeroLatencyPartitionedConvolver`), se descompone el núcleo en una cabecera directa de longitud $B$ (ej. $B = 64$) y $P-1$ particiones de cola en una línea de retardo en dominio frecuencial (*Frequency-Domain Delay Line*, FDL):
+
+$$y[n] = \underbrace{\sum_{m=0}^{B-1} h[m]\,x[n-m]}_{\text{Cabecera directa (latencia 0)}} + \underbrace{\text{OLA}_{p=1}^{P-1} \text{IFFT}\left( H_p[k]\cdot X_{b-p}[k] \right)}_{\text{Cola FDL particionada}}$$
+
+### 16.4 Promediado Síncrono en el Dominio del Tiempo (*Synchronous Time-Domain Averaging*, STA)
+En capturas multi-pase ($K \ge 2$ repeticiones sincronizadas con el estímulo), mientras las métricas escalares $(\mu, \sigma)$ de corte, resonancia y THD se evalúan sobre cada pase individual para cuantificar la deriva térmica analógica, la curva de transferencia representativa se extrae deconvolucionando el promedio coherente en el dominio del tiempo (`FilterAnalytics::computeSynchronousTimeDomainAverage`):
+
+$$\bar{y}[n] = \frac{1}{K} \sum_{k=0}^{K-1} y_k[n] = s[n] + \frac{1}{K}\sum_{k=0}^{K-1} \eta_k[n] \implies \Delta \text{SNR}_{\text{STA}} = +10\log_{10}(K)\text{ dB}$$

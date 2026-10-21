@@ -59,6 +59,8 @@ public:
     /** @brief Reaplica el tema al marco y, si sabe, al panel que contenga. */
     void updateTheme();
 
+    void visibilityChanged() override;
+
     /** @brief Cierra en vez de destruir. */
     void closeButtonPressed() override;
 

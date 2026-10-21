@@ -26,6 +26,7 @@ enum class CompatibilityVerdict
     SampleRateMismatch,     /**< Sample rate differs (frequency response & sample RTL invalid). */
     RoutingMismatch,        /**< Input/output channels differ. */
     DeviceOrDriverMismatch, /**< Device or audio driver family differs. */
+    BlacklistedDriver,      /**< Driver/device is on the known unstable full-duplex ASIO blacklist (HITO-DSP-24.6). */
     InvalidSnapshot,        /**< Snapshot status is not Valid, clipped, or corrupted hash. */
     NoActiveDevice          /**< Audio stream is stopped or uninitialized. */
 };
@@ -55,6 +56,14 @@ class CalibrationCompatibilityEvaluator
 {
 public:
     /**
+     * @brief Checks whether a device or ASIO driver name belongs to the known problematic
+     * full-duplex blacklist ("ASIO DirectX Full Duplex Driver", "Novation USB ASIO Driver") (HITO-DSP-24.6).
+     */
+    [[nodiscard]] static bool isKnownProblematicAsioDriver(
+        const std::string& deviceOrDriverName,
+        std::string* reasonOut = nullptr);
+
+    /**
      * @brief Evaluates compatibility between a snapshot and the current audio configuration.
      * @param snapshot The saved or embedded snapshot.
      * @param current The current active audio configuration.
@@ -67,3 +76,4 @@ public:
 };
 
 } // namespace abdaudiolab::calibration
+

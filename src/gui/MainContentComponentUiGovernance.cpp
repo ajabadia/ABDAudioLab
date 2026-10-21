@@ -63,6 +63,14 @@ void MainContentComponent::updateGovernanceUi()
     int totalPts = suiteList.getTotalPointCount();
     if (totalPts <= 0) totalPts = suiteList.getQueueSize();
 
+    auto summary = sidebarStepper.getSessionSummary();
+    if (summary.pointsMeasured != currentPt || summary.totalPointsPlanned != totalPts)
+    {
+        summary.pointsMeasured = currentPt;
+        summary.totalPointsPlanned = totalPts;
+        sidebarStepper.setSessionSummary(summary);
+    }
+
     auto sessState = sessionCoordinator.getSessionState();
     unsigned progressPct = totalPts > 0 ? static_cast<unsigned>(currentPt * 100 / totalPts) : 0;
 

@@ -135,8 +135,7 @@ void LabAudioEngine::setActivePluginInstance(juce::AudioPluginInstance* plugin, 
     auto* oldPlugin = activePlugin.exchange(nullptr, std::memory_order_acq_rel);
     if (oldPlugin != nullptr)
     {
-        juce::Logger::writeToLog("[AudioEngine] Releasing resources for previous plugin: " + oldPlugin->getName());
-        oldPlugin->releaseResources();
+        juce::Logger::writeToLog("[AudioEngine] Detached previous plugin from audio thread: " + oldPlugin->getName());
     }
 
     if (plugin != nullptr)
@@ -302,17 +301,20 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
         return;
     }
 
-    // 2b. Audition preview mode ("Comprobar cómo sonaría")
+    // 2b. Audition preview mode ("Comprobar cómo sonaría" - Model)
     if (auditionActive.load(std::memory_order_relaxed) && auditionLutGridSize.load(std::memory_order_relaxed) > 0)
     {
-        renderAuditionPreview(outputChannelData, numOutputChannels, samplesToProcess);
-        if (outputChannelData[0] != nullptr)
+        if (auditionKind.load(std::memory_order_relaxed) == AuditionKind::Model)
         {
-            accumulateFft(outputChannelData[0], samplesToProcess);
-            const float* outR = (numOutputChannels > 1 && outputChannelData[1] != nullptr) ? outputChannelData[1] : outputChannelData[0];
-            updateTelemetryTaps(outputChannelData[0], outR, samplesToProcess);
+            renderAuditionPreview(outputChannelData, numOutputChannels, samplesToProcess);
+            if (outputChannelData[0] != nullptr)
+            {
+                accumulateFft(outputChannelData[0], samplesToProcess);
+                const float* outR = (numOutputChannels > 1 && outputChannelData[1] != nullptr) ? outputChannelData[1] : outputChannelData[0];
+                updateTelemetryTaps(outputChannelData[0], outR, samplesToProcess);
+            }
+            return;
         }
-        return;
     }
 
     // 3. Stimulus generation and DAC routing
@@ -322,21 +324,124 @@ void LabAudioEngine::audioDeviceIOCallbackWithContext(const float* const* inputC
     float trim = inputTrimGain.load(std::memory_order_relaxed);
     auto [fftSource, inR] = processInputAndMetrics(inputChannelData, numInputChannels, samplesToProcess, trim);
 
-    // 4b. Direct Monitoring Passthrough for active software plugins (audition/manual interaction)
-    if (!physicalLoopbackIsolation.load(std::memory_order_acquire)
-        && activePlugin.load(std::memory_order_acquire) != nullptr
-        && pluginMonitoringEnabled.load(std::memory_order_acquire)
-        && !generator.isPlaying())
+    // 4b. Residual Audition Mode (e[n] = target[n] - model[n] * boost)
+    if (auditionActive.load(std::memory_order_relaxed)
+        && auditionKind.load(std::memory_order_relaxed) == AuditionKind::Residual
+        && auditionLutGridSize.load(std::memory_order_relaxed) > 0)
     {
-        if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
-            std::copy_n(tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess), outputChannelData[0]);
-        if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
-            std::copy_n(tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess), outputChannelData[1]);
+        std::array<float, 4096> modelBuf {};
+        const int nSamples = std::min(samplesToProcess, 4096);
+        float* modelPtrs[8] = { modelBuf.data(), nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 
-        outputPeakL.store(inputPeakL.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        outputPeakR.store(inputPeakR.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        outputRmsL.store(inputRmsL.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        outputRmsR.store(inputRmsR.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        const float cutoff = auditionCutoff.load(std::memory_order_relaxed);
+        const float reso = auditionResonance.load(std::memory_order_relaxed);
+        const int wf = auditionWaveform.load(std::memory_order_relaxed);
+        auditionFilter.setVoiceParameters(0, cutoff, reso);
+
+        const double curSr = currentSampleRate.load(std::memory_order_relaxed);
+        const double sr = (curSr > 0.0) ? curSr : 96000.0;
+        const double oscFreq = 130.8128; // C3
+        const double twoPi = 2.0 * std::numbers::pi;
+        const double phaseInc = (twoPi * oscFreq) / sr;
+
+        for (int i = 0; i < nSamples; ++i)
+        {
+            float s = 0.0f;
+            if (wf == 0) s = static_cast<float>((auditionOscPhase / std::numbers::pi) - 1.0);
+            else if (wf == 1) s = (auditionOscPhase < std::numbers::pi) ? 0.6f : -0.6f;
+            else s = auditionNoise.nextWhite() * 0.4f;
+            auditionOscPhase += phaseInc;
+            if (auditionOscPhase >= twoPi) auditionOscPhase -= twoPi;
+            modelBuf[static_cast<size_t>(i)] = s;
+        }
+
+        const int gridSize = auditionLutGridSize.load(std::memory_order_acquire);
+        auditionFilter.processPolyphonicBlock(modelPtrs, nSamples, auditionLutStorage.data(), gridSize);
+
+        const float boost = auditionResidualBoostLinear.load(std::memory_order_relaxed);
+        float peakResL = 0.0f, peakResR = 0.0f;
+        for (int i = 0; i < nSamples; ++i)
+        {
+            float tgtL = tempProcessBufferL[static_cast<size_t>(i)];
+            float tgtR = tempProcessBufferR[static_cast<size_t>(i)];
+            float mdl = modelBuf[static_cast<size_t>(i)] * 0.5f;
+
+            float diffL = std::clamp((tgtL - mdl) * boost, -1.0f, 1.0f);
+            float diffR = std::clamp((tgtR - mdl) * boost, -1.0f, 1.0f);
+
+            if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
+                outputChannelData[0][i] = diffL;
+            if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
+                outputChannelData[1][i] = diffR;
+
+            peakResL = std::max(peakResL, std::abs(diffL));
+            peakResR = std::max(peakResR, std::abs(diffR));
+        }
+
+        outputPeakL.store(peakResL, std::memory_order_relaxed);
+        outputPeakR.store((numOutputChannels > 1) ? peakResR : peakResL, std::memory_order_relaxed);
+        outputRmsL.store(peakResL * 0.707f, std::memory_order_relaxed);
+        outputRmsR.store(peakResR * 0.707f, std::memory_order_relaxed);
+
+        if (outputChannelData[0] != nullptr)
+            accumulateFft(outputChannelData[0], samplesToProcess);
+        return;
+    }
+
+    // 4c. Direct Monitoring Passthrough for active software plugins or hardware targets (audition/manual interaction)
+    const bool isPluginMonitoring = (!physicalLoopbackIsolation.load(std::memory_order_acquire)
+                                     && activePlugin.load(std::memory_order_acquire) != nullptr
+                                     && pluginMonitoringEnabled.load(std::memory_order_acquire));
+    const bool isDirectMonitoring = directMonitoringActive.load(std::memory_order_acquire);
+
+    if ((isPluginMonitoring || isDirectMonitoring) && !generator.isPlaying())
+    {
+        const float monitorScale = 0.85f; // Headroom to prevent DAC clipping/distortion
+        for (int i = 0; i < samplesToProcess; ++i)
+        {
+            if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
+                outputChannelData[0][i] = std::clamp(tempProcessBufferL[static_cast<size_t>(i)] * monitorScale, -1.0f, 1.0f);
+            if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
+                outputChannelData[1][i] = std::clamp(tempProcessBufferR[static_cast<size_t>(i)] * monitorScale, -1.0f, 1.0f);
+        }
+
+        outputPeakL.store(inputPeakL.load(std::memory_order_relaxed) * monitorScale, std::memory_order_relaxed);
+        outputPeakR.store(inputPeakR.load(std::memory_order_relaxed) * monitorScale, std::memory_order_relaxed);
+        outputRmsL.store(inputRmsL.load(std::memory_order_relaxed) * monitorScale, std::memory_order_relaxed);
+        outputRmsR.store(inputRmsR.load(std::memory_order_relaxed) * monitorScale, std::memory_order_relaxed);
+    }
+
+    // 4d. Take Audio Preview Playback (direct to physical DAC)
+    if (previewPlaying.load(std::memory_order_acquire))
+    {
+        const int readPos = previewReadPos.load(std::memory_order_relaxed);
+        const int totalSamples = previewBuffer.getNumSamples();
+        const int available = totalSamples - readPos;
+        const int toMix = std::min(samplesToProcess, available);
+
+        if (toMix > 0)
+        {
+            const float* pL = previewBuffer.getReadPointer(0, readPos);
+            const float* pR = (previewBuffer.getNumChannels() > 1) ? previewBuffer.getReadPointer(1, readPos) : pL;
+
+            if (numOutputChannels > 0 && outputChannelData[0] != nullptr)
+            {
+                for (int i = 0; i < toMix; ++i)
+                    outputChannelData[0][i] = std::clamp(outputChannelData[0][i] + pL[i], -1.0f, 1.0f);
+            }
+            if (numOutputChannels > 1 && outputChannelData[1] != nullptr)
+            {
+                for (int i = 0; i < toMix; ++i)
+                    outputChannelData[1][i] = std::clamp(outputChannelData[1][i] + pR[i], -1.0f, 1.0f);
+            }
+
+            previewReadPos.store(readPos + toMix, std::memory_order_release);
+        }
+
+        if (readPos + toMix >= totalSamples)
+        {
+            previewPlaying.store(false, std::memory_order_release);
+        }
     }
 
     // 5. Live FFT Spectrum Analysis
@@ -424,16 +529,23 @@ void LabAudioEngine::renderAuditionPreview(float* const* outputChannelData, int 
     auditionFilter.processPolyphonicBlock(voicePtrs.data(), samplesToProcess, auditionLutStorage.data(), gridSize);
 
     const float outGain = 0.5f;
+    float blockPeakL = 0.0f;
+    float blockPeakR = 0.0f;
     for (int ch = 0; ch < numOutputChannels; ++ch)
     {
         if (outputChannelData[ch] != nullptr)
         {
             for (int i = 0; i < samplesToProcess; ++i)
             {
-                outputChannelData[ch][i] = tempProcessBufferL[static_cast<size_t>(i)] * outGain;
+                float val = tempProcessBufferL[static_cast<size_t>(i)] * outGain;
+                outputChannelData[ch][i] = val;
+                if (ch == 0) blockPeakL = std::max(blockPeakL, std::abs(val));
+                else if (ch == 1) blockPeakR = std::max(blockPeakR, std::abs(val));
             }
         }
     }
+    outputPeakL.store(blockPeakL, std::memory_order_relaxed);
+    outputPeakR.store((numOutputChannels > 1) ? blockPeakR : blockPeakL, std::memory_order_relaxed);
 }
 
 void LabAudioEngine::renderStimulusAndRoute(float* const* outputChannelData, int numOutputChannels, int samplesToProcess) noexcept
@@ -559,14 +671,7 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
         plugin->processBlock(pluginBuf, pluginMidiMessages);
         pluginMidiMessages.clear();
 
-        if (std::abs(trim - 1.0f) > 0.001f)
-        {
-            for (int i = 0; i < samplesToProcess; ++i)
-            {
-                tempProcessBufferL[static_cast<size_t>(i)] *= trim;
-                tempProcessBufferR[static_cast<size_t>(i)] *= trim;
-            }
-        }
+        // Digital VST3 plugins output native calibrated audio directly; do not apply analog ADC trim multiplier.
         receiver.processBlock(tempProcessBufferL.data(), samplesToProcess);
 
         // Measure plugin output levels
@@ -626,16 +731,29 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
     float inSumSqR = 0.0f, inPeakValR = 0.0f;
     const float* srcL = nullptr;
     const float* srcR = nullptr;
+    const bool deColorActive = inputDeColoringEnabled.load(std::memory_order_acquire);
+    const bool applyScaleOrDeColor = (std::abs(trim - 1.0f) > 0.001f) || deColorActive;
 
     if (numInputChannels > 0 && inputChannelData[0] != nullptr)
     {
-        if (std::abs(trim - 1.0f) > 0.001f)
+        if (applyScaleOrDeColor)
         {
             for (int i = 0; i < samplesToProcess; ++i)
+                tempProcessBufferL[static_cast<size_t>(i)] = inputChannelData[0][i] * trim;
+
+            if (deColorActive)
             {
-                float s = inputChannelData[0][i] * trim;
-                tempProcessBufferL[static_cast<size_t>(i)] = s;
-                float absS = std::abs(s);
+                const juce::SpinLock::ScopedTryLockType tryLock(deColorConvolverLock);
+                if (tryLock.isLocked() && deColorConvolverL.isPrepared())
+                {
+                    deColorConvolverL.processBlock(
+                        tempProcessBufferL.data(), static_cast<size_t>(samplesToProcess));
+                }
+            }
+
+            for (int i = 0; i < samplesToProcess; ++i)
+            {
+                float absS = std::abs(tempProcessBufferL[static_cast<size_t>(i)]);
                 if (absS > inPeakValL) inPeakValL = absS;
                 inSumSqL += absS * absS;
             }
@@ -657,13 +775,24 @@ std::pair<const float*, const float*> LabAudioEngine::processInputAndMetrics(
 
     if (numInputChannels > 1 && inputChannelData[1] != nullptr)
     {
-        if (std::abs(trim - 1.0f) > 0.001f)
+        if (applyScaleOrDeColor)
         {
             for (int i = 0; i < samplesToProcess; ++i)
+                tempProcessBufferR[static_cast<size_t>(i)] = inputChannelData[1][i] * trim;
+
+            if (deColorActive)
             {
-                float s = inputChannelData[1][i] * trim;
-                tempProcessBufferR[static_cast<size_t>(i)] = s;
-                float absS = std::abs(s);
+                const juce::SpinLock::ScopedTryLockType tryLock(deColorConvolverLock);
+                if (tryLock.isLocked() && deColorConvolverR.isPrepared())
+                {
+                    deColorConvolverR.processBlock(
+                        tempProcessBufferR.data(), static_cast<size_t>(samplesToProcess));
+                }
+            }
+
+            for (int i = 0; i < samplesToProcess; ++i)
+            {
+                float absS = std::abs(tempProcessBufferR[static_cast<size_t>(i)]);
                 if (absS > inPeakValR) inPeakValR = absS;
                 inSumSqR += absS * absS;
             }
@@ -779,6 +908,13 @@ void LabAudioEngine::updateTelemetryTaps(const float* inL, const float* inR, int
 void LabAudioEngine::postLiveMidiMessage(const juce::MidiMessage& message)
 {
     liveMidiCollector.addMessageToQueue(message);
+    if (activePlugin.load(std::memory_order_acquire) == nullptr)
+    {
+        if (auto* defOut = deviceManager.getDefaultMidiOutput())
+        {
+            defOut->sendMessageNow(message);
+        }
+    }
 }
 
 float LabAudioEngine::calibratePluginDigitalTrim(float targetHeadroomDbfs, double testDurationSec)
@@ -851,6 +987,44 @@ float LabAudioEngine::calibratePluginDigitalTrim(float targetHeadroomDbfs, doubl
     }
 
     return 1.0f;
+}
+
+math::DeadTimePidState LabAudioEngine::stepAutoGainTrimPid(
+    float targetHeadroomDbfs,
+    double chunkDurationSec,
+    double roundTripDelaySec) noexcept
+{
+    const float inPeak = std::max(getInputPeakL(), getInputPeakR());
+    const float measuredPeakDbfs = (inPeak > 1e-6f) ? (20.0f * std::log10(inPeak)) : -120.0f;
+    const bool saturationDetected = (inPeak >= 0.9885f); // >= -0.1 dBFS
+
+    auto state = autoTrimPidController.step(
+        targetHeadroomDbfs,
+        measuredPeakDbfs,
+        saturationDetected,
+        chunkDurationSec,
+        roundTripDelaySec);
+
+    const float linearGain = juce::jlimit(0.063f, 15.85f, std::pow(10.0f, state.currentGainDb / 20.0f));
+    setInputAutoTrim(linearGain);
+    return state;
+}
+
+bool LabAudioEngine::loadInputDeColoringFir(const std::vector<float>& firKernel, size_t partitionSize)
+{
+    inputDeColoringEnabled.store(false, std::memory_order_release);
+    if (firKernel.empty())
+        return false;
+
+    const juce::SpinLock::ScopedLockType lock(deColorConvolverLock);
+    const bool okL = deColorConvolverL.prepare(firKernel, partitionSize);
+    const bool okR = deColorConvolverR.prepare(firKernel, partitionSize);
+    if (okL && okR)
+    {
+        inputDeColoringEnabled.store(true, std::memory_order_release);
+        return true;
+    }
+    return false;
 }
 
 } // namespace abdaudiolab::audio

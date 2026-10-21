@@ -157,7 +157,7 @@ void MainContentComponent::openMeasurementViewerWindow()
     {
         auto* panel = new gui::measurement::MeasurementViewerPanel();
         measurementViewerWindow = std::make_unique<gui::MeasurementFloatingWindow>(
-            juce::String::fromUTF8(u8"ABDAudioLab — Visor de Mediciones FAIR / LNL"),
+            "ABDAudioLab - FAIR / LNL Measurement Viewer",
             panel,
             1050, 720, 800, 550
         );
@@ -174,7 +174,7 @@ void MainContentComponent::openMeasurementComparisonWindow()
     {
         auto* panel = new gui::measurement::MeasurementComparisonPanel();
         measurementComparisonWindow = std::make_unique<gui::MeasurementFloatingWindow>(
-            juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL"),
+            "ABDAudioLab - Multivariate Measurement Comparison",
             panel,
             1150, 750, 900, 600
         );

@@ -214,9 +214,9 @@ void MeasurementFrequencyCurveComponent::paint(juce::Graphics& g)
         g.setFont(juce::Font(juce::FontOptions(9.5f)).boldened());
         std::ostringstream sfSs;
         sfSs << "Fit Region (" << static_cast<int>(slopeFit_->frequencyStartHz) << "-"
-             << static_cast<int>(slopeFit_->frequencyEndHz) << " Hz, R²="
+             << static_cast<int>(slopeFit_->frequencyEndHz) << " Hz, R^2="
              << std::fixed << std::setprecision(3) << slopeFit_->rSquared << ")";
-        g.drawText(juce::String::fromUTF8(sfSs.str().c_str()), juce::Rectangle<float>(sx1, plotBounds_.getBottom() - 20.0f, (sx2 - sx1), 16.0f), juce::Justification::centred, false);
+        g.drawText(sfSs.str(), juce::Rectangle<float>(sx1, plotBounds_.getBottom() - 20.0f, (sx2 - sx1), 16.0f), juce::Justification::centred, false);
     }
 
     // 8. Interactive crosshair & tooltip

@@ -1,0 +1,434 @@
+/* ==========================================================================
+   STAGE 2: CALIBRATION & NOISE VERIFICATION
+   ========================================================================== */
+
+/* Top Cards Grid: 2A and 2B Side by Side */
+.stage2-steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.stage2-step-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 250px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0 !important;
+}
+
+.stage2-card-art-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 250px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.stage2-card-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center left;
+  display: block;
+  opacity: 1 !important;
+  filter: contrast(1.05);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 48%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 48%, rgba(0, 0, 0, 0) 100%);
+  transition: transform 0.35s ease;
+}
+
+.stage2-step-card:hover .stage2-card-art-img {
+  transform: scale(1.03);
+}
+
+[data-theme="audiolab-light"] .stage2-card-art-img {
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+}
+
+.stage2-card-art-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to right, transparent 35%, var(--color-panel-surface) 92%);
+  pointer-events: none;
+  display: block !important;
+}
+
+[data-theme="audiolab-light"] .stage2-card-art-fade {
+  display: block !important;
+  background: linear-gradient(to right, transparent 35%, var(--color-panel-surface) 92%);
+}
+
+.stage2-card-content {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  margin-left: 220px;
+  padding: 18px 22px 16px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1100px) {
+  .stage2-step-card {
+    flex-direction: column;
+    min-height: 380px;
+  }
+  .stage2-card-art-wrap {
+    width: 100%;
+    height: 140px;
+    bottom: auto;
+  }
+  .stage2-card-art-img {
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0) 100%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0) 100%);
+  }
+  .stage2-card-art-fade {
+    background: linear-gradient(to bottom, transparent 35%, var(--color-panel-surface) 92%);
+  }
+  .stage2-card-content {
+    margin-left: 0;
+    margin-top: 130px;
+  }
+}
+
+.stage2-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.stage2-step-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+  flex: 1;
+}
+
+.stage2-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-panel-border-dim, rgba(255, 255, 255, 0.08));
+}
+
+.stage2-card-status-info {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.stage2-action-btn {
+  font-weight: 700;
+  padding: 9px 18px;
+  align-self: flex-start;
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+}
+
+/* Merged Interface & Metrology Metrics Module */
+.stage2-merged-metrics-module {
+  position: relative;
+  overflow: hidden;
+  container-type: inline-size;
+  container-name: stage2Metrics;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 220px;
+  padding: 0 !important;
+}
+
+.stage2-metrics-art-wrap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 250px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+  opacity: 1 !important;
+}
+
+[data-theme="audiolab-light"] .stage2-metrics-art-wrap {
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+}
+
+.stage2-metrics-art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center left;
+  display: block;
+  opacity: 1 !important;
+  padding: 16px 0 16px 16px;
+  box-sizing: border-box;
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 52%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 52%, rgba(0, 0, 0, 0) 100%);
+}
+
+.stage2-metrics-art-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to right, transparent 38%, var(--color-panel-surface) 92%);
+  pointer-events: none;
+}
+
+[data-theme="audiolab-light"] .stage2-metrics-art-fade {
+  background: linear-gradient(to right, transparent 38%, var(--color-panel-surface) 92%);
+}
+
+.stage2-metrics-content {
+  position: relative;
+  z-index: 2;
+  margin-left: 230px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  width: auto;
+  flex: 1;
+  min-width: 0;
+  padding: 18px 22px 18px 22px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 950px) {
+  .stage2-metrics-art-wrap {
+    display: none;
+  }
+  .stage2-metrics-content {
+    margin-left: 0;
+  }
+}
+
+.stage2-merged-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-panel-border-dim, rgba(255, 255, 255, 0.08));
+  flex-wrap: wrap;
+}
+
+.stage2-interface-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stage2-borderless-dev-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.stage2-label-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.stage2-interface-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.stage2-interface-stats {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.stage2-stat-item {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+.stage2-settings-btn {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stage2-metrics-subheading {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage2-metrics-4col {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.stage2-merged-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Metrology Status Console */
+.stage2-status-console {
+  width: 100%;
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.stage2-console-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage2-console-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent);
+  flex-shrink: 0;
+}
+
+.stage2-console-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+.stage2-console-desc {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  line-height: 1.45;
+}
+
+.stage2-merged-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.stage2-merged-actions .btn {
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stage2-action-profile-btn {
+  color: var(--color-accent);
+  border-color: var(--color-panel-border-strong);
+}
+
+.stage2-action-profile-btn:hover:not(:disabled) {
+  background: var(--color-accent-dim);
+  border-color: var(--color-accent);
+}
+
+/* Responsive Rules */
+@container stage2Metrics (max-width: 960px) {
+  .stage2-metrics-art-wrap {
+    width: 100%;
+    left: 0;
+    max-width: none;
+    opacity: 0.12;
+  }
+  .stage2-metrics-content {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@container stage2Metrics (max-width: 520px) {
+  .stage2-metrics-4col {
+    grid-template-columns: 1fr !important;
+  }
+  .stage2-merged-actions {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+  .stage2-merged-actions .btn {
+    width: 100% !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .stage2-steps-grid {
+    grid-template-columns: 1fr;
+  }
+  .stage2-metrics-4col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .stage2-card-art-wrap {
+    width: 100%;
+    left: 0;
+    opacity: 0.15;
+  }
+  .stage2-card-content {
+    margin-left: 0;
+    padding: 16px;
+    width: 100%;
+  }
+}
