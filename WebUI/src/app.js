@@ -23,6 +23,7 @@ import { renderStage3 } from './stages/stage3_acquisition.js';
 import { renderStage4 } from './stages/stage4_export.js';
 import { createDefaultSuite } from './stages/stage3_data.js';
 import { showModalAlert, showModalConfirm, patchBrowserDialogs } from './components/SoundIdModal.js';
+import { openUniversalABComparatorModal } from './components/UniversalABComparatorModal.js';
 
 class AudioLabApp {
   constructor() {
@@ -505,17 +506,30 @@ class AudioLabApp {
     }
   }
 
-  async openMultiContainerComparator() {
+  openUniversalABComparator() {
+    openUniversalABComparatorModal({
+      snapshot: this.currentSnapshot,
+      availablePlugins: this.availablePlugins || window.__availablePlugins__ || [],
+      audioDevice: this.currentAudioDevice || window.__audioDeviceState__ || null,
+      navigateToStage: (stage) => this.navigateToStage(stage),
+      loadPlugin: (p) => this.loadPlugin(p),
+      openPluginGui: (info) => {
+        if (this.isNativeHost && window.__JUCE__ && window.__JUCE__.backend) {
+          window.__JUCE__.backend.emitEvent('nativeEvent', {
+            action: 'openPluginGui',
+            fileOrIdentifier: info?.fileOrIdentifier || '',
+            name: info?.name || ''
+          });
+        }
+      }
+    });
     if (this.isNativeHost && window.__JUCE__ && window.__JUCE__.backend) {
-      window.__JUCE__.backend.emitEvent('nativeEvent', { action: 'openMultiContainerComparator' });
-    } else {
-      await showModalAlert({
-        title: 'Multi-Container Comparison',
-        message: 'Native multivariate comparison tool requires the running ABDAudioLab desktop session.',
-        type: 'info',
-        confirmText: 'Got it'
-      });
+      window.__JUCE__.backend.emitEvent('nativeEvent', { action: 'openUniversalABComparator' });
     }
+  }
+
+  async openMultiContainerComparator() {
+    this.openUniversalABComparator();
   }
 
   showToast(message, type = 'info') {
@@ -740,15 +754,6 @@ class AudioLabApp {
           ]
         },
         {
-          name: 'Workflow',
-          items: [
-            { id: 201, label: '1. Target Selection & Routing', action: 'goto1' },
-            { id: 202, label: '2. Audio Interface Calibration', action: 'goto2' },
-            { id: 203, label: '3. Run Acquisition Session', action: 'goto3' },
-            { id: 204, label: '4. Results & Holdout Validation', action: 'goto4' }
-          ]
-        },
-        {
           name: 'Tools',
           items: [
             { id: 300, label: 'Audio & MIDI Settings...', action: 'openAudioSettings', shortcut: 'F3' },
@@ -757,7 +762,7 @@ class AudioLabApp {
             { id: 302, label: 'Toggle Floating Scope (ABDScope)...', action: 'toggleScopeWindow' },
             { separator: true },
             { id: 305, label: 'Open FAIR / LNL Viewer...', action: 'openFairLnlViewer' },
-            { id: 306, label: 'Open Multi-Container Comparison...', action: 'openMultiContainerComparator' },
+            { id: 306, label: 'Universal A/B Diff & Null-Test Comparator...', action: 'openUniversalABComparator', shortcut: 'Ctrl+Alt+A' },
             { separator: true },
             { id: 303, label: 'Open Publication-Grade HTML Report', action: 'openHtmlReport', shortcut: 'F2' }
           ]
@@ -798,7 +803,8 @@ class AudioLabApp {
         toggleVirtualKeyboard: () => this.toggleVirtualKeyboard(),
         toggleScopeWindow: () => this.toggleScopeWindow(),
         openFairLnlViewer: () => this.openFairLnlViewer(),
-        openMultiContainerComparator: () => this.openMultiContainerComparator(),
+        openUniversalABComparator: () => this.openUniversalABComparator(),
+        openMultiContainerComparator: () => this.openUniversalABComparator(),
         openHtmlReport: () => this.openCertificationReport(),
         exportPackage: () => this.exportProductionPackage(),
         exit: () => this.exitApplication(),
@@ -843,6 +849,18 @@ class AudioLabApp {
               <span>M-OUT</span>
             </span>
           </div>
+
+          <!-- Universal A/B Comparator Quick Launch Button -->
+          <button id="navAbCompareBtn" type="button" class="btn btn-sm" title="Universal A/B Diff & Null-Test Comparator (Ctrl+Alt+A)" style="position:relative; background:var(--color-panel-surface); border:1px solid rgba(var(--color-accent-rgb, 0, 230, 118), 0.4); color:var(--color-accent); font-weight:700; cursor:pointer; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:28px; box-sizing:border-box; font-size:10.5px; transition:all 0.15s ease;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3h5v5"></path>
+              <path d="M4 20L21 3"></path>
+              <path d="M21 16v5h-5"></path>
+              <path d="M15 15l6 6"></path>
+              <path d="M4 4l5 5"></path>
+            </svg>
+            <span>A/B DIFF</span>
+          </button>
 
           <!-- Virtual Piano Keyboard Quick Toggle Button -->
           <button id="navVirtualKeyboardBtn" type="button" class="btn btn-sm" title="Toggle Virtual MIDI Keyboard (Ctrl+K)" style="position:relative; background:var(--color-panel-surface); border:1px solid var(--color-panel-border); color:var(--color-text-main); cursor:pointer; padding:3px 7px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; height:28px; box-sizing:border-box; transition:all 0.15s ease;">
@@ -915,6 +933,14 @@ class AudioLabApp {
       devBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.navigateToStage(1);
+      });
+    }
+
+    const abBtn = document.getElementById('navAbCompareBtn');
+    if (abBtn) {
+      abBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openUniversalABComparator();
       });
     }
 
@@ -1094,6 +1120,7 @@ class AudioLabApp {
     });
     window.__JUCE__.backend.addEventListener('audioDeviceState', (dev) => {
       this.currentAudioDevice = dev;
+      window.__audioDeviceState__ = dev;
       this.updateAudioMidiStatusPill(dev);
       this.updateSessionSummary();
       window.dispatchEvent(new CustomEvent('audioDeviceStateChanged', { detail: dev }));
@@ -1463,6 +1490,7 @@ class AudioLabApp {
       console.log('[WebUI] availablePlugins recibido:', data);
       if (data && Array.isArray(data.plugins)) {
         this.availablePlugins = data.plugins;
+        window.__availablePlugins__ = data.plugins;
 
         // Sincronizar carátulas persistidas en localStorage
         try {
@@ -1501,6 +1529,7 @@ class AudioLabApp {
       this.showToast(`Escaneo finalizado: ${count} plugins disponibles`);
       if (data && Array.isArray(data.plugins)) {
         this.availablePlugins = data.plugins;
+        window.__availablePlugins__ = data.plugins;
       }
       if (this.currentStage === 1) {
         this.renderCurrentStage();
@@ -2041,6 +2070,9 @@ class AudioLabApp {
       if (e.ctrlKey && e.code === 'KeyK') {
         e.preventDefault();
         this.toggleVirtualKeyboard();
+      } else if (e.ctrlKey && e.altKey && e.code === 'KeyA') {
+        e.preventDefault();
+        this.openUniversalABComparator();
       }
     });
   }

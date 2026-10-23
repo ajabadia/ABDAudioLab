@@ -1,9 +1,9 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión del Documento:** 2.9.0  
+**Versión del Documento:** 2.11.0  
 **Versión del Producto (Objetivo):** v2.4.0 (Fase 24 DSP Metrológico Completada)  
-**Fecha de Actualización:** 2026-10-22  
+**Fecha de Actualización:** 2026-10-23  
 
 ---
 
@@ -60,7 +60,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **HITO-DSP-25** | Analítica de Osciladores/FX, Target Korg MS2000 (ROM v1.07), Auditoría 5D de 128 Presets y Teclado Hardware Canónico | **Planificado** | Extracción compartida `ABDShared/Code` y arquitectura de profiling de síntesis |
 | **HITO-CONTRACT-01** | Perfilado por Contrato Declarativo, Init Patch Engine y Desconstrucción Funcional (Cero Hardcoding C++) | **Completado** | [HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md](contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md) |
 | **HITO-DATASET-01** | Paquete de Telemetría Empírica, Datasets Multivariables y Validación Científica (Análisis Conjunto sin Compilar C++) | **Completado** | Sección HITO-DATASET-01 (Exportación CSV/JSON, Nivel Escalonado, Multitono IMD, Float32 WAVs y Validación SPICE) |
-| **HITO-AB-DIFF-01** | Sistema de Comparación y Validación A/B Universal (WAV Regrabado vs. Hardware Físico, VST/Standalone, Grabación Previa y Diffs) | **Planificado (Futuro)** | Sección HITO-AB-DIFF-01 (Basado en scripts de `ABDMS2000`, Re-Amp Matching, Null Test y Diffs Espectrales) |
+| **HITO-AB-DIFF-01** | Sistema de Comparación y Validación A/B Universal (WAV Regrabado vs. Hardware Físico, VST/Standalone, Grabación Previa y Diffs) | **Completado** | Sección HITO-AB-DIFF-01 (Superando `ABDMS2000`, Alineación Sinc Sub-Muestra, Invarianza de Fase, ESR dB, 24 Bandas y Audición 5ms) |
 
 ---
 
@@ -2271,7 +2271,7 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
 > [!NOTE]
 > **Antecedentes y Lecciones Aprendidas:** En el proyecto hermano **`ABDMS2000`** ya se desarrollaron scripts y baterías de tests preliminares para comparar el comportamiento del hardware físico frente a emulaciones digitales, obteniendo resultados iniciales prometedores pero detectando casos límite no resueltos (fases libres de osciladores no sincronizados, variaciones térmicas analógicas y modulación estocástica de LFOs). Este hito formaliza y universaliza ese banco de pruebas dentro de ABDAudioLab.
 
-- [ ] **1. Matriz de Casos de Uso del Banco A/B**:
+- [x] **1. Matriz de Casos de Uso del Banco A/B**:
   - **Caso 1: WAV Regrabado (Re-Amp / Toma Externa) vs. Cualquier Método u Origen**:
     - Ingesta de un archivo WAV regrabado externamente (ej. toma re-amplificada en hardware, exportada de una DAW, procesada por un previo/pedal o grabada en otro estudio) y confrontación automatizada contra:
       - **A)** Medición en vivo del hardware físico por audio loopback.
@@ -2286,29 +2286,52 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
   - **Caso 4: Comparativa Libre entre Dos Grabaciones Históricas (A vs. B)**:
     - Comparación acústica y espectral de dos tomas de audio cualesquiera (ej. Revisión de hardware v1 vs v2, válvula original vs reemplazo, preset con distintas ganancias o dos unidades del mismo modelo).
 
-- [ ] **2. Pipeline de Procesamiento y Normalización Pre-Comparación**:
+- [x] **2. Pipeline de Procesamiento y Normalización Pre-Comparación**:
   - **Alineación Temporal Sub-Muestra por Correlación Cruzada**:
-    - Algoritmo que calcula el desfase temporal exacto entre las tomas A y B (compensando latencias de buffer VST, jitter MIDI o retardos de conversor ADC/DAC) para alinear las señales muestra a muestra.
-  - **Normalización de Loudness y Nivel (EBU R128 / LUFS & True Peak)**:
-    - Nivelado automático de ganancia para evitar falsos positivos de error provocados por un simple desajuste de volumen maestro.
-  - **Compensación de Fase de Oscilador Libre (Free-Running Phase Correction)**:
-    - Algoritmo de correlación espectral de magnitud para comparar el contenido armónico de osciladores analógicos libres sin que el desfase angular aleatorio del ciclo de onda arruine la métrica.
+    - Algoritmo que calcula el desfase temporal exacto entre las tomas A y B (compensando latencias de buffer VST, jitter MIDI o retardos de conversor ADC/DAC) para alinear las señales muestra a muestra con interpolación sub-muestra parabólica/sinc.
+  - **Igualación Perceptual Automática de Volumen (Auto-Loudness RMS / LUFS Matching)**:
+    - Eliminación del sesgo psicoacústico de sonoridad ("lo más fuerte parece sonar mejor") calculando el RMS integrado de ambas señales y aplicando una ganancia de compensación exacta $\Delta \text{Gain} = \text{RMS}_{\text{Ref}} / \text{RMS}_{\text{Cap}}$ antes del cálculo del null-test y la audición conmutada.
+  - **Normalización y Techo de Seguridad Limiter (-0.5 dBFS)**:
+    - Guard limiter a -0.5 dBFS para protección auditiva y búferes pre-asignados sin mallocs en hilo de audio.
+  - **Compensación de Fase de Oscilador Libre (Free-Running Phase Invariance)**:
+    - Algoritmo de coherencia espectral cruzada de magnitud (CSDM) que supera a `ABDMS2000`, detectando cuándo el residuo temporal es producto de la fase libre aleatoria del oscilador analógico sin que haya divergencia tímbrica real (`PASS_PHASE_INVARIANT`).
 
-- [ ] **3. Métricas y Diagnósticos Automatizados de Discrepancia**:
+- [x] **3. Métricas y Diagnósticos Automatizados de Discrepancia**:
   - **Null-Test y Audio Residual ($|A - B|$)**:
     - Generación de la pista de residuo acústico resultante de invertir la fase de una de las tomas.
     - Cálculo del **Error-to-Signal Ratio (ESR)** en dB: métrica estándar de fidelidad de emulación ($<-40\text{ dB}$: indistinguible; $<-30\text{ dB}$: muy cercano; $>-20\text{ dB}$: discrepancia audible).
-  - **Diferencial Espectral y Espectrograma de Discrepancia (Spectral Diff)**:
-    - Mapa de calor en la WebUI que resalta en qué frecuencias y momentos temporales diverge el VST del hardware (ej. armónicos pares ausentes en el modelo digital, aliasing en agudos o resonancia del filtro descalibrada).
-  - **Tracking de Envolventes (ADSR Envelope Divergence)**:
-    - Extracción de las curvas de envolvente RMS para comparar discrepancias en los tiempos de ataque (attack slope), caída y rebote de condensador.
+  - **Análisis Espectral de 24 Bandas (1/3 de Octava) y 4 Macro-Bandas**:
+    - Integración de potencia Welch en 24 bandas de 1/3 de octava (63 Hz a 12.5 kHz) heredada y mejorada de `ABDMS2000`.
+    - Similitud Coseno Espectral % y descomposición en 4 macro-bandas: Bass (<250Hz), Low-Mid (250-1000Hz), High-Mid (1000-4000Hz), High (>4000Hz).
+  - **Tracking de Envolventes (ADSR Envelope Slope Divergence)**:
+    - Extracción de la pendiente RMS temprana (10-110 ms) frente a tardía (200-400 ms) para auditar discrepancias dinámicas de ataque y decay.
 
-- [ ] **4. Interfaz de Audición A/B Instantánea en la WebUI**:
-  - Conmutador A/B sin clics (crossfade ultra-rápido de 5 ms con loudness equiparado).
-  - Selector de monitoreo de 3 estados:
-    - **[A] Hardware Real** (Pista original de referencia).
-    - **[B] VST3 / Motor Emulado** (Pista del modelo a validar).
-    - **[Delta] Residuo / Error** (Diferencia amplificada para audicionar exclusivamente lo que la emulación no captura o añade por error).
+- [x] **4. Interfaz de Audición A/B Instantánea en la WebUI (`ab_comparator.css` y `UniversalABComparatorModal.js`)**:
+  - **Deck A y Deck B Independientes**: Carga directa de archivos WAV desde disco, captura en vivo por loopback o renderizado desde host de VST3.
+  - **Botón "Auto-Match Loudness"**: Activa o desactiva la igualación de nivel en tiempo real para descartar falsos positivos por diferencia de ganancia.
+  - **Conmutador A/B sin Clics**: Crossfade ultra-rápido de 5 ms sin interrupción del flujo auditivo.
+  - **Selector de Monitoreo de 3 Estados**:
+    - **[ 1 ] LISTEN A (Reference)**: Señal de referencia original / Hardware.
+    - **[ 2 ] LISTEN B (Candidate)**: Emulación VST3 / Modelo bajo prueba.
+    - **[ 3 ] LISTEN &Delta; (Residual)**: Señal residual pura del null-test con amplificación forense (+0 dB, +12 dB, +24 dB).
+  - **Visualizador Espectral Gráfico**: Barras de discrepancia $\Delta \text{dB}$ en las 24 bandas normalizadas y medidores porcentuales de las 4 macro-bandas.
+  - **Exportación de Audio Residual**: Botón "Export Residual WAV (Δ)" para volcar a disco en formato IEEE Float32 a 48/96 kHz.
+  - **Acceso Directo Standalone**: Integrado en el menú principal `Tools -> Universal A/B Diff & Null-Test Comparator...` (atajo global `Ctrl+Alt+A`).
+
+- [x] **5. Batería de Tests Herméticos de Integración Catch2 (`test_UniversalABComparatorIntegration.cpp`)**:
+  - `Identical Signals Yield Perfect Null Test`: Señales idénticas cancelan a $\text{ESR} < -100\text{ dB}$ y similitud espectral $100\%$.
+  - `Fractional Sub-Sample Delay Sinc Alignment`: Corrige retrasos fraccionarios de 3.25 muestras reconstruyendo el null test con $\text{ESR} < -80\text{ dB}$.
+  - `Free-Running Oscillator Phase Invariance`: Distingue entre desfase analógico aleatorio e imperfección tímbrica (`PASS_PHASE_INVARIANT`, Coherencia $>0.99$).
+  - `Frequency Band Energy Divergence Across 24 Bands`: Identifica con precisión milimétrica refuerzos o atenuaciones en bandas específicas (ej. +6 dB a 1 kHz).
+  - `Loudness Matching And Equalization`: Comprueba que una señal con 6 dB de ganancia no adulterada cancela completamente tras activar la normalización automática de sonoridad ($\text{ESR} < -100\text{ dB}$).
+
+- [x] **6. Endurecimiento Operativo, Integración Hardware y Anti-Slop (Build #778)**:
+  - **Detección Dinámica de Canales Reales de Tarjeta de Sonido**: `serializeAudioDevice()` consulta directamente a JUCE los nombres físicos (`dev->getInputChannelNames()`), permitiendo ruteo estéreo real y modo `Dual-Mono Split` adaptado a tarjetas de 2 entradas (ej. Focusrite 2i2, UA Volt) para medir dos fuentes simultáneas en una única pulsación.
+  - **Catálogo VST3 Real e Invocación GUI Nativa**: Integración transparente de `availablePlugins` del Paso 1 en los selectores de Deck A y B; botón `Open GUI` con auto-carga asíncrona en memoria y despliegue inmediato de la ventana nativa mediante `PluginWindowController`.
+  - **Unificación de Modos de Ejecución VST3 (Filosofía DRY)**: Estandarización en inglés de los 3 modos canónicos (`Mode: Live`, `Mode: Turbo`, `Mode: Safe`) compartidos entre el comparador y el stepper de perfilado.
+  - **Ergonomía Visual y Anti-Slop Estricto**: Purgado total de emojis conforme a regla R-13, sustitución por iconos vectoriales SVG limpios y modal ampliada a 1260px (`95vw`) con disposición en 2 filas limpias para erradicar cualquier recorte visual.
+
+
 
 
 

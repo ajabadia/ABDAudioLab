@@ -172,6 +172,16 @@ if /i "%1"=="tests" (
 :: 5. Auto-increment build number in src/BuildVersion.h (only for full app builds)
 if "!IS_TEST_ONLY!"=="0" (
     powershell -NoProfile -Command "$file = 'src\BuildVersion.h'; if (Test-Path $file) { $c = Get-Content $file -Raw; if ($c -match 'kBuildNumber = (\d+);') { $b = [int]$matches[1] + 1; $c = $c -replace 'kBuildNumber = \d+;', ('kBuildNumber = ' + $b + ';'); Set-Content $file $c; Write-Host ('[Info] Incremented build number to: ' + $b) } }"
+
+    where npm >nul 2>nul
+    if not errorlevel 1 (
+        if exist "WebUI\package.json" (
+            echo [Info] Bundling WebUI assets with Vite...
+            pushd WebUI
+            call npm run build
+            popd
+        )
+    )
 )
 
 :: 6. Build Project with Parallel Multiprocessor Execution

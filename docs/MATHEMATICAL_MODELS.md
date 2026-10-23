@@ -1,8 +1,8 @@
 # Fundamentos Matemáticos y Modelos DSP — ABDAudioLab
 
 **Proyecto:** ABDAudioLab — Universal Black-Box Musical Hardware & Synth Profiler  
-**Versión:** 2.4.0 (Fase 24 Implementada y Verificada)  
-**Actualizado:** 2026-10-16  
+**Versión:** 2.5.0 (HITO-AB-DIFF-01 Comparador A/B Universal y Fase 24)  
+**Actualizado:** 2026-10-23  
 
 ---
 
@@ -467,3 +467,67 @@ $$y[n] = \underbrace{\sum_{m=0}^{B-1} h[m]\,x[n-m]}_{\text{Cabecera directa (lat
 En capturas multi-pase ($K \ge 2$ repeticiones sincronizadas con el estímulo), mientras las métricas escalares $(\mu, \sigma)$ de corte, resonancia y THD se evalúan sobre cada pase individual para cuantificar la deriva térmica analógica, la curva de transferencia representativa se extrae deconvolucionando el promedio coherente en el dominio del tiempo (`FilterAnalytics::computeSynchronousTimeDomainAverage`):
 
 $$\bar{y}[n] = \frac{1}{K} \sum_{k=0}^{K-1} y_k[n] = s[n] + \frac{1}{K}\sum_{k=0}^{K-1} \eta_k[n] \implies \Delta \text{SNR}_{\text{STA}} = +10\log_{10}(K)\text{ dB}$$
+
+---
+
+## 17. Comparador A/B Metrológico Universal y Veredicto Acústico Multi-Banda
+
+*(HITO-AB-DIFF-01 — UniversalABComparatorEngine.h, AudioABComparator.h/.cpp)*
+
+El sistema de validación comparativa A/B permite confrontar tomas acústicas de hardware físico frente a emulaciones digitales (VST3/DSP), grabaciones de referencia histórica o tomas regrabadas (*re-amping*), aislando sistemáticamente las variables temporales, dinámicas y psicoacústicas.
+
+### 17.1 Alineación Temporal Sub-Muestra por Correlación Cruzada e Interpolación Parabólica
+Dadas la señal de referencia $x_{\text{ref}}[n]$ y la captura candidata $x_{\text{cap}}[n]$, se calcula la secuencia de correlación cruzada normalizada para retardos discretos $k \in [-K_{\max}, K_{\max}]$:
+
+$$R_{xy}[k] = \frac{\sum_{n} x_{\text{ref}}[n]\, x_{\text{cap}}[n + k]}{\sqrt{\left(\sum_n x_{\text{ref}}^2[n]\right)\left(\sum_n x_{\text{cap}}^2[n]\right)}}$$
+
+Localizado el retardo entero óptimo $\hat{k} = \arg\max_k R_{xy}[k]$, la resolución temporal se extiende al dominio fraccionario continuo mediante interpolación parabólica sobre los tres puntos adyacentes $\{(\hat{k}-1, y_{-1}), (\hat{k}, y_0), (\hat{k}+1, y_{+1})\}$:
+
+$$\delta = \frac{y_{-1} - y_{+1}}{2\,(2 y_0 - y_{-1} - y_{+1})}, \quad \delta \in [-0.5, 0.5]$$
+
+El desplazamiento temporal continuo estimado es $\tau = \hat{k} + \delta$ (en muestras) y $\Delta t = \frac{\tau}{f_s} \times 1000\text{ ms}$.
+
+### 17.2 Equiparación Perceptual de Sonoridad (Auto-Loudness RMS Matching)
+Para eliminar el sesgo auditivo ("la señal más fuerte suena con más cuerpo y claridad"), el motor calcula el valor eficaz integrado (RMS) de ambas señales:
+
+$$\text{RMS}_{\text{ref}} = \sqrt{\frac{1}{N_{\text{ref}}} \sum_{n=0}^{N_{\text{ref}}-1} x_{\text{ref}}^2[n]}, \qquad \text{RMS}_{\text{cap}} = \sqrt{\frac{1}{N_{\text{cap}}} \sum_{n=0}^{N_{\text{cap}}-1} x_{\text{cap}}^2[n]}$$
+
+Al activar la equiparación automática, se aplica un factor de ganancia de compensación exacto sobre la candidata antes de evaluar la cancelación y la audición conmutada:
+
+$$g_{\text{comp}} = \frac{\text{RMS}_{\text{ref}}}{\text{RMS}_{\text{cap}}}, \qquad x'_{\text{cap}}[n] = g_{\text{comp}} \cdot x_{\text{cap}}[n]$$
+
+### 17.3 Métrica de Cancelación Null-Test: Error-to-Signal Ratio (ESR)
+Tras alinear temporalmente y nivelar ambas señales, se genera la pista residual de diferencia acústica:
+
+$$r[n] = x_{\text{ref}}[n] - x'_{\text{cap}}[n + \hat{k}]$$
+
+El **Error-to-Signal Ratio (ESR)** cuantifica la profundidad de cancelación en decibelios:
+
+$$\text{ESR}_{\text{dB}} = 10 \log_{10} \left( \frac{\sum_{n} r^2[n]}{\sum_{n} x_{\text{ref}}^2[n]} \right)$$
+
+* **$\text{ESR} < -40.0\text{ dB}$**: Identidad completa (`PASS_IDENTITY`). Discrepancia por debajo del umbral de audibilidad humana en pruebas ciegas.
+* **$-40.0\text{ dB} \le \text{ESR} \le -26.0\text{ dB}$**: Tolerancia analógica aceptable con timbre preservado.
+* **$\text{ESR} > -26.0\text{ dB}$**: Divergencia dinámica o tímbrica audible que requiere análisis espectral.
+
+### 17.4 Invarianza de Fase para Osciladores Libres (CSDM Coherence)
+En sintetizadores analógicos reales, los osciladores libres (*free-running*) arrancan con una fase inicial estocástica $\phi_0$ que no puede cancelarse con un simple retardo temporal cuando intervienen múltiples armónicos. Para no penalizar erróneamente un sintetizador físicamente perfecto como imperfecto, el motor evalúa la **Coherencia Espectral Cruzada de Magnitud** (CSDM):
+
+$$\gamma_{\text{mag}}^2 = \frac{\left( \sum_{k=0}^{K-1} |X_{\text{ref}}[k]| \cdot |X_{\text{cap}}[k]| \right)^2}{\left( \sum_{k=0}^{K-1} |X_{\text{ref}}[k]|^2 \right) \left( \sum_{k=0}^{K-1} |X_{\text{cap}}[k]|^2 \right)}$$
+
+Si $\gamma_{\text{mag}}^2 \ge 0.985$ y la similitud espectral supera el $98.0\%$, el veredicto certifica **`PASS_PHASE_INVARIANT`**, acreditando que la energía residual es producto de la fase libre del oscilador y no de un fallo de modelado.
+
+### 17.5 Análisis Espectral Welch en 24 Bandas Normalizadas (1/3 de Octava) y 4 Macro-Bandas
+La distribución tímbrica se descompone en 24 bandas de $1/3$ de octava normalizadas ISO (de $63\text{ Hz}$ a $12500\text{ Hz}$) mediante el método de Welch con ventanas Hann solapadas al $50\%$:
+
+$$E_b = \sum_{k = k_{\min}(b)}^{k_{\max}(b)} |X[k]|^2, \quad \Delta \text{dB}_b = 10 \log_{10}\left( \frac{E_{b,\text{cap}}}{E_{b,\text{ref}}} \right)$$
+
+Adicionalmente, se agrupan en las 4 macro-bandas de energía porcentual canónicas:
+1. **Bass ($< 250\text{ Hz}$)**
+2. **Low-Mid ($250\text{ Hz} \dots 1000\text{ Hz}$)**
+3. **High-Mid ($1000\text{ Hz} \dots 4000\text{ Hz}$)**
+4. **High ($> 4000\text{ Hz}$)**
+
+Y la **Similitud Coseno Espectral %** se calcula sobre los vectores de distribución normalizada $p_b = E_b / \sum_j E_j$:
+
+$$\text{Similitud}_{\text{coseno}} = 100 \times \frac{\sum_{b=1}^{24} p_{b,\text{ref}} \cdot p_{b,\text{cap}}}{\sqrt{\left(\sum_{b=1}^{24} p_{b,\text{ref}}^2\right)\left(\sum_{b=1}^{24} p_{b,\text{cap}}^2\right)}}\; [\%]$$
+

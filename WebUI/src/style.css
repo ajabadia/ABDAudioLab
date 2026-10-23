@@ -34,6 +34,7 @@
 
 /* 4. Dialogs & Modals */
 @import './styles/modals.css';
+@import './styles/ab_comparator.css';
 
 /* 5. Global Resets & Application Base */
 * {

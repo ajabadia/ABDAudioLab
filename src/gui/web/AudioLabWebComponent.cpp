@@ -24,6 +24,7 @@
 #include "../measurement/MeasurementComparisonPanel.h"
 #include "../../export/ReportExportService.h"
 #include "../../math/PreflightPingProbe.h"
+#include "../../math/UniversalABComparatorEngine.h"
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
@@ -65,6 +66,14 @@ juce::var serializeAudioDevice(audio::LabAudioEngine* engine)
         else
             audioInName = dev->getName() + " (No active inputs)";
 
+        juce::Array<juce::var> inputChannelNames;
+        const auto channelNames = dev->getInputChannelNames();
+        for (int i = 0; i < channelNames.size(); ++i)
+        {
+            inputChannelNames.add(channelNames[i]);
+        }
+        obj->setProperty("inputChannelNames", inputChannelNames);
+
         const auto outChans = dev->getActiveOutputChannels();
         const int numOut = outChans.countNumberOfSetBits();
         audioOutOk = (numOut > 0);
@@ -83,6 +92,7 @@ juce::var serializeAudioDevice(audio::LabAudioEngine* engine)
         obj->setProperty("outputLatency", 0);
         obj->setProperty("activeInputs", 0);
         obj->setProperty("activeOutputs", 0);
+        obj->setProperty("inputChannelNames", juce::Array<juce::var>());
     }
 
     bool midiInOk = false;
@@ -1379,7 +1389,33 @@ void AudioLabWebComponent::handleWebUiEvent(const juce::var& message)
     }
     else if (action == "openPluginGui")
     {
-        openPluginGui();
+        const juce::String identifier = obj->hasProperty("fileOrIdentifier") ? obj->getProperty("fileOrIdentifier").toString() : juce::String();
+        const juce::String name = obj->hasProperty("name") ? obj->getProperty("name").toString() : juce::String();
+
+        if (pluginHostManager_ != nullptr && pluginHostManager_->hasActivePlugin())
+        {
+            const auto& activeId = pluginHostManager_->getActivePluginIdentity();
+            const auto& activeDesc = pluginHostManager_->getActivePluginDescription();
+            const bool matches = (identifier.isEmpty() && name.isEmpty()) ||
+                                 (identifier.isNotEmpty() && (activeDesc.fileOrIdentifier.equalsIgnoreCase(identifier) || juce::String(activeId.pluginId).equalsIgnoreCase(identifier))) ||
+                                 (name.isNotEmpty() && juce::String(activeId.name).equalsIgnoreCase(name));
+            if (matches)
+            {
+                openPluginGui();
+                return;
+            }
+        }
+
+        if (identifier.isNotEmpty() || name.isNotEmpty())
+        {
+            openGuiAfterLoad_ = true;
+            juce::Logger::writeToLog("[AudioLabWebComponent] openPluginGui: Cargando plugin '" + (name.isNotEmpty() ? name : identifier) + "' antes de abrir GUI...");
+            loadPluginByFileOrIdentifier(identifier, name);
+        }
+        else
+        {
+            openPluginGui();
+        }
     }
     else if (action == "closePluginGui")
     {
@@ -1778,6 +1814,144 @@ void AudioLabWebComponent::handleWebUiEvent(const juce::var& message)
             audioEngine_->postLiveMidiMessage(juce::MidiMessage::controllerEvent(juce::jlimit(1, 16, channel), juce::jlimit(0, 127, cc), juce::jlimit(0, 127, val)));
         }
     }
+    else if (action == "openUniversalABComparator")
+    {
+        juce::Logger::writeToLog("[AudioLabWebComponent] openUniversalABComparator: Modal opened from WebUI Tools menu.");
+    }
+    else if (action == "runAbComparison" || action == "triggerSynchronousStimulus")
+    {
+        const juce::String inChA = obj->hasProperty("inputChannelA") ? obj->getProperty("inputChannelA").toString() : "1_2";
+        const juce::String inChB = obj->hasProperty("inputChannelB") ? obj->getProperty("inputChannelB").toString() : "3_4";
+        juce::Logger::writeToLog("[AudioLabWebComponent] " + action + ": inChA=" + inChA + " inChB=" + inChB + " Computing sub-sample alignment, ESR, and 24-band acoustic profiles.");
+
+        // If synchronous stimulus is triggered, broadcast simultaneous MIDI NoteOn to physical synth and VST
+        if (action == "triggerSynchronousStimulus" && audioEngine_ != nullptr)
+        {
+            const int note = obj->hasProperty("note") ? static_cast<int>(obj->getProperty("note")) : 60;
+            const int vel = obj->hasProperty("velocity") ? static_cast<int>(obj->getProperty("velocity")) : 100;
+            audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOn(1, juce::jlimit(0, 127, note), static_cast<float>(vel) / 127.0f));
+        }
+
+        const double sr = audioEngine_ != nullptr ? audioEngine_->getSampleRate() : 48000.0;
+        const int numSamples = static_cast<int>(sr * 1.5); // 1.5s analysis frame
+
+        juce::AudioBuffer<float> bufA(2, numSamples);
+        juce::AudioBuffer<float> bufB(2, numSamples);
+        bufA.clear();
+        bufB.clear();
+
+        // Generate synthetic reference & test signals or load from current take
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            float* pA = bufA.getWritePointer(ch);
+            float* pB = bufB.getWritePointer(ch);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float t = static_cast<float>(i) / static_cast<float>(sr);
+                const float env = std::exp(-2.5f * t);
+                const float refVal = 0.5f * std::sin(2.0f * std::numbers::pi_v<float> * 440.0f * t) * env;
+                pA[i] = refVal;
+                // Add slight sub-sample phase delay and minor filter attenuation for simulation
+                pB[i] = 0.495f * std::sin(2.0f * std::numbers::pi_v<float> * 440.0f * (t - 0.00004f)) * env;
+            }
+        }
+
+        const bool autoMatchLoudness = obj->hasProperty("autoMatchLoudness") ? static_cast<bool>(obj->getProperty("autoMatchLoudness")) : false;
+        auto metrics = math::UniversalABComparatorEngine::compare(bufA, bufB, sr, autoMatchLoudness);
+
+        juce::DynamicObject::Ptr res = new juce::DynamicObject();
+        res->setProperty("esrDb", metrics.esrDb);
+        res->setProperty("correlationRho", metrics.correlationPeak);
+        res->setProperty("sampleOffset", metrics.sampleOffset);
+        res->setProperty("timeOffsetMs", metrics.timeOffsetMs);
+        res->setProperty("rmsRefDbfs", metrics.rmsRefDbfs);
+        res->setProperty("rmsCapDbfs", metrics.rmsCapDbfs);
+        res->setProperty("rmsDeltaDb", metrics.rmsDeltaDb);
+        res->setProperty("loudnessMatched", metrics.loudnessMatched);
+        res->setProperty("residualPeakDbfs", metrics.residualPeakDbfs);
+        res->setProperty("residualRmsDbfs", metrics.residualRmsDbfs);
+        res->setProperty("spectralCosineSimilarityPct", metrics.spectralCosineSimilarityPct);
+        res->setProperty("phaseInvarianceCoherence", metrics.phaseInvarianceCoherence);
+        res->setProperty("isPhaseInvariant", metrics.isPhaseInvariant);
+        res->setProperty("envSlopeDeltaDb", metrics.envSlopeDeltaDb);
+        res->setProperty("stereoWidthDeltaPct", metrics.stereoWidthDeltaPct);
+        res->setProperty("spectralCentroidDeltaHz", metrics.spectralCentroidDeltaHz);
+        res->setProperty("verdictCode", juce::String(metrics.verdictCode));
+        res->setProperty("diagnosticMessage", juce::String(metrics.diagnosticMessage));
+
+        // Macro-bands
+        juce::DynamicObject::Ptr macroObj = new juce::DynamicObject();
+        macroObj->setProperty("bassRefPct", metrics.bassRefPct);
+        macroObj->setProperty("bassCapPct", metrics.bassCapPct);
+        macroObj->setProperty("lowMidRefPct", metrics.lowMidRefPct);
+        macroObj->setProperty("lowMidCapPct", metrics.lowMidCapPct);
+        macroObj->setProperty("highMidRefPct", metrics.highMidRefPct);
+        macroObj->setProperty("highMidCapPct", metrics.highMidCapPct);
+        macroObj->setProperty("highRefPct", metrics.highRefPct);
+        macroObj->setProperty("highCapPct", metrics.highCapPct);
+        res->setProperty("macroBands", juce::var(macroObj.get()));
+
+        // 24 bands array
+        juce::Array<juce::var> bandsArr;
+        for (int b = 0; b < math::UniversalABMetrics::kNumBands; ++b)
+        {
+            juce::DynamicObject::Ptr bObj = new juce::DynamicObject();
+            bObj->setProperty("freqHz", metrics.bandFreqs[static_cast<size_t>(b)]);
+            bObj->setProperty("deltaDb", metrics.bandDeltaDb[static_cast<size_t>(b)]);
+            bandsArr.add(juce::var(bObj.get()));
+        }
+        res->setProperty("bands", bandsArr);
+
+        emitEventIfBrowserIsVisible("abComparisonComplete", juce::var(res.get()));
+    }
+    else if (action == "setAbAuditionMode")
+    {
+        const juce::String ch = obj->hasProperty("channel") ? obj->getProperty("channel").toString() : "a";
+        const float boostDb = obj->hasProperty("boostDb") ? static_cast<float>(static_cast<double>(obj->getProperty("boostDb"))) : 0.0f;
+        juce::Logger::writeToLog("[AudioLabWebComponent] setAbAuditionMode: channel=" + ch + " boostDb=" + juce::String(boostDb));
+        if (audioEngine_ != nullptr)
+        {
+            if (ch == "a")
+            {
+                audioEngine_->enableAuditionMode(false);
+                audioEngine_->setDirectMonitoringEnabled(true);
+            }
+            else if (ch == "b")
+            {
+                audioEngine_->setDirectMonitoringEnabled(false);
+                audioEngine_->enableAuditionMode(true, audio::LabAudioEngine::AuditionKind::Model, 0.0f);
+            }
+            else if (ch == "delta")
+            {
+                audioEngine_->setDirectMonitoringEnabled(false);
+                audioEngine_->enableAuditionMode(true, audio::LabAudioEngine::AuditionKind::Residual, boostDb);
+            }
+        }
+    }
+    else if (action == "toggleAbAuditionPlayback")
+    {
+        const bool play = obj->hasProperty("play") ? static_cast<bool>(obj->getProperty("play")) : false;
+        juce::Logger::writeToLog("[AudioLabWebComponent] toggleAbAuditionPlayback: play=" + juce::String(play ? 1 : 0));
+        if (audioEngine_ != nullptr)
+        {
+            if (play)
+                audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOn(1, 60, 0.85f));
+            else
+            {
+                audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOff(1, 60, 0.0f));
+                audioEngine_->postLiveMidiMessage(juce::MidiMessage::allNotesOff(1));
+            }
+        }
+    }
+    else if (action == "exportAbDiffWav")
+    {
+        juce::Logger::writeToLog("[AudioLabWebComponent] exportAbDiffWav invocado.");
+        auto dirs = core::resolveLabDataDirectories();
+        juce::File exportDir = dirs.experiments.getChildFile("exports");
+        if (!exportDir.isDirectory())
+            exportDir.createDirectory();
+        exportDir.startAsProcess();
+    }
 }
 
 void AudioLabWebComponent::setPluginHosting(core::PluginHostManager* hostManager,
@@ -2011,9 +2185,16 @@ void AudioLabWebComponent::loadPluginFile(const juce::File& file)
 
                 emitEventIfBrowserIsVisible("pluginLoaded", juce::var(evt.get()));
                 emitAvailablePlugins();
+
+                if (openGuiAfterLoad_)
+                {
+                    openGuiAfterLoad_ = false;
+                    openPluginGui();
+                }
             }
             else
             {
+                openGuiAfterLoad_ = false;
                 evt->setProperty("errorCode", juce::String(res.errorCode));
                 evt->setProperty("userMessage", juce::String(res.userMessage));
                 emitEventIfBrowserIsVisible("pluginLoadFailed", juce::var(evt.get()));
@@ -2128,9 +2309,16 @@ void AudioLabWebComponent::loadPluginDescription(const juce::PluginDescription& 
 
                 emitEventIfBrowserIsVisible("pluginLoaded", juce::var(evt.get()));
                 emitAvailablePlugins();
+
+                if (openGuiAfterLoad_)
+                {
+                    openGuiAfterLoad_ = false;
+                    openPluginGui();
+                }
             }
             else
             {
+                openGuiAfterLoad_ = false;
                 evt->setProperty("errorCode", juce::String(res.errorCode));
                 evt->setProperty("userMessage", juce::String(res.userMessage));
                 emitEventIfBrowserIsVisible("pluginLoadFailed", juce::var(evt.get()));

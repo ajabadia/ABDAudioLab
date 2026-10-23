@@ -417,10 +417,10 @@ export function renderStage3Preflight(container, state, onUpdate) {
               </button>
 
               ${isPlugin ? `
-                <select id="selPreflightExecutionMode" class="stage3-recipe-select" style="min-width:130px; max-width:160px; height:36px; padding:4px 8px; font-size:11.5px; font-weight:600; border-radius:6px; background:var(--color-panel-surface-elevated); border:1px solid var(--color-panel-border); color:var(--color-text-main); cursor:pointer;" title="Modo de ejecución: Turbo (RAM offline), En Vivo (Audición) o Seguro (Pausas de estabilización)">
-                  <option value="realtime" ${executionMode === 'realtime' ? 'selected' : ''}>Modo: En Vivo</option>
-                  <option value="turbo" ${executionMode === 'turbo' ? 'selected' : ''}>Modo: Turbo</option>
-                  <option value="safe_slow" ${executionMode === 'safe_slow' ? 'selected' : ''}>Modo: Seguro</option>
+                <select id="selPreflightExecutionMode" class="stage3-recipe-select" style="min-width:130px; max-width:160px; height:36px; padding:4px 8px; font-size:11.5px; font-weight:600; border-radius:6px; background:var(--color-panel-surface-elevated); border:1px solid var(--color-panel-border); color:var(--color-text-main); cursor:pointer;" title="Execution Mode: Turbo (RAM offline), Live (Audition), or Safe (Stabilization pauses)">
+                  <option value="realtime" ${executionMode === 'realtime' ? 'selected' : ''}>Mode: Live</option>
+                  <option value="turbo" ${executionMode === 'turbo' ? 'selected' : ''}>Mode: Turbo</option>
+                  <option value="safe_slow" ${executionMode === 'safe_slow' ? 'selected' : ''}>Mode: Safe</option>
                 </select>
               ` : ''}
 
@@ -428,10 +428,10 @@ export function renderStage3Preflight(container, state, onUpdate) {
                 <span class="spinner" style="width:14px; height:14px; border:2px solid var(--color-accent); border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; display:inline-block;"></span>
                 <span id="probeLiveText">
                   ${probeMode === 'MIDI_NOTE' ?
-                    (executionMode === 'safe_slow' ? 'Modo Seguro: Purgando buffers y estabilizando...' : 'Sending MIDI Note 60 (C4) and sampling audio return...') :
+                    (executionMode === 'safe_slow' ? 'Safe Mode: Purging buffers and stabilizing...' : 'Sending MIDI Note 60 (C4) and sampling audio return...') :
                     (probeMode === 'MANUAL_SYNTH_NOTE' ?
                       'Listening active (3.0s window)... Please play and hold a sustained note on your synth!' :
-                      (executionMode === 'safe_slow' ? 'Modo Seguro: Inyectando tono y estabilizando...' : 'Injecting 1 kHz stimulus and sampling response...'))}
+                      (executionMode === 'safe_slow' ? 'Safe Mode: Injecting tone and stabilizing...' : 'Injecting 1 kHz stimulus and sampling response...'))}
                 </span>
               </div>
             </div>
@@ -633,11 +633,11 @@ export function renderStage3Preflight(container, state, onUpdate) {
       if (liveText) {
         if (probeMode === 'MIDI_NOTE') {
           liveText.textContent = (executionMode === 'safe_slow')
-            ? 'Modo Seguro: Purgando buffers y estabilizando...'
+            ? 'Safe Mode: Purging buffers and stabilizing...'
             : 'Sending MIDI Note 60 (C4) and sampling audio return...';
         } else if (probeMode === 'AUDIO_INJECTION') {
           liveText.textContent = (executionMode === 'safe_slow')
-            ? 'Modo Seguro: Inyectando tono y estabilizando...'
+            ? 'Safe Mode: Injecting tone and stabilizing...'
             : 'Injecting 1 kHz stimulus and sampling response...';
         }
       }

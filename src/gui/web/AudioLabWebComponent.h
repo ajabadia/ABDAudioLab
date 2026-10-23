@@ -139,6 +139,7 @@ private:
     session::ProfilingSessionSnapshot cachedSnapshot_;
     juce::File currentSessionFile_;
     std::unique_ptr<juce::FileChooser> activeFileChooser_;
+    bool openGuiAfterLoad_ { false };
 
     juce::String devUrl_;
     std::atomic<float> latestInDbfs_ { -60.0f };
