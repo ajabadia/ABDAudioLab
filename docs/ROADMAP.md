@@ -2173,12 +2173,13 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
   - **[x] Curva Oficial LUT VCF Korg MS2000 Registrada**: Incorporado `lut_korg_ms2000_dsp56362_vcf.h` (corte empírico de 17.74 Hz a 20.0 kHz, ROM DSP56362 `0x26154`) y registrado en `OfficialLutModels.h` (`ALL_OFFICIAL_MODELS`).
   - **[x] Mapeo Declarativo SysEx / MIDI por Contrato (HITO-CONTRACT-01)**: Resuelto en `contracts/hardware/korg_ms2000.json` (Init Patch `0x40`, CCs y NRPN despachados por `ProfilingHardwareDispatcher::executeLifecycleActions`). Descartada la creación de código C++ hardcodeado (`MS2000ObservableBinding`) en cumplimiento estricto del diseño canónico por contrato.
 
-- [ ] **5. Auditoría Automatizada 5D de 128 Presets de Fábrica (`AudioABComparator`)**:
-  - Integración de `ABDShared/Code/AudioComparator/AudioABComparator.h` y `AudioABVerdictEngine.h` para ejecutar los 128 programas de fábrica (MS2000FactoryBank.h) ante estímulos estándar y compararlos contra capturas de hardware real o emulador DSP56362 (`ms2000r-emu`):
-    - **Nivel RMS y Pico**: Detección de programas fuera de norma dinámica o en saturación.
-    - **Centroide Espectral**: Clasificación de timbre (presets anormalmente oscuros, mudos o estridentes).
-    - **Tracking de Mod Sequencer**: Verificación de las 3 pistas $\times$ 16 pasos en modo Step vs Smooth.
-    - **Veredictos 5D Automatizados**: Emisión de diagnósticos canónicos (`DIAG_OK_IDENTITY`, `DIAG_WARN_HARMONIC_SPREAD`, `DIAG_FAIL_PITCH_DIVERGENCE`, etc.).
+- [x] **5. Auditoría Automatizada 5D de 128 Presets de Fábrica (`AudioABComparator`)**:
+  - **Implementado en `ABDShared/Code/AudioComparator/PresetAudit5DEngine.h` y re-exportado en `src/math/PresetAudit5DEngine.h`**:
+    - **Nivel RMS y Pico**: Detección de programas fuera de norma dinámica o en saturación (`DIAG_FAIL_CLIPPING_OVERLOAD`, `DIAG_FAIL_SILENCE_DROPOUT`).
+    - **Centroide Espectral**: Clasificación de timbre (`DIAG_FAIL_SPECTRAL_DIVERGENCE`, `DIAG_WARN_HARMONIC_SPREAD`).
+    - **Alineación y Desincronización de Fase**: Sonda de coherencia cruzada sub-muestra (`DIAG_FAIL_ALIGNMENT_DESYNC`).
+    - **Veredictos 5D Automatizados**: Emisión de diagnósticos canónicos, agregación por lotes (`auditBatch`) y cálculo de ratio de aceptación.
+    - **Validación Unitaria**: Suite de pruebas en `src/tests/test_PresetAudit5DEngine.cpp` con cobertura de casos nominales, clipping, caídas de nivel y auditoría por lotes.
 
 - [x] **6. Integración del Teclado Virtual Hardware Canónico (estilo ABDMS2000)**:
   - **[x] Drawer Desplegable Canónico Integrado**: Implementado en `WebUI/src/components/VirtualKeyboardDrawer.js` basado en `@abdsynths/midi-keyb`.

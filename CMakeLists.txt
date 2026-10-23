@@ -245,6 +245,7 @@ set(ABDAUDIOLAB_COMMON_SOURCES
         src/math/PreScanSpectrumAnalyzer.cpp
         src/math/PreflightPingProbe.h
         src/math/PreflightPingProbe.cpp
+        src/math/PresetAudit5DEngine.h
         src/math/ModulationMatrixProfile.h
         src/math/ModulationMatrixProfile.cpp
         src/math/ModulationEstimator.h
@@ -1282,6 +1283,7 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_ConditionalExportWithMetadata.cpp
     src/tests/test_PreflightPingProbe.cpp
     src/tests/test_HardwareHookupPreflightIntegration.cpp
+    src/tests/test_PresetAudit5DEngine.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso
