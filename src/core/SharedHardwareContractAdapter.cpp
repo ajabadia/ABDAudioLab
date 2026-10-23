@@ -85,6 +85,11 @@ void SharedHardwareContractAdapter::rebuildLocalCache()
         // estaba retenido: una sola lectura, y el que se lee es el que se filtro.
         if (rawJson.has_value())
         {
+            if (rawJson->contains("routingGuide") && (*rawJson)["routingGuide"].is_object())
+                parseRoutingGuide((*rawJson)["routingGuide"], localC.routingGuide);
+            else if (rawJson->contains("wiringGuide") && (*rawJson)["wiringGuide"].is_object())
+                parseRoutingGuide((*rawJson)["wiringGuide"], localC.routingGuide);
+
             parseFunctionsFromRawJson(*rawJson, localC);
             parseLifecycleFromRawJson(*rawJson, localC);
         }
@@ -110,12 +115,16 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
             f.silenceThresholdDb = fJson.value("silenceThresholdDb", -60.0f);
 
             if (fJson.contains("routingGuide") && fJson["routingGuide"].is_object())
-            {
-                const auto& rg = fJson["routingGuide"];
-                f.routingGuide.stimulusOutput = rg.value("stimulusOutput", std::string(""));
-                f.routingGuide.responseInput = rg.value("responseInput", std::string(""));
-                f.routingGuide.notes = rg.value("notes", std::string(""));
-            }
+                parseRoutingGuide(fJson["routingGuide"], f.routingGuide);
+            else if (fJson.contains("wiringGuide") && fJson["wiringGuide"].is_object())
+                parseRoutingGuide(fJson["wiringGuide"], f.routingGuide);
+
+            if (f.routingGuide.steps.empty() && !out.routingGuide.steps.empty())
+                f.routingGuide.steps = out.routingGuide.steps;
+            if (f.routingGuide.stimulusOutput.empty() && !out.routingGuide.stimulusOutput.empty())
+                f.routingGuide.stimulusOutput = out.routingGuide.stimulusOutput;
+            if (f.routingGuide.responseInput.empty() && !out.routingGuide.responseInput.empty())
+                f.routingGuide.responseInput = out.routingGuide.responseInput;
 
             if (fJson.contains("measurementRecipe") && fJson["measurementRecipe"].is_object())
             {
@@ -126,24 +135,7 @@ void SharedHardwareContractAdapter::parseFunctionsFromRawJson(const nlohmann::js
 
                 if (rJson.contains("setupActions") && rJson["setupActions"].is_array())
                 {
-                    for (const auto& aJson : rJson["setupActions"])
-                    {
-                        if (!aJson.is_object()) continue;
-                        HardwareSetupAction act;
-                        act.description = aJson.value("description", "");
-                        std::string methodStr = aJson.value("method", "MIDI_CC");
-                        if (methodStr == "NRPN") act.method = HardwareMethod::NRPN;
-                        else if (methodStr == "SYSEX_RAW") act.method = HardwareMethod::SYSEX_RAW;
-                        else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
-                        else act.method = HardwareMethod::MIDI_CC;
-
-                        act.channel = aJson.value("channel", 1);
-                        act.controlNumber = aJson.value("controlNumber", aJson.value("cc", aJson.value("nrpn", -1)));
-                        act.normalizedValue = aJson.value("normalizedValue", aJson.value("value", 0.0f));
-                        act.sysexHexPayload = aJson.value("sysexHexPayload", aJson.value("sysexHex", ""));
-                        act.settlingDelayMs = aJson.value("settlingDelayMs", 50);
-                        f.measurementRecipe.setupActions.push_back(std::move(act));
-                    }
+                    parseSetupActions(rJson["setupActions"], f.measurementRecipe.setupActions);
                 }
 
                 if (rJson.contains("excitationNotes") && rJson["excitationNotes"].is_array())

@@ -187,7 +187,7 @@ export function renderStage3(container, state, onUpdate) {
     container.innerHTML = `
       <div class="stage-header stage3-main-header">
         <div>
-          <h2>Step 3: Signal Acquisition &amp; Metrology</h2>
+          <h2>Step 4: Signal Acquisition &amp; Metrology</h2>
           <p>Multi-stimulus excitation battery, live 8-tab response telemetry, and high-fidelity physical parameter matrix.</p>
         </div>
       </div>

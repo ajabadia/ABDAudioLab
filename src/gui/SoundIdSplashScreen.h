@@ -353,7 +353,11 @@ public:
         if (splashComp)
             splashComp->repaint();
         if (auto* peer = getPeer())
-            peer->performAnyPendingRepaintsNow();
+        {
+            try {
+                peer->performAnyPendingRepaintsNow();
+            } catch (...) {}
+        }
     }
 
     void dismiss(std::function<void()> onDone)

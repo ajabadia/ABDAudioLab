@@ -46,19 +46,31 @@ public:
         const bool isDarkInit = (activeTheme_ != "audiolab-light" && activeTheme_ != "light");
         gui::SoundIdTheme::applyThemeMode(isDarkInit ? gui::AppTheme::ThemeMode::Dark : gui::AppTheme::ThemeMode::Light);
 
-        if (progressCb) progressCb("Inicializando motor de audio...", 0.25f);
+        if (progressCb) progressCb("Inicializando configuración de audio...", 0.15f);
 
         juce::File appData = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("ABDAudioLab");
         settingsFile = appData.getChildFile("AudioSettings.xml");
         audioEngine->initializeAudioDevices(settingsFile);
         audioEngine->getDeviceManager().addChangeListener(this);
 
-        if (progressCb) progressCb("Cargando plugins y entorno de trabajo...", 0.50f);
+        if (progressCb) progressCb("Motor de audio activo. Creando vista web...", 0.35f);
 
-        auto* web = new AudioLabWebComponent(sessionController.get());
+        juce::Logger::writeToLog("[LabWebMainWindow] Instantiating AudioLabWebComponent...");
+        auto* web = new AudioLabWebComponent(sessionController.get(), {}, progressCb);
+        juce::Logger::writeToLog("[LabWebMainWindow] AudioLabWebComponent instantiated successfully. Setting audio engine...");
+
+        if (progressCb) progressCb("Vinculando motor de audio a la interfaz...", 0.55f);
         web->setAudioEngine(audioEngine.get());
+
+        if (progressCb) progressCb("Cargando catálogo y caché de plugins...", 0.65f);
+        juce::Logger::writeToLog("[LabWebMainWindow] Loading plugin cache...");
         pluginHostManager->loadCache(core::PluginHostManager::getDefaultCacheFile());
+
+        if (progressCb) progressCb("Inicializando hosting y ventanas de plugins...", 0.75f);
+        juce::Logger::writeToLog("[LabWebMainWindow] Setting plugin hosting...");
         web->setPluginHosting(pluginHostManager.get(), pluginWindowController.get());
+
+        if (progressCb) progressCb("Inicializando panel de calibración...", 0.82f);
         calibrationPanel = std::make_unique<NativeCalibrationPanel>(*audioEngine);
         web->setCalibrationPanel(calibrationPanel.get());
 
@@ -80,6 +92,8 @@ public:
             if (webComponent != nullptr)
                 webComponent->updateScopeTheme();
         };
+
+        if (progressCb) progressCb("Configurando ventana principal...", 0.88f);
         webComponent = web;
         setContentOwned(webComponent, true);
 
@@ -102,7 +116,7 @@ public:
         const bool isDark = (activeTheme_ != "audiolab-light" && activeTheme_ != "light");
         gui::applyNativeTitleBarDarkMode(this, isDark);
 
-        if (progressCb) progressCb("Iniciando interfaz WebView2...", 0.80f);
+        if (progressCb) progressCb("Iniciando interfaz WebView2...", 0.95f);
     }
 
     ~LabWebMainWindow() override
@@ -269,6 +283,7 @@ public:
         // 2. Inicializar ventana principal con progreso real y fade-out al terminar
         juce::MessageManager::callAsync([this]() {
             auto progressCb = [this](const juce::String& msg, float prog) {
+                juce::Logger::writeToLog("[Progress] " + msg + " (" + juce::String(static_cast<int>(prog * 100.0f)) + "%)");
                 if (splashWindow != nullptr)
                     splashWindow->reportProgress(msg, prog);
             };

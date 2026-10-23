@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "2.0",
+  "id": "boss_ds1_distortion",
+  "displayName": "BOSS DS-1 Distortion (Analogue Pedal)",
+  "description": "Classic Orange Distortion Pedal with Hard Diode Clipping",
+  "deviceType": "ANALOGUE_PEDAL",
+  "brand": "BOSS",
+  "brandLogo": "brands/boss-logo.svg",
+  "modelImage": "models/boss-ds1.png",
+  "routingGuide": {
+    "stimulusOutput": "Audio Interface Out 1 -> DS-1 Input (1/4 inch TS)",
+    "responseInput": "DS-1 Output -> Audio Interface In 1 (1/4 inch TS)",
+    "notes": "Ensure 9V DC center-negative PSU or fresh 9V battery is connected.",
+    "steps": [
+      "Connect Audio Interface DAC Out 1 to DS-1 INPUT using a 1/4 inch TS cable.",
+      "Connect DS-1 OUTPUT to Audio Interface ADC In 1 using a 1/4 inch TS cable.",
+      "Ensure 9V DC power supply is connected or 9V battery is fresh.",
+      "Step on footswitch to engage effect and verify red CHECK LED is illuminated.",
+      "Align physical Tone and Dist pots to 12 o'clock, Level to unity gain."
+    ]
+  },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Align Tone potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Align Dist potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Align Level potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      }
+    ]
+  },
+  "functions": [
+    {
+      "id": "distortion_stage",
+      "name": "Clipping Stage",
+      "blockType": "WaveShaper",
+      "suggestedStimulus": "LOG_SINE_SWEEP",
+      "controls": [
+        { "index": 1, "name": "Tone", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.5 },
+        { "index": 2, "name": "Dist", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.5 },
+        { "index": 3, "name": "Level", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.5 }
+      ]
+    }
+  ]
+}

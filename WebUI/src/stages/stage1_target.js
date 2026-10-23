@@ -1,6 +1,7 @@
 import { StudioTopology } from '@components/studioTopology.js';
 import { getAudioInterfaceImage } from './stage2_calibration.js';
 import { showModalAlert } from '../components/SoundIdModal.js';
+import { openContractInspectorModal, ContractVersionStore } from '../components/ContractInspectorModal.js';
 
 export function getThemeHardwareImage() {
   const isLight = document.documentElement.getAttribute('data-theme') === 'audiolab-light' ||
@@ -235,7 +236,19 @@ const FACTORY_BRANDS = [
         midi: false,
         protocol: 'Manual Knobs (Tone / Level / Distortion)',
         routingNotes: 'DAC Out 1 -> DS-1 Input -> DS-1 Output -> ADC In 1',
-        range: 'Instrument Line Level • Anti-parallel clipping diodes'
+        range: 'Instrument Line Level • Anti-parallel clipping diodes',
+        cablingSteps: [
+          'Connect Audio Interface DAC Out 1 (L) to DS-1 INPUT using a shielded 1/4" TS cable.',
+          'Connect DS-1 OUTPUT to Audio Interface ADC In 1 (L) using a shielded 1/4" TS cable.',
+          'Ensure 9V DC isolated power supply is connected or 9V battery is fresh.',
+          'Step on footswitch to engage effect and verify red CHECK LED is illuminated.',
+          'Align physical TONE and DIST pots to 12 o\'clock (50%), LEVEL to unity gain (50%).'
+        ],
+        controls: [
+          { name: 'TONE', type: 'Knob', defaultVal: 0.50, unit: '%' },
+          { name: 'DIST', type: 'Knob', defaultVal: 0.50, unit: '%' },
+          { name: 'LEVEL', type: 'Knob', defaultVal: 0.50, unit: '%' }
+        ]
       }
     ]
   },
@@ -249,12 +262,23 @@ const FACTORY_BRANDS = [
         name: 'Roland Juno-106',
         shortName: 'Roland Juno-106',
         category: 'Analog Polyphonic Synthesizer',
-        deviceType: 'AUTOMATED_MIDI_CC',
+        deviceType: 'AUTOMATED_SYSEX',
         image: 'models/roland-juno-106.webp',
         midi: true,
         protocol: 'Automated MIDI SysEx & CC (DCO, VCF, VCA, Chorus)',
         routingNotes: 'DAC Out 1 (L/R) -> Juno Stereo In/Out -> ADC In 1 (L/R)',
-        range: 'IR3109 / 80017A VCF/VCA modules • Full MIDI CC implementation'
+        range: 'IR3109 / 80017A VCF/VCA modules • Full MIDI CC implementation',
+        cablingSteps: [
+          'Connect MIDI Out from interface to Juno-106 MIDI IN using a 5-pin DIN cable.',
+          'Connect Juno-106 Stereo Outputs (L/MONO & R) to Audio Interface Inputs 1 & 2 using 1/4" TS cables.',
+          'Set Rear Function Switch to Position III (Omni/Poly CC & SysEx enabled).',
+          'Set Master Volume slider to nominal position (~75% / 2 o\'clock).'
+        ],
+        controls: [
+          { name: 'VCF Cutoff', type: 'Slider', defaultVal: 0.75, unit: '%' },
+          { name: 'VCF Resonance', type: 'Slider', defaultVal: 0.20, unit: '%' },
+          { name: 'VCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       },
       {
         id: 'roland_juno60',
@@ -266,7 +290,18 @@ const FACTORY_BRANDS = [
         midi: false,
         protocol: 'Manual DCB / Panel Sliders',
         routingNotes: 'Mono/Stereo Audio Out -> ADC In 1/2',
-        range: 'Discrete IR3109 VCF filters'
+        range: 'Discrete IR3109 VCF filters',
+        cablingSteps: [
+          'Connect Juno-60 Mono/Stereo Output to Audio Interface In 1 (L) using a 1/4" TS cable.',
+          'Power on synthesizer and set Master Volume slider to nominal playing level (~75%).',
+          'Disengage Chorus buttons (or select Chorus I) for clean filter characterization.',
+          'When clicking "Listen for Synth Note", play and hold a sustained key on the keyboard.'
+        ],
+        controls: [
+          { name: 'HPF Cutoff', type: 'Slider', defaultVal: 0.0, unit: '%' },
+          { name: 'VCF Cutoff', type: 'Slider', defaultVal: 0.75, unit: '%' },
+          { name: 'VCF Resonance', type: 'Slider', defaultVal: 0.20, unit: '%' }
+        ]
       },
       {
         id: 'roland_juno6',
@@ -278,31 +313,64 @@ const FACTORY_BRANDS = [
         midi: false,
         protocol: 'Pure Analogue Panel Sliders',
         routingNotes: 'Mono/Stereo Audio Out -> ADC In 1/2',
-        range: 'Discrete IR3109 VCF filters'
+        range: 'Discrete IR3109 VCF filters',
+        cablingSteps: [
+          'Connect Juno-6 Mono/Stereo Output to Audio Interface In 1 (L) using a 1/4" TS cable.',
+          'Power on synthesizer and set Master Volume slider to nominal level (~75%).',
+          'Disengage Chorus buttons (clean bypass) and verify VCF Cutoff slider is open.',
+          'When clicking "Listen for Synth Note", play and hold a sustained key on the keyboard.'
+        ],
+        controls: [
+          { name: 'HPF Cutoff', type: 'Slider', defaultVal: 0.0, unit: '%' },
+          { name: 'VCF Cutoff', type: 'Slider', defaultVal: 0.75, unit: '%' },
+          { name: 'VCF Resonance', type: 'Slider', defaultVal: 0.20, unit: '%' }
+        ]
       },
       {
         id: 'roland_hs60',
         name: 'Roland HS-60 Synth Plus',
         shortName: 'Roland HS-60',
         category: 'Analog Polyphonic Synthesizer',
-        deviceType: 'AUTOMATED_MIDI_CC',
+        deviceType: 'AUTOMATED_SYSEX',
         image: 'models/roland-hs60.webp',
         midi: true,
         protocol: 'Automated MIDI SysEx & CC',
         routingNotes: 'DAC Out 1 (L/R) -> HS-60 In/Out -> ADC In 1/2',
-        range: 'Juno-106 internal engine with internal speakers'
+        range: 'Juno-106 internal engine with internal speakers',
+        cablingSteps: [
+          'Connect MIDI Out from interface to HS-60 MIDI IN using a 5-pin DIN cable.',
+          'Connect HS-60 Stereo Outputs (L/R) to Audio Interface Inputs 1 & 2.',
+          'Set Rear Function Switch to Position III (SysEx & CC enabled).',
+          'Set Master Volume slider to nominal position (~75%).'
+        ],
+        controls: [
+          { name: 'VCF Cutoff', type: 'Slider', defaultVal: 0.75, unit: '%' },
+          { name: 'VCF Resonance', type: 'Slider', defaultVal: 0.20, unit: '%' },
+          { name: 'VCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       },
       {
         id: 'roland_aira_modular',
         name: 'Roland AIRA Modular (Torcido / Bitrazer / Demora / Scooper)',
         shortName: 'Roland AIRA Modular',
         category: 'Eurorack DSP Module',
-        deviceType: 'MANUAL_EURORACK',
+        deviceType: 'AUTOMATED_SYSEX',
         image: 'models/roland-airamodular.webp',
         midi: true,
-        protocol: 'Eurorack ±10V CV / USB Audio 24-bit 96kHz',
+        protocol: 'Automated SysEx / Eurorack ±10V CV / USB Audio 24-bit 96kHz',
         routingNotes: 'DAC Out 1 -> Modular Audio In -> Module Out -> ADC In 1',
-        range: 'Eurorack ±10V CV / 96kHz Audio • Reconfigurable DSP submodules'
+        range: 'Eurorack ±10V CV / 96kHz Audio • Reconfigurable DSP submodules',
+        cablingSteps: [
+          'Connect Audio Interface Out 1 (L) to Module Audio In (L/Mono) with a 3.5mm TS mini-jack cable.',
+          'Connect Module Audio Out (L/Mono) to Audio Interface In 1 (L) with a 3.5mm TS mini-jack cable.',
+          'Connect USB cable from computer to AIRA module for 24-bit/96kHz digital control and SysEx automation.',
+          'Set Module volume / attenuator pot to nominal position (~75% / 2 o\'clock).'
+        ],
+        controls: [
+          { name: 'Cutoff / Color', type: 'Knob', defaultVal: 0.50, unit: '%' },
+          { name: 'Resonance / Width', type: 'Knob', defaultVal: 0.0, unit: '%' },
+          { name: 'Level / Atten', type: 'Knob', defaultVal: 0.75, unit: '%' }
+        ]
       }
     ]
   },
@@ -321,7 +389,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI CC & NRPN',
         routingNotes: 'DAC Out 1 -> MS2000 Audio In -> Audio Out -> ADC In 1',
-        range: 'Stereo Line Level • DSP modelled filters: LPF, BPF, HPF'
+        range: 'Stereo Line Level • DSP modelled filters: LPF, BPF, HPF',
+        cablingSteps: [
+          'Connect MIDI Out from interface to MS2000 MIDI IN using a 5-pin DIN cable.',
+          'Connect MS2000 Output (L/MONO) to Audio Interface In 1 (L) using a 1/4" TS cable.',
+          'Power on MS2000 and set Main Volume knob to nominal position (~75% / 2 o\'clock).',
+          'Transmit Init Patch via MIDI to recall neutral single-timbre initialized voice.'
+        ],
+        controls: [
+          { name: 'Filter Cutoff', type: 'Knob', defaultVal: 0.70, unit: '%' },
+          { name: 'Resonance', type: 'Knob', defaultVal: 0.25, unit: '%' },
+          { name: 'Filter EG Int', type: 'Knob', defaultVal: 0.50, unit: '%' }
+        ]
       },
       {
         id: 'korg_microkorg',
@@ -333,7 +412,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI CC',
         routingNotes: 'DAC Out 1 -> microKORG Audio In -> Audio Out -> ADC In 1',
-        range: 'MS2000 DSP Core • Full MIDI CC implementation'
+        range: 'MS2000 DSP Core • Full MIDI CC implementation',
+        cablingSteps: [
+          'Connect MIDI Out from interface to microKORG MIDI IN.',
+          'Connect microKORG Line Out (L/MONO) to Audio Interface In 1 (L).',
+          'Set Volume knob to nominal (~75%).',
+          'Transmit Init Patch via MIDI CC to reset synth engine parameters.'
+        ],
+        controls: [
+          { name: 'Filter Cutoff', type: 'Knob', defaultVal: 0.70, unit: '%' },
+          { name: 'Resonance', type: 'Knob', defaultVal: 0.25, unit: '%' },
+          { name: 'Filter EG Int', type: 'Knob', defaultVal: 0.50, unit: '%' }
+        ]
       },
       {
         id: 'korg_prophecy',
@@ -345,7 +435,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx & CC',
         routingNotes: 'DAC Out 1 -> Audio In -> Audio Out -> ADC In 1',
-        range: 'MOSS Physical Modeling Synthesis'
+        range: 'MOSS Physical Modeling Synthesis',
+        cablingSteps: [
+          'Connect MIDI Out from interface to Prophecy MIDI IN.',
+          'Connect Prophecy Output (L/MONO) to Audio Interface In 1 (L).',
+          'Set Output Level knob to nominal (~75%).',
+          'Transmit Init Patch via MIDI to initialize MOSS DSP filter and oscillator model.'
+        ],
+        controls: [
+          { name: 'Filter 1 Cutoff', type: 'Knob', defaultVal: 0.70, unit: '%' },
+          { name: 'Filter 1 Res', type: 'Knob', defaultVal: 0.25, unit: '%' },
+          { name: 'Waveform/Sub', type: 'Knob', defaultVal: 0.50, unit: '%' }
+        ]
       }
     ]
   },
@@ -364,7 +465,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI CC Matrix',
         routingNotes: 'Balanced +4 dBu Line In -> Synth -> Audio Out -> ADC In 1/2',
-        range: 'Balanced +4 dBu Line Level • Complete Mod Matrix CC Mapping'
+        range: 'Balanced +4 dBu Line Level • Complete Mod Matrix CC Mapping',
+        cablingSteps: [
+          'Connect USB cable from computer to DeepMind for automated CC and SysEx control.',
+          'Connect DeepMind Main Outputs (L/MONO & R) to Audio Interface Inputs 1 & 2.',
+          'Set Master Volume slider to nominal position (~75%).',
+          'Transmit Init Patch to bypass internal FX processors (Dry Mode) and isolate analogue VCF.'
+        ],
+        controls: [
+          { name: 'VCF Cutoff', type: 'Slider', defaultVal: 0.75, unit: '%' },
+          { name: 'VCF Resonance', type: 'Slider', defaultVal: 0.25, unit: '%' },
+          { name: 'VCF Bass Boost', type: 'Knob', defaultVal: 0.0, unit: '%' }
+        ]
       },
       {
         id: 'behringer_pro800',
@@ -376,7 +488,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI CC & SysEx',
         routingNotes: 'Audio Out -> ADC In 1/2 • MIDI Out -> PRO-800 MIDI In',
-        range: 'Curtis CEM3320 Clone Analogue VCF • Prophet-600 architecture'
+        range: 'Curtis CEM3320 Clone Analogue VCF • Prophet-600 architecture',
+        cablingSteps: [
+          'Connect USB cable (or 5-pin DIN MIDI Out) from computer to PRO-800 MIDI IN.',
+          'Connect PRO-800 Audio Output to Audio Interface In 1 (L).',
+          'Set Master Volume to nominal level (~75%).',
+          'Transmit Init Patch via MIDI CC to reset Curtis CEM3320 clone filter and envelopes.'
+        ],
+        controls: [
+          { name: 'Filter Cutoff', type: 'Knob', defaultVal: 0.70, unit: '%' },
+          { name: 'Resonance', type: 'Knob', defaultVal: 0.20, unit: '%' },
+          { name: 'Filter Env', type: 'Knob', defaultVal: 0.50, unit: '%' }
+        ]
       },
       {
         id: 'behringer_provs_mini',
@@ -388,7 +511,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI CC (Joystick & Filter)',
         routingNotes: 'Headphone/Line Out -> ADC In 1',
-        range: 'Vector synthesis with analogue low-pass filter'
+        range: 'Vector synthesis with analogue low-pass filter',
+        cablingSteps: [
+          'Connect USB cable from computer to PRO-VS Mini for USB MIDI and power.',
+          'Connect Headphone/Line Out (3.5mm TRS) to Audio Interface In 1 (L).',
+          'Set Master Volume to nominal playing level (~75%).',
+          'Transmit Init Patch via MIDI CC (disables chorus and centers vector joystick).'
+        ],
+        controls: [
+          { name: 'Filter Cutoff', type: 'Knob', defaultVal: 0.65, unit: '%' },
+          { name: 'Resonance', type: 'Knob', defaultVal: 0.30, unit: '%' },
+          { name: 'Vector Joy X', type: 'Slider', defaultVal: 0.50, unit: '%' }
+        ]
       },
       {
         id: 'behringer_jt4000',
@@ -400,7 +534,17 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'USB MIDI CC Automation',
         routingNotes: 'Headphone Out -> ADC In 1',
-        range: 'Virtual analog supersaw engine with analogue VCF'
+        range: 'Virtual analog supersaw engine with analogue VCF',
+        cablingSteps: [
+          'Connect USB-C cable from computer to JT-4000 for power and USB MIDI.',
+          'Connect 3.5mm Headphone/Audio Out to Audio Interface In 1 (L).',
+          'Set Output Volume to nominal level (~75%).',
+          'Transmit Init Patch via MIDI CC to reset filter cutoff and supersaw oscillators.'
+        ],
+        controls: [
+          { name: 'Filter Cutoff', type: 'Knob', defaultVal: 0.65, unit: '%' },
+          { name: 'Resonance', type: 'Knob', defaultVal: 0.30, unit: '%' }
+        ]
       },
       {
         id: 'behringer_modular_140',
@@ -412,7 +556,19 @@ const FACTORY_BRANDS = [
         midi: false,
         protocol: 'Manual Potentiometers & Gate In (±10V)',
         routingNotes: 'Gate Pulse Out -> Gate In -> Env Out -> ADC In 1',
-        range: 'Eurorack ±10V Modular Levels'
+        range: 'Eurorack ±10V Modular Levels',
+        cablingSteps: [
+          'Connect Audio Interface Out 1 to GATE IN on Envelope 1 using a 3.5mm TS mini-jack cable.',
+          'Connect ENV 1 OUT to Audio Interface In 1 (L) using a 3.5mm TS mini-jack cable.',
+          'Verify Eurorack case power rails (+12V/-12V/5V) are energized.',
+          'Set physical sliders to nominal baseline: Attack (20%), Decay (50%), Sustain (70%), Release (40%).'
+        ],
+        controls: [
+          { name: 'Attack (A)', type: 'Slider', defaultVal: 0.20, unit: '%' },
+          { name: 'Decay (D)', type: 'Slider', defaultVal: 0.50, unit: '%' },
+          { name: 'Sustain (S)', type: 'Slider', defaultVal: 0.70, unit: '%' },
+          { name: 'Release (R)', type: 'Slider', defaultVal: 0.40, unit: '%' }
+        ]
       }
     ]
   },
@@ -431,7 +587,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx Parameter Spec',
         routingNotes: 'Line Out -> ADC In 1 • MIDI Out -> CZ-101 MIDI In',
-        range: 'Phase Distortion (DCW) non-linear waveform shaper'
+        range: 'Phase Distortion (DCW) non-linear waveform shaper',
+        cablingSteps: [
+          'Connect MIDI Out from interface to Casio CZ MIDI IN using a 5-pin DIN cable.',
+          'Connect CZ Line Out (1/4" TS) to Audio Interface In 1 (L).',
+          'Ensure MIDI Channel is set to Channel 1 (Poly Mode).',
+          'Transmit Init Patch via SysEx to recall unmodulated basic Phase Distortion waveform.'
+        ],
+        controls: [
+          { name: 'DCW Depth', type: 'Slider', defaultVal: 0.80, unit: '%' },
+          { name: 'Waveform', type: 'Knob', defaultVal: 0.0, unit: '%' },
+          { name: 'DCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       },
       {
         id: 'casio_cz1000',
@@ -443,7 +610,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx Parameter Spec',
         routingNotes: 'Line Out -> ADC In 1 • MIDI Out -> CZ-1000 MIDI In',
-        range: 'Full-size Phase Distortion synthesizer engine'
+        range: 'Full-size Phase Distortion synthesizer engine',
+        cablingSteps: [
+          'Connect MIDI Out from interface to CZ-1000 MIDI IN using a 5-pin DIN cable.',
+          'Connect CZ Line Out to Audio Interface In 1 (L).',
+          'Ensure MIDI Mode is set to Poly (Channel 1).',
+          'Transmit Init Patch via SysEx to reset DCW/DCA 8-stage envelopes.'
+        ],
+        controls: [
+          { name: 'DCW Depth', type: 'Slider', defaultVal: 0.80, unit: '%' },
+          { name: 'Waveform', type: 'Knob', defaultVal: 0.0, unit: '%' },
+          { name: 'DCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       },
       {
         id: 'casio_cz5000',
@@ -455,7 +633,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx & Built-in Sequencer',
         routingNotes: 'Stereo Line Out -> ADC In 1/2 • MIDI Out -> CZ-5000 MIDI In',
-        range: 'Dual DCO Phase Distortion with onboard chorus'
+        range: 'Dual DCO Phase Distortion with onboard chorus',
+        cablingSteps: [
+          'Connect MIDI Out from interface to CZ-5000 MIDI IN.',
+          'Connect Stereo Line Outputs to Audio Interface Inputs 1 & 2.',
+          'Set Master Volume to nominal level (~75%).',
+          'Transmit Init Patch via SysEx to reset dual DCO/DCW parameters.'
+        ],
+        controls: [
+          { name: 'DCW Depth', type: 'Slider', defaultVal: 0.80, unit: '%' },
+          { name: 'Waveform', type: 'Knob', defaultVal: 0.0, unit: '%' },
+          { name: 'DCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       },
       {
         id: 'casio_cz1',
@@ -467,7 +656,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx (Velocity & Aftertouch)',
         routingNotes: 'Stereo Line Out -> ADC In 1/2 • MIDI Out -> CZ-1 MIDI In',
-        range: 'Flagship Phase Distortion synthesizer'
+        range: 'Flagship Phase Distortion synthesizer',
+        cablingSteps: [
+          'Connect MIDI Out from interface to CZ-1 MIDI IN.',
+          'Connect Stereo Line Outputs to Audio Interface Inputs 1 & 2.',
+          'Set Master Volume to nominal level (~75%).',
+          'Transmit Init Patch via SysEx to recall unmodulated initialized voice.'
+        ],
+        controls: [
+          { name: 'DCW Depth', type: 'Slider', defaultVal: 0.80, unit: '%' },
+          { name: 'Waveform', type: 'Knob', defaultVal: 0.0, unit: '%' },
+          { name: 'DCA Level', type: 'Slider', defaultVal: 0.80, unit: '%' }
+        ]
       }
     ]
   },
@@ -486,7 +686,18 @@ const FACTORY_BRANDS = [
         midi: true,
         protocol: 'Automated MIDI SysEx Bulk Dump & Parameter Change',
         routingNotes: 'DAC Out 1 -> Audio In (optional) • Line Out -> ADC In 1 • MIDI Out -> DX7 In',
-        range: '6-Operator FM Synthesis • 32 Algorithms • 12-bit DAC non-linearities'
+        range: '6-Operator FM Synthesis • 32 Algorithms • 12-bit DAC non-linearities',
+        cablingSteps: [
+          'Connect MIDI Out from interface to DX7 MIDI IN using a 5-pin DIN cable.',
+          'Connect DX7 Audio Out to Audio Interface In 1 (L).',
+          'Ensure Memory Protect (Internal Memory) is switched OFF in Function Menu.',
+          'Transmit Init Patch via SysEx (Algorithm 1, single sine carrier on Operator 1).'
+        ],
+        controls: [
+          { name: 'Operator 1 Level', type: 'Slider', defaultVal: 0.80, unit: '%' },
+          { name: 'Operator 2 Ratio', type: 'Slider', defaultVal: 0.50, unit: '%' },
+          { name: 'Feedback Level', type: 'Slider', defaultVal: 0.0, unit: '%' }
+        ]
       }
     ]
   }
@@ -750,6 +961,47 @@ export function renderStage1(container, state, onUpdate) {
     }
   }
 
+  // Helper to compute target version badge
+  function getTargetVersionBadge(targetObj) {
+    if (!targetObj) return { text: '1.0.0', badgeClass: 'badge-outline' };
+    const baseId = targetObj.id || 'custom_device';
+    const isCustom = baseId.startsWith('custom_') || !!targetObj.isCustom;
+    let factoryBase = null;
+    if (!isCustom) {
+      for (const b of FACTORY_BRANDS) {
+        if (b.models) {
+          const match = b.models.find(m => m.id === targetObj.id || (m.name && m.name === targetObj.name));
+          if (match) { factoryBase = match; break; }
+        }
+      }
+    }
+    const versions = ContractVersionStore.getVersions(baseId, isCustom ? null : (factoryBase || targetObj));
+    const activeDraft = ContractVersionStore.getActiveDraft(baseId, isCustom ? null : (factoryBase || targetObj));
+    if (activeDraft) {
+      return {
+        text: `${activeDraft.versionNumber} [Draft]`,
+        badgeClass: 'badge-warning'
+      };
+    }
+    const latest = versions[versions.length - 1];
+    if (latest && latest.isFactory && !isCustom) {
+      return {
+        text: `${latest.versionNumber} [Factory]`,
+        badgeClass: 'badge-success'
+      };
+    }
+    if (latest && latest.isConsolidated) {
+      return {
+        text: `${latest.versionNumber} [Consolidated]`,
+        badgeClass: 'badge-accent'
+      };
+    }
+    return {
+      text: `${latest?.versionNumber || '1.0.0'} [Custom]`,
+      badgeClass: 'badge-outline'
+    };
+  }
+
   // --- RENDER: LOCKED FOSSIL VIEW ---
   function renderLockedFossilView() {
     const target = state.selectedTarget || candidateTarget;
@@ -789,22 +1041,19 @@ export function renderStage1(container, state, onUpdate) {
         <!-- Profile Contract Bar (Locked) -->
         <div style="padding:10px 12px; background:var(--color-panel-surface-elevated); border:1px solid var(--color-panel-border); border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div>
-            <div style="font-size:10.5px; font-weight:700; color:var(--color-text-main);">Equipment Profile Contract (.json)</div>
+            <div style="font-size:10.5px; font-weight:700; color:var(--color-text-main); display:flex; align-items:center; gap:6px;">
+              <span>Equipment Profile Contract (.json)</span>
+              ${(() => {
+                const b = getTargetVersionBadge(target);
+                return `<span class="badge ${b.badgeClass} badge-xs" style="font-size:9px; font-weight:800;">${b.text}</span>`;
+              })()}
+            </div>
             <div style="font-size:9.5px; color:var(--color-text-dim);">Declarative parameter specification &amp; I/O routing configuration</div>
           </div>
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-            <input type="file" id="fileLockedContract" accept=".json" style="display:none;" />
-            <button id="btnImportLockedContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px;" title="Import a JSON hardware or plugin profile contract">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              <span>Import Contract (.json)</span>
-            </button>
-            <button id="btnExportLockedContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px;" title="Generate and download a sample JSON contract template">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span>Generate Sample (.json)</span>
-            </button>
-            <button id="btnDownloadSpecLocked" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px;" title="Download technical specifications and JSON templates (.md)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              <span>Spec (.md)</span>
+            <button id="btnInspectContractLocked" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 10px; color:var(--color-accent); border-color:var(--color-accent);" title="Manage hardware contract, versions, and JSON profile">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <span>Manage Contract...</span>
             </button>
           </div>
         </div>
@@ -1102,22 +1351,19 @@ export function renderStage1(container, state, onUpdate) {
           <!-- Profile Contract Action Bar (Candidate) -->
           <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--color-panel-surface-elevated); border:1px solid var(--color-panel-border); border-radius:var(--radius-sm); gap:8px; flex-wrap:wrap;">
             <div>
-              <div style="font-size:10px; font-weight:700; color:var(--color-text-main);">Equipment Profile Contract (.json)</div>
-              <div style="font-size:9px; color:var(--color-text-dim);">Load declarative equipment contract or export sample JSON template</div>
+              <div style="font-size:10px; font-weight:700; color:var(--color-text-main); display:flex; align-items:center; gap:6px;">
+                <span>Equipment Profile Contract (.json)</span>
+                ${(() => {
+                  const b = getTargetVersionBadge(candidateTarget);
+                  return `<span class="badge ${b.badgeClass} badge-xs" style="font-size:8.5px; font-weight:800;">${b.text}</span>`;
+                })()}
+              </div>
+              <div style="font-size:9px; color:var(--color-text-dim);">Declarative parameter specification &amp; I/O routing configuration</div>
             </div>
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-              <input type="file" id="fileCandidateContract" accept=".json" style="display:none;" />
-              <button id="btnImportCandidateContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; padding:3px 8px;" title="Import a JSON hardware or plugin profile contract">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>Import Contract (.json)</span>
-              </button>
-              <button id="btnExportCandidateContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; padding:3px 8px;" title="Generate and download a sample JSON contract template">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span>Generate Sample (.json)</span>
-              </button>
-              <button id="btnSpecCandidateContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; padding:3px 8px;" title="Download technical specifications and JSON templates (.md)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                <span>Spec (.md)</span>
+              <button id="btnInspectContractCandidate" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; padding:3px 8px; color:var(--color-accent); border-color:var(--color-accent);" title="Manage hardware contract, versions, and JSON profile">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>Manage Contract...</span>
               </button>
             </div>
           </div>
@@ -1222,57 +1468,43 @@ export function renderStage1(container, state, onUpdate) {
             <input id="txtUnlistedName" type="text" class="btn btn-sm" style="width:100%; text-align:left; background:var(--color-panel-surface-elevated); color:var(--color-text-main); font-size:11.5px; padding:8px 10px;" value="${unlistedCustomName}" placeholder="e.g. My Custom DIY Overdrive Pedal" />
           </div>
 
-          <!-- Hardware Profile Contract (JSON) directly above Custom Device Photo -->
+          <!-- Hardware Profile Contract (JSON) -->
           <div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <label style="font-size:10px; font-weight:700; color:var(--color-text-muted); text-transform:uppercase;">Hardware Profile Contract</label>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label style="font-size:10px; font-weight:700; color:var(--color-text-muted); text-transform:uppercase;">Hardware Profile Contract</label>
+                ${(() => {
+                  const b = getTargetVersionBadge(candidateTarget || state.selectedTarget);
+                  return `<span class="badge ${b.badgeClass} badge-xs" style="font-size:8.5px; font-weight:800;">${b.text}</span>`;
+                })()}
+              </div>
               <div style="display:flex; gap:6px; align-items:center;">
-                <input type="file" id="fileUnlistedContract" accept=".json" style="display:none;" />
-                <button id="btnImportContract" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:4px 10px;" title="Import a JSON hardware profile contract">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span>Import Contract (.json)</span>
-                </button>
-                <button id="btnDownloadContractSpec" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:4px 10px;" title="Download technical specifications and JSON templates (.md)">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  <span>Get Spec &amp; Templates (.md)</span>
+                <button id="btnInspectContractUnlisted" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:4px 10px; color:var(--color-accent); border-color:var(--color-accent);" title="Manage hardware contract, versions, photos, and automation">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <span>Manage Contract...</span>
                 </button>
               </div>
             </div>
           </div>
 
-          <!-- Custom Device Photo / Image -->
-          <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <label style="font-size:10px; font-weight:700; color:var(--color-text-muted); text-transform:uppercase;">Custom Device Photo / Image</label>
-              <div style="display:flex; gap:6px;">
-                <input type="file" id="fileUnlistedImage" accept="image/png,image/jpeg,image/webp" style="display:none;" />
-                <button id="btnPickUnlistedImage" type="button" class="btn btn-outline btn-sm" style="display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; padding:4px 10px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span>${unlistedCustomImage ? 'Change Image...' : 'Load Device Image...'}</span>
-                </button>
-                ${unlistedCustomImage ? `
-                  <button id="btnResetUnlistedImage" type="button" class="btn btn-outline btn-sm" style="font-size:10px; font-weight:700; padding:4px 8px; color:var(--color-danger);">
-                    Reset
-                  </button>
-                ` : ''}
+          <!-- Summary of Device Artwork & Protocol (configured in Manage Contract...) -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--color-panel-surface-elevated); border:1px solid var(--color-panel-border); border-radius:var(--radius-sm); gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+              <div style="width:48px; height:40px; background:var(--color-bg-base); border-radius:4px; border:1px solid var(--color-panel-border); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                <img src="${candidateTarget?.image || unlistedCustomImage || resolveThemeImage(typo.image)}" alt="Device Photo" style="max-width:100%; max-height:100%; object-fit:contain;" />
               </div>
-            </div>
-            ${unlistedCustomImage ? `
-              <div style="display:flex; align-items:center; gap:12px; padding:8px; background:var(--color-panel-surface-elevated); border-radius:6px; border:1px solid var(--color-panel-border);">
-                <div style="width:70px; height:50px; background:var(--color-bg-base); border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                  <img src="${unlistedCustomImage}" alt="Custom Hardware Preview" style="max-width:100%; max-height:100%; object-fit:contain;" />
+              <div style="min-width:0; overflow:hidden;">
+                <div style="font-size:10px; font-weight:700; color:var(--color-text-main); text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                  ${candidateTarget?.name || unlistedCustomName || typo.name}
                 </div>
-                <div style="font-size:11px; color:var(--color-accent); font-weight:700;">Custom hardware image active</div>
+                <div style="font-size:9.5px; color:var(--color-text-dim);">
+                  ${candidateTarget?.midi ? 'MIDI Automation Enabled' : 'Manual Audio Only'} • Artwork Gallery
+                </div>
               </div>
-            ` : ''}
-          </div>
-
-          <div style="display:flex; align-items:center; justify-content:space-between; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
-            <span style="font-size:10.5px; font-weight:600; color:var(--color-text-muted);">MIDI Control Automation</span>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:11px; font-weight:700; color:var(--color-text-main);">
-              <input id="chkUnlistedMidi" type="checkbox" ${unlistedHasMidi ? 'checked' : ''} style="cursor:pointer;" />
-              <span>Target receives MIDI CC</span>
-            </label>
+            </div>
+            <button id="btnOpenContractQuickSummary" type="button" class="btn btn-outline btn-xs" style="font-size:9px; font-weight:700; flex-shrink:0;" title="Edit artwork photos, MIDI automation, and circuit profile in Contract modal">
+              Configure &rarr;
+            </button>
           </div>
 
           <button id="btnConfirmUnlistedModel" type="button" class="btn btn-primary" style="padding:10px 18px; font-weight:700; font-size:11.5px; border-radius:6px; width:100%; margin-top:6px;">
@@ -1807,38 +2039,68 @@ export function renderStage1(container, state, onUpdate) {
       }
     }
 
-    setupContractImportButton('#btnImportContract', '#fileUnlistedContract');
-    setupContractImportButton('#btnImportCandidateContract', '#fileCandidateContract');
-    setupContractImportButton('#btnImportLockedContract', '#fileLockedContract');
-
-    // Export Sample JSON Contract buttons
-    const btnExportUnlisted = container.querySelector('#btnExportUnlistedContract');
-    if (btnExportUnlisted) {
-      btnExportUnlisted.addEventListener('click', () => {
-        exportSampleContractJson(candidateTarget || state.selectedTarget);
+    // Contract Inspector & Version CRUD Modal
+    function handleOpenInspector(targetObj) {
+      if (!targetObj) {
+        if (typeof state.showToast === 'function') {
+          state.showToast('Please select or configure a hardware target first');
+        }
+        return;
+      }
+      const isCustom = targetObj.id?.startsWith('custom_') || !!targetObj.isCustom;
+      let factoryBase = null;
+      if (!isCustom) {
+        for (const b of FACTORY_BRANDS) {
+          if (b.models) {
+            const match = b.models.find(m => m.id === targetObj.id || (m.name && m.name === targetObj.name));
+            if (match) {
+              factoryBase = match;
+              break;
+            }
+          }
+        }
+      }
+      openContractInspectorModal({
+        target: targetObj,
+        factoryContract: isCustom ? null : factoryBase,
+        onApply: (updated) => {
+          applyImportedContract(updated);
+        },
+        onToast: (msg) => {
+          if (typeof state.showToast === 'function') state.showToast(msg);
+        }
       });
     }
 
-    const btnExportCandidate = container.querySelector('#btnExportCandidateContract');
-    if (btnExportCandidate) {
-      btnExportCandidate.addEventListener('click', () => {
-        exportSampleContractJson(candidateTarget || state.selectedTarget);
+    const btnInspectLocked = container.querySelector('#btnInspectContractLocked');
+    if (btnInspectLocked) {
+      btnInspectLocked.addEventListener('click', () => {
+        handleOpenInspector(state.selectedTarget || candidateTarget);
       });
     }
 
-    const btnExportLocked = container.querySelector('#btnExportLockedContract');
-    if (btnExportLocked) {
-      btnExportLocked.addEventListener('click', () => {
-        exportSampleContractJson(state.selectedTarget || candidateTarget);
+    const btnInspectCandidate = container.querySelector('#btnInspectContractCandidate');
+    if (btnInspectCandidate) {
+      btnInspectCandidate.addEventListener('click', () => {
+        handleOpenInspector(candidateTarget || state.selectedTarget);
       });
     }
 
-    // Spec & Template Guides (.md)
-    container.querySelectorAll('#btnDownloadContractSpec, #btnSpecCandidateContract, #btnDownloadSpecLocked').forEach(btn => {
-      btn.addEventListener('click', () => {
-        downloadContractSpecificationGuide();
+    const btnInspectUnlisted = container.querySelector('#btnInspectContractUnlisted');
+    if (btnInspectUnlisted) {
+      btnInspectUnlisted.addEventListener('click', () => {
+        if (!candidateTarget) syncCandidateFromUnlisted();
+        handleOpenInspector(candidateTarget);
       });
-    });
+    }
+
+    const btnQuickSummary = container.querySelector('#btnOpenContractQuickSummary');
+    if (btnQuickSummary) {
+      btnQuickSummary.addEventListener('click', () => {
+        if (!candidateTarget) syncCandidateFromUnlisted();
+        handleOpenInspector(candidateTarget);
+      });
+    }
 
     // Save Session Actions (Sealed State)
     const btnSave = container.querySelector('#btnSaveSession');
@@ -2046,8 +2308,12 @@ export function renderStage1(container, state, onUpdate) {
 
   function syncCandidateFromUnlisted() {
     const typo = UNLISTED_TYPOLOGIES.find(t => t.id === unlistedTypologyId) || UNLISTED_TYPOLOGIES[0];
+    const cleanName = (unlistedCustomName || typo.name || 'custom_device').trim();
+    const slug = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const deviceId = `custom_${slug || typo.id || 'hardware'}`;
+
     candidateTarget = {
-      id: `custom_${unlistedTypologyId || 'device'}`,
+      id: deviceId,
       name: unlistedCustomName || typo.name,
       shortName: unlistedCustomName || typo.name,
       category: typo.name,
@@ -2056,104 +2322,392 @@ export function renderStage1(container, state, onUpdate) {
       midi: unlistedHasMidi,
       protocol: unlistedHasMidi ? 'MIDI CC Channel 1 Automation' : 'Manual Potentiometer / Physical Sweep',
       routingNotes: 'DAC Out 1 -> Audio In -> Output -> ADC In 1',
-      details: typo.details
+      details: typo.details,
+      isCustom: true
     };
     state.selectedTarget = candidateTarget;
     notifyCandidateChanged(candidateTarget);
   }
 
   function downloadContractSpecificationGuide() {
-    const mdContent = `# ABDAudioLab - Hardware Profile Specification & Contract Guide (v2.0)
+    const mdContent = `# ABDAudioLab - Hardware Profile Specification & Contract Guide (Schema 2.0)
 
 ## Overview
-ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardware_profile.schema.json) to automatically configure measurement stimuli, I/O routing, and parameter sweeps.
+ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (\`hardware_profile.schema.json\`) to automatically configure measurement stimuli, DAC/ADC I/O routing, parameter sweeps, and ground-state hardware initialization.
 
 ### File Locations
-- Custom Contracts: <WorkingDir>/Hardware/<DeviceName>.json
-- Custom Photos: <WorkingDir>/Hardware/Images/<DeviceName>.png
+- **Official Factory Profiles**: \`contracts/hardware/<id>.json\`
+- **Custom Hardware Profiles**: \`<WorkingDir>/Hardware/<id>.json\` (or loaded via UI file import)
+- **Device Photos & Logos**: \`public/models/<model>.webp\`, \`public/brands/<brand>-logo.svg\`
 
 ---
 
-## Contract Fields
+## Canonical Device Typologies (\`deviceType\`)
+
+Every hardware profile must specify a valid \`deviceType\` enum value to determine the appropriate test sequencing, stimulus routing, and automation protocol:
+
+| \`deviceType\` | Control Method | Signal Path | Typical Use Case |
+| :--- | :--- | :--- | :--- |
+| **\`AUTOMATED_MIDI_CC\`** | MIDI CC / 14-bit NRPN | Audio I/O Loopback + MIDI Out | Hardware synthesizers, digital rack effects, modern analogue synths |
+| **\`AUTOMATED_SYSEX\`** | Vendor System Exclusive | Audio I/O Loopback + MIDI Out | Vintage synths & processors (Roland Juno-106, Casio CZ-101, DX7) |
+| **\`AUTOMATED_NRPN\`** | 14-bit NRPN | Audio I/O Loopback + MIDI Out | Specialized hardware synths with high-resolution parameters |
+| **\`ANALOGUE_PEDAL\`** | Manual Potentiometers | Instrument/Line Audio Loopback | Guitar/bass distortion, overdrive, chorus, and delay stompboxes |
+| **\`MANUAL_EURORACK\`** | 3.5mm TS Mini-jacks | Modular Level (+/-10V) Attenuated | Eurorack VCF, VCA, waveshaper modules with operator confirmation |
+| **\`MANUAL_SYNTH\`** | Manual Sliders / DCB | Keyboard / Line Out to Audio In | Vintage synthesizers without MIDI CC automation (Juno-60, Minimoog) |
+| **\`MANUAL_PROMPT\`** | Operator Prompt (Spacebar) | Audio I/O Loopback | Custom audio outboard gear with manual stepped adjustments |
+| **\`MOCK_DSP\`** | Software Emulated | Virtual Direct Bus | Calibration loops and test verifications without physical hardware |
+
+---
+
+## Contract Fields Reference (Schema 2.0)
 
 | Field | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| id | string | Yes | Unique identifier (e.g. "my_tube_preamp") |
-| name | string | Yes | Full commercial display name (e.g. "Custom Tube Mic Preamp") |
-| shortName | string | Yes | Compact display name for telemetry headers (e.g. "Tube Preamp") |
-| category | string | Yes | Hardware Category / Manufacturer |
-| deviceType | string | Yes | One of: ANALOGUE_PEDAL, SYNTHESIZER_KEYBOARD, SYNTHESIZER_MODULE, EURORACK_MODULAR, AUDIO_RACK, MIC_PREAMP, LOOPBACK_UNIT |
-| image | string | No | Path to photo relative to assets or data folder |
-| midi | boolean | Yes | Whether target accepts MIDI automation |
-| protocol | string | No | Control protocol description |
-| routingNotes | string | No | DAC / ADC connection guide |
-| details | string | No | Technical description of hardware architecture |
+| \`schemaVersion\` | string | Yes | Must be \`"2.0"\` |
+| \`id\` | string | Yes | Canonical identifier in lowercase alphanumeric with underscores (e.g. \`"boss_ds1_distortion"\`) |
+| \`displayName\` | string | Yes | Commercial display name (e.g. \`"BOSS DS-1 Distortion (Analogue Pedal)"\`) |
+| \`description\` | string | No | Technical summary of circuit architecture and signal flow |
+| \`deviceType\` | string | Yes | One of the valid typologies listed in the table above |
+| \`category\` | string | Yes | Hardware Category / Classification |
+| \`brand\` | string | No | Manufacturer brand name (e.g. \`"BOSS"\`, \`"Roland"\`, \`"Behringer"\`) |
+| \`brandLogo\` | string | No | Path to manufacturer SVG logo relative to \`brands/\` |
+| \`modelImage\` | string | No | Path to hardware photo relative to \`models/\` |
+| \`midi\` | boolean | No | Whether target supports MIDI automation (true for automated devices) |
+| \`protocol\` | string | No | Description of control automation protocol |
+| \`routingNotes\` | string | No | Summary of DAC/ADC audio and MIDI routing requirements |
+| \`routingGuide\` | object | No | Structured I/O guide with \`stimulusOutput\`, \`responseInput\`, \`notes\`, and \`steps\` |
+| \`cablingSteps\` | string[] | No | Step-by-step physical cabling checklist displayed in preflight wizards |
+| \`controls\` | object[] | No | Primary baseline controls \`{ name, type, defaultVal, unit }\` for Stage 3 Card 3B |
+| \`lifecycle\` | object | No | Contains \`preSessionSetup\` ground-state actions executed before measurement |
+| \`functions\` | object[] | No | DSP blocks (\`SpectrumFilter\`, \`TimeDynamic\`, \`WaveShaper\`, \`CyclicModulator\`) with controls |
 
 ---
 
-## JSON Templates
+## Hardware Ground State (\`lifecycle.preSessionSetup\`)
 
-### 1. Analogue Guitar Pedal (Stompbox)
+The \`lifecycle.preSessionSetup\` array defines the sequence of commands executed automatically during preflight to place the hardware in an idempotent, reproducible baseline state before profiling stimuli are played:
+
+\`\`\`json
+"lifecycle": {
+  "preSessionSetup": [
+    {
+      "description": "Reset All Controllers (MIDI CC 121)",
+      "method": "MIDI_CC",
+      "channel": 1,
+      "cc": 121,
+      "value": 0,
+      "settlingDelayMs": 50
+    },
+    {
+      "description": "Send neutral patch SysEx configuration dump",
+      "method": "SYSEX_RAW",
+      "sysexHexPayload": "F0 41 10 00 00 00 F7",
+      "settlingDelayMs": 200
+    },
+    {
+      "description": "Align physical Tone knob to 12 o'clock (50%)",
+      "method": "MANUAL_PROMPT",
+      "normalizedValue": 0.5
+    }
+  ]
+}
+\`\`\`
+
+### Supported \`method\` Types:
+- **\`MIDI_CC\`**: Sends standard 7-bit Continuous Controller (\`channel\`, \`cc\`, \`value\`).
+- **\`NRPN\`**: Sends 14-bit Non-Registered Parameter Number (\`channel\`, \`nrpn\`, \`value\`).
+- **\`SYSEX_RAW\`**: Transmits hexadecimal System Exclusive byte stream (\`sysexHexPayload\`).
+- **\`MANUAL_PROMPT\`**: Pauses preflight and prompts operator to set physical knob/switch with Spacebar confirmation.
+
+---
+
+## JSON Templates (Schema 2.0)
+
+### 1. Analogue Guitar Distortion Pedal (\`ANALOGUE_PEDAL\`)
 \`\`\`json
 {
-  "id": "my_custom_overdrive",
-  "name": "DIY Vintage Overdrive Pedal",
-  "shortName": "DIY OD-1",
+  "schemaVersion": "2.0",
+  "id": "my_analogue_overdrive",
+  "displayName": "Vintage Overdrive Pedal (Analogue Stompbox)",
+  "shortName": "Overdrive Pedal",
   "category": "Guitar Pedal",
   "deviceType": "ANALOGUE_PEDAL",
-  "image": "images/custom_od.png",
+  "brand": "Custom Audio",
+  "brandLogo": "brands/placeholder-manufacturer.svg",
+  "modelImage": "models/pedal_black.webp",
   "midi": false,
   "protocol": "Manual Knobs (Drive, Tone, Level)",
   "routingNotes": "DAC Out 1 -> Pedal Input -> Pedal Output -> ADC In 1",
-  "details": "JFET op-amp asymmetrical clipping overdrive circuit"
+  "routingGuide": {
+    "stimulusOutput": "Audio Interface DAC Out 1 (1/4 inch TS)",
+    "responseInput": "Audio Interface ADC In 1 (1/4 inch TS)",
+    "notes": "Ensure 9V DC isolated power supply is connected or 9V battery is fresh.",
+    "steps": [
+      "Connect Audio Interface DAC Out 1 to Pedal INPUT using a shielded 1/4\" TS cable.",
+      "Connect Pedal OUTPUT to Audio Interface ADC In 1 using a shielded 1/4\" TS cable.",
+      "Ensure 9V DC power supply is connected or 9V battery is fresh.",
+      "Step on footswitch to engage effect and verify indicator LED is illuminated.",
+      "Align physical Tone and Drive pots to 12 o'clock (50%), Level to unity gain (50%)."
+    ]
+  },
+  "cablingSteps": [
+    "Connect Audio Interface DAC Out 1 to Pedal INPUT using a shielded 1/4\" TS cable.",
+    "Connect Pedal OUTPUT to Audio Interface ADC In 1 using a shielded 1/4\" TS cable.",
+    "Ensure 9V DC power supply is connected or 9V battery is fresh.",
+    "Step on footswitch to engage effect and verify indicator LED is illuminated.",
+    "Align physical Tone and Drive pots to 12 o'clock (50%), Level to unity gain (50%)."
+  ],
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Align Tone potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Align Drive potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Align Level potentiometer to unity gain (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      }
+    ]
+  },
+  "controls": [
+    { "name": "TONE", "type": "Knob", "defaultVal": 0.50, "unit": "%" },
+    { "name": "DRIVE", "type": "Knob", "defaultVal": 0.50, "unit": "%" },
+    { "name": "LEVEL", "type": "Knob", "defaultVal": 0.50, "unit": "%" }
+  ],
+  "functions": [
+    {
+      "id": "clipping_stage",
+      "name": "Overdrive Saturation Stage",
+      "blockType": "WaveShaper",
+      "suggestedStimulus": "LOG_SINE_SWEEP",
+      "controls": [
+        { "index": 1, "name": "Drive", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.50 },
+        { "index": 2, "name": "Tone", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.50 },
+        { "index": 3, "name": "Level", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.50 }
+      ]
+    }
+  ]
 }
 \`\`\`
 
-### 2. Hardware Synthesizer (MIDI CC Enabled)
+### 2. Automated MIDI Synthesizer (\`AUTOMATED_MIDI_CC\`)
 \`\`\`json
 {
-  "id": "my_analogue_mono_synth",
-  "name": "Custom Monophonic Analogue Synth",
-  "shortName": "MonoSynth",
+  "schemaVersion": "2.0",
+  "id": "my_automated_synth",
+  "displayName": "Analogue Monophonic Synthesizer (MIDI CC)",
+  "shortName": "MonoSynth CC",
   "category": "Synthesizer",
-  "deviceType": "SYNTHESIZER_MODULE",
-  "image": "images/custom_synth.png",
+  "deviceType": "AUTOMATED_MIDI_CC",
+  "brand": "Custom Synthesizers",
+  "brandLogo": "brands/placeholder-manufacturer.svg",
+  "modelImage": "models/desktop_black.webp",
   "midi": true,
   "protocol": "MIDI CC Automation (Cutoff: CC74, Res: CC71)",
-  "routingNotes": "MIDI Out 1 -> Synth MIDI In; Synth Audio Out -> ADC In 1",
-  "details": "Dual VCO, 24dB ladder filter, discrete analogue signal path"
+  "routingNotes": "MIDI Out 1 -> Synth MIDI IN; Synth Audio Out -> Audio Interface In 1",
+  "routingGuide": {
+    "stimulusOutput": "MIDI Out 1 (5-Pin DIN / USB MIDI)",
+    "responseInput": "Audio Interface In 1 (1/4 inch TS Line In)",
+    "notes": "Verify MIDI Channel 1 matches synth reception settings.",
+    "steps": [
+      "Connect Audio Interface MIDI Out to Synth MIDI IN using a standard 5-pin DIN or USB MIDI cable.",
+      "Connect Synth Main Audio Output to Audio Interface Input 1 using a 1/4\" TS cable.",
+      "Power on synthesizer and align Master Volume to nominal level (~75%).",
+      "Select initial test patch (or init preset) on the front panel."
+    ]
+  },
+  "cablingSteps": [
+    "Connect Audio Interface MIDI Out to Synth MIDI IN using a standard 5-pin DIN or USB MIDI cable.",
+    "Connect Synth Main Audio Output to Audio Interface Input 1 using a 1/4\" TS cable.",
+    "Power on synthesizer and align Master Volume to nominal level (~75%).",
+    "Select initial test patch (or init preset) on the front panel."
+  ],
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Reset All Controllers (MIDI CC 121)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "cc": 121,
+        "value": 0,
+        "settlingDelayMs": 50
+      },
+      {
+        "description": "Initialize VCF Cutoff to nominal center (CC 74)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "cc": 74,
+        "value": 0.5,
+        "settlingDelayMs": 50
+      },
+      {
+        "description": "Initialize VCF Resonance to minimum (CC 71)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "cc": 71,
+        "value": 0.0,
+        "settlingDelayMs": 50
+      }
+    ]
+  },
+  "controls": [
+    { "name": "VCF Cutoff", "type": "Knob", "defaultVal": 0.50, "unit": "%" },
+    { "name": "VCF Resonance", "type": "Knob", "defaultVal": 0.00, "unit": "%" },
+    { "name": "VCA Level", "type": "Knob", "defaultVal": 0.75, "unit": "%" }
+  ],
+  "functions": [
+    {
+      "id": "vcf_filter",
+      "name": "Resonant Low-Pass Filter (VCF)",
+      "blockType": "SpectrumFilter",
+      "suggestedStimulus": "LOG_SINE_SWEEP",
+      "controls": [
+        { "index": 1, "name": "Cutoff", "type": "Knob", "controlMethod": "MIDI_CC", "cc": 74, "defaultVal": 0.50, "unit": "Hz" },
+        { "index": 2, "name": "Resonance", "type": "Knob", "controlMethod": "MIDI_CC", "cc": 71, "defaultVal": 0.00, "unit": "%" }
+      ]
+    }
+  ]
 }
 \`\`\`
 
-### 3. Outboard Studio Mic Preamp / Compressor
+### 3. Eurorack Modular Processor (\`MANUAL_EURORACK\`)
 \`\`\`json
 {
-  "id": "my_studio_vca_compressor",
-  "name": "Stereo VCA Bus Compressor",
-  "shortName": "Bus Comp",
-  "category": "Outboard Studio Gear",
-  "deviceType": "AUDIO_RACK",
-  "image": "images/bus_comp.png",
+  "schemaVersion": "2.0",
+  "id": "my_eurorack_vcf",
+  "displayName": "Eurorack Resonant State-Variable VCF (Modular)",
+  "shortName": "Eurorack VCF",
+  "category": "Eurorack Modular",
+  "deviceType": "MANUAL_EURORACK",
+  "brand": "Analogue Modular",
+  "brandLogo": "brands/placeholder-manufacturer.svg",
+  "modelImage": "models/eurorack2_black.webp",
   "midi": false,
-  "protocol": "Manual Stepped Controls (Threshold, Ratio, Attack, Release)",
-  "routingNotes": "DAC Out 1/2 -> Line In L/R -> Line Out L/R -> ADC In 1/2",
-  "details": "True RMS detection discrete VCA bus compressor"
+  "protocol": "Operator-Assisted Stepping (Spacebar Confirmation)",
+  "routingNotes": "DAC Out 1 (Attenuated / -10dBV) -> Module Audio IN; Module Audio OUT -> Interface In 1",
+  "routingGuide": {
+    "stimulusOutput": "DAC Out 1 (Modular level attenuated to +/-5V max)",
+    "responseInput": "Audio Interface In 1 (via line attenuator)",
+    "notes": "Use 3.5mm mono mini-jack patch cables. Ensure ADC is protected from 10Vpp modular levels.",
+    "steps": [
+      "Patch Audio Interface Out 1 to Eurorack Module Audio IN using a 3.5mm TS patch cable.",
+      "Patch Eurorack Module Audio OUT through an attenuator/line converter to Interface In 1.",
+      "Verify Eurorack case power rails (+12V/-12V/5V) are energized.",
+      "Set Resonance potentiometer fully counter-clockwise (0%).",
+      "Set Cutoff Frequency potentiometer to 12 o'clock (nominal center)."
+    ]
+  },
+  "cablingSteps": [
+    "Patch Audio Interface Out 1 to Eurorack Module Audio IN using a 3.5mm TS patch cable.",
+    "Patch Eurorack Module Audio OUT through an attenuator/line converter to Interface In 1.",
+    "Verify Eurorack case power rails (+12V/-12V/5V) are energized.",
+    "Set Resonance potentiometer fully counter-clockwise (0%).",
+    "Set Cutoff Frequency potentiometer to 12 o'clock (nominal center)."
+  ],
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Set Cutoff Frequency potentiometer to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Set Resonance potentiometer to fully closed 0%",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.0
+      }
+    ]
+  },
+  "controls": [
+    { "name": "Frequency", "type": "Knob", "defaultVal": 0.50, "unit": "%" },
+    { "name": "Resonance", "type": "Knob", "defaultVal": 0.00, "unit": "%" }
+  ],
+  "functions": [
+    {
+      "id": "modular_filter",
+      "name": "State-Variable Resonant Filter",
+      "blockType": "SpectrumFilter",
+      "suggestedStimulus": "LOG_SINE_SWEEP",
+      "controls": [
+        { "index": 1, "name": "Frequency", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.50 },
+        { "index": 2, "name": "Resonance", "type": "Knob", "controlMethod": "MANUAL", "defaultVal": 0.00 }
+      ]
+    }
+  ]
 }
 \`\`\`
 
-### 4. Audio Interface Loopback Calibration Target
+### 4. Automated SysEx Synthesizer (\`AUTOMATED_SYSEX\`)
 \`\`\`json
 {
-  "id": "interface_direct_loopback",
-  "name": "Audio Interface Direct Loopback Cable",
-  "shortName": "Loopback Cable",
-  "category": "Calibration",
-  "deviceType": "LOOPBACK_UNIT",
-  "image": "images/generic-desktop-module.webp",
-  "midi": false,
-  "protocol": "Direct Physical TRS Balanced Cable",
-  "routingNotes": "DAC Output 1 -> TRS Cable -> ADC Input 1",
-  "details": "Zero-load unity-gain calibration reference loop"
+  "schemaVersion": "2.0",
+  "id": "my_sysex_synthesizer",
+  "displayName": "Vintage Polyphonic Synthesizer (SysEx Automated)",
+  "shortName": "Vintage SysEx Synth",
+  "category": "Synthesizer",
+  "deviceType": "AUTOMATED_SYSEX",
+  "brand": "Vintage Synthesizers",
+  "brandLogo": "brands/placeholder-manufacturer.svg",
+  "modelImage": "models/desktop_black.webp",
+  "midi": true,
+  "protocol": "MIDI System Exclusive (SysEx) Dumps & CC",
+  "midiIdentification": {
+    "manufacturer": "Vintage Corp",
+    "model": "Poly-100",
+    "autoDetectSysEx": "F0 7E 7F 06 01 F7"
+  },
+  "routingNotes": "MIDI Out 1 -> Synth MIDI IN; Synth Stereo Out (L/R) -> Interface In 1/2",
+  "routingGuide": {
+    "stimulusOutput": "MIDI Out 1 (5-Pin DIN)",
+    "responseInput": "Audio Interface Inputs 1 & 2 (1/4 inch TS)",
+    "notes": "Set Rear/Panel Function Switch to SysEx enable mode.",
+    "steps": [
+      "Connect MIDI Out from interface to Synth MIDI IN using a 5-pin DIN cable.",
+      "Connect Synth Stereo Outputs to Audio Interface Inputs 1 & 2 using 1/4\" TS cables.",
+      "Set Rear Function Switch / MIDI menu to System Exclusive Enabled.",
+      "Set Master Volume slider to nominal position (~75%)."
+    ]
+  },
+  "cablingSteps": [
+    "Connect MIDI Out from interface to Synth MIDI IN using a 5-pin DIN cable.",
+    "Connect Synth Stereo Outputs to Audio Interface Inputs 1 & 2 using 1/4\" TS cables.",
+    "Set Rear Function Switch / MIDI menu to System Exclusive Enabled.",
+    "Set Master Volume slider to nominal position (~75%)."
+  ],
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Send neutral init patch SysEx dump to restore clean baseline",
+        "method": "SYSEX_RAW",
+        "sysexHexPayload": "F0 41 10 00 00 00 00 00 F7",
+        "settlingDelayMs": 250
+      }
+    ]
+  },
+  "controls": [
+    { "name": "VCF Cutoff", "type": "Slider", "defaultVal": 0.75, "unit": "%" },
+    { "name": "VCF Resonance", "type": "Slider", "defaultVal": 0.20, "unit": "%" },
+    { "name": "VCA Level", "type": "Slider", "defaultVal": 0.80, "unit": "%" }
+  ],
+  "functions": [
+    {
+      "id": "filter_core",
+      "name": "Analogue VCF Core",
+      "blockType": "SpectrumFilter",
+      "suggestedStimulus": "LOG_SINE_SWEEP",
+      "controls": [
+        { "index": 1, "name": "Cutoff", "type": "Slider", "controlMethod": "SYSEX", "defaultVal": 0.75 },
+        { "index": 2, "name": "Resonance", "type": "Slider", "controlMethod": "SYSEX", "defaultVal": 0.20 }
+      ]
+    }
+  ]
 }
 \`\`\`
 `;
@@ -2170,39 +2724,213 @@ ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardw
   }
 
   function exportSampleContractJson(target) {
+    if (target && target.id) {
+      const baseId = target.id;
+      let factoryBase = null;
+      for (const b of FACTORY_BRANDS) {
+        if (b.models) {
+          const match = b.models.find(m => m.id === target.id || (m.name && m.name === target.name));
+          if (match) { factoryBase = match; break; }
+        }
+      }
+      const versions = ContractVersionStore.getVersions(baseId, factoryBase || target);
+      const activeDraft = ContractVersionStore.getActiveDraft(baseId, factoryBase || target);
+      const verToExport = activeDraft || versions[versions.length - 1];
+      if (verToExport && verToExport.contract) {
+        const exportCopy = JSON.parse(JSON.stringify(verToExport.contract));
+        exportCopy.schemaVersion = "2.0";
+        exportCopy.profileVersion = verToExport.versionNumber || "1.0.0";
+        const jsonStr = JSON.stringify(exportCopy, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseId}_${verToExport.versionNumber || 'contract'}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (typeof state.showToast === 'function') {
+          state.showToast(`Contrato descargado: ${a.download}`);
+        }
+        return;
+      }
+    }
+
     const isPlug = target && target.isPlugin;
+    const isMidi = target ? !!target.midi : (!isPlug);
+
+    // Resolve canonical deviceType conforming to hardware_profile.schema.json
+    let devType = 'AUTOMATED_MIDI_CC';
+    if (target && target.deviceType) {
+      devType = target.deviceType;
+    } else if (isPlug) {
+      devType = 'MOCK_DSP';
+    } else if (!isMidi) {
+      devType = 'ANALOGUE_PEDAL';
+    }
+
+    // Cabling steps extraction or default based on topology
+    let cabling = null;
+    if (target && Array.isArray(target.cablingSteps) && target.cablingSteps.length > 0) {
+      cabling = [...target.cablingSteps];
+    } else if (target && target.routingGuide && Array.isArray(target.routingGuide.steps) && target.routingGuide.steps.length > 0) {
+      cabling = [...target.routingGuide.steps];
+    } else {
+      if (devType === 'ANALOGUE_PEDAL') {
+        cabling = [
+          'Connect Audio Interface DAC Out 1 (L) to Pedal INPUT using a shielded 1/4" TS cable.',
+          'Connect Pedal OUTPUT to Audio Interface ADC In 1 (L) using a shielded 1/4" TS cable.',
+          'Ensure 9V DC isolated power supply is connected or 9V battery is fresh.',
+          'Step on footswitch to engage effect and verify indicator LED is illuminated.',
+          'Align physical Tone and Gain pots to 12 o\'clock (50%), Level to unity gain (50%).'
+        ];
+      } else if (devType === 'MANUAL_EURORACK') {
+        cabling = [
+          'Patch Audio Interface Out 1 to Eurorack Module Audio IN using a 3.5mm TS patch cable.',
+          'Patch Eurorack Module Audio OUT through an attenuator/line converter to Interface In 1.',
+          'Verify Eurorack case power rails (+12V/-12V/5V) are energized.',
+          'Set Cutoff Frequency pot to 12 o\'clock (50%), Resonance pot fully counter-clockwise (0%).'
+        ];
+      } else if (isPlug) {
+        cabling = [
+          'DAW / Test Host Internal Audio Routing active.',
+          'Zero-latency direct floating-point sample bus established.'
+        ];
+      } else {
+        cabling = [
+          'Connect Audio Interface MIDI Out to Target MIDI IN using a 5-pin DIN or USB MIDI cable.',
+          'Connect Target Audio Output to Audio Interface Input 1 using a shielded 1/4" TS cable.',
+          'Power on hardware unit and set master/output level to nominal position (~75% or unity gain).'
+        ];
+      }
+    }
+
+    // Lifecycle ground-state setup extraction or default
+    let lifecycle = null;
+    if (target && target.lifecycle && Array.isArray(target.lifecycle.preSessionSetup) && target.lifecycle.preSessionSetup.length > 0) {
+      lifecycle = JSON.parse(JSON.stringify(target.lifecycle));
+    } else {
+      if (devType === 'ANALOGUE_PEDAL' || devType === 'MANUAL_EURORACK' || devType === 'MANUAL_SYNTH' || devType === 'MANUAL_PROMPT') {
+        lifecycle = {
+          preSessionSetup: [
+            {
+              description: 'Align primary Tone / Cutoff potentiometer to nominal 12 o\'clock position (50%)',
+              method: 'MANUAL_PROMPT',
+              normalizedValue: 0.5
+            },
+            {
+              description: 'Align Level / Volume potentiometer to unity gain (50%)',
+              method: 'MANUAL_PROMPT',
+              normalizedValue: 0.5
+            }
+          ]
+        };
+      } else if (devType === 'AUTOMATED_SYSEX') {
+        lifecycle = {
+          preSessionSetup: [
+            {
+              description: 'Send neutral init patch SysEx dump to restore baseline ground state',
+              method: 'SYSEX_RAW',
+              sysexHexPayload: 'F0 41 10 00 00 00 00 00 F7',
+              settlingDelayMs: 200
+            }
+          ]
+        };
+      } else {
+        lifecycle = {
+          preSessionSetup: [
+            {
+              description: 'Reset All Controllers (MIDI CC 121)',
+              method: 'MIDI_CC',
+              channel: 1,
+              cc: 121,
+              value: 0,
+              settlingDelayMs: 50
+            },
+            {
+              description: 'Initialize Filter Cutoff to nominal center (CC 74)',
+              method: 'MIDI_CC',
+              channel: 1,
+              cc: 74,
+              value: 0.5,
+              settlingDelayMs: 50
+            }
+          ]
+        };
+      }
+    }
+
+    // Baseline Controls extraction or default
+    let controls = null;
+    if (target && Array.isArray(target.controls) && target.controls.length > 0) {
+      controls = [...target.controls];
+    } else if (target && Array.isArray(target.parameters) && target.parameters.length > 0) {
+      controls = target.parameters.map(p => ({
+        name: p.name || 'Control',
+        type: p.type || 'Knob',
+        defaultVal: typeof p.default === 'number' ? (p.default / (p.max || 127)) : 0.50,
+        unit: p.unit || '%'
+      }));
+    } else {
+      controls = [
+        { name: 'Cutoff / Tone', type: 'Knob', defaultVal: 0.50, unit: '%' },
+        { name: 'Resonance / Peak', type: 'Knob', defaultVal: 0.00, unit: '%' },
+        { name: 'Output Level', type: 'Knob', defaultVal: 0.75, unit: '%' }
+      ];
+    }
+
+    // Routing guide
+    const routingGuide = (target && target.routingGuide) ? target.routingGuide : {
+      stimulusOutput: isPlug ? 'Internal Bus Master' : 'Audio Interface DAC Out 1 (1/4 inch TS)',
+      responseInput: isPlug ? 'Internal Bus Return' : 'Audio Interface ADC In 1 (1/4 inch TS)',
+      notes: (target && target.routingNotes) ? target.routingNotes : (isPlug ? 'Internal floating-point audio bus' : 'DAC Out 1 -> Target Audio IN; Target Audio OUT -> ADC In 1'),
+      steps: cabling
+    };
+
+    const targetDisplayName = (target && (target.displayName || target.name)) ? (target.displayName || target.name) : 'Custom Audio Target';
+    const targetId = (target && target.id) ? String(target.id).toLowerCase().replace(/[^a-z0-9_]/g, '_') : 'custom_hardware_profile';
+
     const sample = {
-      "$schema": "https://abdsynths.com/schemas/hardware_profile.schema.json",
-      "version": "2.0.0",
-      "id": (target && target.id) ? String(target.id).toLowerCase().replace(/[^a-z0-9_]/g, '_') : "custom_device_profile",
-      "name": (target && target.name) ? target.name : "Custom Audio Target",
+      "$schema": "https://abdaudiolab.com/schemas/hardware_profile.schema.json",
+      "schemaVersion": "2.0",
+      "id": targetId,
+      "displayName": targetDisplayName,
+      "name": targetDisplayName,
       "shortName": (target && target.shortName) ? target.shortName : (target && target.name) || "Device",
+      "description": (target && (target.description || target.details)) ? (target.description || target.details) : "Declarative measurement contract conforming to ABDAudioLab Schema 2.0",
       "category": (target && target.category) ? target.category : (isPlug ? "Virtual Plugin" : "Hardware Target"),
-      "deviceType": (target && target.deviceType) ? target.deviceType : (isPlug ? "VIRTUAL_PLUGIN" : "SYNTHESIZER_MODULE"),
-      "midi": target ? !!target.midi : true,
-      "protocol": (target && target.protocol) ? target.protocol : (isPlug ? "VST3 Parameter Automation" : "MIDI CC Automation"),
-      "routingNotes": (target && target.routingNotes) ? target.routingNotes : (isPlug ? "DAW / Test Host Internal Bus (Zero Latency Direct I/O)" : "Probe Out 1 -> Audio In 1; Target Audio Out -> Return In 1"),
-      "details": (target && target.details) ? target.details : "Declarative measurement contract for profiling and parameter tracking",
-      "parameters": (target && Array.isArray(target.parameters) && target.parameters.length > 0) ? target.parameters : [
+      "brand": (target && target.brand) ? target.brand : (target && target.category) || "Custom Hardware",
+      "brandLogo": (target && target.brandLogo) ? target.brandLogo : "brands/placeholder-manufacturer.svg",
+      "modelImage": (target && (target.modelImage || target.image)) ? (target.modelImage || target.image) : "models/desktop_black.webp",
+      "deviceType": devType,
+      "midi": isMidi,
+      "protocol": (target && target.protocol) ? target.protocol : (isPlug ? "VST3 Parameter Automation" : (isMidi ? "MIDI CC Automation" : "Manual Knobs")),
+      "routingNotes": (target && target.routingNotes) ? target.routingNotes : (isPlug ? "DAW / Test Host Internal Bus (Zero Latency Direct I/O)" : "DAC Out 1 -> Target Audio IN; Target Audio OUT -> ADC In 1"),
+      "routingGuide": routingGuide,
+      "cablingSteps": cabling,
+      "lifecycle": lifecycle,
+      "controls": controls,
+      "functions": [
         {
-          "id": "param_cutoff",
-          "name": "Filter Cutoff",
-          "type": "CONTINUOUS",
-          "cc": 74,
-          "min": 0,
-          "max": 127,
-          "default": 64,
-          "unit": "Hz"
-        },
-        {
-          "id": "param_resonance",
-          "name": "Resonance",
-          "type": "CONTINUOUS",
-          "cc": 71,
-          "min": 0,
-          "max": 127,
-          "default": 0,
-          "unit": "%"
+          "id": "core_processing_stage",
+          "name": "Primary Processing Stage",
+          "blockType": devType === 'ANALOGUE_PEDAL' ? "WaveShaper" : "SpectrumFilter",
+          "suggestedStimulus": "LOG_SINE_SWEEP",
+          "routingGuide": {
+            "stimulusOutput": routingGuide.stimulusOutput,
+            "responseInput": routingGuide.responseInput,
+            "notes": routingGuide.notes
+          },
+          "controls": controls.map((c, idx) => ({
+            "index": idx + 1,
+            "name": c.name,
+            "type": c.type || "Knob",
+            "controlMethod": isMidi ? (devType === 'AUTOMATED_SYSEX' ? "SYSEX" : "MIDI_CC") : "MANUAL",
+            "cc": isMidi ? (idx === 0 ? 74 : (idx === 1 ? 71 : 7)) : undefined,
+            "defaultVal": typeof c.defaultVal === 'number' ? c.defaultVal : 0.50,
+            "unit": c.unit || "%"
+          }))
         }
       ]
     };
@@ -2212,7 +2940,7 @@ ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardw
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const baseName = (target && target.name) ? target.name.toLowerCase().replace(/[^a-z0-9_]/g, '_') : 'sample_device';
+    const baseName = targetId || 'sample_device';
     a.download = `${baseName}_profile.json`;
     document.body.appendChild(a);
     a.click();
@@ -2223,13 +2951,24 @@ ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardw
   function applyImportedContract(contract) {
     if (!contract) return;
     const targetObj = candidateTarget || state.selectedTarget || {};
+    
+    // Core naming fields (support both Schema 2.0 displayName and legacy name)
+    if (contract.displayName) {
+      targetObj.displayName = contract.displayName;
+      if (!contract.name) targetObj.name = contract.displayName;
+    }
     if (contract.name) {
       targetObj.name = contract.name;
-      targetObj.shortName = contract.shortName || contract.name;
+      targetObj.shortName = contract.shortName || contract.displayName || contract.name;
       unlistedCustomName = contract.name;
     }
     if (contract.id) targetObj.id = contract.id;
+    if (contract.description) targetObj.description = contract.description;
     if (contract.category) targetObj.category = contract.category;
+    if (contract.brand) targetObj.brand = contract.brand;
+    if (contract.brandLogo) targetObj.brandLogo = contract.brandLogo;
+
+    // Device topology classification
     if (contract.deviceType) {
       targetObj.deviceType = contract.deviceType;
       const foundTypo = UNLISTED_TYPOLOGIES.find(t => t.deviceType === contract.deviceType);
@@ -2238,10 +2977,52 @@ ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardw
     if (typeof contract.midi !== 'undefined') {
       targetObj.midi = !!contract.midi;
       unlistedHasMidi = !!contract.midi;
+    } else if (contract.deviceType) {
+      const isAutoMidi = contract.deviceType.startsWith('AUTOMATED_');
+      targetObj.midi = isAutoMidi;
+      unlistedHasMidi = isAutoMidi;
     }
+
     if (contract.protocol) targetObj.protocol = contract.protocol;
     if (contract.routingNotes) targetObj.routingNotes = contract.routingNotes;
     if (contract.details) targetObj.details = contract.details;
+    if (contract.routingGuide) targetObj.routingGuide = contract.routingGuide;
+
+    // Cabling steps (either direct or inside routingGuide.steps)
+    if (Array.isArray(contract.cablingSteps) && contract.cablingSteps.length > 0) {
+      targetObj.cablingSteps = contract.cablingSteps;
+    } else if (contract.routingGuide && Array.isArray(contract.routingGuide.steps) && contract.routingGuide.steps.length > 0) {
+      targetObj.cablingSteps = contract.routingGuide.steps;
+    }
+
+    // Lifecycle ground-state setup actions
+    if (contract.lifecycle) {
+      targetObj.lifecycle = contract.lifecycle;
+    }
+
+    // Baseline controls (direct or extracted from functions)
+    if (Array.isArray(contract.controls) && contract.controls.length > 0) {
+      targetObj.controls = contract.controls;
+    } else if (Array.isArray(contract.functions) && contract.functions.length > 0) {
+      const extractedControls = [];
+      contract.functions.forEach(fn => {
+        if (Array.isArray(fn.controls)) {
+          fn.controls.forEach(c => {
+            extractedControls.push({
+              name: c.name || 'Control',
+              type: c.type || 'Knob',
+              defaultVal: typeof c.defaultVal === 'number' ? c.defaultVal : 0.50,
+              unit: c.unit || '%'
+            });
+          });
+        }
+      });
+      if (extractedControls.length > 0) {
+        targetObj.controls = extractedControls;
+      }
+    }
+
+    // Parameter compatibility for continuous sweep sliders
     if (contract.parameters && Array.isArray(contract.parameters)) {
       targetObj.parameters = contract.parameters;
     } else if (contract.functions && Array.isArray(contract.functions)) {
@@ -2266,10 +3047,17 @@ ABDAudioLab uses declarative JSON contracts conforming to JSON Schema 2.0 (hardw
         targetObj.parameters = extracted;
       }
     }
-    if (contract.image) {
-      targetObj.image = contract.image;
-      targetObj.customImage = contract.image;
-      unlistedCustomImage = contract.image;
+
+    // Artwork & Photos & Gallery
+    if (contract.gallery && Array.isArray(contract.gallery)) {
+      targetObj.gallery = contract.gallery;
+    }
+    const imgPath = contract.modelImage || contract.image;
+    if (imgPath) {
+      targetObj.image = imgPath;
+      targetObj.modelImage = imgPath;
+      targetObj.customImage = imgPath;
+      unlistedCustomImage = imgPath;
     }
 
     if (!candidateTarget && !state.selectedTarget) {

@@ -1016,6 +1016,9 @@ export function renderStage3Classic(container, suiteQueue, activeTestIndex, onSu
       const numControls = Math.max(1, controls.length);
       const ptsPerCtrl = Math.max(1, Math.floor(totalCount / numControls));
 
+      const modMatData = generateModulationMatrix(controls, points, typologyId);
+      const dynMod = modMatData.dynamicModulation || {};
+
       return `
         <div style="position:relative; width:100%; height:100%; padding:12px 16px; overflow-y:auto; box-sizing:border-box;">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
@@ -1109,7 +1112,25 @@ export function renderStage3Classic(container, suiteQueue, activeTestIndex, onSu
             </tbody>
           </table>
 
-          <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--color-text-dim);">
+          ${(dynMod.keyTrack || dynMod.selfOsc) ? `
+            <div style="margin-top:10px; padding:6px 12px; background:var(--color-panel-surface-elevated, rgba(255,255,255,0.02)); border:1px solid var(--color-panel-border); border-radius:4px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; font-family:monospace; font-size:9.5px;">
+              <span style="font-weight:700; color:var(--color-accent);">FILTER DYNAMICS:</span>
+              ${dynMod.keyTrack ? `
+                <span style="color:var(--color-info);">
+                  Key Track: <strong>${dynMod.keyTrack.percent >= 0 ? '+' : ''}${dynMod.keyTrack.percent.toFixed(1)}%</strong>
+                  (Ratio: ${dynMod.keyTrack.ratio.toFixed(3)} st/note • Pivot C4 @ ${Math.round(dynMod.keyTrack.baseCutoffHz)} Hz)
+                </span>
+              ` : ''}
+              ${dynMod.selfOsc ? `
+                <span style="color:var(--color-warning);">
+                  Self-Oscillation: <strong>Active</strong>
+                  (f0: ${dynMod.selfOsc.freqHz.toFixed(1)} Hz • ${dynMod.selfOsc.peakDbfs.toFixed(1)} dBFS • THD: ${dynMod.selfOsc.thdPercent.toFixed(2)}%)
+                </span>
+              ` : ''}
+            </div>
+          ` : ''}
+
+          <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--color-text-dim);">
             <span>Non-linear regression model: Logarithmic polynomial splines fit.</span>
             <span>Sparse Parameter Interpolation Ready</span>
           </div>

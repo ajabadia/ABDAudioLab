@@ -45,6 +45,8 @@ TestEditorPanel::TestEditorPanel()
     comboStimulusType.addItem("1kHz Sine Wave (Saturator & Harmonic Distortion THD)", 5);
     comboStimulusType.addItem("White Noise Burst (Statistical Noise Floor & Broad Band)", 6);
     comboStimulusType.addItem("NAM / RTNeural Calibration (Sync, Chirp, Noise, Multitone)", 7);
+    comboStimulusType.addItem("Level-Ladder Multi-Amplitude Sweep (-24 to +6 dBu)", 8);
+    comboStimulusType.addItem("31-Tone Multitone IMD (Intermodulation Distortion)", 9);
 
     comboStimulusType.onChange = [this] {
         int sId = comboStimulusType.getSelectedId();
@@ -77,6 +79,14 @@ TestEditorPanel::TestEditorPanel()
             case 7:
                 currentConfig.stimulusType = audio::StimulusType::NamCalibration;
                 lblStimulusDesc.setText("NAM Calibration: Multi-stage neural stimulus with sample-accurate sync pulses", juce::dontSendNotification);
+                break;
+            case 8:
+                currentConfig.stimulusType = audio::StimulusType::LevelLadderSweep;
+                lblStimulusDesc.setText("Level-Ladder: Staged multi-amplitude sweeps to characterize non-linear saturation vs. level", juce::dontSendNotification);
+                break;
+            case 9:
+                currentConfig.stimulusType = audio::StimulusType::MultitoneIMD;
+                lblStimulusDesc.setText("Multitone: Simultaneous non-harmonic 31-tone excitation to isolate IMD and dynamic noise floor", juce::dontSendNotification);
                 break;
             default: break;
         }
@@ -267,6 +277,8 @@ void TestEditorPanel::setConfiguration(const TestConfiguration& config)
         case audio::StimulusType::SineWave1kHz:   comboStimulusType.setSelectedId(5, juce::dontSendNotification); break;
         case audio::StimulusType::WhiteNoise:     comboStimulusType.setSelectedId(6, juce::dontSendNotification); break;
         case audio::StimulusType::NamCalibration: comboStimulusType.setSelectedId(7, juce::dontSendNotification); break;
+        case audio::StimulusType::LevelLadderSweep: comboStimulusType.setSelectedId(8, juce::dontSendNotification); break;
+        case audio::StimulusType::MultitoneIMD:    comboStimulusType.setSelectedId(9, juce::dontSendNotification); break;
         default: comboStimulusType.setSelectedId(1, juce::dontSendNotification); break;
     }
 

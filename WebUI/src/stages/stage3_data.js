@@ -48,6 +48,18 @@ export const STIMULUS_TYPES = [
     numId: 7,
     label: 'NAM / RTNeural Calibration (Sync, Chirp, Noise, Multitone)',
     desc: 'NAM Calibration: Multi-stage neural stimulus with sample-accurate sync pulses'
+  },
+  {
+    id: 'LevelLadderSweep',
+    numId: 8,
+    label: 'Level-Ladder Multi-Amplitude Sweep (-24 to +6 dBu)',
+    desc: 'Level-Ladder: Staged multi-amplitude sweeps to characterize non-linear saturation vs. level'
+  },
+  {
+    id: 'MultitoneIMD',
+    numId: 9,
+    label: '31-Tone Multitone IMD (Intermodulation Distortion)',
+    desc: 'Multitone: Simultaneous non-harmonic 31-tone excitation to isolate IMD and dynamic noise floor'
   }
 ];
 

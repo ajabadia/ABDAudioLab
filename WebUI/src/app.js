@@ -18,6 +18,7 @@ import { VirtualKeyboardDrawer } from './components/VirtualKeyboardDrawer.js';
 import { renderStage0 } from './stages/stage0_studio.js';
 import { renderStage1, resolveThemeImage, getTargetImageByIdOrName, getThemeVstImage } from './stages/stage1_target.js';
 import { renderStage2, getAudioInterfaceImage, getThemeAudioInterfaceImage } from './stages/stage2_calibration.js';
+import { renderStage3Preflight } from './stages/stage3_preflight.js';
 import { renderStage3 } from './stages/stage3_acquisition.js';
 import { renderStage4 } from './stages/stage4_export.js';
 import { createDefaultSuite } from './stages/stage3_data.js';
@@ -107,22 +108,39 @@ class AudioLabApp {
       return !!(this.currentCalibrationMetrics && (this.currentCalibrationMetrics.isCalibrated || (typeof this.currentCalibrationMetrics.latencySamples === 'number' && this.currentCalibrationMetrics.latencySamples >= 0) || (typeof this.currentCalibrationMetrics.measuredLatencyMs === 'number' && this.currentCalibrationMetrics.measuredLatencyMs >= 0)));
     }
     if (stageNum === 3) {
+      // Step 3: Hardware Hookup & Preflight Verification
+      if (this.selectedTarget && this.selectedTarget.isPlugin) return true;
+      return !!window.__ABDAudioLab_signalPathVerified__;
+    }
+    if (stageNum === 4) {
+      // Step 4: Run Acquisition
       if (this.currentData && this.currentData.hasEvaluation) return true;
       if (!window.__ABDAudioLab_suiteQueue__ || window.__ABDAudioLab_suiteQueue__.length === 0) return false;
       const tests = window.__ABDAudioLab_suiteQueue__;
       const nonSkipped = tests.filter(t => !t.isSkipped);
       return nonSkipped.length > 0 && nonSkipped.some(t => t.status === 'COMPLETED' || (t.points && t.points.length > 0 && t.points.every(p => p.status === 'COMPLETED')));
     }
+    if (stageNum === 5) {
+      return !!(this.currentData && this.currentData.hasEvaluation);
+    }
     return false;
   }
 
   isStepAccessible(stageNum) {
     if (stageNum === 1) return true;
-    if (stageNum === 2 || stageNum === 3) {
+    if (stageNum === 2) {
       return this.isTargetConfirmed();
     }
+    if (stageNum === 3) {
+      // Same activation logic as former step 3: unlocked upon target confirmed and step 2 calibration completed/bypassed
+      return this.isTargetConfirmed() && this.isStepCompleted(2);
+    }
     if (stageNum === 4) {
-      return this.isTargetConfirmed() && (this.isStepCompleted(3) || (this.currentData && this.currentData.hasEvaluation));
+      // Unlocked upon passing preflight in step 3
+      return this.isTargetConfirmed() && this.isStepCompleted(3);
+    }
+    if (stageNum === 5) {
+      return this.isTargetConfirmed() && (this.isStepCompleted(4) || (this.currentData && this.currentData.hasEvaluation));
     }
     return false;
   }
@@ -265,7 +283,7 @@ class AudioLabApp {
     this.currentData = mockData;
     this.showToast(`Fixture cargado: ${fixtureFileName}`);
     this.updateSessionSummary();
-    this.navigateToStage(4);
+    this.navigateToStage(5);
   }
 
   saveSession() {
@@ -1111,6 +1129,12 @@ class AudioLabApp {
     window.__JUCE__.backend.addEventListener('signalPathChecked', (data) => {
       window.dispatchEvent(new CustomEvent('signalPathChecked', { detail: data }));
     });
+    window.__JUCE__.backend.addEventListener('preflightPingComplete', (data) => {
+      window.dispatchEvent(new CustomEvent('preflightPingComplete', { detail: data }));
+    });
+    window.__JUCE__.backend.addEventListener('hardwareInitPatchApplied', (data) => {
+      window.dispatchEvent(new CustomEvent('hardwareInitPatchApplied', { detail: data }));
+    });
     const handleMeasurementData = (data) => {
       console.log("[WebUI] measurementComplete procesado:", data);
       if (data) {
@@ -1314,7 +1338,7 @@ class AudioLabApp {
         this.showToast(`Sesión / Evaluación cargada: ${data.fileName}`);
         this.updateSessionSummary();
         if (this.currentData && this.currentData.hasEvaluation) {
-          this.navigateToStage(4);
+          this.navigateToStage(5);
         } else {
           this.renderCurrentStage();
         }
@@ -1538,6 +1562,69 @@ class AudioLabApp {
     return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
   }
 
+  getStepCheckmarkSvg() {
+    return `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  }
+
+  getStepLockSvg() {
+    return `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+  }
+
+  getStepIconHtml(stage) {
+    if (this.isStepCompleted(stage)) {
+      return this.getStepCheckmarkSvg();
+    }
+    if (!this.isStepAccessible(stage)) {
+      return this.getStepLockSvg();
+    }
+    return `${stage}`;
+  }
+
+  getStepClasses(stage) {
+    const classes = ['stepper-item'];
+    if (this.isStepCompleted(stage)) classes.push('completed');
+    if (stage === this.currentStage) classes.push('active');
+    else if (!this.isStepAccessible(stage)) classes.push('locked');
+    return classes.join(' ');
+  }
+
+  getStepTooltip(stage) {
+    const stageTitles = {
+      1: '1. Target & Routing',
+      2: '2. Interface Calibration',
+      3: '3. Hookup & Preflight',
+      4: '4. Run Acquisition',
+      5: '5. Export & Report'
+    };
+    const baseTitle = stageTitles[stage] || `Paso ${stage}`;
+    if (!this.isStepAccessible(stage)) {
+      let lockReason = 'Completa los pasos previos requeridos.';
+      if (stage === 2) lockReason = 'Confirma y bloquea el dispositivo en el Paso 1.';
+      else if (stage === 3) lockReason = 'Completa la calibración de la interfaz en el Paso 2.';
+      else if (stage === 4) lockReason = 'Verifica el cableado y señal en el Paso 3.';
+      else if (stage === 5) lockReason = 'Completa las medidas de adquisición en el Paso 4.';
+      return `${baseTitle} (Bloqueado: ${lockReason})`;
+    }
+    if (this.isStepCompleted(stage)) {
+      return `${baseTitle} (Completado)`;
+    }
+    return `${baseTitle} (Disponible)`;
+  }
+
+  notifyStepLockedReason(stageNum) {
+    if (stageNum === 2 && !this.isTargetConfirmed()) {
+      this.showToast('Paso 2 bloqueado: Confirma y bloquea el dispositivo en el Paso 1 antes de continuar.', 'warning');
+    } else if (stageNum === 3 && !this.isStepCompleted(2)) {
+      this.showToast('Paso 3 bloqueado: Completa la calibración de interfaz (Paso 2) antes de continuar.', 'warning');
+    } else if (stageNum === 4 && !this.isStepCompleted(3)) {
+      this.showToast('Paso 4 bloqueado: Verifica la ruta de señal en el Paso 3 antes de iniciar la adquisición.', 'warning');
+    } else if (stageNum === 5 && !this.isStepCompleted(4)) {
+      this.showToast('Paso 5 bloqueado: Realiza las medidas del Paso 4 para generar el informe.', 'warning');
+    } else {
+      this.showToast(`Paso ${stageNum} bloqueado: Completa los pasos previos requeridos.`, 'warning');
+    }
+  }
+
   toggleSidebar() {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
     const sidebar = document.getElementById('workflowSidebar');
@@ -1732,7 +1819,7 @@ class AudioLabApp {
     if (progressEl) {
       const progText = (this.currentSnapshot && this.currentSnapshot.summary && typeof this.currentSnapshot.summary.pointsMeasured === 'number')
         ? `Progress: ${this.currentSnapshot.summary.pointsMeasured} / ${this.currentSnapshot.summary.totalPointsPlanned || 32} pts`
-        : `Progress: ${this.currentStage} / 4 steps`;
+        : `Progress: ${this.currentStage} / 5 steps`;
       progressEl.textContent = progText;
 
       const popupProgressEl = document.getElementById('popupSummaryProgressLine');
@@ -1799,34 +1886,42 @@ class AudioLabApp {
             </button>
           </div>
           
-          <div class="stepper-item ${this.currentStage === 1 ? 'active' : (this.isStepCompleted(1) ? 'completed' : '')}" data-stage="1" title="1. Target Routing">
-            <div class="step-icon">${this.isStepCompleted(1) ? '✓' : '1'}</div>
+          <div class="${this.getStepClasses(1)}" data-stage="1" title="${this.getStepTooltip(1)}">
+            <div class="step-icon">${this.getStepIconHtml(1)}</div>
             <div class="step-text">
               <span class="step-title">1. Target &amp; Routing</span>
               <span class="step-sub">Hardware profile &amp; topology</span>
             </div>
           </div>
 
-          <div class="stepper-item ${this.currentStage === 2 ? 'active' : (this.isStepCompleted(2) ? 'completed' : (!this.isStepAccessible(2) ? 'locked' : ''))}" data-stage="2" title="2. Interface Calibration">
-            <div class="step-icon">${this.isStepCompleted(2) ? '✓' : '2'}</div>
+          <div class="${this.getStepClasses(2)}" data-stage="2" title="${this.getStepTooltip(2)}">
+            <div class="step-icon">${this.getStepIconHtml(2)}</div>
             <div class="step-text">
               <span class="step-title">2. Interface Calibration</span>
               <span class="step-sub">${(this.selectedTarget && this.selectedTarget.isPlugin) ? 'Bypassed for digital VST' : 'Loopback latency &amp; SNR'}</span>
             </div>
           </div>
 
-          <div class="stepper-item ${this.currentStage === 3 ? 'active' : (this.isStepCompleted(3) ? 'completed' : (!this.isStepAccessible(3) ? 'locked' : ''))}" data-stage="3" title="3. Run Acquisition">
-            <div class="step-icon">${this.isStepCompleted(3) ? '✓' : '3'}</div>
+          <div class="${this.getStepClasses(3)}" data-stage="3" title="${this.getStepTooltip(3)}">
+            <div class="step-icon">${this.getStepIconHtml(3)}</div>
             <div class="step-text">
-              <span class="step-title">3. Run Acquisition</span>
+              <span class="step-title">3. Hookup &amp; Preflight</span>
+              <span class="step-sub">Physical wiring &amp; ping test</span>
+            </div>
+          </div>
+
+          <div class="${this.getStepClasses(4)}" data-stage="4" title="${this.getStepTooltip(4)}">
+            <div class="step-icon">${this.getStepIconHtml(4)}</div>
+            <div class="step-text">
+              <span class="step-title">4. Run Acquisition</span>
               <span class="step-sub">Excitation &amp; tracking</span>
             </div>
           </div>
 
-          <div class="stepper-item ${this.currentStage === 4 ? 'active' : (!this.isStepAccessible(4) ? 'locked' : '')}" data-stage="4" title="4. Export &amp; Report">
-            <div class="step-icon">4</div>
+          <div class="${this.getStepClasses(5)}" data-stage="5" title="${this.getStepTooltip(5)}">
+            <div class="step-icon">${this.getStepIconHtml(5)}</div>
             <div class="step-text">
-              <span class="step-title">4. Export &amp; Report</span>
+              <span class="step-title">5. Export &amp; Report</span>
               <span class="step-sub">Metrología y validación</span>
             </div>
           </div>
@@ -1903,10 +1998,12 @@ class AudioLabApp {
   attachGlobalEvents() {
     const stepperItems = document.querySelectorAll('.stepper-item');
     stepperItems.forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
         const stageNum = parseInt(item.getAttribute('data-stage'), 10);
-        if (stageNum !== 1 && !this.isTargetConfirmed()) {
-          this.showToast('Confirma y bloquea el dispositivo en el Paso 1 antes de continuar.');
+        if (!this.isStepAccessible(stageNum)) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.notifyStepLockedReason(stageNum);
           return;
         }
         this.navigateToStage(stageNum);
@@ -1949,8 +2046,8 @@ class AudioLabApp {
   }
 
   navigateToStage(stageNum) {
-    if (stageNum !== 1 && !this.isTargetConfirmed()) {
-      this.showToast('Confirma y bloquea el dispositivo en el Paso 1 antes de continuar.');
+    if (!this.isStepAccessible(stageNum)) {
+      this.notifyStepLockedReason(stageNum);
       return;
     }
     this.currentStage = stageNum;
@@ -1971,21 +2068,12 @@ class AudioLabApp {
     stepperItems.forEach(item => {
       const stage = parseInt(item.getAttribute('data-stage'), 10);
       const icon = item.querySelector('.step-icon');
-      const isCompleted = this.isStepCompleted(stage);
-      const isAccessible = this.isStepAccessible(stage);
 
-      item.classList.remove('active', 'completed', 'locked');
-      if (stage === this.currentStage) {
-        item.classList.add('active');
-        icon.textContent = isCompleted ? '✓' : `${stage}`;
-      } else if (isCompleted) {
-        item.classList.add('completed');
-        icon.textContent = '✓';
-      } else {
-        icon.textContent = `${stage}`;
-        if (!isAccessible) {
-          item.classList.add('locked');
-        }
+      item.className = this.getStepClasses(stage);
+      item.title = this.getStepTooltip(stage);
+
+      if (icon) {
+        icon.innerHTML = this.getStepIconHtml(stage);
       }
     });
   }
@@ -2060,9 +2148,12 @@ class AudioLabApp {
           renderStage2(container, state, onUpdate);
           break;
         case 3:
-          renderStage3(container, state, onUpdate);
+          renderStage3Preflight(container, state, onUpdate);
           break;
         case 4:
+          renderStage3(container, state, onUpdate);
+          break;
+        case 5:
         default:
           renderStage4(container, state, onUpdate);
           break;

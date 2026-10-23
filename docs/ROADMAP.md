@@ -1,9 +1,9 @@
 # Roadmap del Proyecto — ABDAudioLab
 
 **Proyecto:** ABDAudioLab (Universal Black-Box Musical Hardware Profiler)  
-**Versión del Documento:** 2.8.0  
+**Versión del Documento:** 2.9.0  
 **Versión del Producto (Objetivo):** v2.4.0 (Fase 24 DSP Metrológico Completada)  
-**Fecha de Actualización:** 2026-10-16  
+**Fecha de Actualización:** 2026-10-22  
 
 ---
 
@@ -58,6 +58,9 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **PARITY-01** | Auditoría de convergencia y paridad Guiado/Exploración | **Planificación** | [ADR-001](ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md) — pendiente de ejecución |
 | **HITO-09** | Unificación de flujo operativo mediante presets, macrotareas y plan canónico | **Pendiente** | Condicionado a resultados de PARITY-01 |
 | **HITO-DSP-25** | Analítica de Osciladores/FX, Target Korg MS2000 (ROM v1.07), Auditoría 5D de 128 Presets y Teclado Hardware Canónico | **Planificado** | Extracción compartida `ABDShared/Code` y arquitectura de profiling de síntesis |
+| **HITO-CONTRACT-01** | Perfilado por Contrato Declarativo, Init Patch Engine y Desconstrucción Funcional (Cero Hardcoding C++) | **Completado** | [HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md](contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md) |
+| **HITO-DATASET-01** | Paquete de Telemetría Empírica, Datasets Multivariables y Validación Científica (Análisis Conjunto sin Compilar C++) | **Completado** | Sección HITO-DATASET-01 (Exportación CSV/JSON, Nivel Escalonado, Multitono IMD, Float32 WAVs y Validación SPICE) |
+| **HITO-AB-DIFF-01** | Sistema de Comparación y Validación A/B Universal (WAV Regrabado vs. Hardware Físico, VST/Standalone, Grabación Previa y Diffs) | **Planificado (Futuro)** | Sección HITO-AB-DIFF-01 (Basado en scripts de `ABDMS2000`, Re-Amp Matching, Null Test y Diffs Espectrales) |
 
 ---
 
@@ -156,15 +159,15 @@ graph TD
 - [x] Snapshot de evaluación disponible con hash canónico RFC 8785 calculado.
 - [x] Veredicto metrológico emitido (`Approved`, `ApprovedWithWarnings`, `Rejected`, `Inconclusive`, `InvalidMeasurement`).
 
-### Criterios de Salida
-- [ ] `SoundIdResultsSummaryView` integrado visualmente en Paso 4 (`Step::ExportReport`).
-- [ ] Informe HTML generado exclusivamente mediante `ReportExportService`.
-- [ ] `ProductionPackage` C++20 generado con metadatos inmutables y SHA-256 verificado.
-- [ ] Audición A/B funcional y reproducible sin cuelgues.
-- [ ] Exportación bloqueada con diálogo explicativo si el modelo es inválido, rechazado, inconcluso o adulterado.
-- [ ] Exportación bloqueada si el target cambió tras la medición o la calibración pertenece a otro target.
-- [ ] Persistencia de sesión `.abdlabtest` conserva y recarga la evaluación.
-- [ ] Suite de pruebas ST-69 a ST-85 en verde (100% PASS) y suite previa de 564 tests intacta. *(564: baseline vigente en el momento de HITO-04; la baseline actual es 615, Build #402.)*
+### Criterios de Salida (COMPLETADOS)
+- [x] `SoundIdResultsSummaryView` integrado visualmente en Paso 4 (`Step::ExportReport`).
+- [x] Informe HTML generado exclusivamente mediante `ReportExportService`.
+- [x] `ProductionPackage` C++20 generado con metadatos inmutables y SHA-256 verificado.
+- [x] Audición A/B funcional y reproducible sin cuelgues.
+- [x] Exportación bloqueada con diálogo explicativo si el modelo es inválido, rechazado, inconcluso o adulterado.
+- [x] Exportación bloqueada si el target cambió tras la medición o la calibración pertenece a otro target.
+- [x] Persistencia de sesión `.abdlabtest` conserva y recarga la evaluación.
+- [x] Suite de pruebas ST-69 a ST-85 en verde (100% PASS) y suite intacta (actualmente 764 tests pasando).
 
 ---
 
@@ -943,9 +946,10 @@ Plan de saneamiento de archivos monolíticos (*God Classes*) y desacoplamiento e
   - Total consolidado: **88/88 tests pasando al 100% en Release (133.675 aserciones)**.
 
 #### 8.4: Deuda Técnica y Refactorización Arquitectural (Backlog / Mantenibilidad)
-- [ ] **1. Modularización de `MainContentComponent.cpp` (~2.630 líneas)**:
-  - Concentra orquestación de sesión, diálogos de archivo/reportes, lógica de atajos de teclado, splitters de UI y dispatchers de callbacks.
-  - Submódulos objetivo:
+- [x] **1. Modularización de `MainContentComponent.cpp` (~2.630 líneas) (COMPLETADO)**:
+  - Concentraba orquestación de sesión, diálogos de archivo/reportes, lógica de atajos de teclado, splitters de UI y dispatchers de callbacks.
+  - Descompuesto en 7 unidades de compilación aisladas más coordinadores desacoplados:
+    * `MainContentComponentUiGovernance.cpp`, `MainContentComponentHardware.cpp`, `MainContentComponentProfilingSession.cpp`, `MainContentComponentReport.cpp`, `MainContentComponentPersistence.cpp`, `MainContentComponentPluginUiHost.cpp`, `MainContentComponentWorkflowMode.cpp`.
     * `SessionReportManager` (COMPLETADO): Aislamiento de diálogos nativos `juce::FileChooser`, guardado asíncrono seguro, auto-guardado a prueba de caídas y exportación consolidada (C++ LUT, JSON, HTML).
     * `SessionExecutionCoordinator` (COMPLETADO): Enlace desacoplado y thread-safe (`juce::MessageManager::callAsync`) entre `ProfilingSequencer`, `SoundIdSuiteList`, `MeasurementHealthPanel`, `OperatorStepModalDialog` y los botones manuales de operador.
 - [x] **2. Descomposición de `SoundIdCurvePlotter.cpp` (~1.110 -> ~670 líneas) (COMPLETADO)**:
@@ -1742,44 +1746,30 @@ $$\text{Receta Científica} \longrightarrow \text{TargetContract} \longrightarro
   - Alcance limitado a `ReferenceSynth.vst3` in-process.
   - El hosting in-process no proporciona aislamiento frente a crashes.
 
-- [ ] **20.8.3: OutOfProcessPluginLifecycleAdapter**
-  - En curso.
-  - Infraestructura común para modo guiado y modo no guiado.
+- [x] **20.8.3: OutOfProcessPluginLifecycleAdapter (COMPLETADO en Alcance Metrológico)**
+  - Infraestructura de aislamiento out-of-process para plugins VST3 mediante proceso esclavo (`ABDAudioLab_PluginWorker.exe`) operativa y certificada para profiling guiado.
 
 #### Vertical slices
 
-- [ ] **Slice 1: Canal de control y supervivencia**
-  - `ABDAudioLab_PluginWorker.exe`.
-  - Named Pipe Win32 con ACL restrictiva.
-  - Handshake versionado con nonce y capacidades.
-  - Heartbeat Ping/Pong.
-  - Detección de crash, timeout y terminación del worker.
-  - El host conserva la sesión si el worker falla.
+- [x] **Slice 1: Canal de control y supervivencia (COMPLETADO)**:
+  - `ABDAudioLab_PluginWorker.exe` con Named Pipe Win32 y ACL restrictiva.
+  - Handshake versionado, heartbeat Ping/Pong y detección de supervivencia.
+  - Verificado en `test_OutOfProcessVst3LifecycleAdapter.cpp`.
 
-- [ ] **Slice 2: Carga de plugins en el worker**
-  - Reutilización del hosting común.
-  - Consulta remota de metadatos, parámetros y fingerprint.
-  - Sin duplicar reglas metrológicas ni de exportación.
+- [x] **Slice 2: Carga de plugins en el worker (COMPLETADO)**:
+  - Carga física del VST3 dentro del worker con verificación estricta de hash SHA-256 (`BinaryChanged`).
+  - Reporte de `TargetFingerprint` y capacidades hacia el host principal.
+  - Verificado en `test_OutOfProcessVst3LifecycleAdapter.cpp`.
 
-- [ ] **Slice 3: Streaming de audio y eventos**
-  - Memoria compartida con ring buffers preasignados.
-  - Eventos de sincronización.
-  - Timeout por bloque.
-  - Transporte de audio y MIDI sin asignaciones en el camino de tiempo real.
+- [x] **Slice 3: Streaming de audio y eventos (COMPLETADO)**:
+  - Memoria compartida con ring buffers y sincronización sin asignaciones en tiempo real.
+  - Renderizado de bloque remoto en `ReferenceSynth` verificado al 100%.
 
-- [ ] **Slice 4: Resiliencia y recuperación**
-  - Watchdog.
-  - Detección de worker muerto o congelado.
-  - Terminación controlada del proceso auxiliar.
-  - Limpieza de handles y memoria compartida.
-  - Restauración transaccional de la evaluación previa.
-  - Exportación bloqueada después de un fallo.
+- [x] **Slice 4: Resiliencia y recuperación (COMPLETADO)**:
+  - Watchdog de detección de worker muerto o congelado, terminación limpia y preservación de la sesión del host.
 
-- [ ] **Slice 5: Integración en Modo No Guiado y Desacoplamiento de GUI**
-  - **`RemotePluginInstanceProxy`**: Sustitución progresiva de `juce::AudioPluginInstance` in-process en `audioEngine` y `HardwareDispatcher` por un proxy remoto transparente que delega render y parámetros en el worker vía memoria compartida/IPC.
-  - **Migración arquitectónica de `PluginHostManager`**: Transición de `PluginHostManager` (in-process legacy) a fachada compatible delegada en `PluginDiscoveryService` con escaneo 1 plugin por worker (`scanNextFile` aislado).
-  - **Aislamiento de la GUI nativa**: El host no invoca `createEditorIfNeeded()` directamente; el worker aloja el editor nativo y expone la ventana/HWND de forma supervisada, previniendo cuelgues gráficos (OpenGL/DirectX/multi-DPI).
-  - **Etiquetado visual explícito**: Plugins en modo libre marcados como `LoadedForExploration` / `LegacyInProcess` hasta superar la auditoría del modo guiado.
+- [-] **Slice 5: Integración en Modo No Guiado y Desacoplamiento de GUI (PAUSADO / DESCARTADO)**:
+  - *Dictamen de Foco y Anti-Scope Creep*: Descartado del camino crítico del MVP. El reparenting de ventanas Win32 (`HWND`) y el sandboxing de plugins arbitrarios de terceros desvía a ABDAudioLab hacia la complejidad de una DAW comercial. El hosting in-process actual en `PluginHostManager` cubre el 100% de las necesidades del laboratorio.
 
 #### Consumo de la infraestructura
 
@@ -2018,63 +2008,42 @@ Esta fase resuelve definitivamente los tiempos muertos de iteración en compilac
 - [x] **Submenú de Carpetas Unificado**: Menú `Open Folder...` con acceso directo a Working, Presets, Exports, Reports, Sessions y Loopback Profiles.
 - [x] **Telemetría Lateral Limpia**: Vúmetro calibrado, lectura numérica de pico dBFS y chip de estado dinámico (`CLIP`, `ACQUIRING`, `CALIBRATING`, `READY`).
 
-### HITO-WEBUI-09: Paso 4 (Resultados y Validación Holdout), Tema Oscuro Riguroso y Visores Metrológicos (EN CURSO)
-- [ ] **Rediseño Integral de 2 Columnas para Paso 4**:
-  - **Columna Izquierda (Dictamen & Métricas Físicas)**:
-    - Tarjeta de Modelo Recomendado (Wiener-Hammerstein LNL, SIMD Spline LUT 2D, NAM/RTNeural) y hardware Target emparejado.
-    - Badge de Dictamen Formal (*Aceptado en Tolerancia*, *Aceptado con Advertencias*, *Rechazado*).
-    - Grid de 6 métricas metrológicas clave: Holdout ESR (dB), Correlación espectral $\rho$, ENOB efectivo (bits), Tasa de estímulos superados (%), Desfase temporal (samples), Consumo relativo de CPU ($x$).
-    - Barra de Hash criptográfico SHA-256 (RFC 8785) con botón de copiado rápido y verificación de integridad.
-    - Sustitución del estado vacío ("desierto gris") por un panel en standby didáctico y contextual con enlaces directos de flujo.
-  - **Columna Derecha (Espectro Comparativo & Curva de Error)**:
-    - Gráfico espectral logarítmico interactivo (20 Hz - 20 kHz) comparando Target real (esmeralda), Modelo inferido (azul cian) y Residual $e[n]$ (ámbar).
-    - Selector integrado de visualización: [ Resumen Metrológico ] | [ Comparador Multicontenedor ].
-  - **Audición y Verificación A/B Holdout (Cero Emojis)**:
-    - Botones de escucha en tiempo real: Target (hardware/captura), Modelo (emulación DSP), Residual $e[n]$ (diferencia de error).
-    - Conmutación exclusiva con pulsos de estado luminoso y vectores SVG minimalistas (sin caracteres emoji).
-  - **Barra de Acciones de Producción**:
-    - Botón primario prominente `Export Production Package (1-Click)` con guardas automáticas de exportación.
-    - Botón complementario `Abrir Informe HTML de Certificación`.
-    - Eliminación de botones redundantes de pie de página (`New Session` y `Load Evaluation` centralizados en la barra de menú `File`).
-- [ ] **Corrección Integral del Tema Oscuro C++ y Barra Superior DWM**:
-  - Inicialización estricta de `SoundIdTheme::applyThemeMode(ThemeMode::Dark)` en el arranque nativo (`LabWebApplication.h` / `AudioLabWebComponent.cpp`) para evitar que los tokens arranquen en modo Light por defecto.
-  - Erradicación de fondos blancos hardcodeados en el tema oscuro en la lista de contenedores (`MeasurementContainerListPanel.cpp`), en los selectores de pista y en los botones de acción (`MeasurementViewerPanel.cpp` y `MeasurementComparisonPanel.cpp`).
-  - Integración de `applyNativeTitleBarDarkMode(this, isDark)` en `MeasurementFloatingWindow` para sincronizar la barra de título nativa DWM de Windows con el fondo oscuro del chasis.
-- [ ] **Mejora Pedagógica y de Usabilidad de los Visores Metrológicos**:
-  - **Visor FAIR / LNL (`MeasurementViewerPanel`)**:
-    - Sustitución de badges alarmistas en reposo (`FAILED [!]`, `INTEGRITY [!] UNCHECKED`) por estados neutros informativos (`Sin contenedor cargado`).
-    - Banner explicativo de propósito: Inspección individual de contenedores `.abdmeas`, verificación de envolventes temporales, respuesta en frecuencia y escucha de 3 pistas (Entrada / Salida / IR).
-  - **Comparador Multicontenedor (`MeasurementComparisonPanel`)**:
-    - Guía de uso paso a paso integrada para comparar múltiples mediciones (Target frío vs caliente, VST3 vs Hardware, etc.).
-    - Ejes de decibelios y centroide tímbrico estilizados acordes a los tokens de tema oscuro/claro.
+### HITO-WEBUI-09: Paso 4 (Resultados y Validación Holdout), Tema Oscuro Riguroso y Visores Metrológicos (COMPLETADO)
+- [x] **Rediseño Integral de 2 Columnas para Paso 4**:
+  - **Columna Izquierda (Dictamen & Métricas Físicas)**: Tarjeta de Modelo Recomendado, Badge de Dictamen Formal, Grid de 6 métricas metrológicas clave, Barra de Hash criptográfico SHA-256 (RFC 8785) con botón de copiado y panel contextual en reposo.
+  - **Columna Derecha (Espectro Comparativo & Curva de Error)**: Gráfico espectral logarítmico interactivo (20 Hz - 20 kHz) comparando Target, Modelo y Residual $e[n]$ con selector de visualización.
+  - **Audición y Verificación A/B Holdout (Cero Emojis)**: Botones de escucha en tiempo real de Target, Modelo y Residual con conmutación exclusiva e iconos SVG.
+  - **Barra de Acciones de Producción**: Botón `Export Production Package (1-Click)`, `Abrir Informe HTML` y exportación de Dataset (CSV / JSON) con overlay SPICE.
+- [x] **Corrección Integral del Tema Oscuro C++ y Barra Superior DWM**:
+  - Inicialización estricta de `SoundIdTheme::applyThemeMode(ThemeMode::Dark)` en el arranque nativo (`LabWebApplication.h` / `AudioLabWebComponent.cpp`).
+  - Erradicación de fondos blancos hardcodeados en el tema oscuro en `MeasurementContainerListPanel.cpp`, `MeasurementViewerPanel.cpp` y `MeasurementComparisonPanel.cpp`.
+  - Integración de `applyNativeTitleBarDarkMode(this, isDark)` en `MeasurementFloatingWindow` para sincronizar la barra de título nativa DWM de Windows.
+- [x] **Mejora Pedagógica y de Usabilidad de los Visores Metrológicos**:
+  - **Visor FAIR / LNL (`MeasurementViewerPanel`)**: Badges neutros en reposo y banner explicativo de propósito.
+  - **Comparador Multicontenedor (`MeasurementComparisonPanel`)**: Guía paso a paso integrada y ejes calibrados según tema.
 
-### HITO-WEBUI-10: Teclado MIDI Virtual Embebido Inferior y Reanálisis Offline (PLANIFICADO)
-- [ ] **Teclado MIDI Virtual Embebido Inferior**:
-  - Integrar el componente `@abdsynths/midi-keyb` (`ABDShared/Code/MidiKeyboard/src/keyboard.js`) embebido directamente en la parte inferior del equipo dentro de la interfaz (en lugar de ventana flotante separada).
-  - Soporte de apertura/cierre colapsable (dock inferior con toggle desde la interfaz o menú Tools).
-  - Soporte de skins y temas sincronizados (`audiolab` / `audiolab-light`).
-  - Envío de eventos NoteOn/NoteOff directos al motor de audio C++ para audicionar sintes hardware o plugins VST3 en tiempo real.
-- [ ] **Reanálisis Offline (`reanalyzeOffline`)**:
-  - Acción en el menú `File` para reejecutar la deconvolución y ajuste de modelos sobre grabaciones existentes sin reexcitar el hardware físico.
-### HITO-WEBUI-11: Estabilidad de Vúmetros, Corrección de Navegación y Ergonomía del Paso 3
+### HITO-WEBUI-10: Teclado MIDI Virtual Embebido Inferior y Reanálisis Offline (COMPLETADO)
+- [x] **Teclado MIDI Virtual Embebido Inferior**:
+  - Integrado `@abdsynths/midi-keyb` en `WebUI/src/components/VirtualKeyboardDrawer.js` embebido directamente en la parte inferior de la ventana.
+  - Soporte de apertura/cierre colapsable (`Ctrl+K`), ruedas animadas de Pitch/Mod, octavador y QWERTY.
+  - Envío de eventos NoteOn/NoteOff directos al motor de audio C++ con cero asignaciones en el hilo de audio.
+- [x] **Reanálisis Offline (`reanalyzeOffline`)**:
+  - Acción para reejecutar la deconvolución y ajuste de modelos sobre grabaciones existentes sin reexcitar el hardware físico, validado en `test_OfflineReanalysis.cpp`.
+
+### HITO-WEBUI-11: Estabilidad de Vúmetros, Corrección de Navegación y Ergonomía del Paso 3 (COMPLETADO)
 - [x] **Estabilidad y Fijación Geométrica de los Vúmetros Laterales (Cero Jitter Horizontal)**:
-  - Fijación de ancho estricto (`width: 96px`, `min-width: 96px`, `max-width: 96px`, `box-sizing: border-box`, `font-variant-numeric: tabular-nums`) en la etiqueta gris de lectura numérica `#telemetryPeakReadout`.
-  - Fijación rígida de la columna lateral `.meters-sidebar` (`min-width: 140px`, `max-width: 140px`, `flex-shrink: 0`) para evitar que la variación de caracteres entre `-inf dBFS`, `-24.0 dBFS` y `+0.5 dBFS` deforme el ancho y haga temblar los vúmetros a 60 Hz.
+  - Fijación de ancho estricto (`width: 96px`, `tabular-nums`) en `#telemetryPeakReadout` y columna lateral rígida (`140px`).
 - [x] **Corrección de Transición Forzada de Paso (Fin del Rebote Involuntario a Paso 3)**:
-  - Desacoplamiento de snapshots pasivos en `onSnapshotUpdated` (`app.js`): no sobreescribir `currentStage` salvo cuando el motor de audio esté activamente adquiriendo (`Profiling` o `Auditing`).
-  - Eliminación de la re-renderización destructiva de toda la pantalla en recepción de snapshots de estado en reposo, permitiendo navegación libre e inmediata a los Pasos 1 y 2.
-- [ ] **Ergonomía, Aire y Espaciado del Paso 3 (Alivio de Layout Apelotonado)**:
-  - Rediseño de proporciones y márgenes entre el visualizador multi-pestaña `SoundIdCurvePlotter` (8 pestañas), la cola `SoundIdSuiteList` con desglose de puntos y el inspector analógico.
-  - Integración de splitters con memoria y soporte para maximizar/colapsar el plotter o la cola de suites a pantalla completa.
-### HITO-WEBUI-12: Desacoplamiento por Contrato y Persistencia de Presets de Usuario
-- [ ] **Desacoplamiento de Equipos (IPC Hardware Contracts hacia WebUI)**:
-  - Enviar desde C++ (`HardwareContractRegistry`) la colección de contratos declarativos parseados de `ABDShared/Contracts/` hacia WebUI mediante evento IPC (`hardwareContractsLoaded`).
-  - Eliminar el array auxiliar hardcodeado `HARDWARE_CATALOG` de `stage1_target.js`, alimentando la selección y filtrado directamente de los JSON reales (marcas, modelos, controles físicos, ruteos y SysEx).
-- [ ] **Definición y Creación de Hardware Personalizado por el Usuario**:
-  - Ubicación de almacenamiento en el directorio de trabajo: `<workingDir>/Hardware/` (para los contratos `.json`) y `<workingDir>/Hardware/Images/` (para las fotografías de los equipos).
-  - Asistente para definir un nuevo equipo personalizado conforme a `hardware_profile.schema.json`: nombre, fabricante/DIY, tipología (`deviceType`: pedal, sintetizador, Eurorack, rack de estudio), especificación de canales de audio y automatización MIDI (canales, CCs).
-  - Posibilidad de adjuntar o arrastrar una imagen del equipo real que se almacena automáticamente en `<workingDir>/Hardware/Images/`.
-  - Carga dinámica automática por `HardwareContractRegistry` como perfil local del usuario, apareciendo junto a los contratos de fábrica.
+  - Desacoplamiento de snapshots pasivos en `onSnapshotUpdated` (`app.js`) sin saltos forzados de paso.
+- [x] **Ergonomía, Aire y Espaciado del Paso 3 (Alivio de Layout Apelotonado)**:
+  - Rediseño de proporciones y márgenes entre `SoundIdCurvePlotter` (8 pestañas), la cola `SoundIdSuiteList` y el inspector analógico.
+  - Integración de `CenterSplitterBar` con memoria de altura y modos `Balanced`, `GraphMaximized` y `QueueMaximized`.
+
+### HITO-WEBUI-12: Desacoplamiento por Contrato y Persistencia de Presets de Usuario (COMPLETADO)
+- [x] **Desacoplamiento de Equipos (IPC Hardware Contracts hacia WebUI)**:
+  - Reemplazados arrays hardcodeados por contratos JSON declarativos (`hardware_profile.schema.json` y `HITO-CONTRACT-01`).
+- [x] **Definición y Creación de Hardware Personalizado por el Usuario**:
+  - Asistente interactivo en `stage1_target.js` para generación de perfiles de usuario y guía de especificación técnica JSON.
 
 ### HITO-WEBUI-13: Morphing Fluido, Captura de VSTs y Gestión de Contratos de Usuario
 - [x] **Transiciones Morphing en 2 Fases y Cuadrícula Responsiva**:
@@ -2193,14 +2162,16 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
     - **Dinámica de Realimentación (Feedback)**: Estimación de ganancia de decaimiento por regeneración (`estimateFeedbackGainRatio`).
     - Validado al 100% en `CalibrationTests.cpp` (Nivel 2.6, 4/4 PASS).
 
-- [ ] **3. Sonda de Interacción Dinámica de Filtro (`FilterDynamicModulationAnalytics`)**:
-  - **Seguimiento de Teclado (Key Track $\pm 200\%$)**: Validación de desplazamiento de corte en semitonos/octavas tomando C4 (MIDI note 60) como pivote canónico (a $+100\%$, pendiente 1:1 de 1 semitono/nota).
-  - **Intensidad Bipolar de Envolvente (filterEg1Int)**: Medición de rango de modulación de corte dinámico (semitonos de excursión pico en barrido de envolvente bipolar).
-  - **Comportamiento en Auto-Oscilación**: Detección y caracterización de ganancia, saturación no lineal y frecuencia de oscilación pura del filtro con Resonancia $> 105$ (auto-oscilante sin señal de oscilador).
+- [x] **3. Sonda de Interacción Dinámica de Filtro (`FilterDynamicModulationAnalytics`)**:
+  - **Seguimiento de Teclado (Key Track $\pm 200\%$)**: Implementado en `ABDShared/Code/AudioAnalytics/DspMetrologicalProbes.h` y re-exportado en `src/math/analytics/FilterDynamicModulationAnalytics.h` (`estimateKeyTrackSlope`). Mide el desplazamiento de corte en semitonos respecto a notas MIDI tomando C4 (nota 60) como pivote base con regresión OLS ($R^2$, ratio de pendiente y corte base en Hz).
+  - **Intensidad Bipolar de Envolvente (filterEg1Int)**: Sonda `estimateEnvelopeExcursion` para cuantificar semitonos reales de apertura o cierre invertido del filtro ante barridos de envolvente.
+  - **Comportamiento en Auto-Oscilación**: Sonda `analyzeSelfOscillation` para caracterizar filtros con Resonancia $> 105$ (detección de $f_0$ sub-muestra, amplitud dBFS y distorsión armónica THD% de saturación de lazo sin osciladores).
+  - **Validación Unitaria**: Suite completa en `src/tests/test_FilterDynamicModulationAnalytics.cpp` cubriendo linealidad 100%, pendiente cero (0%), modulación invertida (-100%), excursión de EG y saturación armónica THD.
+  - **Integración WebUI**: Conectado reactivamente en `stage3_dsp_curves.js` (`analyzeFilterDynamicModulation`) y visualizado en la pestaña `Mod Matrix` de `stage3_classic.js`.
 
-- [ ] **4. Target Korg MS2000 / microKORG y Tablas Firmware ROM v1.07 (Ground Truth)**:
+- [x] **4. Target Korg MS2000 / microKORG y Tablas Firmware ROM v1.07 (Ground Truth)**:
   - **[x] Curva Oficial LUT VCF Korg MS2000 Registrada**: Incorporado `lut_korg_ms2000_dsp56362_vcf.h` (corte empírico de 17.74 Hz a 20.0 kHz, ROM DSP56362 `0x26154`) y registrado en `OfficialLutModels.h` (`ALL_OFFICIAL_MODELS`).
-  - **[ ] Adaptador SysEx / MIDI Bidireccional (`MS2000ObservableBinding`, `MS2000PatchEncoder`)**: Inyección de programas Init por SysEx `0x40` y control de parámetros por CC, NRPN y SysEx `0x41` en tiempo real.
+  - **[x] Mapeo Declarativo SysEx / MIDI por Contrato (HITO-CONTRACT-01)**: Resuelto en `contracts/hardware/korg_ms2000.json` (Init Patch `0x40`, CCs y NRPN despachados por `ProfilingHardwareDispatcher::executeLifecycleActions`). Descartada la creación de código C++ hardcodeado (`MS2000ObservableBinding`) en cumplimiento estricto del diseño canónico por contrato.
 
 - [ ] **5. Auditoría Automatizada 5D de 128 Presets de Fábrica (`AudioABComparator`)**:
   - Integración de `ABDShared/Code/AudioComparator/AudioABComparator.h` y `AudioABVerdictEngine.h` para ejecutar los 128 programas de fábrica (MS2000FactoryBank.h) ante estímulos estándar y compararlos contra capturas de hardware real o emulador DSP56362 (`ms2000r-emu`):
@@ -2209,10 +2180,134 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
     - **Tracking de Mod Sequencer**: Verificación de las 3 pistas $\times$ 16 pasos en modo Step vs Smooth.
     - **Veredictos 5D Automatizados**: Emisión de diagnósticos canónicos (`DIAG_OK_IDENTITY`, `DIAG_WARN_HARMONIC_SPREAD`, `DIAG_FAIL_PITCH_DIVERGENCE`, etc.).
 
-- [ ] **6. Integración del Teclado Virtual Hardware Canónico (estilo ABDMS2000)**:
-  - Ruedas de Pitch Bend y Modulación con retorno elástico y monitor de valor en tiempo real.
-  - Selector de transposición de octavas (`OCT +` / `OCT -`) con matriz de LEDs indicadores de estado.
-  - Serigrafía de teclado de ordenador superpuesta en las teclas (`E X C V B N M Q W E R T Y U I O P [ ]`) para control acústico inmediato sin periféricos MIDI externos.
-  - Botonera de articulación y seguridad: `ALL OFF` (Panic MIDI general), `SUST` (Sustain latch), `HOLD` (Key hold continuo) y `RETRIG` (Alternador de modo legato/retrigger de envolventes).
-  - Componente colapsable de alta fidelidad visual adaptado a los esquemas oscuro y claro del Lab Bench.
+- [x] **6. Integración del Teclado Virtual Hardware Canónico (estilo ABDMS2000)**:
+  - **[x] Drawer Desplegable Canónico Integrado**: Implementado en `WebUI/src/components/VirtualKeyboardDrawer.js` basado en `@abdsynths/midi-keyb`.
+  - **[x] Ruedas de Expresión y Dinámica**: Ruedas animadas de Pitch Bend (retorno con resorte) y Modulación vía `@abdsynths/shared/components/wheel.js`.
+  - **[x] Selector de Octavas y Atajos de Teclado**: Transposición de octavas (`-3` a `+3`) y serigrafía/eventos de teclado de ordenador QWERTY.
+  - **[x] Botonera de Articulación y Pánico**: Botón `PANIC` (All Notes Off CC 120/123) y streaming IPC en tiempo real hacia el motor de audio C++ con cero asignaciones en el hilo de audio.
+
+---
+
+### HITO-CONTRACT-01: Profiling de Hardware por Contrato, Init Patch y Desconstrucción Funcional
+
+> [!IMPORTANT]
+> **Diseño Normativo Completo:** Véase [`docs/contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md`](contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md).
+> Resuelve el problema de la **«Falacia del Preset Arbitrario»**: ningún equipo se mide con su preset activo en memoria. Cada hardware se lleva declarativamente a su **Estado Base (Init Patch)** y se desconstruye en **bloques funcionales aislados** (Oscilador, Filtro, Envolventes, Saturación) gobernados enteramente por contratos JSON, sin añadir ni una sola línea de código C++ condicional por modelo.
+
+- [x] **1. Validación Estricta de Esquema y Contratos Declarativos**:
+  - Asegurar que `contracts/hardware/hardware_profile.schema.json` valide exhaustivamente `lifecycle.preSessionSetup`, `isolationPrerequisites` y directivas de sonda preflight.
+  - Validación de campos requeridos y carga resiliente probada en `test_HardwareProfileValidation.cpp` y `test_TargetProfileValidation.cpp`.
+
+- [x] **2. Ejecutor de Lifecycle en Motor Canónico**:
+  - Compilación automática y ejecución de acciones `preSessionSetup` y `postSessionTeardown` en `ProfilingSequencer` y `ProfilingHardwareDispatcher`.
+  - Despacho ordenado respetando retardos de estabilización (`settlingDelayMs`), métodos `MIDI_CC`, `NRPN`, `SYSEX_RAW` y consentimientos RFC 8785.
+
+- [x] **3. Tarjetas Interactivas de Operador (`MANUAL_PROMPT`) en GUI**:
+  - Para hardware analógico sin MIDI (Eurorack, pedales vintage): proyección de checklist interactivo con soporte de método `MANUAL_PROMPT` en `manual_eurorack_vcf.json`.
+  - Contenedor de tarjetas certificado en `test_OperatorCardsContainerComponent.cpp`.
+
+- [x] **4. Sonda Acústica Preflight (Sanity Check de 1.5 Segundos)**:
+  - Generación e inyección rápida de un tono de prueba previo a la campaña formal.
+  - Algoritmo en `PreflightPingProbe.h` (`generateStimulus` y `analyzeResponse`) que detecta nivel/SNR insuficiente, clipping y fallos de continuidad.
+  - Suite de tests certificada en `test_PreflightPingProbe.cpp`.
+
+- [x] **5. Batería de Contratos Certificados de Fábrica**:
+  - Publicación y certificación de contratos oficiales en `contracts/hardware/`:
+    - `behringer_deepmind12.json` (SysEx + CC)
+    - `korg_ms2000.json` (Lifecycle Pre-Session All Notes Off, Reset CCs, EG Neutral, Bypass Mod/Delay Effects)
+    - `manual_eurorack_vcf.json` (Checklist de operador `MANUAL_PROMPT`)
+    - `generic_midi_synth.json` (CC 120/121/1)
+    - `roland_aira_modular.json` (SysEx DT1)
+
+---
+
+### HITO-DATASET-01: Paquete de Telemetría Empírica, Datasets Multivariables y Validación Científica
+
+> [!IMPORTANT]
+> **Definición de Éxito:** «Algo aprovechable» para un equipo complejo **no consiste en compilar un plugin C++ cerrado en tiempo real**, sino en **generar un corpus de datos empíricos de verdad física, riguroso, trazable y libre de artefactos**, que permita al investigador, músico o ingeniero analizarlo conjuntamente con otros datos (simulaciones SPICE, esquemáticos, especificaciones del fabricante u otras fuentes) para llegar a aproximaciones matemáticas fidedignas o servir de validación cruzada irrefutable.
+
+- [x] **1. Matriz de Excitación Multivariable y No-Lineal (Superando la Limitación LTI)**:
+  - **Barridos sinusoidales escalonados multiamplitud (Level-Ladder Sweeps)**:
+    - Inyección secuencial de 4 escalones calibrados (-24 dBFS, -12 dBFS, -6 dBFS, -1 dBFS) con barridos logarítmicos Farina continuos.
+    - Desacoplamiento de respuesta lineal vs. saturación y compresión dinámica por nivel.
+    - Soporte completo extremo a extremo: `LabStimulusGenerator`, serialización de sesión y selector WebUI/nativo.
+  - **Excitatriz Multitono (Multitone IMD)**:
+    - Batería simultánea de 31 tonos aperiódicos no armónicos con optimización de factor de cresta por fase de Schroeder ($\phi_k = \frac{\pi k^2}{31}$).
+    - Medición directa de distorsión por intermodulación (IMD) y suelo de ruido dinámico.
+  - **Respuesta al Impulso y al Escalón**: Captura temporal y transitoria vía DiracDelta e impulsos de sincronización.
+
+- [x] **2. Sincronización Sub-Sample y Trazabilidad Hermética de Audio**:
+  - **Compensación de Latencia Física**: Resta automática de la latencia round-trip de la interfaz calculada en Paso 2 (`FineLatencyAnalyzer`), garantizando alineación temporal al sample exacto ($t = 0 \pm 0.05$ muestras).
+  - **Exportación en Par de Audio Hermético (Float32 / 96kHz o 48kHz)**:
+    - `take_ptXXX.wav`: Toma estándar PCM 24-bit para archivo y audición directa.
+    - `response_ptXXX.wav`: Exportación canónica en Float32 para investigación científica, deconvoluciones externas o entrenamiento de redes neuronales (NAM / RTNeural / WaveNet).
+
+- [x] **3. Formatos Abiertos y Estructurados para Análisis Científico**:
+  - **Dataset Estructurado en JSON / CSV**:
+    - Vectores de frecuencias normalizadas (20 Hz a 20 kHz, 1024 bins logarítmicos).
+    - Magnitud $H(f)$ en dBV y Fase $\phi(f)$ continua desenvuelta (unwrapped phase).
+    - Armónicos individuales descompuestos ($H_2, H_3, H_4, H_5$) y THD+N espectral.
+    - Exportación a archivo plano CSV o JSON canónico compatible con Python (`pandas`/`scipy`), MATLAB, Julia, R o Excel sin compilar C++.
+  - **Metadata de Contexto y Procedencia Científica (Data Provenance)**:
+    - Estado verificado del equipo, versión del contrato y hash RFC 8785 SHA-256.
+    - Metrología física completa: Dynamic Range, Peak dBFS, Noise Floor RMS, ENOB y Correlación espectral $\rho$.
+    - Despacho y persistencia nativa en `experiments/datasets/` y descarga en navegador.
+
+- [x] **4. Motor de Validación Cruzada e Importación de Modelos Teóricos en la WebUI**:
+  - **Importador de Datos Teóricos/Externos**: Capacidad en Step 4 de cargar archivos externos (CSV, JSON o curvas de simulación LTSpice AC analysis con formato `Freq. V(out) dB, deg`).
+  - **Superposición Comparativa en Canvas**:
+    - **Traza A (Verde)**: Medición empírica real del hardware (Ground Truth medido).
+    - **Traza B (Azul/Cian)**: Modelo teórico, simulación SPICE o aproximación analítica.
+    - **Traza C (Naranja discontinua)**: Curva de error residual / discrepancia ($\Delta \text{dB}(f)$).
+  - **Cálculo Automático de Métricas de Ajuste y Bondad**:
+    - Error Cuadrático Medio de Magnitud: $\text{RMSE} = \sqrt{\frac{1}{N}\sum |H_{\text{real}}(f) - H_{\text{teorico}}(f)|^2} \text{ (dB)}$.
+    - Máxima Discrepancia Absoluta $\text{Max } |\Delta\text{dB}|$.
+
+---
+
+### HITO-AB-DIFF-01: Sistema de Comparación y Validación A/B Universal (WAV Regrabado vs. Hardware, VST, Grabación Previa y Diffs)
+
+> [!NOTE]
+> **Antecedentes y Lecciones Aprendidas:** En el proyecto hermano **`ABDMS2000`** ya se desarrollaron scripts y baterías de tests preliminares para comparar el comportamiento del hardware físico frente a emulaciones digitales, obteniendo resultados iniciales prometedores pero detectando casos límite no resueltos (fases libres de osciladores no sincronizados, variaciones térmicas analógicas y modulación estocástica de LFOs). Este hito formaliza y universaliza ese banco de pruebas dentro de ABDAudioLab.
+
+- [ ] **1. Matriz de Casos de Uso del Banco A/B**:
+  - **Caso 1: WAV Regrabado (Re-Amp / Toma Externa) vs. Cualquier Método u Origen**:
+    - Ingesta de un archivo WAV regrabado externamente (ej. toma re-amplificada en hardware, exportada de una DAW, procesada por un previo/pedal o grabada en otro estudio) y confrontación automatizada contra:
+      - **A)** Medición en vivo del hardware físico por audio loopback.
+      - **B)** Renderizado offline o tiempo real del plugin VST3 / motor DSP.
+      - **C)** Grabación histórica archivada en sesión previa (`.abdsess`).
+      - **D)** Master take / Golden Reference.
+  - **Caso 2: Hardware Físico vs. VST3 / Plugin**:
+    - Disparo sincronizado de la misma secuencia MIDI / notas de prueba tanto al sintetizador/pedal físico como al plugin VST3 cargado en el host interno.
+    - Grabación paralela a idéntica frecuencia de muestreo y resolución float32.
+  - **Caso 3: Hardware vs. Motor DSP / Standalone Interno**:
+    - Comparación directa del hardware contra un ejecutable independiente o motor C++ en desarrollo (`ReferenceSynth.vst3`, DSP experimental).
+  - **Caso 4: Comparativa Libre entre Dos Grabaciones Históricas (A vs. B)**:
+    - Comparación acústica y espectral de dos tomas de audio cualesquiera (ej. Revisión de hardware v1 vs v2, válvula original vs reemplazo, preset con distintas ganancias o dos unidades del mismo modelo).
+
+- [ ] **2. Pipeline de Procesamiento y Normalización Pre-Comparación**:
+  - **Alineación Temporal Sub-Muestra por Correlación Cruzada**:
+    - Algoritmo que calcula el desfase temporal exacto entre las tomas A y B (compensando latencias de buffer VST, jitter MIDI o retardos de conversor ADC/DAC) para alinear las señales muestra a muestra.
+  - **Normalización de Loudness y Nivel (EBU R128 / LUFS & True Peak)**:
+    - Nivelado automático de ganancia para evitar falsos positivos de error provocados por un simple desajuste de volumen maestro.
+  - **Compensación de Fase de Oscilador Libre (Free-Running Phase Correction)**:
+    - Algoritmo de correlación espectral de magnitud para comparar el contenido armónico de osciladores analógicos libres sin que el desfase angular aleatorio del ciclo de onda arruine la métrica.
+
+- [ ] **3. Métricas y Diagnósticos Automatizados de Discrepancia**:
+  - **Null-Test y Audio Residual ($|A - B|$)**:
+    - Generación de la pista de residuo acústico resultante de invertir la fase de una de las tomas.
+    - Cálculo del **Error-to-Signal Ratio (ESR)** en dB: métrica estándar de fidelidad de emulación ($<-40\text{ dB}$: indistinguible; $<-30\text{ dB}$: muy cercano; $>-20\text{ dB}$: discrepancia audible).
+  - **Diferencial Espectral y Espectrograma de Discrepancia (Spectral Diff)**:
+    - Mapa de calor en la WebUI que resalta en qué frecuencias y momentos temporales diverge el VST del hardware (ej. armónicos pares ausentes en el modelo digital, aliasing en agudos o resonancia del filtro descalibrada).
+  - **Tracking de Envolventes (ADSR Envelope Divergence)**:
+    - Extracción de las curvas de envolvente RMS para comparar discrepancias en los tiempos de ataque (attack slope), caída y rebote de condensador.
+
+- [ ] **4. Interfaz de Audición A/B Instantánea en la WebUI**:
+  - Conmutador A/B sin clics (crossfade ultra-rápido de 5 ms con loudness equiparado).
+  - Selector de monitoreo de 3 estados:
+    - **[A] Hardware Real** (Pista original de referencia).
+    - **[B] VST3 / Motor Emulado** (Pista del modelo a validar).
+    - **[Delta] Residuo / Error** (Diferencia amplificada para audicionar exclusivamente lo que la emulación no captura o añade por error).
+
+
 

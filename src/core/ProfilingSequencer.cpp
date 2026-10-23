@@ -748,6 +748,8 @@ void ProfilingSequencer::run()
                 case audio::StimulusType::LogFarinaSweep: return "LogFarinaSweep";
                 case audio::StimulusType::AmplitudeRamp: return "AmplitudeRamp";
                 case audio::StimulusType::NamCalibration: return "NamCalibration";
+                case audio::StimulusType::LevelLadderSweep: return "LevelLadderSweep";
+                case audio::StimulusType::MultitoneIMD: return "MultitoneIMD";
                 default: return "Unknown";
             }
         };

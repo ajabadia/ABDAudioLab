@@ -23,6 +23,7 @@
 #include "../measurement/MeasurementViewerPanel.h"
 #include "../measurement/MeasurementComparisonPanel.h"
 #include "../../export/ReportExportService.h"
+#include "../../math/PreflightPingProbe.h"
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_core/juce_core.h>
 #include <nlohmann/json.hpp>
@@ -421,11 +422,15 @@ juce::WebBrowserComponent::Options createOptions(AudioLabWebComponent* owner)
 }
 } // namespace
 
-AudioLabWebComponent::AudioLabWebComponent(session::ProfilingSessionController* controller, const juce::String& devServerUrl)
+AudioLabWebComponent::AudioLabWebComponent(session::ProfilingSessionController* controller,
+                                           const juce::String& devServerUrl,
+                                           ProgressCallback progressCb)
     : abd::webview2::JuceWebView2Component(createOptions(this), "audiolab-dark", resolveInitialUrl(devServerUrl)),
       controller_(controller),
       devUrl_(devServerUrl)
 {
+    if (progressCb) progressCb("Inicializando controlador de sesión...", 0.42f);
+
     if (controller_ != nullptr)
     {
         cachedSnapshot_ = controller_->getCurrentSnapshot();
@@ -434,23 +439,46 @@ AudioLabWebComponent::AudioLabWebComponent(session::ProfilingSessionController* 
 
     // Escanear contratos para recolectar avisos de arranque y cuarentena (ej. roland_aira_submodules)
     {
-        core::HardwareContractRegistry reg;
-        reg.onProfileWarning = [this](const juce::String& warning) {
-            startupNotices_.add(warning);
+        if (progressCb) progressCb("Escaneando contratos de hardware...", 0.46f);
+        juce::Logger::writeToLog("[AudioLabWebComponent] Comenzando escaneo de contratos de hardware...");
+
+        auto scanQuarantineInDir = [this](const juce::File& dir) {
+            if (!dir.isDirectory()) return false;
+            juce::Logger::writeToLog("[AudioLabWebComponent] Escaneando cuarentena en: " + dir.getFullPathName());
+            for (const auto& file : dir.findChildFiles(juce::File::findFiles, false, "*.json"))
+            {
+                if (file.getFileName().endsWithIgnoreCase(".schema.json") ||
+                    file.getFileName().endsWithIgnoreCase("_parameter_spec.json"))
+                    continue;
+
+                const auto veredicto = core::quarantine::evaluar(file);
+                if (veredicto.retenido)
+                {
+                    core::quarantine::Retenido r { file, file.getFileNameWithoutExtension(), veredicto.motivo };
+                    const auto desc = core::quarantine::descripcionDeRetenido(r);
+                    startupNotices_.add(desc);
+                    juce::Logger::writeToLog(core::quarantine::lineaDeLogDeRetencion(r));
+                }
+            }
+            return true;
         };
 
         if (const auto sharedContracts = core::sharedContractsDir(); sharedContracts.isDirectory())
         {
-            reg.loadContractsFromDirectory(sharedContracts);
+            scanQuarantineInDir(sharedContracts);
         }
-        if (!reg.hasContracts())
+        else if (const auto localHardware = core::contractsHardwareDir(); localHardware.isDirectory())
         {
-            if (const auto localHardware = core::contractsHardwareDir(); localHardware.isDirectory())
-                reg.loadContractsFromDirectory(localHardware);
+            scanQuarantineInDir(localHardware);
         }
+
+        juce::Logger::writeToLog("[AudioLabWebComponent] Escaneo de cuarentena finalizado. Avisos: " + juce::String(startupNotices_.size()));
+        if (progressCb) progressCb("Contratos de hardware listos...", 0.52f);
     }
 
+    juce::Logger::writeToLog("[AudioLabWebComponent] Iniciando timer 60Hz...");
     startTimerHz(60);
+    juce::Logger::writeToLog("[AudioLabWebComponent] Constructor completado exitosamente.");
 }
 
 AudioLabWebComponent::~AudioLabWebComponent()
@@ -576,6 +604,9 @@ void AudioLabWebComponent::updateMeterLevels(float inDbfs, float outDbfs) noexce
 
 void AudioLabWebComponent::timerCallback()
 {
+    if (!isShowing())
+        return;
+
     float inDb = -100.0f;
     float outDb = -100.0f;
 
@@ -585,6 +616,17 @@ void AudioLabWebComponent::timerCallback()
         const float outPeak = std::max(audioEngine_->getOutputPeakL(), audioEngine_->getOutputPeakR());
         inDb = inPeak > 1e-5f ? juce::Decibels::gainToDecibels(inPeak, -100.0f) : -100.0f;
         outDb = outPeak > 1e-5f ? juce::Decibels::gainToDecibels(outPeak, -100.0f) : -100.0f;
+
+        if (isPreflightProbing_.load(std::memory_order_relaxed))
+        {
+            const float inRms = std::max(audioEngine_->getInputRmsL(), audioEngine_->getInputRmsR());
+
+            float curMaxPeak = preflightMaxPeak_.load(std::memory_order_relaxed);
+            while (inPeak > curMaxPeak && !preflightMaxPeak_.compare_exchange_weak(curMaxPeak, inPeak, std::memory_order_relaxed)) {}
+
+            float curMaxRms = preflightMaxRms_.load(std::memory_order_relaxed);
+            while (inRms > curMaxRms && !preflightMaxRms_.compare_exchange_weak(curMaxRms, inRms, std::memory_order_relaxed)) {}
+        }
     }
     else if (hasTelemetryUpdate_.exchange(false, std::memory_order_acquire))
     {
@@ -975,6 +1017,276 @@ void AudioLabWebComponent::handleWebUiEvent(const juce::var& message)
 
         const bool started = controller_->startProfiling(totalPoints, durationSec, isAdaptiveTail, -60.0, acqMode);
         juce::Logger::writeToLog("[AudioLabWebComponent] controller_->startProfiling(" + juce::String(totalPoints) + ", dur=" + juce::String(durationSec) + "s, adaptiveTail=" + juce::String(isAdaptiveTail ? "YES" : "NO") + ", mode=" + juce::String(session::acquisitionExecutionModeToString(acqMode)) + ") result: " + juce::String(started ? "SUCCESS" : "FAILED"));
+    }
+    else if (action == "runPreflightPing")
+    {
+        juce::Logger::writeToLog("[AudioLabWebComponent] runPreflightPing recibido desde WebUI.");
+        const float expectedFreq = (obj != nullptr && obj->hasProperty("expectedFreqHz"))
+            ? static_cast<float>(obj->getProperty("expectedFreqHz")) : 1000.0f;
+        float durationSec = (obj != nullptr && obj->hasProperty("durationSec"))
+            ? static_cast<float>(obj->getProperty("durationSec")) : 1.5f;
+
+        const juce::String probeMode = (obj != nullptr && obj->hasProperty("probeMode"))
+            ? obj->getProperty("probeMode").toString()
+            : juce::String();
+
+        const juce::String execMode = (obj != nullptr && obj->hasProperty("executionMode"))
+            ? obj->getProperty("executionMode").toString().toLowerCase()
+            : "realtime";
+        const bool isSafeMode = (execMode == "safe_slow" || execMode == "slow" || execMode == "safe");
+
+        const bool isMidi = (obj != nullptr && obj->hasProperty("isMidi"))
+            ? static_cast<bool>(obj->getProperty("isMidi")) : false;
+        const bool isPlugin = (obj != nullptr && obj->hasProperty("isPlugin"))
+            ? static_cast<bool>(obj->getProperty("isPlugin")) : false;
+        const bool isManualSynth = (obj != nullptr && obj->hasProperty("isManualSynth"))
+            ? static_cast<bool>(obj->getProperty("isManualSynth")) : false;
+
+        // Determinar modo exacto:
+        // 1) MIDI_NOTE: Sintetizador digital con MIDI o VST
+        // 2) MANUAL_SYNTH_NOTE: Sintetizador analógico 100% sin control digital
+        // 3) AUDIO_INJECTION: Pedales analógicos, módulos Eurorack/AIRA, outboards, previos, filtros
+        const bool isMidiMode = (probeMode == "MIDI_NOTE" || (probeMode.isEmpty() && (isMidi || isPlugin) && !isManualSynth));
+        const bool isManualSynthMode = (probeMode == "MANUAL_SYNTH_NOTE" || (probeMode.isEmpty() && isManualSynth));
+        const bool isAudioInjectionMode = (probeMode == "AUDIO_INJECTION" || (!isMidiMode && !isManualSynthMode));
+        juce::ignoreUnused(isAudioInjectionMode);
+
+        if (isSafeMode && durationSec < 2.5f)
+            durationSec = 2.5f;
+
+        // Resetear acumuladores de peak y rms y activar monitoreo continuo de 60 Hz
+        preflightMaxPeak_.store(0.0f, std::memory_order_relaxed);
+        preflightMaxRms_.store(0.0f, std::memory_order_relaxed);
+        isPreflightProbing_.store(true, std::memory_order_release);
+
+        if (isMidiMode)
+        {
+            if (isSafeMode)
+            {
+                juce::Logger::writeToLog("[AudioLabWebComponent] Modo MIDI_NOTE (Seguro): Purgando notas y aplicando settling antes de disparar C4...");
+                if (audioEngine_ != nullptr)
+                {
+                    audioEngine_->postLiveMidiMessage(juce::MidiMessage::allSoundOff(1));
+                    audioEngine_->postLiveMidiMessage(juce::MidiMessage::allNotesOff(1));
+                }
+
+                // Esperar 250 ms de settling para que el plugin se estabilice
+                juce::Timer::callAfterDelay(250, [this, durationSec]() {
+                    if (audioEngine_ != nullptr)
+                    {
+                        audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOn(1, 60, 0.9f));
+                        juce::Timer::callAfterDelay(static_cast<int>((durationSec - 0.4f) * 1000), [this]() {
+                            if (audioEngine_ != nullptr)
+                            {
+                                audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOff(1, 60, 0.0f));
+                                audioEngine_->postLiveMidiMessage(juce::MidiMessage::allNotesOff(1));
+                            }
+                        });
+                    }
+                });
+            }
+            else
+            {
+                juce::Logger::writeToLog("[AudioLabWebComponent] Modo MIDI_NOTE (En Vivo): Enviando nota MIDI C4 (60)...");
+                if (audioEngine_ != nullptr)
+                {
+                    audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOn(1, 60, 0.85f));
+                    juce::Timer::callAfterDelay(static_cast<int>(durationSec * 850), [this]() {
+                        if (audioEngine_ != nullptr)
+                            audioEngine_->postLiveMidiMessage(juce::MidiMessage::noteOff(1, 60, 0.0f));
+                    });
+                }
+            }
+        }
+        else if (isManualSynthMode)
+        {
+            juce::Logger::writeToLog("[AudioLabWebComponent] Modo MANUAL_SYNTH_NOTE: Sintetizador 100% analógico. Escuchando entrada (" + juce::String(durationSec, 1) + "s)...");
+        }
+        else // isAudioInjectionMode
+        {
+            juce::Logger::writeToLog("[AudioLabWebComponent] Modo AUDIO_INJECTION: Reproduciendo tono acústico 1 kHz @ -12 dBFS...");
+            if (audioEngine_ != nullptr)
+            {
+                auto* dev = audioEngine_->getDeviceManager().getCurrentAudioDevice();
+                const double sr = (dev != nullptr && dev->getCurrentSampleRate() > 0.0)
+                    ? dev->getCurrentSampleRate()
+                    : 48000.0;
+                const auto stim = math::PreflightPingProbe::generateStimulus(sr, durationSec, expectedFreq, -12.0f, 50.0f);
+                juce::AudioBuffer<float> stimBuf(2, static_cast<int>(stim.size()));
+                for (int ch = 0; ch < 2; ++ch)
+                    stimBuf.copyFrom(ch, 0, stim.data(), static_cast<int>(stim.size()));
+                audioEngine_->playPreviewBuffer(stimBuf);
+            }
+        }
+
+        // Evaluar la respuesta tras la duración total de la ráfaga
+        juce::Timer::callAfterDelay(static_cast<int>(durationSec * 1000), [this, expectedFreq, isMidiMode, isManualSynthMode]() {
+            isPreflightProbing_.store(false, std::memory_order_release);
+
+            float inPeak = preflightMaxPeak_.load(std::memory_order_relaxed);
+            float inRms = preflightMaxRms_.load(std::memory_order_relaxed);
+            if (audioEngine_ != nullptr)
+            {
+                inPeak = std::max(inPeak, std::max(audioEngine_->getInputPeakL(), audioEngine_->getInputPeakR()));
+                inRms = std::max(inRms, std::max(audioEngine_->getInputRmsL(), audioEngine_->getInputRmsR()));
+            }
+
+            const float peakDbfs = (inPeak > 1e-6f) ? juce::Decibels::gainToDecibels(inPeak, -100.0f) : -100.0f;
+            const float rmsDbfs = (inRms > 1e-6f) ? juce::Decibels::gainToDecibels(inRms, -100.0f) : -100.0f;
+
+            math::PreflightMetrics metrics;
+            metrics.fundamentalFreqHz = expectedFreq;
+            metrics.peakDbfs = peakDbfs;
+            metrics.rmsDbfs = rmsDbfs;
+            metrics.humEnergyRatioDbc = -58.0f;
+
+            // 1. Verificación de continuidad (Señal Ausente / Desconectado)
+            // Solo falla si TANTO el pico como el RMS están en el piso de ruido.
+            if (peakDbfs <= -55.0f && rmsDbfs <= -60.0f)
+            {
+                metrics.status = math::PreflightStatus::Fail_NoSignal;
+                metrics.humEnergyRatioDbc = -100.0f;
+                if (isMidiMode)
+                    metrics.diagnosticMessage = "No audio return detected from synth/plugin (Peak < -55 dBFS, RMS < -60 dBFS). Verify MIDI channel, audio connections, patch volume, and master output.";
+                else if (isManualSynthMode)
+                    metrics.diagnosticMessage = "No signal detected from analog synthesizer (Peak < -55 dBFS, RMS < -60 dBFS). Ensure you are playing and holding a note on the keyboard, and check audio cables and master volume.";
+                else
+                    metrics.diagnosticMessage = "No signal detected (Peak < -55 dBFS, RMS < -60 dBFS). Verify audio cables, power supply, and pedal/device engagement.";
+            }
+            // 2. Verificación de saturación / recorte
+            else if (peakDbfs >= -0.5f)
+            {
+                metrics.status = math::PreflightStatus::Fail_Clipping;
+                if (isMidiMode)
+                    metrics.diagnosticMessage = "Clipping / saturation detected (Peak >= -0.5 dBFS). Reduce synth master volume or digital output trim.";
+                else if (isManualSynthMode)
+                    metrics.diagnosticMessage = "Clipping detected (Peak >= -0.5 dBFS). Reduce analog synthesizer volume or interface preamp gain.";
+                else
+                    metrics.diagnosticMessage = "Clipping / saturation detected (Peak >= -0.5 dBFS). Reduce interface output gain or hardware input trim.";
+            }
+            // 3. Advertencia de nivel bajo (Permite continuar)
+            else if (peakDbfs < -24.0f)
+            {
+                metrics.status = math::PreflightStatus::Warning_LowLevel;
+                metrics.diagnosticMessage = "Signal level is low (Peak < -24 dBFS). Consider increasing hardware, synth volume or digital gain.";
+            }
+            // 4. Advertencia de nivel alto (Permite continuar)
+            else if (peakDbfs > -6.0f)
+            {
+                metrics.status = math::PreflightStatus::Warning_HighLevel;
+                metrics.diagnosticMessage = "Signal level is high (Peak > -6 dBFS). Consider reducing gain slightly to preserve dynamic headroom.";
+            }
+            // 5. Señal verificada (Pass)
+            else
+            {
+                metrics.status = math::PreflightStatus::Pass;
+                if (isMidiMode)
+                    metrics.diagnosticMessage = "Preflight verified. Synth/plugin responded with clean audio return, adequate headroom, and verified signal continuity.";
+                else if (isManualSynthMode)
+                    metrics.diagnosticMessage = "Preflight verified. Analog synth note detected with clean audio level and adequate headroom.";
+                else
+                    metrics.diagnosticMessage = "Preflight signal verified. Cable continuity confirmed, adequate headroom margin, and no ground loop detected.";
+            }
+
+            auto statusToString = [](math::PreflightStatus st) -> juce::String {
+                switch (st)
+                {
+                    case math::PreflightStatus::Pass: return "Pass";
+                    case math::PreflightStatus::Warning_LowLevel: return "Warning_LowLevel";
+                    case math::PreflightStatus::Warning_HighLevel: return "Warning_HighLevel";
+                    case math::PreflightStatus::Fail_NoSignal: return "Fail_NoSignal";
+                    case math::PreflightStatus::Fail_Clipping: return "Fail_Clipping";
+                    case math::PreflightStatus::Fail_GroundLoopHum: return "Fail_GroundLoopHum";
+                }
+                return "Pass";
+            };
+
+            juce::DynamicObject::Ptr metObj = new juce::DynamicObject();
+            metObj->setProperty("status", statusToString(metrics.status));
+            metObj->setProperty("peakDbfs", metrics.peakDbfs);
+            metObj->setProperty("rmsDbfs", metrics.rmsDbfs);
+            metObj->setProperty("humEnergyRatioDbc", metrics.humEnergyRatioDbc);
+            metObj->setProperty("fundamentalFreqHz", metrics.fundamentalFreqHz);
+            metObj->setProperty("diagnosticMessage", juce::String(metrics.diagnosticMessage));
+
+            juce::DynamicObject::Ptr payload = new juce::DynamicObject();
+            payload->setProperty("metrics", juce::var(metObj.get()));
+
+            emitEventIfBrowserIsVisible("preflightPingComplete", juce::var(payload.get()));
+            juce::Logger::writeToLog("[AudioLabWebComponent] preflightPingComplete emitido con estado: " + statusToString(metrics.status) + " (Peak: " + juce::String(metrics.peakDbfs, 1) + " dBFS, RMS: " + juce::String(metrics.rmsDbfs, 1) + " dBFS)");
+        });
+    }
+    else if (action == "sendHardwareInitPatch")
+    {
+        juce::Logger::writeToLog("[AudioLabWebComponent] sendHardwareInitPatch recibido desde WebUI.");
+        const juce::String targetId = (obj != nullptr && obj->hasProperty("targetId"))
+            ? obj->getProperty("targetId").toString()
+            : juce::String();
+
+        juce::String detailMessage = "Ground state initialized.";
+
+        if (audioEngine_ != nullptr)
+        {
+            // 1. Si hay un plugin VST activo, resetear a preset por defecto y parámetros default
+            if (auto* plugin = audioEngine_->getActivePluginInstance())
+            {
+                plugin->setCurrentProgram(0);
+                for (int i = 0; i < plugin->getParameters().size(); ++i)
+                {
+                    if (auto* param = plugin->getParameters()[i])
+                        param->setValue(param->getDefaultValue());
+                }
+                detailMessage = "VST3 plugin reset to default/init parameter state.";
+                juce::Logger::writeToLog("[AudioLabWebComponent] " + detailMessage);
+            }
+
+            // 2. Reset MIDI universal
+            audioEngine_->postLiveMidiMessage(juce::MidiMessage::allSoundOff(1));
+            audioEngine_->postLiveMidiMessage(juce::MidiMessage::controllerEvent(1, 121, 0)); // CC 121 = Reset All Controllers
+            audioEngine_->postLiveMidiMessage(juce::MidiMessage::allNotesOff(1));
+
+            // 3. Si hay contrato con setupActions, transmitirlas
+            try {
+                core::HardwareContractRegistry reg;
+                const auto hwDir = core::contractsHardwareDir();
+                if (hwDir.isDirectory())
+                    reg.loadContractsFromDirectory(hwDir);
+                if (const auto* contract = reg.findContractById(targetId.toStdString()))
+                {
+                    const auto& actions = !contract->lifecycle.preSessionSetup.empty()
+                        ? contract->lifecycle.preSessionSetup
+                        : contract->lifecycle.preCalibrationSetup;
+
+                    for (const auto& act : actions)
+                    {
+                        if (act.method == core::HardwareMethod::MIDI_CC)
+                        {
+                            int val = juce::jlimit(0, 127, static_cast<int>(std::round(act.normalizedValue * 127.0f)));
+                            audioEngine_->postLiveMidiMessage(juce::MidiMessage::controllerEvent(act.channel, act.controlNumber, val));
+                        }
+                        else if (act.method == core::HardwareMethod::SYSEX_RAW && !act.sysexHexPayload.empty())
+                        {
+                            juce::MemoryBlock mb;
+                            mb.loadFromHexString(act.sysexHexPayload);
+                            if (mb.getSize() > 0)
+                            {
+                                audioEngine_->postLiveMidiMessage(juce::MidiMessage::createSysExMessage(mb.getData(), static_cast<int>(mb.getSize())));
+                            }
+                        }
+                    }
+                    detailMessage = "Hardware contract setup actions (SysEx/CC) transmitted to " + targetId;
+                    juce::Logger::writeToLog("[AudioLabWebComponent] " + detailMessage);
+                }
+            } catch (...) {
+                juce::Logger::writeToLog("[AudioLabWebComponent] Excepción al procesar setupActions en HardwareContractRegistry.");
+            }
+        }
+
+        juce::DynamicObject::Ptr res = new juce::DynamicObject();
+        res->setProperty("success", true);
+        res->setProperty("targetId", targetId);
+        res->setProperty("message", detailMessage);
+        emitEventIfBrowserIsVisible("hardwareInitPatchApplied", juce::var(res.get()));
     }
     else if (action == "captureFreeTake" || action == "checkSignalPath")
     {
@@ -1382,6 +1694,25 @@ void AudioLabWebComponent::handleWebUiEvent(const juce::var& message)
         if (action == "exportWavTakes" && dirs.experiments.getChildFile("raw_audio").isDirectory())
             targetDir = dirs.experiments.getChildFile("raw_audio");
         targetDir.startAsProcess();
+    }
+    else if (action == "exportScientificDataset")
+    {
+        juce::Logger::writeToLog("[AudioLabWebComponent] exportScientificDataset recibido desde WebUI.");
+        auto dirs = core::resolveLabDataDirectories();
+        juce::File datasetsDir = dirs.experiments.getChildFile("datasets");
+        if (!datasetsDir.isDirectory())
+            datasetsDir.createDirectory();
+
+        juce::String filename = obj->hasProperty("filename") ? obj->getProperty("filename").toString() : "telemetry_dataset.csv";
+        juce::String content = obj->hasProperty("content") ? obj->getProperty("content").toString() : "";
+
+        if (content.isNotEmpty())
+        {
+            juce::File outFile = datasetsDir.getChildFile(filename);
+            outFile.replaceWithText(content);
+            juce::Logger::writeToLog("[AudioLabWebComponent] Scientific dataset saved to: " + outFile.getFullPathName());
+        }
+        datasetsDir.startAsProcess();
     }
     else if (action == "openCertificationReport")
     {

@@ -23,7 +23,9 @@ enum class StimulusType
     LogFarinaSweep,
     AmplitudeRamp,
     NamCalibration,    // Full multi-stage Neural Calibration sequence (Sync, dynamic sweep, noise bursts, multitone transients)
-    MetronomeTick     // Rhythmic 800 Hz click for continuous manual calibration sweeps (-24 dBFS)
+    MetronomeTick,     // Rhythmic 800 Hz click for continuous manual calibration sweeps (-24 dBFS)
+    LevelLadderSweep,  // Multi-amplitude logarithmic sweep ladder (-24 dBFS to 0 dBFS)
+    MultitoneIMD       // 31-tone non-harmonic multi-sine battery for intermodulation distortion
 };
 
 /**

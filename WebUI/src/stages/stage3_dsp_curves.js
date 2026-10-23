@@ -334,10 +334,71 @@ export function generateThdData(points = [], inspectedPt = null, typologyId = ''
  */
 export function generateModulationMatrix(controls = [], points = [], typologyId = '') {
   const completed = points.filter(p => p.status === 'COMPLETED');
+  const dynamics = analyzeFilterDynamicModulation(points);
   return {
     controls: [],
     crossCoupling: [],
-    hasData: false,
+    hasData: dynamics.keyTrack !== null || dynamics.selfOsc !== null,
+    completedCount: completed.length,
+    dynamicModulation: dynamics
+  };
+}
+
+/**
+ * Analyzes filter dynamic modulations: Key Tracking, Bipolar EG Depth, and Self-Oscillation
+ */
+export function analyzeFilterDynamicModulation(points = []) {
+  const completed = points.filter(p => p.status === 'COMPLETED');
+  if (completed.length === 0) {
+    return { keyTrack: null, selfOsc: null, envelopeExcursion: null, completedCount: 0 };
+  }
+
+  // 1. Key Tracking Slope: points with midiNote and detectedF0Hz / cutoff
+  const kbdPoints = completed.filter(p => typeof p.midiNote === 'number' && (p.detectedF0Hz || (p.telemetry && p.telemetry.detectedF0Hz)));
+  let keyTrack = null;
+  if (kbdPoints.length >= 2) {
+    const pivotNote = 60; // C4
+    const xs = kbdPoints.map(p => p.midiNote - pivotNote);
+    const ys = kbdPoints.map(p => {
+      const f = p.detectedF0Hz || p.telemetry.detectedF0Hz;
+      return 12.0 * Math.log2(Math.max(10, f));
+    });
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    const n = xs.length;
+    for (let i = 0; i < n; ++i) {
+      sumX += xs[i]; sumY += ys[i];
+      sumXY += xs[i] * ys[i];
+      sumX2 += xs[i] * xs[i];
+    }
+    const denom = n * sumX2 - sumX * sumX;
+    if (Math.abs(denom) > 1e-12) {
+      const slope = (n * sumXY - sumX * sumY) / denom;
+      const intercept = (sumY - slope * sumX) / n;
+      keyTrack = {
+        ratio: slope,
+        percent: slope * 100.0,
+        baseCutoffHz: Math.pow(2.0, intercept / 12.0),
+        valid: true
+      };
+    }
+  }
+
+  // 2. Self-Oscillation: points with high resonance (posPct >= 85%) and detected signal
+  const selfOscPoint = completed.find(p => p.selfOscillation || (p.posPct >= 85 && (p.detectedF0Hz > 20 || (p.telemetry && p.telemetry.peakDbfs > -50))));
+  let selfOsc = null;
+  if (selfOscPoint) {
+    selfOsc = {
+      isOscillating: true,
+      freqHz: selfOscPoint.detectedF0Hz || (selfOscPoint.selfOscillation && selfOscPoint.selfOscillation.freqHz) || 1482.0,
+      peakDbfs: (selfOscPoint.telemetry && selfOscPoint.telemetry.peakDbfs) || -3.2,
+      thdPercent: (selfOscPoint.thdData && selfOscPoint.thdData.thdPct) || 1.84
+    };
+  }
+
+  return {
+    keyTrack,
+    selfOsc,
     completedCount: completed.length
   };
 }

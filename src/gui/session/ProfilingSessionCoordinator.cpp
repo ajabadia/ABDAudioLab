@@ -622,6 +622,8 @@ void ProfilingSessionCoordinator::run()
             if (!audioBuffer.empty())
             {
                 juce::WavAudioFormat wavFormat;
+
+                // 1. Standard 24-bit take WAV
                 if (auto outStream = std::unique_ptr<juce::FileOutputStream>(takeWav.createOutputStream()))
                 {
                     std::unique_ptr<juce::AudioFormatWriter> writer(wavFormat.createWriterFor(
@@ -632,6 +634,21 @@ void ProfilingSessionCoordinator::run()
                         tempBuf.copyFrom(0, 0, audioBuffer.data(), static_cast<int>(audioBuffer.size()));
                         writer->writeFromAudioSampleBuffer(tempBuf, 0, tempBuf.getNumSamples());
                         (void)outStream.release(); // AudioFormatWriter owns stream
+                    }
+                }
+
+                // 2. High-precision Float32 canonical response WAV for external neural / scientific analysis
+                juce::File responseWav = rawDir.getChildFile("response_pt" + juce::String::formatted("%03d", trial) + ".wav");
+                if (auto outStream = std::unique_ptr<juce::FileOutputStream>(responseWav.createOutputStream()))
+                {
+                    std::unique_ptr<juce::AudioFormatWriter> writer(wavFormat.createWriterFor(
+                        outStream.get(), sampleRate, 1, 32, {}, 0));
+                    if (writer != nullptr)
+                    {
+                        juce::AudioBuffer<float> tempBuf(1, static_cast<int>(audioBuffer.size()));
+                        tempBuf.copyFrom(0, 0, audioBuffer.data(), static_cast<int>(audioBuffer.size()));
+                        writer->writeFromAudioSampleBuffer(tempBuf, 0, tempBuf.getNumSamples());
+                        (void)outStream.release();
                     }
                 }
             }

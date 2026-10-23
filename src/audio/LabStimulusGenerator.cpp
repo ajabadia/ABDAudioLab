@@ -280,6 +280,75 @@ void LabStimulusGenerator::processBlock(float* outputBuffer, int numSamples) noe
                 }
                 break;
             }
+
+            case StimulusType::LevelLadderSweep:
+            {
+                // 4-Stage Multi-Amplitude Swept Sine Ladder (-24 dBFS, -12 dBFS, -6 dBFS, -1 dBFS)
+                const double stageDuration = T / 4.0;
+                const int stage = juce::jlimit(0, 3, static_cast<int>(t / stageDuration));
+                const double tInStage = std::fmod(t, stageDuration);
+
+                // Gains for ladder: -24 dB, -12 dB, -6 dB, -1 dB
+                constexpr float ladderGains[4] = { 0.0630957f, 0.2511886f, 0.5011872f, 0.8912509f };
+                const float stageGain = ladderGains[stage];
+
+                const double K_step = (w1 * stageDuration) / logRatio;
+                const double L_step = stageDuration / logRatio;
+                const double phase = K_step * (std::exp(tInStage / L_step) - 1.0);
+
+                sampleVal = static_cast<float>(std::sin(phase) * stageGain);
+
+                // 2ms Hann window at step boundaries to avoid clicks
+                constexpr double winTime = 0.002;
+                if (tInStage < winTime)
+                {
+                    const double win = 0.5 * (1.0 - std::cos(std::numbers::pi * (tInStage / winTime)));
+                    sampleVal *= static_cast<float>(win);
+                }
+                else if (tInStage > (stageDuration - winTime))
+                {
+                    const double win = 0.5 * (1.0 - std::cos(std::numbers::pi * ((stageDuration - tInStage) / winTime)));
+                    sampleVal *= static_cast<float>(win);
+                }
+                break;
+            }
+
+            case StimulusType::MultitoneIMD:
+            {
+                // 31 non-harmonic tones with Schroeder phase distribution for minimum crest factor
+                static constexpr float multitoneFreqs[31] = {
+                    23.0f, 31.0f, 43.0f, 59.0f, 83.0f, 113.0f, 157.0f, 223.0f,
+                    311.0f, 439.0f, 617.0f, 863.0f, 1213.0f, 1699.0f, 2381.0f,
+                    3329.0f, 4657.0f, 6521.0f, 9127.0f, 11447.0f, 13103.0f,
+                    14557.0f, 15823.0f, 16901.0f, 17827.0f, 18587.0f, 19183.0f,
+                    19609.0f, 19867.0f, 19961.0f, 19997.0f
+                };
+
+                double acc = 0.0;
+                for (int k = 0; k < 31; ++k)
+                {
+                    // Schroeder phase: phi_k = pi * k^2 / M
+                    const double schroederPhase = (std::numbers::pi * k * k) / 31.0;
+                    acc += std::cos(twoPi * multitoneFreqs[k] * t + schroederPhase);
+                }
+
+                // Normalize: 0.707 / sqrt(31) to maintain ~ -3 dBFS peak without clipping
+                sampleVal = static_cast<float>(acc * (0.70710678 / 5.56776436));
+
+                // 5ms Hann window at start and end
+                constexpr double winTime = 0.005;
+                if (t < winTime)
+                {
+                    const double win = 0.5 * (1.0 - std::cos(std::numbers::pi * (t / winTime)));
+                    sampleVal *= static_cast<float>(win);
+                }
+                else if (t > (T - winTime))
+                {
+                    const double win = 0.5 * (1.0 - std::cos(std::numbers::pi * ((T - t) / winTime)));
+                    sampleVal *= static_cast<float>(win);
+                }
+                break;
+            }
         }
 
         outputBuffer[i] = sampleVal;

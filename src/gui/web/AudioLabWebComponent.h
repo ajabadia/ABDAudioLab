@@ -51,8 +51,11 @@ class AudioLabWebComponent : public abd::webview2::JuceWebView2Component,
                              public juce::ChangeListener
 {
 public:
+    using ProgressCallback = std::function<void(const juce::String& message, float progress)>;
+
     explicit AudioLabWebComponent(session::ProfilingSessionController* controller = nullptr,
-                                  const juce::String& devServerUrl = {});
+                                  const juce::String& devServerUrl = {},
+                                  ProgressCallback progressCb = nullptr);
     ~AudioLabWebComponent() override;
 
     // juce::ChangeListener
@@ -141,6 +144,11 @@ private:
     std::atomic<float> latestInDbfs_ { -60.0f };
     std::atomic<float> latestOutDbfs_ { -60.0f };
     std::atomic<bool> hasTelemetryUpdate_ { false };
+
+    // Sonda Preflight - Monitoreo acumulado durante la ráfaga
+    std::atomic<bool> isPreflightProbing_ { false };
+    std::atomic<float> preflightMaxPeak_ { 0.0f };
+    std::atomic<float> preflightMaxRms_ { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioLabWebComponent)
 };

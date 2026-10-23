@@ -122,48 +122,78 @@
   border-radius: var(--radius-lg, 8px);
   cursor: pointer;
   transition: all var(--transition-fast, 0.15s ease);
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
+  user-select: none;
 }
 
 .stepper-item:hover {
   background: var(--color-panel-surface);
 }
 
+/* 1. Estado Bloqueado (Locked / Not Accessible) */
 .stepper-item.locked {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .stepper-item.locked:hover {
   background: transparent;
+  cursor: not-allowed;
 }
 
+.stepper-item.locked .step-icon {
+  border: 1.5px dashed var(--color-panel-border-strong, var(--color-panel-border));
+  color: var(--color-text-dim);
+  background: rgba(128, 128, 128, 0.08);
+  box-shadow: none;
+}
+
+.stepper-item.locked .step-title {
+  color: var(--color-text-dim);
+}
+
+.stepper-item.locked .step-sub {
+  color: var(--color-text-dim);
+  opacity: 0.8;
+}
+
+/* 2. Estado Completado (Completed) */
 .stepper-item.completed .step-icon {
   background: var(--color-accent);
   color: var(--color-bg-base);
-  border: none;
+  border: 1.5px solid var(--color-accent);
   font-weight: 800;
 }
 
 .stepper-item.completed .step-title {
   color: var(--color-text-main);
+  font-weight: 600;
 }
 
+/* 3. Estado Activo (Active / Current Stage) */
 .stepper-item.active {
   background: var(--color-accent-dim);
-  border-color: var(--color-panel-border-strong);
+  border-color: var(--color-accent);
 }
 
 .stepper-item.active .step-icon {
   border: 2px solid var(--color-accent);
   color: var(--color-accent);
-  background: var(--color-accent-dim);
-  box-shadow: 0 0 12px var(--color-accent-dim);
+  background: var(--color-panel-surface-elevated, var(--color-panel-bg));
+  box-shadow: 0 0 10px var(--color-accent-dim);
 }
 
 .stepper-item.active .step-title {
   color: var(--color-accent);
   font-weight: 700;
+}
+
+/* 4. Estado Activo Y Completado (Active AND Completed) */
+.stepper-item.active.completed .step-icon {
+  background: var(--color-accent);
+  color: var(--color-bg-base);
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent-dim);
 }
 
 .step-icon {
