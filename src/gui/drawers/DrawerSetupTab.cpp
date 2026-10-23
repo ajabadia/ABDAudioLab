@@ -307,7 +307,7 @@ DrawerSetupTab::DrawerSetupTab()
     lblAboutTagline.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addChildComponent(lblAboutTagline);
 
-    lblAboutArchitecture.setText("Hybrid C++20 / JUCE 8 / ABDSharedCode Architecture\nReal-time DSP, TPT ZDF Filters, PolyBLEP Oscillators, SysEx MIDI Engine.", juce::dontSendNotification);
+    lblAboutArchitecture.setText("Hybrid C++20 / JUCE 8 / ABDShared Architecture\nReal-time DSP, TPT ZDF Filters, PolyBLEP Oscillators, SysEx MIDI Engine.", juce::dontSendNotification);
     lblAboutArchitecture.setFont(juce::FontOptions(9.5f));
     lblAboutArchitecture.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addChildComponent(lblAboutArchitecture);

@@ -92,6 +92,24 @@ TEST_CASE("SoundIdProfilingRunView: Monitor de progreso en vivo y salud acÃºst
     REQUIRE_NOTHROW(runView.updateFromSnapshot(snap));
 }
 
+TEST_CASE("SoundIdResultsSummaryView: Estado inicial Empty State muestra Awaiting y exportacion bloqueada", "[gui][soundid]")
+{
+    ProfilingSessionController controller;
+    soundid::SoundIdResultsSummaryView resView(controller);
+    resView.setSize(800, 600);
+
+    CHECK(resView.hasEvaluation() == false);
+    CHECK(resView.isExportEnabled() == false);
+    CHECK(resView.getWarningsText() == "Awaiting measurement or load evaluation.");
+
+    // Al recibir un snapshot sin evaluacion
+    auto snap = controller.getCurrentSnapshot();
+    REQUIRE_NOTHROW(resView.updateFromSnapshot(snap));
+    CHECK(resView.hasEvaluation() == false);
+    CHECK(resView.isExportEnabled() == false);
+    CHECK(resView.getWarningsText() == "Awaiting measurement or load evaluation.");
+}
+
 TEST_CASE("SoundIdResultsSummaryView: MÃ©tricas interpretables objetivas y botÃ³n de exportaciÃ³n", "[gui][soundid]")
 {
     juce::ScopedJuceInitialiser_GUI guiInit;

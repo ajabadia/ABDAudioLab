@@ -1026,3 +1026,96 @@ TEST_CASE("Hygiene de rutas: ningun documento de la raiz del repo cita la maquin
     REQUIRE(result.unreadable.empty());
     REQUIRE(result.scanned > 0);
 }
+
+TEST_CASE("Architecture Guard: Zero Legacy ABDScope Inclusions or Subdirectories",
+          "[architecture][scope][legacy_guard]")
+{
+    const auto repoRoot = abdaudiolab::core::requireRepoRoot();
+    REQUIRE(repoRoot.isDirectory());
+
+    const auto srcDir = repoRoot.getChildFile("src");
+    REQUIRE(srcDir.isDirectory());
+
+    // 1. Verificar que ningun .cpp o .h en src/ contiene directivas de inclusion activas
+    //    hacia el repositorio legado ABDScope (p. ej. #include "...ABDScope..." o <...ABDScope...>),
+    //    salvo el asset embebido hermetico ABDScopeWebAssets.h.
+    juce::Array<juce::File> srcFiles;
+    srcFiles.addArray(srcDir.findChildFiles(juce::File::findFiles, true, "*.cpp"));
+    srcFiles.addArray(srcDir.findChildFiles(juce::File::findFiles, true, "*.h"));
+
+    std::vector<std::string> activeIncludeOffenders;
+
+    for (const auto& file : srcFiles)
+    {
+        juce::StringArray lines;
+        lines.addLines(file.loadFileAsString());
+
+        for (int lineIdx = 0; lineIdx < lines.size(); ++lineIdx)
+        {
+            const auto trimmed = lines[lineIdx].trimStart();
+
+            // Solo directivas de inclusion activas (ignorar comentarios)
+            if (!trimmed.startsWith("#include"))
+                continue;
+
+            // ABDScopeWebAssets.h es el bundle binario embebido de ABDShared::ScopeWebAssets (legitimo)
+            if (trimmed.contains("ABDScopeWebAssets.h"))
+                continue;
+
+            // Deteccion de inclusions hacia el repositorio legado externo
+            if (trimmed.containsIgnoreCase("ABDScope/") ||
+                trimmed.containsIgnoreCase("ABDScope\\") ||
+                trimmed.containsIgnoreCase("../ABDScope") ||
+                trimmed.containsIgnoreCase("..\\ABDScope"))
+            {
+                activeIncludeOffenders.push_back(file.getFileName().toStdString() + ":" +
+                                                 std::to_string(lineIdx + 1) + " -> " +
+                                                 trimmed.toStdString());
+            }
+        }
+    }
+
+    INFO("Archivos inspeccionados en src/: " << srcFiles.size());
+    INFO("Inclusiones activas de ABDScope legado encontradas: " << activeIncludeOffenders.size());
+    for (const auto& offender : activeIncludeOffenders)
+        FAIL_CHECK(offender);
+
+    REQUIRE(activeIncludeOffenders.empty());
+    REQUIRE(srcFiles.size() > 0);
+
+    // 2. Verificar que CMakeLists.txt de la raiz no contiene directivas activas hacia el repo legado
+    const auto rootCmake = repoRoot.getChildFile("CMakeLists.txt");
+    REQUIRE(rootCmake.existsAsFile());
+
+    juce::StringArray cmakeLines;
+    cmakeLines.addLines(rootCmake.loadFileAsString());
+
+    std::vector<std::string> cmakeOffenders;
+
+    for (int lineIdx = 0; lineIdx < cmakeLines.size(); ++lineIdx)
+    {
+        const auto trimmed = cmakeLines[lineIdx].trimStart();
+
+        // Ignorar comentarios en CMake
+        if (trimmed.startsWithChar('#'))
+            continue;
+
+        // Rechazar directivas activas hacia el arbol o targets legados
+        if (trimmed.containsIgnoreCase("add_subdirectory(../ABDScope") ||
+            trimmed.containsIgnoreCase("add_subdirectory(..\\ABDScope") ||
+            trimmed.containsIgnoreCase("FetchContent_Declare(ABDScope") ||
+            trimmed.containsIgnoreCase("FetchContent_Populate(ABDScope") ||
+            trimmed.contains("ABDScopeCore") ||
+            trimmed.contains("ABDScope::ABDScopeCore"))
+        {
+            cmakeOffenders.push_back("CMakeLists.txt:" + std::to_string(lineIdx + 1) +
+                                     " -> " + trimmed.toStdString());
+        }
+    }
+
+    INFO("Directivas activas prohibidas en CMakeLists.txt: " << cmakeOffenders.size());
+    for (const auto& offender : cmakeOffenders)
+        FAIL_CHECK(offender);
+
+    REQUIRE(cmakeOffenders.empty());
+}

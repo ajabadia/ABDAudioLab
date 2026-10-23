@@ -1,98 +1,49 @@
 #include "PluginWindowController.h"
 #include "../SoundIdTheme.h"
 #include "../../core/plugins/PluginHostManager.h"
+#include "../../core/LabDataDirectories.h"
+
+#if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX
+ #endif
+ #include <windows.h>
+#endif
 
 namespace abdaudiolab::gui
 {
 
-namespace
-{
-class PluginContainerComponent : public juce::Component
-{
-public:
-    PluginContainerComponent(std::unique_ptr<juce::AudioProcessorEditor> editor,
-                             std::function<void()> onOpenKeyboard)
-        : pluginEditor(std::move(editor)),
-          openKeyboardCallback(std::move(onOpenKeyboard))
-    {
-        setOpaque(true);
-        btnKeyboard.setButtonText("Teclado MIDI");
-        btnKeyboard.setTooltip("Abrir Teclado Virtual MIDI para tocar este plugin");
-        btnKeyboard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::bgCard);
-        btnKeyboard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
-        btnKeyboard.onClick = [this] {
-            if (openKeyboardCallback) openKeyboardCallback();
-        };
-        addAndMakeVisible(btnKeyboard);
-
-        if (pluginEditor != nullptr)
-            addAndMakeVisible(*pluginEditor);
-    }
-
-    ~PluginContainerComponent() override
-    {
-        if (pluginEditor != nullptr)
-        {
-            removeChildComponent(pluginEditor.get());
-            pluginEditor.reset();
-        }
-        removeChildComponent(&btnKeyboard);
-    }
-
-    void paint(juce::Graphics& g) override
-    {
-        g.fillAll(SoundIdTheme::bgLight);
-        g.setColour(SoundIdTheme::borderSubtle);
-        g.drawHorizontalLine(27, 0.0f, static_cast<float>(getWidth()));
-    }
-
-    void resized() override
-    {
-        auto r = getLocalBounds();
-        auto topBar = r.removeFromTop(28).reduced(4, 2);
-        btnKeyboard.setBounds(topBar.removeFromRight(100));
-
-        if (pluginEditor != nullptr)
-            pluginEditor->setBounds(r);
-    }
-
-private:
-    std::unique_ptr<juce::AudioProcessorEditor> pluginEditor;
-    juce::TextButton btnKeyboard;
-    std::function<void()> openKeyboardCallback;
-};
-} // namespace
-
 PluginWindowController::PluginWindow::PluginWindow(const juce::String& title,
                                                    std::unique_ptr<juce::AudioProcessorEditor> editor,
-                                                   std::function<void()> onCloseCallback,
-                                                   std::function<void()> onOpenKeyboardCallback)
-    : juce::DocumentWindow(title, AppTheme::BackgroundApp, juce::DocumentWindow::closeButton, false),
+                                                   std::function<void()> onCloseCallback)
+    : juce::DocumentWindow(title, SoundIdTheme::bgCard, juce::DocumentWindow::closeButton),
       onClose(std::move(onCloseCallback))
 {
     juce::Logger::writeToLog("[PluginWindow] Constructing DocumentWindow for: " + title);
-    setUsingNativeTitleBar(false);
-
-    int w = 600;
-    int h = 400;
+    setUsingNativeTitleBar(true);
 
     if (editor != nullptr)
     {
-        w = editor->getWidth();
-        h = editor->getHeight();
+        const int w = editor->getWidth();
+        const int h = editor->getHeight();
         if (w <= 0 || h <= 0)
-        {
-            w = 600;
-            h = 400;
-            editor->setSize(w, h);
-        }
+            editor->setSize(600, 400);
+
+        juce::Logger::writeToLog("[PluginWindow] Setting owned content component with size: "
+            + juce::String(editor->getWidth()) + "x" + juce::String(editor->getHeight()));
+
+        const bool canResize = editor->isResizable();
+        setContentOwned(editor.release(), true);
+        setResizable(canResize, false);
+    }
+    else
+    {
+        setSize(600, 400);
     }
 
-    auto container = std::make_unique<PluginContainerComponent>(std::move(editor), std::move(onOpenKeyboardCallback));
-    setContentOwned(container.release(), true);
-    setResizable(true, true);
-    centreWithSize(w, h + 28);
+    centreWithSize(getWidth(), getHeight());
     setVisible(true);
+    toFront(true);
     juce::Logger::writeToLog("[PluginWindow] Window set visible successfully.");
 }
 
@@ -109,12 +60,148 @@ void PluginWindowController::PluginWindow::closeButtonPressed()
         onClose();
 }
 
+void PluginWindowController::PluginWindow::captureSnapshot(const juce::String& pluginName,
+                                                           std::function<void(const juce::File&, const juce::String&)> onSnapshotCallback)
+{
+    auto* editor = getContentComponent();
+    if (editor == nullptr)
+    {
+        juce::Logger::writeToLog("[PluginWindow WARNING] captureSnapshot: content editor is nullptr.");
+        return;
+    }
+
+    auto bounds = editor->getLocalBounds();
+    if (bounds.isEmpty())
+    {
+        juce::Logger::writeToLog("[PluginWindow WARNING] captureSnapshot: editor bounds are empty.");
+        return;
+    }
+
+    juce::Image snap;
+
+#if JUCE_WINDOWS
+    toFront(true);
+    auto screenBounds = editor->getScreenBounds();
+    const int w = screenBounds.getWidth();
+    const int h = screenBounds.getHeight();
+    const int x = screenBounds.getX();
+    const int y = screenBounds.getY();
+
+    if (w > 0 && h > 0)
+    {
+        HDC hdcScreen = GetDC(NULL);
+        HDC hdcMem = CreateCompatibleDC(hdcScreen);
+        HBITMAP hbm = CreateCompatibleBitmap(hdcScreen, w, h);
+        HGDIOBJ hOld = SelectObject(hdcMem, hbm);
+
+        BitBlt(hdcMem, 0, 0, w, h, hdcScreen, x, y, SRCCOPY);
+
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biWidth = w;
+        bmi.bmiHeader.biHeight = -h; // top-down
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+
+        snap = juce::Image(juce::Image::RGB, w, h, false);
+        juce::Image::BitmapData destData(snap, juce::Image::BitmapData::writeOnly);
+
+        std::vector<uint32_t> rawPixels(static_cast<size_t>(w * h));
+        GetDIBits(hdcMem, hbm, 0, h, rawPixels.data(), &bmi, DIB_RGB_COLORS);
+
+        for (int row = 0; row < h; ++row)
+        {
+            const auto* src = rawPixels.data() + row * w;
+            for (int col = 0; col < w; ++col)
+            {
+                uint32_t c = src[col];
+                uint8_t b = static_cast<uint8_t>(c & 0xFF);
+                uint8_t g = static_cast<uint8_t>((c >> 8) & 0xFF);
+                uint8_t r = static_cast<uint8_t>((c >> 16) & 0xFF);
+                destData.setPixelColour(col, row, juce::Colour(r, g, b));
+            }
+        }
+
+        SelectObject(hdcMem, hOld);
+        DeleteObject(hbm);
+        DeleteDC(hdcMem);
+        ReleaseDC(NULL, hdcScreen);
+    }
+#endif
+
+    if (!snap.isValid())
+    {
+        snap = editor->createComponentSnapshot(bounds);
+    }
+
+    if (!snap.isValid())
+    {
+        juce::Logger::writeToLog("[PluginWindow WARNING] captureSnapshot: failed to create component snapshot.");
+        return;
+    }
+
+    auto dirs = abdaudiolab::core::resolveLabDataDirectories();
+    juce::File snapshotsDir = dirs.dataRoot.getChildFile("snapshots");
+    if (!snapshotsDir.exists())
+        snapshotsDir.createDirectory();
+
+    juce::File globalSnapshotsDir = abdaudiolab::core::PluginHostManager::getDefaultCacheFile()
+                                        .getParentDirectory()
+                                        .getChildFile("snapshots");
+    if (!globalSnapshotsDir.exists())
+        globalSnapshotsDir.createDirectory();
+
+    juce::String safeName = pluginName.isNotEmpty()
+        ? juce::File::createLegalFileName(pluginName)
+        : "vst_snapshot";
+
+    juce::File targetFile = snapshotsDir.getChildFile(safeName + ".png");
+    juce::File globalTargetFile = globalSnapshotsDir.getChildFile(safeName + ".png");
+
+    {
+        juce::FileOutputStream stream(targetFile);
+        if (stream.openedOk())
+        {
+            stream.setPosition(0);
+            stream.truncate();
+            juce::PNGImageFormat png;
+            png.writeImageToStream(snap, stream);
+            juce::Logger::writeToLog("[PluginWindow] Snapshot PNG saved to: " + targetFile.getFullPathName());
+        }
+        else
+        {
+            juce::Logger::writeToLog("[PluginWindow ERROR] Failed to open stream for snapshot file: " + targetFile.getFullPathName());
+        }
+    }
+
+    if (targetFile.existsAsFile())
+    {
+        targetFile.copyFileTo(globalTargetFile);
+        juce::Logger::writeToLog("[PluginWindow] Snapshot PNG synced to global catalog: " + globalTargetFile.getFullPathName());
+    }
+
+    juce::MemoryOutputStream memStream;
+    juce::PNGImageFormat png;
+    png.writeImageToStream(snap, memStream);
+    juce::String base64Data = "data:image/png;base64," + juce::Base64::toBase64(memStream.getData(), memStream.getDataSize());
+
+    if (onSnapshotCallback != nullptr)
+        onSnapshotCallback(targetFile, base64Data);
+}
+
 PluginWindowController::PluginWindowController() = default;
 
 PluginWindowController::~PluginWindowController()
 {
     juce::Logger::writeToLog("[PluginWindowController] Destructor called.");
     closePluginWindow();
+}
+
+void PluginWindowController::captureSnapshot()
+{
+    if (activeWindow != nullptr && isWindowOpen())
+        activeWindow->captureSnapshot(currentPluginName, onSnapshotCaptured);
 }
 
 void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin, const juce::String& windowTitle)
@@ -141,7 +228,21 @@ void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin,
         + "', hasEditor: " + juce::String(plugin->hasEditor() ? "YES" : "NO"));
 
     juce::Logger::writeToLog("[PluginWindow] Calling plugin->createEditorIfNeeded()...");
-    auto* editor = plugin->createEditorIfNeeded();
+    juce::AudioProcessorEditor* editor = nullptr;
+    try
+    {
+        editor = plugin->createEditorIfNeeded();
+    }
+    catch (const std::exception& e)
+    {
+        juce::Logger::writeToLog("[PluginWindow ERROR] Exception in createEditorIfNeeded(): " + juce::String(e.what()));
+        return;
+    }
+    catch (...)
+    {
+        juce::Logger::writeToLog("[PluginWindow ERROR] Unknown native exception in createEditorIfNeeded().");
+        return;
+    }
 
     if (editor == nullptr)
     {
@@ -154,10 +255,10 @@ void PluginWindowController::showPluginWindow(juce::AudioPluginInstance* plugin,
         + " [Bounds: " + editor->getBounds().toString() + "]");
 
     juce::String title = windowTitle.isNotEmpty() ? windowTitle : plugin->getName();
+    currentPluginName = title;
     activeWindow = std::make_unique<PluginWindow>(title,
                                                   std::unique_ptr<juce::AudioProcessorEditor>(editor),
-                                                  [this] { closePluginWindow(); },
-                                                  [this] { if (onOpenKeyboardRequested) onOpenKeyboardRequested(); });
+                                                  [this] { closePluginWindow(); });
 
     if (onWindowStateChanged != nullptr)
         onWindowStateChanged(true);

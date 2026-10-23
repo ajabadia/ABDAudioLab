@@ -5,9 +5,13 @@ echo ===========================================================================
 echo  ABDAudioLab - Build and Compilation Script
 echo ==============================================================================
 
-:: Terminate running instance if open
+:: Terminate running instance or orphaned compiler processes if open
 taskkill /f /im ABDAudioLab.exe >nul 2>nul
+taskkill /f /im ABDAudioLab_Web.exe >nul 2>nul
 taskkill /f /im ABDAudioLab_Tests.exe >nul 2>nul
+taskkill /f /im cl.exe >nul 2>nul
+taskkill /f /im link.exe >nul 2>nul
+taskkill /f /im vctip.exe >nul 2>nul
 ping -n 2 127.0.0.1 >nul 2>nul
 
 :: 1. Detect Visual Studio Environment using vswhere
@@ -45,13 +49,13 @@ if /i "%1"=="clean" (
     if "%2"=="" goto end
 )
 
-:: 2.5. Link Shared Assets from ABDSharedAssets via NTFS Junctions (Zero-Copy)
+:: 2.5. Link Shared Assets via NTFS Junctions (Zero-Copy; consolidated ABDShared tree with legacy layout compat)
 ::
 :: WHAT THIS MUST NOT DO, AND WHY THE RULE IS PER PATH.
 ::
 :: A junction here is only legitimate where nothing versioned is underneath.
 :: `assets/models` and `assets/brands` are gitignored on purpose, so pointing
-:: them at the sibling repo is exactly what they are for. `contracts/hardware`
+:: them at the consolidated shared tree is exactly what they are for. `contracts/hardware`
 :: is the opposite: the .gitignore says "contracts/ is deliberately NOT
 :: ignored", and 40 contract JSONs are tracked there, because a clean clone
 :: and the CI of this repo have no sibling to link to.
@@ -80,6 +84,7 @@ rem junctions era verde siempre. No es hipotetico: nacia en la linea 119.
 set "BUILD_FATAL=0"
 
 set "SHARED_ASSETS=..\ABDSharedAssets"
+if not exist "!SHARED_ASSETS!" if exist "..\ABDShared\Assets" set "SHARED_ASSETS=..\ABDShared\Assets"
 if exist "!SHARED_ASSETS!" (
     call :avisarSiEsEnlace "contracts\hardware" "es una copia versionada que el preflight y el test de drift vigilan"
     call :crearEnlaceSiProcede "contracts/hardware" "contracts\hardware" "!SHARED_ASSETS!\contracts"
@@ -151,6 +156,9 @@ if /i "%1"=="tests" (
 ) else if /i "%1"=="app" (
     set "BUILD_TARGET=--target ABDAudioLab"
     echo [Info] Compiling ABDAudioLab app only.
+) else if /i "%1"=="web" (
+    set "BUILD_TARGET=--target ABDAudioLab_Web --target ABDAudioLab_PluginWorker"
+    echo [Info] Compiling ABDAudioLab_Web app and PluginWorker.
 ) else if /i "%1"=="perf" (
     rem Compila los tests y cronometra la suite. `perf` y no `tests` porque es
     rem OTRO trabajo: medirla cuesta minutos, y quien compila para iterar no los
@@ -164,26 +172,52 @@ if /i "%1"=="tests" (
 :: 5. Auto-increment build number in src/BuildVersion.h (only for full app builds)
 if "!IS_TEST_ONLY!"=="0" (
     powershell -NoProfile -Command "$file = 'src\BuildVersion.h'; if (Test-Path $file) { $c = Get-Content $file -Raw; if ($c -match 'kBuildNumber = (\d+);') { $b = [int]$matches[1] + 1; $c = $c -replace 'kBuildNumber = \d+;', ('kBuildNumber = ' + $b + ';'); Set-Content $file $c; Write-Host ('[Info] Incremented build number to: ' + $b) } }"
+
+    where npm >nul 2>nul
+    if not errorlevel 1 (
+        if exist "WebUI\package.json" (
+            echo [Info] Bundling WebUI assets with Vite...
+            pushd WebUI
+            call npm run build
+            popd
+        )
+    )
 )
 
 :: 6. Build Project with Parallel Multiprocessor Execution
 echo [Info] Building ABDAudioLab Release !BUILD_TARGET!...
 cmake --build build --config Release !BUILD_TARGET! --parallel
 if %errorlevel% neq 0 (
+    echo.
+    echo ==============================================================================
+    echo  Build failed.
+    echo ==============================================================================
+    echo.
+    echo El script se queda abierto para que puedas leer el error sin que se cierre.
+    echo Si quieres salir ahora, pulsa Ctrl+C, o pulsa una tecla cuando estes listo.
+    echo.
+    echo Revisa el bloque de arriba buscando 'error' o 'fatal'.
+    echo Si el fallo es otro archivo, vuelve a ejecutar build.bat despues de arreglarlo.
+    echo.
+    pause
     echo [Error] Build failed.
     exit /b 1
 )
 
-:: 7. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe for portable/isolated execution (only when building app/all)
+:: 7. Ensure Worker and ReferenceSynth are alongside ABDAudioLab.exe / ABDAudioLab_Web.exe for portable/isolated execution (only when building app/all)
 if "!IS_TEST_ONLY!"=="0" (
     if exist "build\Release\ABDAudioLab_PluginWorker.exe" (
         if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
         copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_artefacts\Release\" >nul
+        if not exist "build\ABDAudioLab_Web_artefacts\Release" mkdir "build\ABDAudioLab_Web_artefacts\Release"
+        copy /y "build\Release\ABDAudioLab_PluginWorker.exe" "build\ABDAudioLab_Web_artefacts\Release\" >nul
         echo [Info] Synced ABDAudioLab_PluginWorker.exe to artefacts directory.
     )
     if exist "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" (
         if not exist "build\ABDAudioLab_artefacts\Release" mkdir "build\ABDAudioLab_artefacts\Release"
         xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_artefacts\Release\ReferenceSynth.vst3" >nul
+        if not exist "build\ABDAudioLab_Web_artefacts\Release" mkdir "build\ABDAudioLab_Web_artefacts\Release"
+        xcopy /y /e /i /q "build\ReferenceSynth_artefacts\Release\VST3\ReferenceSynth.vst3" "build\ABDAudioLab_Web_artefacts\Release\ReferenceSynth.vst3" >nul
         echo [Info] Synced ReferenceSynth.vst3 to artefacts directory.
     )
 )

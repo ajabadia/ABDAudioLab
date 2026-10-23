@@ -1,4 +1,5 @@
 #include "LutExporter.h"
+#include "ExportReadinessEvaluator.h"
 #include <fstream>
 #include <iomanip>
 #include <nlohmann/json.hpp>
@@ -330,6 +331,169 @@ bool LutExporter::exportToJavaScriptModule(const std::string& destinationJsPath,
         << "  data: " << tableName << "_DATA\n"
         << "};\n";
 
+    return out.good();
+}
+
+bool LutExporter::exportToCertifiedCppHeader(const std::string& destinationHeaderPath,
+                                             const core::ProfilingMetadata& metadata,
+                                             const std::string& tableName,
+                                             const std::vector<MeasuredPoint>& points,
+                                             const synth::ModelEvaluation& evaluation,
+                                             bool allowUnvalidatedOverride)
+{
+    auto readiness = ExportReadinessEvaluator::evaluate(evaluation, allowUnvalidatedOverride);
+    if (!readiness.isExportPermitted)
+    {
+        return false;
+    }
+
+    std::ofstream out(destinationHeaderPath);
+    if (!out.is_open())
+        return false;
+
+    // 1. Embedded JSON Metadata (RFC 8785)
+    out << ExportReadinessEvaluator::generateEmbeddedJsonBlock(readiness, evaluation) << "\n";
+
+    // 2. Preprocessor Guards & Certified Compile-Time Limits
+    out << ExportReadinessEvaluator::generatePreprocessorGuards(readiness, evaluation.sampleRate, -36.0, -3.0) << "\n";
+
+    out << "// ==============================================================================\n";
+    out << "// ABDAudioLab — Auto-Generated Hardware Profile Look-Up Table\n";
+    out << "// Target Hardware : " << metadata.hardwareName << "\n";
+    out << "// Target Module   : " << metadata.targetModule << "\n";
+    out << "// Operator Mode   : " << metadata.operatorMode << "\n";
+    out << "// Sample Rate     : " << metadata.sampleRate << " Hz\n";
+    out << "// Total Points    : " << points.size() << "\n";
+    out << "// ==============================================================================\n\n";
+    out << "#pragma once\n\n";
+    out << "#include <cstddef>\n";
+    out << "#include <cstdint>\n\n";
+    out << "#if __has_include(<LutDSP/LutEvaluatorSimd.h>)\n";
+    out << "#include <LutDSP/LutEvaluatorSimd.h>\n";
+    out << "#elif __has_include(\"dsp/LutEvaluatorSimd.h\")\n";
+    out << "#include \"dsp/LutEvaluatorSimd.h\"\n";
+    out << "#else\n";
+    out << "namespace abd::lutdsp\n";
+    out << "{\n";
+    out << "struct alignas(16) AbdBatchedPoint\n";
+    out << "{\n";
+    out << "    float p1;         // Parameter 1 (Normalized [0, 1])\n";
+    out << "    float p2;         // Parameter 2 (Normalized [0, 1])\n";
+    out << "    float mu;         // Primary Value Mean (Stable control response)\n";
+    out << "    float sigma;      // Primary Value StdDev (Thermal drift / ACB chaos)\n";
+    out << "    float sec_mu;     // Secondary Value Mean (e.g. Q factor / sustain)\n";
+    out << "    float sec_sigma;  // Secondary Value StdDev\n";
+    out << "    float thd_percent;// Total Harmonic Distortion %\n";
+    out << "    float reserved;   // 16-byte alignment padding\n";
+    out << "};\n";
+    out << "} // namespace abd::lutdsp\n";
+    out << "#endif\n\n";
+    out << "namespace abd::lutdsp::models\n";
+    out << "{\n\n";
+    out << "using AbdBatchedPoint = abd::lutdsp::AbdBatchedPoint;\n\n";
+
+    std::string safeName;
+    for (char c : tableName)
+    {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_')
+            safeName += c;
+        else
+            safeName += '_';
+    }
+    if (safeName.empty() || std::isdigit(static_cast<unsigned char>(safeName[0])))
+        safeName = "lut_" + safeName;
+
+    out << "inline constexpr size_t " << safeName << "_SIZE = " << points.size() << ";\n\n";
+    out << "inline const alignas(16) AbdBatchedPoint " << safeName << "[" << safeName << "_SIZE] = {\n";
+
+    for (size_t i = 0; i < points.size(); ++i)
+    {
+        const auto& p = points[i];
+        out << "    { "
+            << std::fixed << std::setprecision(5) << p.param1Normalized << "f, "
+            << p.param2Normalized << "f, "
+            << p.muSigmaValue.mean << "f, "
+            << p.muSigmaValue.stdDev << "f, "
+            << p.secondaryValue.mean << "f, "
+            << p.secondaryValue.stdDev << "f, "
+            << p.thdValue.mean << "f, 0.0f }";
+
+        if (i + 1 < points.size())
+            out << ",";
+
+        std::string commentStr = p.testId;
+        if (!p.controlSteps.empty())
+        {
+            commentStr += " [";
+            for (size_t c = 0; c < p.controlSteps.size(); ++c)
+            {
+                if (c > 0) commentStr += ", ";
+                int pct = static_cast<int>(std::round(p.controlSteps[c].normalizedValue * 100.0f));
+                commentStr += p.controlSteps[c].paramName + ": " + std::to_string(pct) + "%";
+            }
+            commentStr += "]";
+        }
+        out << " // " << commentStr << "\n";
+    }
+
+    out << "};\n\n";
+    out << "} // namespace abd::lutdsp::models\n\n";
+    out << "// Backwards compatibility alias\n";
+    out << "namespace abdaudiolab::lut\n";
+    out << "{\n";
+    out << "    using AbdBatchedPoint = abd::lutdsp::AbdBatchedPoint;\n";
+    out << "    using namespace abd::lutdsp::models;\n";
+    out << "} // namespace abdaudiolab::lut\n";
+    return out.good();
+}
+
+bool LutExporter::exportToCertifiedJsonReport(const std::string& destinationJsonPath,
+                                             const core::ProfilingMetadata& metadata,
+                                             const std::vector<MeasuredPoint>& points,
+                                             const synth::ModelEvaluation& evaluation,
+                                             bool allowUnvalidatedOverride)
+{
+    auto readiness = ExportReadinessEvaluator::evaluate(evaluation, allowUnvalidatedOverride);
+    if (!readiness.isExportPermitted)
+    {
+        return false;
+    }
+
+    nlohmann::json root;
+    root["schemaVersion"] = "1.0.0";
+    root["metadata"] = {
+        { "hardwareName", metadata.hardwareName },
+        { "targetModule", metadata.targetModule },
+        { "operatorMode", metadata.operatorMode },
+        { "sampleRate", metadata.sampleRate },
+        { "totalPoints", points.size() }
+    };
+
+    root["metrologicalCertification"] = ExportReadinessEvaluator::toMetrologicalCertificationJson(readiness, evaluation);
+
+    nlohmann::json pointsArr = nlohmann::json::array();
+    for (const auto& p : points)
+    {
+        nlohmann::json pj;
+        pj["pointId"] = p.pointId;
+        pj["testId"] = p.testId;
+        pj["blockType"] = p.blockType;
+        pj["stimulusType"] = p.stimulusType;
+        pj["param1Normalized"] = p.param1Normalized;
+        pj["param2Normalized"] = p.param2Normalized;
+        pj["thdPercent"] = p.thdPercent;
+        pj["snrDb"] = p.snrDb;
+        pj["mu"] = p.muSigmaValue.mean;
+        pj["sigma"] = p.muSigmaValue.stdDev;
+        pointsArr.push_back(pj);
+    }
+    root["points"] = pointsArr;
+
+    std::ofstream out(destinationJsonPath);
+    if (!out.is_open())
+        return false;
+
+    out << root.dump(2);
     return out.good();
 }
 

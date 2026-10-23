@@ -35,7 +35,7 @@ void MeasurementDynamicsComparisonComponent::updateTheme()
     auto styleModeBtn = [](juce::TextButton& btn) {
         if (btn.getToggleState())
         {
-            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::PillBlackBg);
+            btn.setColour(juce::TextButton::buttonColourId, gui::AppTheme::AccentActive);
             btn.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
             btn.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
         }
@@ -324,7 +324,7 @@ void MeasurementDynamicsComparisonComponent::renderLegend(juce::Graphics& g, juc
     auto area = legendArea.reduced(8.0f);
     g.setColour(gui::AppTheme::TextPrimary);
     g.setFont(juce::FontOptions(12.0f));
-    g.drawText("Series Comparadas", area.removeFromTop(18.0f), juce::Justification::centredLeft);
+    g.drawText("Compared Series", area.removeFromTop(18.0f), juce::Justification::centredLeft);
 
     for (const auto& s : seriesList_)
     {
@@ -345,7 +345,7 @@ void MeasurementDynamicsComparisonComponent::renderLegend(juce::Graphics& g, juc
         if (!s.isCompatible)
         {
             g.setColour(gui::AppTheme::AccentError);
-            name += " (Excluido)";
+            name += " (Excluded)";
         }
         else
         {

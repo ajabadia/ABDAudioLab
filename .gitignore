@@ -6,6 +6,10 @@ out/
 *.user
 *.suo
 CMakeSettings.json
+node_modules/
+dist/
+WebUI/node_modules/
+WebUI/dist/
 
 # Capturas de Catch2 para medir la suite: `node tools/duraciones-suite.mjs
 # --xml salida.xml` analiza un XML ya capturado sin tener que esperar otra
@@ -13,6 +17,10 @@ CMakeSettings.json
 # pesan 600 KB cada una. Sin barra delante a proposito: si alguna vez hace
 # falta un XML como fixture dentro del repo, esta regla no lo tapa.
 /*.xml
+
+# Fase 4 — artefactos volátiles de barrido físico de curvas
+# (offline reports, sweeps JSON, telemetría). Prohibido commitar.
+/build/ABDAudioLab_artefacts/CapturedSweeps/
 
 # Exported LUTs and raw measurement datasets (RNF-10)
 exported_luts/
@@ -28,6 +36,8 @@ guided/
 Thumbs.db
 .cache/
 .vscode/
+.codebase-memory/
+.playwright-mcp/
 .aider*
 .freebuff/
 

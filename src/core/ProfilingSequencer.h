@@ -13,6 +13,8 @@
 #include "../export/LutExporter.h"
 #include "../math/ModulationMatrixProfile.h"
 #include "../math/NoiseFloorTracker.h"
+#include "../calibration/ActiveCalibrationContext.h"
+#include "../calibration/CalibrationSnapshot.h"
 
 #include "ProfilingHardwareDispatcher.h"
 #include "ProfilingAudioCapture.h"
@@ -119,6 +121,21 @@ public:
     [[nodiscard]] bool isLinearBypassDetected() const noexcept { return linearBypassDetected.load(std::memory_order_acquire); }
     [[nodiscard]] bool isAdaptiveOptimizationApplied() const noexcept { return adaptiveOptimizationApplied.load(std::memory_order_acquire); }
 
+    void setActiveCalibrationContext(std::shared_ptr<calibration::ActiveCalibrationContext> context) noexcept
+    {
+        calibrationContext = std::move(context);
+    }
+    [[nodiscard]] std::shared_ptr<calibration::ActiveCalibrationContext> getActiveCalibrationContext() const noexcept
+    {
+        return calibrationContext;
+    }
+    [[nodiscard]] calibration::InputGainPlan getGainPlan() const noexcept
+    {
+        if (calibrationContext != nullptr && calibrationContext->isActive())
+            return calibrationContext->getGainPlan();
+        return lastGainPlan;
+    }
+
     void run() override;
 
 private:
@@ -162,6 +179,9 @@ private:
 
     ModulationNodeMeasuredCallback onModulationNodeMeasured;
     float computeTargetMetric(const std::vector<float>& buffer, const juce::String& blockType);
+
+    std::shared_ptr<calibration::ActiveCalibrationContext> calibrationContext;
+    calibration::InputGainPlan lastGainPlan;
 };
 
 } // namespace abdaudiolab::core

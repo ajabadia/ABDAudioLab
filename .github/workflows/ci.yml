@@ -1,0 +1,438 @@
+name: ABDAudioLab CI
+
+# =============================================================================
+# POR QUE ESTE WORKFLOW EXISTE
+# =============================================================================
+# audio-ab-5d-ci.yml es serio, pero esta delimitado por `paths:` a los
+# ficheros de audio 5D y contratos: un cambio en el GUI, el hardware o el
+# synth no dispara NADA. El resultado es que el plugin (ABDAudioLab,
+# ReferenceSynth) y la suite entera de unit tests compilaban solo en la
+# maquina de desarrollo. Este workflow cierra ese hueco:
+#
+#   - build-and-test: build COMPLETO (app + ReferenceSynth VST3 + los tests)
+#     y la suite ABDAudioLab_Tests ejecutandose como puerta BLOQUEANTE.
+#   - pluginval: validacion del VST3 con strictness 5, seed 42.
+#   - cppcheck: bloqueante con baseline (.github/cppcheck-baseline.txt).
+#
+# NOTA SOBRE ctest: este CMakeLists hace enable_testing() pero NUNCA llama a
+# add_test(), asi que ctest no tiene nada que correr. La suite es un exe
+# Catch2 cuyo main() devuelve != 0 si algo falla, y el paso de abajo lo
+# ejecuta directamente. Cuando haya add_test, el paso pasa a ctest.
+#
+# NOTA SOBRE EL SISTEMA OPERATIVO: solo windows-latest, y no por comodidad.
+# El build de Windows es el que esta medido en local (build/Release con los
+# cuatro targets enlazados); un leg de Ubuntu seria una apuesta sin medir, y
+# la regla de la familia es que una puerta nueva nace verde o no nace.
+# cppcheck corre en Ubuntu porque ahi esta el binario bueno.
+#
+# DEPENDENCIAS: JUCE 8.0.4, nlohmann_json y Catch2 llegan por FetchContent
+# ya fijados en el propio CMakeLists. El hermano de codigo compartido se
+# resuelve con la politica del bloque cmake (arbol consolidado local primero,
+# con compatibilidad transitoria para el layout legacy durante la migracion).
+# Los includes de src/ contra el layout legacy siguen siendo parte de esa
+# politica de compatibilidad, no de un requisito standalone del hermano.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audiolab-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+  SHA_SHARED: '55e77bb180aa560a9a5aceff1480fd78b121f360'  # pinned shared sibling ref retained for legacy repo layout compat until the legacy layout is removed
+
+
+jobs:
+  build-and-test:
+    name: Build completo + unit tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ABDAudioLab
+
+    steps:
+    - name: Checkout ABDAudioLab
+      uses: actions/checkout@v7
+      with:
+        path: ABDAudioLab
+        fetch-depth: 1
+
+    - name: Checkout ABDShared (hermano consolidado)
+      uses: actions/checkout@v7
+      with:
+        repository: ajabadia/ABDShared
+        ref: main
+        path: ABDShared
+        fetch-depth: 1
+
+    - name: Setup MSVC Environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    # FindWebView2 de JUCE busca en la carpeta local de NuGet del usuario;
+    # el SDK no viene con el runner. Mismo tratamiento que el workflow de
+    # audio 5D (nuget.exe pinneado, paquete pinneado).
+    - name: Install Pinned WebView2 SDK for JUCE
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/v6.10.1/nuget.exe -OutFile nuget.exe
+        .\nuget.exe install Microsoft.Web.WebView2 -Version 1.0.4258.31 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -A x64
+
+    # Build SIN --target: app, ReferenceSynth_VST3, ABDAudioLab_Tests y el
+    # validador VST3 interno. Es el build que hasta ahora solo existia en la
+    # maquina de desarrollo.
+    - name: Build everything (Release)
+      run: |
+        cmake --build build --config Release --parallel
+
+    # BLOQUEANTE. Sin add_test en el CMake, el exe Catch2 es la puerta:
+    # su main devuelve != 0 ante cualquier fallo y el paso revienta.
+    - name: Run ABDAudioLab_Tests (Catch2, bloqueante)
+      run: |
+        & "build\Release\ABDAudioLab_Tests.exe"
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::ABDAudioLab_Tests: ${LASTEXITCODE} fallos"
+          exit $LASTEXITCODE
+        }
+
+  pluginval:
+    name: Pluginval — ReferenceSynth VST3 (strictness 5, seed 42)
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ABDAudioLab
+
+    steps:
+    - name: Checkout ABDAudioLab
+      uses: actions/checkout@v7
+      with:
+        path: ABDAudioLab
+        fetch-depth: 1
+
+    - name: Checkout ABDShared (hermano consolidado, ref fijo)
+      uses: actions/checkout@v7
+      with:
+        repository: ajabadia/ABDShared
+        ref: main
+        path: ABDShared
+        fetch-depth: 1
+
+    - name: Setup MSVC Environment
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Pinned WebView2 SDK for JUCE
+      shell: powershell
+      run: |
+        Invoke-WebRequest -Uri https://dist.nuget.org/win-x86-commandline/v6.10.1/nuget.exe -OutFile nuget.exe
+        .\nuget.exe install Microsoft.Web.WebView2 -Version 1.0.4258.31 -OutputDirectory "$env:USERPROFILE\AppData\Local\PackageManagement\NuGet\Packages"
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -A x64
+
+    - name: Build VST3 target (ReferenceSynth_VST3)
+      run: |
+        cmake --build build --config Release --target ReferenceSynth_VST3 --parallel
+
+    - name: Download pluginval v1.0.4 (pinned)
+      run: |
+        $pvZip = "$env:RUNNER_TEMP\pluginval_Windows.zip"
+        Invoke-WebRequest -Uri "https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip" -OutFile $pvZip
+        Expand-Archive -Path $pvZip -DestinationPath "$env:RUNNER_TEMP\pluginval" -Force
+        Get-ChildItem "$env:RUNNER_TEMP\pluginval" -Recurse -Filter "pluginval.exe" | Select-Object -First 1 -ExpandProperty FullName
+
+    - name: Run pluginval validation (strictness 5, seed 42)
+      run: |
+        $vst3 = Get-ChildItem "build\*_artefacts\Release\VST3\*.vst3" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $vst3) {
+          Write-Host "::error::pluginval — no se encontro VST3 en build/*_artefacts/Release/VST3/"
+          exit 1
+        }
+        $pv = Get-ChildItem "$env:RUNNER_TEMP\pluginval" -Recurse -Filter "pluginval.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $pv) {
+          Write-Host "::error::pluginval — no se encontro pluginval.exe en RUNNER_TEMP\pluginval"
+          exit 1
+        }
+        Write-Host "Validando: $($vst3.FullName)"
+        & $pv.FullName --strictness-level 5 --seed 42 --validate $vst3.FullName *> pluginval.log
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::error::pluginval — validacion fallida (strictness 5, seed 42). Ver pluginval.log"
+          Get-Content pluginval.log
+          exit $LASTEXITCODE
+        }
+        Write-Host "pluginval: ALL TESTS PASSED (strictness 5, seed 42)"
+        Get-Content pluginval.log | Select-String -Pattern "ALL TESTS PASSED|PASSED" | Select-Object -First 3
+
+    - name: Publish pluginval log (on failure diagnostics)
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: audiolab-pluginval-log-${{ github.run_id }}
+        path: ABDAudioLab/pluginval.log
+        if-no-files-found: ignore
+        retention-days: 30
+
+  cppcheck:
+    name: cppcheck (bloqueante, baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v7
+
+    # BLOQUEANTE CON BASELINE desde el 2026-10-12: deja entrar solo hallazgos
+    # NUEVOS. .github/cppcheck-baseline.txt guarda la firma de la deuda
+    # historica — severidad|archivo|mensaje, SIN numero de linea (se mueve al
+    # reformatear) y con '/' de separador (aqui se mide en Windows, la CI
+    # corre en Linux) —, generada midiendo HEAD con ESTE mismo comando y
+    # cppcheck 2.21: 38 firmas (41 hallazgos en bruto en src/). Bloquean tres
+    # cosas: hallazgos fuera de la baseline, la ausencia de la propia
+    # baseline, y que la comprobacion no llegue a medirse. El `2>&1` no es
+    # opcional: cppcheck escribe los hallazgos en stderr, y medir sin el
+    # siempre cuenta 0.
+    #
+    # EXCLUIDOS: el listado con el motivo de cada exclusion viven en
+    # .github/cppcheck-excludes.txt, que este gate lee antes de medir; aqui no se
+    # enumeran para que workflow, comentario y baseline no puedan divergir. Se
+    # excluyen tambien los que hoy aportan 0 firmas, para que la estampacion o
+    # generacion futura no cuente como deuda medida.
+    - name: Cache de cppcheck 2.21.0
+      uses: actions/cache@v6
+      with:
+        path: ~/cppcheck-2.21.0
+        key: cppcheck-2.21.0-${{ runner.os }}
+
+    # cppcheck SIN fijar usa la version que traiga la imagen, y la baseline es
+    # por firma (severidad|archivo|mensaje): un cppcheck de otra version cambia
+    # mensajes y anade/quita hallazgos, y el gate mentiria en las dos direcciones.
+    # La unica version aceptada es 2.21.0, con la que se midio la baseline en
+    # local. apt no la trae, asi que se compila desde el tag oficial (PCRE es
+    # opcional: `make` solo necesita g++/make) y el binario se cachea por
+    # version: un cache-miss cuesta ~5 min de compilacion.
+    - name: Install cppcheck 2.21.0 (fijado a la version de las baselines)
+      shell: bash
+      run: |
+        v=2.21.0
+        pre="$HOME/cppcheck-$v"
+        if ! "$pre/bin/cppcheck" --version 2>/dev/null | grep -F "Cppcheck $v" >/dev/null; then
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++ make
+          src=$(mktemp -d)
+          git clone --depth 1 --branch "$v" https://github.com/cppcheck-opensource/cppcheck.git "$src/cppcheck"
+          # FILESDIR hace dos cosas a la vez: sin el, el objetivo install del
+          # Makefile aborta con "FILESDIR must be set!", y con el compilado el
+          # binario sabe donde estan cfg/addons/platforms bajo el prefijo.
+          make -C "$src/cppcheck" -j"$(nproc)" FILESDIR="$pre/share/cppcheck"
+          make -C "$src/cppcheck" PREFIX="$pre" FILESDIR="$pre/share/cppcheck" install
+        fi
+        "$pre/bin/cppcheck" --version
+        if ! "$pre/bin/cppcheck" --version | grep -F "Cppcheck $v" >/dev/null; then
+          echo "::error title=cppcheck::se esperaba cppcheck 2.21.0, la version con la que se midieron las baselines."
+          exit 1
+        fi
+        echo "$pre/bin" >> "$GITHUB_PATH"
+
+    - name: Static analysis (cppcheck) - bloqueante (baseline)
+      run: |
+        baseline=.github/cppcheck-baseline.txt
+        if [ ! -f "$baseline" ]; then
+          echo "::error title=cppcheck::no existe $baseline: sin baseline no se puede separar deuda de regresion."
+          exit 1
+        fi
+        # Tolerancia CRLF: si la baseline se commiteo con finales Windows,
+        # grep -f no casaria nada y TODO pareceria hallazgo nuevo.
+        bl=$(mktemp)
+        tr -d '\r' < "$baseline" > "$bl"
+        # Exclusiones: UNICA fuente .github/cppcheck-excludes.txt — una entrada por
+        # linea ('#' comenta); sin '-' inicial es patron de --suppress y con '-' es
+        # flag literal. Un fichero ausente es error: sin el, workflow, comentario y
+        # baseline divergirian, que es exactamente lo que este diseno evita.
+        excludes=.github/cppcheck-excludes.txt
+        if [ ! -f "$excludes" ]; then
+          echo "::error title=cppcheck::no existe $excludes: las exclusiones viven ahi y solo ahi."
+          exit 1
+        fi
+        supresiones=()
+        while IFS= read -r linea || [ -n "$linea" ]; do
+          linea=${linea%%#*}
+          linea=${linea#"${linea%%[![:space:]]*}"}
+          linea=${linea%"${linea##*[![:space:]]}"}
+          [ -z "$linea" ] && continue
+          if [ "${linea:0:1}" = "-" ]; then
+            read -r -a partes <<< "$linea"
+            supresiones+=("${partes[@]}")
+          else
+            supresiones+=("--suppress=$linea")
+          fi
+        done < "$excludes"
+        set +e
+        salida=$(cppcheck --enable=warning,performance,portability --std=c++20 --suppress=missingIncludeSystem "${supresiones[@]}" --template='{severity}|{file}|{line}|{message}' src/ 2>&1)
+        codigo=$?
+        set -e
+        if [ -z "$salida" ]; then
+          echo "::error title=cppcheck::cppcheck no ha producido ni una linea (codigo $codigo): la comprobacion no llego a medirse."
+          exit 1
+        fi
+        tmp=$(mktemp)
+        printf '%s\n' "$salida" > "$tmp"
+        actuales=$(python3 - "$tmp" <<'PY'
+        import re, sys
+        out = set()
+        pat = re.compile(r"^(warning|performance|portability|error)\|([^|]+)\|[^|]+\|(.*)$")
+        for ln in open(sys.argv[1], encoding="utf-8", errors="replace"):
+            m = pat.match(ln.rstrip("\n"))
+            if m:
+                out.add(m.group(1) + "|" + m.group(2).replace("\\", "/") + "|" + m.group(3))
+        print("\n".join(sorted(out)))
+        PY
+        )
+        rm -f "$tmp"
+        nuevos=$(printf '%s\n' "$actuales" | grep -vxF -f "$bl" || true)
+        if [ -n "$nuevos" ]; then
+          printf '%s\n' "$nuevos" | sed -n '1,30p'
+          n=$(printf '%s\n' "$nuevos" | grep -c . || true)
+          echo "::error title=cppcheck::${n} hallazgos NUEVOS fuera de la baseline: regresion. Arreglo: atacarlos; solo si es deuda aceptada deliberadamente, anadir su firma a $baseline en el MISMO PR."
+          exit 1
+        fi
+        af=$(mktemp)
+        printf '%s\n' "$actuales" > "$af"
+        obsoletas=$(grep -v '^#' "$bl" | grep -vxF -f "$af" | grep -c . || true)
+        rm -f "$af"
+        if [ "$obsoletas" -gt 0 ]; then
+          echo "::notice title=cppcheck::${obsoletas} firmas de la baseline ya no aparecen: deuda pagada — prune $baseline."
+        fi
+        echo "::notice title=cppcheck::sin hallazgos nuevos ($(grep -cv '^#' "$bl") firmas baseladas, ${obsoletas} obsoletas)."
+        rm -f "$bl"
+        exit 0
+
+  # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # FORMATO (clang-format) — BLOQUEANTE CON BASELINE desde 2026-10-13.
+  #
+  # No compila nada: lee .clang-format y comprueba que todos los .h/.cpp
+  # trackeados obedecen el estilo. Lo hace ejecutando EL HOOK del repo en
+  # modo VERIFY_ONLY (VERIFY_ONLY=1 bash .githooks/pre-commit), que usa
+  # --dry-run --Werror sobre `git ls-files` y no toca disco. Asi esta puerta
+  # valida DOS cosas: que el estilo cuadra, y que EL HOOK funciona.
+  #
+  # ESTABA INFORMATIVO POR SU DEUDA, y la cuenta sigue escrita aqui porque es
+  # el tamano de la bolsa que la baseline congela: MEDIDO en local con
+  # clang-format 18.1.8 sobre los .h/.cpp trackeados: 44562 avisos de estilo en 756 ficheros. Nota sobre el recuento
+  # de AQUI: incluye los arboles de referencia vendidos en docs/ (copias de
+  # NeuralAudio descargadas), que no son codigo nuestro.
+  # El remedio es el mismo que aplico al cppcheck de la familia: baseline en
+  # .github/clang-format-baseline.txt y solo bloquean hallazgos NUEVOS. La
+  # firma es POR FICHERO (fichero|mensaje) porque el mensaje de clang-format
+  # es generico — "code should be clang-formatted" — y linea/col se mueven
+  # con cualquier edicion: el candado es que NINGUN fichero nuevo tenga
+  # deuda, y cada fichero re-formateado solo genera el aviso de prune. La
+  # firma se extrae de la MISMA medicion de siempre (VERIFY_ONLY del hook).
+  #
+  # Y DOS COSAS SIGUEN BLOQUEANDO, porque no son deuda: que la comprobacion no
+  # llegue a medir (clang-format ausente, o un VERIFY_ONLY que falla sin
+  # reportar ni un aviso), y el test NEGATIVO de abajo, que exige que el
+  # hook NOMBRE el fichero mal formateado en su salida.
+  clang-format:
+    name: Clang-format (estilo C++, bloqueante con baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # El `command -v` es una puerta, no un eco: sin clang-format en el PATH
+      # el hook NO falla (imprime un aviso y sale con 0), y el paso de abajo
+      # reportaria "sin deuda" sin haber mirado nada. Un verde que no ha medido
+      # es el peor de todos.
+      - name: Install clang-format 18+
+        run: |
+          pip install clang-format==18.*
+          command -v clang-format
+          clang-format --version
+
+      - name: Check formatting (clang-format via hook) - bloqueante (baseline)
+        shell: bash
+        run: |
+          baseline=.github/clang-format-baseline.txt
+          if [ ! -f "$baseline" ]; then
+            echo "::error title=clang-format::no existe $baseline: sin baseline no se puede separar deuda de regresion."
+            exit 1
+          fi
+          # Tolerancia CRLF: si la baseline se commiteo con finales Windows,
+          # grep -f no casaria nada y TODO pareceria fichero nuevo.
+          bl=$(mktemp)
+          tr -d '\r' < "$baseline" > "$bl"
+          set +e
+          VERIFY_ONLY=1 bash .githooks/pre-commit > "$RUNNER_TEMP/fmt.log" 2>&1
+          codigo=$?
+          set -e
+          avisos=$(grep -c 'code should be clang-formatted' "$RUNNER_TEMP/fmt.log" || true)
+          # Un VERIFY_ONLY que sale con != 0 SIN ningun aviso de formato no es
+          # deuda: es que la comprobacion no llego a hacerse (config rota,
+          # hook roto, clang-format de otra version). Eso SI bloquea.
+          if [ "$codigo" -ne 0 ] && [ "$avisos" -eq 0 ]; then
+            echo "::error title=clang-format::el hook VERIFY_ONLY fallo (codigo $codigo) sin reportar ni un aviso de formato: la comprobacion no llego a medirse. Log completo abajo."
+            cat "$RUNNER_TEMP/fmt.log"
+            exit 1
+          fi
+          # Firmas: fichero|mensaje, SIN linea/col (se mueven al editar).
+          tmp=$(mktemp)
+          { grep 'code should be clang-formatted' "$RUNNER_TEMP/fmt.log" || true; } \
+            | sed -E 's/^([^:]+):[0-9]+:[0-9]+: [a-z]+: (.*)$/\1|\2/' \
+            | sort -u > "$tmp"
+          nuevos=$(grep -vxF -f "$bl" "$tmp" || true)
+          if [ -n "$nuevos" ]; then
+            printf '%s\n' "$nuevos" | sed -n '1,30p'
+            n=$(printf '%s\n' "$nuevos" | grep -c . || true)
+            echo "::error title=clang-format::${n} ficheros NUEVOS con deuda de formato fuera de la baseline: regresion. Arreglo: clang-format-18 -i sobre los ficheros nombrados; solo si es deuda aceptada deliberadamente, anadir su firma a $baseline en el MISMO PR."
+            exit 1
+          fi
+          af=$(mktemp)
+          cp "$tmp" "$af"
+          obsoletas=$(grep -v '^#' "$bl" | grep -vxF -f "$af" | grep -c . || true)
+          rm -f "$af" "$tmp"
+          if [ "$obsoletas" -gt 0 ]; then
+            echo "::notice title=clang-format::${obsoletas} ficheros de la baseline ya no tienen deuda: deuda pagada — prune $baseline."
+          fi
+          echo "::notice title=clang-format::sin ficheros nuevos con deuda de formato ($(grep -cv '^#' "$bl") ficheros baselados, ${obsoletas} ya pagados)."
+          rm -f "$bl"
+          exit 0
+
+      # NEGATIVO, Y QUE MIRE EL NOMBRE Y NO EL CODIGO DE SALIDA. Con la deuda
+      # actual el hook VERIFY_ONLY sale con 1 aunque el fichero malo no
+      # exista, asi que esperar "!= 0" probaria nada. Lo que prueba es que el
+      # NOMBRE del fichero aparece en la salida del hook.
+      - name: Hook catches unformatted code (negative test)
+        shell: bash
+        run: |
+          printf 'int main(){return 0;}\n' > .hook_test_bad.cpp
+          git add .hook_test_bad.cpp
+          set +e
+          VERIFY_ONLY=1 bash .githooks/pre-commit > "$RUNNER_TEMP/neg.log" 2>&1
+          set -e
+          git reset -q .hook_test_bad.cpp
+          rm -f .hook_test_bad.cpp
+          if ! grep -q 'hook_test_bad.cpp' "$RUNNER_TEMP/neg.log"; then
+            echo "::error::el hook no ha nombrado el archivo mal formateado .hook_test_bad.cpp en su salida. VERIFY_ONLY puede estar roto."
+            head -30 "$RUNNER_TEMP/neg.log"
+            exit 1
+          fi
+          echo "El hook detecto y nombro el archivo mal formateado."

@@ -9,6 +9,8 @@
 #include "MeasurementViewModelLoader.h"
 #include "../SessionReportManager.h"
 #include "../AppTheme.h"
+#include "../SoundIdTheme.h"
+#include "../../core/LabDataDirectories.h"
 #include <thread>
 #include <iomanip>
 #include <sstream>
@@ -103,23 +105,23 @@ void MeasurementViewerPanel::updateTheme()
     lblTitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
     lblSubtitle_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
 
-    auto updateTrackBtn = [](juce::TextButton& btn, bool active) {
-        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceCard);
-        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : gui::AppTheme::TextSecondary);
+    auto updateTrackBtn = [isDark](juce::TextButton& btn, bool active) {
+        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : SoundIdTheme::ButtonTokens::secondaryText(isDark));
     };
 
     updateTrackBtn(btnTrackOutput_, selectedAudioTrack_ == 0);
     updateTrackBtn(btnTrackInput_, selectedAudioTrack_ == 1);
     updateTrackBtn(btnTrackIr_, selectedAudioTrack_ == 2);
 
-    btnLoadContainer_.setColour(juce::TextButton::buttonColourId, isDark ? juce::Colour(0xff0284c7) : gui::AppTheme::AccentActive);
+    btnLoadContainer_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::AccentActive);
     btnLoadContainer_.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
 
-    btnOpenReport_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
-    btnOpenReport_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
+    btnOpenReport_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+    btnOpenReport_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
 
-    btnVerifyManifest_.setColour(juce::TextButton::buttonColourId, gui::AppTheme::SurfaceCard);
-    btnVerifyManifest_.setColour(juce::TextButton::textColourOffId, gui::AppTheme::TextPrimary);
+    btnVerifyManifest_.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+    btnVerifyManifest_.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
 
     for (auto& card : metricCardViews_)
     {
@@ -138,10 +140,11 @@ void MeasurementViewerPanel::selectAudioTrack(int trackIndex)
 {
     selectedAudioTrack_ = trackIndex;
     bool verified = (model_.integrityStatus != UiIntegrityStatus::Corrupt);
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
 
-    auto updateBtn = [](juce::TextButton& btn, bool active) {
-        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : gui::AppTheme::SurfaceCard);
-        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : gui::AppTheme::TextSecondary);
+    auto updateBtn = [isDark](juce::TextButton& btn, bool active) {
+        btn.setColour(juce::TextButton::buttonColourId, active ? gui::AppTheme::AccentActive : SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+        btn.setColour(juce::TextButton::textColourOffId, active ? juce::Colours::white : SoundIdTheme::ButtonTokens::secondaryText(isDark));
     };
 
     updateBtn(btnTrackOutput_, trackIndex == 0);
@@ -261,14 +264,14 @@ void MeasurementViewerPanel::setViewModel(const MeasurementViewModel& model)
         auto card = std::make_unique<MetricCard>();
         card->lblName.setFont(juce::Font(juce::FontOptions(10.5f)).boldened());
         card->lblName.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
-        card->lblName.setText(juce::String::fromUTF8(u8"SLOPE FIT & R²"), juce::dontSendNotification);
+        card->lblName.setText("SLOPE FIT & R^2", juce::dontSendNotification);
         addAndMakeVisible(card->lblName);
 
         card->lblValue.setFont(juce::FontOptions("Consolas", 15.0f, juce::Font::bold));
         card->lblValue.setColour(juce::Label::textColourId, gui::AppTheme::TextPrimary);
         std::ostringstream r2Stream;
-        r2Stream << "R²=" << std::fixed << std::setprecision(3) << model_.slopeFit->rSquared;
-        card->lblValue.setText(juce::String::fromUTF8(r2Stream.str().c_str()), juce::dontSendNotification);
+        r2Stream << "R^2=" << std::fixed << std::setprecision(3) << model_.slopeFit->rSquared;
+        card->lblValue.setText(r2Stream.str(), juce::dontSendNotification);
         addAndMakeVisible(card->lblValue);
 
         card->lblStatus.setFont(juce::Font(juce::FontOptions(10.0f)).boldened());
@@ -375,6 +378,17 @@ void MeasurementViewerPanel::updateHeaderAndBadges()
         lblDomainBadge_.setVisible(false);
     }
 
+    // If no container loaded
+    if (!model_.containerDirectory.isDirectory())
+    {
+        lblDomainBadge_.setVisible(false);
+        lblStatusBadge_.setText("NO CONTAINER", juce::dontSendNotification);
+        lblStatusBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2a3240));
+        lblStatusBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+        lblStatusBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff3e4a5d));
+        return;
+    }
+
     // Status badge (Never PASS)
     juce::String fullStatus = model_.statusText + " " + model_.statusIcon;
     lblStatusBadge_.setText(fullStatus, juce::dontSendNotification);
@@ -399,32 +413,41 @@ void MeasurementViewerPanel::updateHeaderAndBadges()
     }
     else
     {
-        lblStatusBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff374151));
+        lblStatusBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2a3240));
         lblStatusBadge_.setColour(juce::Label::textColourId, juce::Colour(0xffcbd5e1));
-        lblStatusBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff4b5563));
+        lblStatusBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff3e4a5d));
     }
 }
 
 void MeasurementViewerPanel::updateIntegrityUi()
 {
+    if (!model_.containerDirectory.isDirectory())
+    {
+        lblIntegrityBadge_.setText("INTEGRITY: PENDING", juce::dontSendNotification);
+        lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2a3240));
+        lblIntegrityBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+        lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff3e4a5d));
+        return;
+    }
+
     switch (model_.integrityStatus)
     {
         case UiIntegrityStatus::Verified:
-            lblIntegrityBadge_.setText("INTEGRITY [OK] VERIFIED", juce::dontSendNotification);
+            lblIntegrityBadge_.setText("INTEGRITY: VERIFIED", juce::dontSendNotification);
             lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff0c4a6e));
             lblIntegrityBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff38bdf8));
             lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff0284c7));
             break;
 
         case UiIntegrityStatus::Corrupt:
-            lblIntegrityBadge_.setText("INTEGRITY [X] CORRUPT", juce::dontSendNotification);
+            lblIntegrityBadge_.setText("INTEGRITY: CORRUPT", juce::dontSendNotification);
             lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff7f1d1d));
             lblIntegrityBadge_.setColour(juce::Label::textColourId, juce::Colour(0xfff87171));
             lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xffdc2626));
             break;
 
         case UiIntegrityStatus::Verifying:
-            lblIntegrityBadge_.setText("[*] VERIFYING HASHES...", juce::dontSendNotification);
+            lblIntegrityBadge_.setText("VERIFYING HASHES...", juce::dontSendNotification);
             lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff1e293b));
             lblIntegrityBadge_.setColour(juce::Label::textColourId, juce::Colour(0xfffbbf24));
             lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xffd97706));
@@ -432,10 +455,10 @@ void MeasurementViewerPanel::updateIntegrityUi()
 
         case UiIntegrityStatus::Unchecked:
         default:
-            lblIntegrityBadge_.setText("INTEGRITY [!] UNCHECKED", juce::dontSendNotification);
-            lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff374151));
+            lblIntegrityBadge_.setText("INTEGRITY: PENDING", juce::dontSendNotification);
+            lblIntegrityBadge_.setColour(juce::Label::backgroundColourId, juce::Colour(0xff2a3240));
             lblIntegrityBadge_.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
-            lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff4b5563));
+            lblIntegrityBadge_.setColour(juce::Label::outlineColourId, juce::Colour(0xff3e4a5d));
             break;
     }
 }
@@ -447,7 +470,7 @@ void MeasurementViewerPanel::triggerBackgroundManifestVerification()
 
     isVerifyingBackground_ = true;
     btnVerifyManifest_.setEnabled(false);
-    btnVerifyManifest_.setButtonText("Verificando...");
+    btnVerifyManifest_.setButtonText("Verifying...");
     model_.integrityStatus = UiIntegrityStatus::Verifying;
     updateIntegrityUi();
 
@@ -471,7 +494,7 @@ void MeasurementViewerPanel::handleVerificationCompleted(bool ok, const juce::St
 {
     isVerifyingBackground_ = false;
     btnVerifyManifest_.setEnabled(true);
-    btnVerifyManifest_.setButtonText("Verificar Manifiesto");
+    btnVerifyManifest_.setButtonText("Verify Manifest");
 
     if (ok)
     {
@@ -521,8 +544,8 @@ void MeasurementViewerPanel::handleVerificationCompleted(bool ok, const juce::St
 void MeasurementViewerPanel::promptLoadContainer()
 {
     fileChooser_ = std::make_unique<juce::FileChooser>(
-        juce::String::fromUTF8(u8"Seleccionar Carpeta del Contenedor FAIR/LNL..."),
-        juce::File::getSpecialLocation(juce::File::userHomeDirectory),
+        "Select FAIR / LNL Container Folder...",
+        core::resolveLabDataDirectories().experiments,
         "*",
         true);
 

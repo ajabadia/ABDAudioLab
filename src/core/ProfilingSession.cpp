@@ -44,6 +44,8 @@ bool ProfilingSession::loadProfileFromJson(const std::string& jsonString)
                 else if (stim == "SineWave1kHz") tc.stimulusType = audio::StimulusType::SineWave1kHz;
                 else if (stim == "SquareWave1kHz") tc.stimulusType = audio::StimulusType::SquareWave1kHz;
                 else if (stim == "AmplitudeRamp") tc.stimulusType = audio::StimulusType::AmplitudeRamp;
+                else if (stim == "LevelLadderSweep") tc.stimulusType = audio::StimulusType::LevelLadderSweep;
+                else if (stim == "MultitoneIMD") tc.stimulusType = audio::StimulusType::MultitoneIMD;
                 else if (stim == "Silence") tc.stimulusType = audio::StimulusType::Silence;
                 else tc.stimulusType = audio::StimulusType::LogFarinaSweep;
 
@@ -436,6 +438,8 @@ std::string ProfilingSession::saveProfileToJson() const
             case audio::StimulusType::SineWave1kHz: stimStr = "SineWave1kHz"; break;
             case audio::StimulusType::SquareWave1kHz: stimStr = "SquareWave1kHz"; break;
             case audio::StimulusType::AmplitudeRamp: stimStr = "AmplitudeRamp"; break;
+            case audio::StimulusType::LevelLadderSweep: stimStr = "LevelLadderSweep"; break;
+            case audio::StimulusType::MultitoneIMD: stimStr = "MultitoneIMD"; break;
             case audio::StimulusType::Silence: stimStr = "Silence"; break;
             default: stimStr = "LogFarinaSweep"; break;
         }

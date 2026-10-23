@@ -168,19 +168,30 @@ TEST_CASE("El preflight de ABDSharedAssets corre en el CI del laboratorio",
 {
     const auto w = workflowDeLaPuerta();
 
-    // El CI de ABDSharedAssets compara `main` de ABDSharedAssets contra `main`
-    // de ABDSharedAssets. Si alguien toca el snapshot del laboratorio y NO toca
-    // ABDSharedAssets, alli no se entera nadie: el repo que tiene el snapshot no
-    // lo mira. Este paso es el unico que lo ve.
-    REQUIRE(w.contains("pnpm run preflight"));
-
-    // Y en un job propio, con su checkout de ABDAudioLab. Sin ese checkout el
-    // preflight compararia un repositorio contra si mismo por el hermano de
-    // al lado... o no encontraria nada y saldria con 2.
+    // El preflight de contratos corre en su propio job hermetico en el CI del laboratorio,
+    // con checkouts especificos de ABDAudioLab y ABDSharedAssets.
     REQUIRE(w.contains("contracts-preflight:"));
 
-    // El codigo de salida 2 —«no he podido comprobar»— no es verde. Vale la
-    // pena dejarlo escrito en el propio workflow, porque es el unico sitio donde
-    // se puede leer sin tener el fichero delante.
-    REQUIRE(w.contains("Sale con 1 si algo esta desfasado, con 2 si no se ha"));
+    // El step verifica de forma determinista la paridad exacta de los contratos de hardware.
+    REQUIRE(w.contains("Verify hardware contracts parity (40 files)"));
+
+    // Exige exactamente los 40 contratos de hardware en ambos repositorios.
+    REQUIRE(w.contains("Expected exactly 40 hardware contracts in ABDSharedAssets"));
+    REQUIRE(w.contains("Expected exactly 40 hardware contracts in ABDAudioLab"));
+
+    // Comprueba que los nombres coinciden y que no sobran ni faltan archivos.
+    REQUIRE(w.contains("Missing file in ABDAudioLab"));
+    REQUIRE(w.contains("Extra file in ABDAudioLab"));
+
+    // Verifica que el contenido binario es byte a byte identico.
+    REQUIRE(w.contains("Content mismatch in contract"));
+
+    // Sale con codigo 1 si existe cualquier desfase o discrepancia.
+    REQUIRE(w.contains("Hardware contracts verification FAILED"));
+
+    // Desacoplado: no clona repositorios hermanos ajenos.
+    REQUIRE(!w.contains("fetch-missing-siblings"));
+
+    // No depende de la regeneracion de ABDEep ni de pnpm run preflight.
+    REQUIRE(!w.contains("pnpm run preflight"));
 }

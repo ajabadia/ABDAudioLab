@@ -19,21 +19,23 @@ namespace abdaudiolab::core
  */
 enum class DataRootOrigin
 {
-    ExplicitOverride,       /**< Configurado programáticamente o por ajustes del usuario. */
-    EnvironmentVariable,    /**< Definido mediante la variable ABDAUDIOLAB_DATA_ROOT. */
-    WorkspaceMarker,        /**< Detectado mediante el marcador único ABDAudioLab.workspace. */
-    UserDocumentsFallback   /**< Fallback estándar multiplataforma en Documents/ABDAudioLab. */
+    ExplicitOverride,        /**< Configurado programáticamente en memoria o por tests. */
+    EnvironmentVariable,     /**< Definido mediante la variable ABDAUDIOLAB_DATA_ROOT. */
+    UserPersistedPreference, /**< Configurado por el usuario y persistido en %APPDATA%/ABDAudioLab/lab_settings.json. */
+    WorkspaceMarker,         /**< Detectado mediante el marcador único ABDAudioLab.workspace. */
+    UserDocumentsFallback    /**< Fallback estándar multiplataforma en Documents/ABDAudioLab. */
 };
 
 [[nodiscard]] inline std::string dataRootOriginToString(DataRootOrigin origin)
 {
     switch (origin)
     {
-        case DataRootOrigin::ExplicitOverride:     return "ExplicitOverride";
-        case DataRootOrigin::EnvironmentVariable:  return "EnvironmentVariable";
-        case DataRootOrigin::WorkspaceMarker:      return "WorkspaceMarker";
-        case DataRootOrigin::UserDocumentsFallback: return "UserDocumentsFallback";
-        default:                                   return "Unknown";
+        case DataRootOrigin::ExplicitOverride:        return "ExplicitOverride";
+        case DataRootOrigin::EnvironmentVariable:     return "EnvironmentVariable";
+        case DataRootOrigin::UserPersistedPreference: return "UserPersistedPreference";
+        case DataRootOrigin::WorkspaceMarker:         return "WorkspaceMarker";
+        case DataRootOrigin::UserDocumentsFallback:    return "UserDocumentsFallback";
+        default:                                      return "Unknown";
     }
 }
 
@@ -45,13 +47,17 @@ struct LabDataDirectories
     juce::File dataRoot;
     juce::File experiments;
     juce::File exports;
+    juce::File loopbackProfiles;
+    juce::File presets;
+    juce::File reports;
     DataRootOrigin origin { DataRootOrigin::UserDocumentsFallback };
     std::string resolutionReason;
     bool isWritable { false };
 
     [[nodiscard]] bool isValid() const noexcept
     {
-        return dataRoot.isDirectory() && experiments.isDirectory() && exports.isDirectory() && isWritable;
+        return dataRoot.isDirectory() && experiments.isDirectory() && exports.isDirectory() &&
+               loopbackProfiles.isDirectory() && presets.isDirectory() && reports.isDirectory() && isWritable;
     }
 };
 
@@ -59,8 +65,9 @@ struct LabDataDirectories
  * @brief Resuelve deterministamente las carpetas de datos del laboratorio según la prioridad formal:
  * 1. Override explícito en memoria (setExplicitDataRootOverride).
  * 2. Variable de entorno ABDAUDIOLAB_DATA_ROOT.
- * 3. Marcador único ABDAudioLab.workspace.
- * 4. Fallback a User Documents (%USERPROFILE%/Documents/ABDAudioLab o ~/Documents/ABDAudioLab).
+ * 3. Preferencia persistida por el usuario en %APPDATA%/ABDAudioLab/lab_settings.json.
+ * 4. Marcador único ABDAudioLab.workspace.
+ * 5. Fallback a User Documents (%USERPROFILE%/Documents/ABDAudioLab o ~/Documents/ABDAudioLab).
  *
  * @param outDiagnostic Cadena opcional donde se registra la traza de diagnóstico.
  * @return LabDataDirectories válidas y verificadas para escritura.
@@ -68,7 +75,7 @@ struct LabDataDirectories
 [[nodiscard]] LabDataDirectories resolveLabDataDirectories(juce::String* outDiagnostic = nullptr);
 
 /**
- * @brief Configura un override explícito en memoria para la raíz de datos (por ejemplo desde UI o tests).
+ * @brief Configura un override explícito en memoria para la raíz de datos (por ejemplo desde tests).
  * Valida normalización, rechaza archivos y comprueba permisos de escritura.
  * @return true si la ruta es válida y escribible, false si falló la validación.
  */
@@ -78,6 +85,26 @@ bool setExplicitDataRootOverride(const juce::File& customRoot, juce::String& out
  * @brief Limpia cualquier override explícito configurado en memoria.
  */
 void clearExplicitDataRootOverride();
+
+/**
+ * @brief Guarda la preferencia de DataRoot en el fichero de configuración de la app (%APPDATA%/ABDAudioLab/lab_settings.json).
+ */
+bool persistDataRootPreference(const juce::File& customRoot, juce::String* outError = nullptr);
+
+/**
+ * @brief Carga la preferencia de DataRoot guardada por el usuario si existe y es válida.
+ */
+[[nodiscard]] juce::File loadPersistedDataRootPreference();
+
+/**
+ * @brief Elimina la preferencia persistida de DataRoot del usuario.
+ */
+void clearPersistedDataRootPreference();
+
+/**
+ * @brief Configura en memoria y persiste en disco la raíz de datos (usado cuando el usuario elige la carpeta desde la UI).
+ */
+bool setAndPersistDataRootOverride(const juce::File& customRoot, juce::String& outError);
 
 /**
  * @brief Busca el marcador único ABDAudioLab.workspace ascendiendo por el árbol de directorios.

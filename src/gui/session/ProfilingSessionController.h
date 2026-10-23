@@ -35,7 +35,11 @@ public:
     // Implementación de IProfilingSessionCommands
     bool selectTarget(const TargetSelectionState& target) override;
     bool requestAudit() override;
-    bool startProfiling() override;
+    bool startProfiling(int totalTrials = 20,
+                        double trialDurationSec = 2.0,
+                        bool adaptiveTailEnabled = false,
+                        double tailThresholdDb = -60.0,
+                        AcquisitionExecutionMode executionMode = AcquisitionExecutionMode::Realtime) override;
     bool pauseProfiling() override;
     bool resumeProfiling() override;
     bool cancelProfiling() override;

@@ -66,39 +66,57 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ARA_SDK)
 
 # ------------------------------------------------------------------------------
-# ABDSharedCode (Shared Libraries: AutoUpdater, etc.)
+# ABDShared (Shared Libraries: DspCore, SynthCore, AutoUpdater, Scope, etc.)
 # ------------------------------------------------------------------------------
-set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
+# Consumo canonico del repositorio consolidado ABDShared.
+#
+# Preferencias de origen del codigo compartido:
+#  1. Arbol consolidado local: ${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared/Code
+#  2. Legacy local viejo (repositivo hermano pre-consolidacion): ...
+#     ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+#  3. Descarga remota legacy como ultimo recurso (repo/hermano viejo).
+#
+# La rama legacy local y la descarga remota legacy existen solo por compatibilidad
+# transitoria durante la migracion desde ABDSharedCode/ABDSharedAssets a
+# la estructura consolidada en ${ABDSHARED_DIR}.
+# ------------------------------------------------------------------------------
+set(ABDSHARED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDShared")
+set(ABDSHARED_CODE_DIR "${ABDSHARED_DIR}/Code")
+
 if(EXISTS "${ABDSHARED_CODE_DIR}/CMakeLists.txt")
-    message(STATUS "ABDSharedCode: Using local at ${ABDSHARED_CODE_DIR}")
+    message(STATUS "ABDShared: Using local consolidated tree at ${ABDSHARED_CODE_DIR}")
+    add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDShared_Code")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/CMakeLists.txt")
+    set(ABDSHARED_CODE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode")
+    message(STATUS "ABDSharedCode: Using legacy local fallback at ${ABDSHARED_CODE_DIR} (legacy, during migration)")
     add_subdirectory("${ABDSHARED_CODE_DIR}" "${CMAKE_BINARY_DIR}/ABDSharedCode")
 else()
     include(FetchContent)
     FetchContent_Declare(
-      ABDSharedCode
-      GIT_REPOSITORY https://github.com/ajabadia/ABDSharedCode.git
-      GIT_TAG        65875eb8fbf65602b05981318608264a4c2432ec  # master @ 2026-09-22 — pinned for v2.1.0 release
+      ABDShared
+      GIT_REPOSITORY https://github.com/ajabadia/ABDShared.git
+      GIT_TAG        main
+      SOURCE_SUBDIR  Code
     )
-    FetchContent_MakeAvailable(ABDSharedCode)
+    FetchContent_MakeAvailable(ABDShared)
+    set(ABDSHARED_DIR "${abdshared_SOURCE_DIR}")
+    set(ABDSHARED_CODE_DIR "${abdshared_SOURCE_DIR}/Code")
+    message(STATUS "ABDShared: Using FetchContent at ${ABDSHARED_CODE_DIR}")
 endif()
 
 # ------------------------------------------------------------------------------
-# ABDScope (Unified Audio Visualizer)
+# ABDScope -> consolidated tree (historically subtree under ABDSharedCode/Scope)
 # ------------------------------------------------------------------------------
-set(ABDSCOPE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope")
-if(EXISTS "${ABDSCOPE_DIR}/CMakeLists.txt")
-    message(STATUS "ABDScope: Using local workspace at ${ABDSCOPE_DIR}")
-    add_subdirectory("${ABDSCOPE_DIR}" ABDScope_Build EXCLUDE_FROM_ALL)
-else()
-    include(FetchContent)
-    message(STATUS "ABDScope: Fetching from GitHub repository...")
-    FetchContent_Declare(
-      ABDScope
-      GIT_REPOSITORY https://github.com/ajabadia/ABDScope.git
-      GIT_TAG        0a296f3f3d161f65b41be4d02413ab858dddff55  # main @ 2026-09-22 — pinned for v2.1.0 release
-    )
-    FetchContent_MakeAvailable(ABDScope)
-endif()
+# El modulo Scope se consume desde el arbol consolidado de codigo compartido,
+# y se registra al anadir ese arbol: targets ABDShared::ScopeCore y
+# ABDShared::ScopeCoreHeaders).
+#
+# Este bloque se borraba: mantener un segundo add_subdirectory del mismo
+# modulo haria duplicar los targets ABDScopeCore y romper la configuracion
+# con "add_library cannot create target ABDScopeCore...".
+#
+# NOTA: El pin de FetchContent consolidado de arriba rastrea la rama/etiqueta
+# que ya contiene la absorcion del modulo Scope.
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab (Standalone Executable)
@@ -112,10 +130,8 @@ juce_add_gui_app(ABDAudioLab
 )
 
 # Source files
-target_sources(ABDAudioLab
-    PRIVATE
-        src/main.cpp
-        src/BuildVersion.h
+set(ABDAUDIOLAB_COMMON_SOURCES
+    src/BuildVersion.h
         
         # Core Architecture
         src/core/ProfilingSession.h
@@ -186,6 +202,7 @@ target_sources(ABDAudioLab
         # Mathematical & Statistical Processing
         src/math/LabAnalyticEngine.h
         src/math/LabAnalyticEngine.cpp
+    src/math/LabEnvelopeCurveAnalyzer.cpp
         src/math/analytics/FilterAnalytics.h
         src/math/analytics/FilterAnalytics.cpp
         src/math/analytics/EnvelopeAnalytics.h
@@ -210,8 +227,25 @@ target_sources(ABDAudioLab
         src/calibration/CalibrationProfileStore.cpp
         src/calibration/CalibrationMatchEvaluator.h
         src/calibration/CalibrationMatchEvaluator.cpp
+        src/calibration/CalibrationSnapshot.h
+        src/calibration/CalibrationSnapshot.cpp
+        src/calibration/CalibrationNoiseBaselineRunner.h
+        src/calibration/CalibrationNoiseBaselineRunner.cpp
+        src/calibration/CalibrationCompatibilityEvaluator.h
+        src/calibration/CalibrationCompatibilityEvaluator.cpp
+        src/calibration/ActiveCalibrationContext.h
+        src/calibration/ActiveCalibrationContext.cpp
+        src/calibration/LoopbackProfile.h
+        src/calibration/LoopbackProfile.cpp
+        src/calibration/LoopbackProfileStore.h
+        src/calibration/LoopbackProfileStore.cpp
+        src/calibration/AsyncLoopbackProfileLoader.h
+        src/calibration/AsyncLoopbackProfileLoader.cpp
         src/math/PreScanSpectrumAnalyzer.h
         src/math/PreScanSpectrumAnalyzer.cpp
+        src/math/PreflightPingProbe.h
+        src/math/PreflightPingProbe.cpp
+        src/math/PresetAudit5DEngine.h
         src/math/ModulationMatrixProfile.h
         src/math/ModulationMatrixProfile.cpp
         src/math/ModulationEstimator.h
@@ -250,18 +284,18 @@ target_sources(ABDAudioLab
         src/hardware/transport/JuceMidiTransport.cpp
         src/hardware/adapter/SharedMidiHardwareAdapter.h
         src/hardware/adapter/SharedMidiHardwareAdapter.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/JunoTapeModem.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/SysExCodec.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/NRPNParser.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Alignment.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Spectral.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABVerdictEngine.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/WebView2Bridge/WebView2ResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioCzVirtualController.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioNibbleCodec.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/FskAudioModem.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/JunoTapeModem.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/SysExCodec.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareDrivers/NRPNParser.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Alignment.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Spectral.cpp
+        ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABVerdictEngine.cpp
+        ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
+        ${ABDSHARED_CODE_DIR}/WebView2Bridge/WebView2ResourceProvider.cpp
         
         # Plugin Hosting & Software Target (VST3, AU, LV2, ARA)
         src/core/plugins/PluginHostManager.h
@@ -425,6 +459,14 @@ target_sources(ABDAudioLab
         src/synth/ModelEvaluationTypes.h
         src/synth/ModelEvaluationBuilder.h
         src/synth/ModelEvaluationBuilder.cpp
+        src/synth/CandidateEvaluators.h
+        src/synth/MultiObjectiveModelSelector.h
+        src/synth/MultiObjectiveModelSelector.cpp
+        src/synth/SyntheticGroundTruthFixtures.h
+        src/synth/HoldoutStimulusGenerator.h
+        src/synth/HoldoutStimulusGenerator.cpp
+        src/synth/OutOfSampleHoldoutEngine.h
+        src/synth/OutOfSampleHoldoutEngine.cpp
         src/synth/AdaptiveExperimentPlanner.h
         src/synth/AdaptiveExperimentPlanner.cpp
 
@@ -525,6 +567,18 @@ target_sources(ABDAudioLab
         src/gui/HardwareDeviceDisplayCardComponent.cpp
         src/gui/NativeCalibrationPanel.h
         src/gui/NativeCalibrationPanel.cpp
+        src/gui/NativeCalibrationPanelLayout.cpp
+        src/gui/NativeCalibrationPanelProfiles.cpp
+        src/gui/NativeCalibrationPanelUiState.cpp
+        src/gui/NativeCalibrationPanelWorkflow.cpp
+        src/gui/calibration/CalibrationPanelTypes.h
+        src/gui/calibration/CalibrationPanelMetrics.h
+        src/gui/calibration/CalibrationPanelViewState.h
+        src/gui/calibration/CalibrationPanelPainter.h
+        src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+        src/gui/calibration/CalibrationPanelPainterStepper.cpp
+        src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+        src/gui/calibration/CalibrationPanelPainterReports.cpp
         src/gui/TestConfigModal.h
         src/gui/TestConfigModal.cpp
         src/gui/MatrixResolutionTableComponent.h
@@ -553,14 +607,14 @@ target_sources(ABDAudioLab
         src/gui/soundid/SoundIdResultsSummaryView.h
         src/gui/soundid/SoundIdResultsSummaryView.cpp
         src/gui/ScopeWebFloatingWindow.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyResourceProvider.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/JuceStudioTopologyComponent.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyFloatingWindow.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardResourceProvider.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/JuceMidiKeyboardComponent.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/MidiKeyboard/MidiKeyboardFloatingWindow.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/StudioTopology/JuceStudioTopologyComponent.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyFloatingWindow.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardResourceProvider.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardResourceProvider.cpp
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/JuceMidiKeyboardComponent.h
+        ${ABDSHARED_CODE_DIR}/MidiKeyboard/MidiKeyboardFloatingWindow.h
         src/gui/MeasurementHealthPanel.h
         src/gui/OperatorCardsContainerComponent.h
         src/gui/OperatorCardsContainerComponent.cpp
@@ -571,9 +625,9 @@ target_sources(ABDAudioLab
         src/gui/SessionReportManager.cpp
         src/gui/MainHeaderController.h
         src/gui/MainHeaderController.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/AudioMidiInterfaceDetector.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/StudioTopology/StudioTopologyController.cpp
+        ${ABDSHARED_CODE_DIR}/StudioTopology/AudioMidiInterfaceDetector.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.h
+        ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.cpp
         src/gui/SessionExecutionCoordinator.h
         src/gui/SessionExecutionCoordinator.cpp
         src/gui/controllers/SessionIoController.h
@@ -620,6 +674,11 @@ target_sources(ABDAudioLab
         src/export/LutExporter.cpp
         src/export/CertificationReportExporter.h
         src/export/CertificationReportExporter.cpp
+        src/export/ProfileValidationScopeReportExporter.h
+        src/export/ProfileValidationScopeReportExporter.cpp
+        src/export/ExportReadinessEvaluator.h
+        src/export/ExportReadinessEvaluator.cpp
+        src/export/CurveReportExporter.cpp
         src/export/ReportExportService.h
         src/export/ReportExportService.cpp
         src/gui/controllers/IReportExportHost.h
@@ -644,11 +703,16 @@ target_sources(ABDAudioLab
         src/config/AutoUpdaterConfig.h
 )
 
+target_sources(ABDAudioLab
+    PRIVATE
+        src/main.cpp
+        ${ABDAUDIOLAB_COMMON_SOURCES}
+)
+
 target_include_directories(ABDAudioLab
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+        ${ABDSHARED_CODE_DIR}
         ${ara_sdk_SOURCE_DIR}
 )
 
@@ -685,11 +749,85 @@ target_link_libraries(ABDAudioLab
         juce::juce_gui_basics
         juce::juce_gui_extra
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        # Scope via ABDShared (Code/Scope): propaga .../Scope/Source y
+        # .../Source/Core, que sustituyen a la linea ../ABDScope/Source borrada.
+        ABDShared::ScopeCore
         ABDShared::AutoUpdater
         ABDShared::HardwareMidiDetect
         ABDShared::StudioTopologyAssets
 )
+
+# ------------------------------------------------------------------------------
+# Target: ABDAudioLab_Web (Modern WebView2 Target with Browser-First Workflow)
+# ------------------------------------------------------------------------------
+juce_add_gui_app(ABDAudioLab_Web
+    PRODUCT_NAME "ABDAudioLab Web"
+    VERSION "1.1.0"
+    COMPANY_NAME "ABDSynths"
+    BUNDLE_ID "com.abdsynths.abdaudiolab.web"
+    NEEDS_WEBVIEW2 TRUE
+)
+
+target_sources(ABDAudioLab_Web
+    PRIVATE
+        src/main_web.cpp
+        src/gui/web/AudioLabWebComponent.h
+        src/gui/web/AudioLabWebComponent.cpp
+        src/gui/web/LabWebApplication.h
+        ${ABDAUDIOLAB_COMMON_SOURCES}
+)
+
+target_include_directories(ABDAudioLab_Web
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${ABDSHARED_CODE_DIR}
+        ${ara_sdk_SOURCE_DIR}
+)
+
+target_compile_definitions(ABDAudioLab_Web
+    PRIVATE
+        JUCE_WEB_BROWSER=1
+        JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
+        JUCE_USE_CURL=0
+        JUCE_ASIO=0
+        JUCE_WASAPI=1
+        JUCE_DIRECTSOUND=1
+        JUCE_ALSA=0
+        JUCE_JACK=0
+        JUCE_REPORT_APP_USAGE=0
+        JUCE_SILENCE_XCODE_15_LINKER_WARNING=1
+        JUCE_PLUGINHOST_VST3=1
+        JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        JUCE_PLUGINHOST_LV2=1
+        JUCE_PLUGINHOST_ARA=1
+)
+
+target_link_libraries(ABDAudioLab_Web
+    PRIVATE
+        juce::juce_core
+        juce::juce_events
+        juce::juce_data_structures
+        juce::juce_audio_basics
+        juce::juce_audio_devices
+        juce::juce_audio_formats
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_audio_utils
+        juce::juce_gui_basics
+        juce::juce_gui_extra
+        nlohmann_json::nlohmann_json
+        ABDShared::ScopeCore
+        ABDShared::AutoUpdater
+        ABDShared::HardwareMidiDetect
+        ABDShared::StudioTopologyAssets
+        ABDShared::WebView2Bridge
+)
+
+if (WIN32)
+    target_link_libraries(ABDAudioLab PRIVATE dwmapi)
+    target_link_libraries(ABDAudioLab_Web PRIVATE dwmapi)
+endif()
 
 # ------------------------------------------------------------------------------
 # Target: ABDAudioLab_Tests (Unit Test Suite with Catch2 / CTest)
@@ -725,6 +863,20 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_PhaseGroupDelay.cpp
     src/tests/test_LoopbackDiagnostics.cpp
     src/tests/test_LoopbackSampleRateAdaptation.cpp
+    src/tests/test_AudioReceiverLifecycle.cpp
+    src/tests/test_CalibrationSnapshotProvenance.cpp
+    src/tests/test_CalibrationNoiseBaseline.cpp
+    src/gui/NativeCalibrationPanel.cpp
+    src/gui/NativeCalibrationPanelLayout.cpp
+    src/gui/NativeCalibrationPanelProfiles.cpp
+    src/gui/NativeCalibrationPanelUiState.cpp
+    src/gui/NativeCalibrationPanelWorkflow.cpp
+    src/gui/calibration/CalibrationPanelPainterPrimitives.cpp
+    src/gui/calibration/CalibrationPanelPainterStepper.cpp
+    src/gui/calibration/CalibrationPanelPainterInstructions.cpp
+    src/gui/calibration/CalibrationPanelPainterReports.cpp
+    src/tests/test_NativeCalibrationPanelInteraction.cpp
+    src/tests/test_CalibrationPanelPainters.cpp
     src/tests/test_LnlManifestExport.cpp
     src/tests/test_DeColoringCompensation.cpp
     src/tests/test_AudioMidiInterfaceDetector.cpp
@@ -797,9 +949,11 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_DynamicsAndModulationContracts.cpp
     src/tests/test_EnvelopeMeasurementAdapter.cpp
     src/tests/test_FilterMeasurementAdapter.cpp
+    src/tests/test_FilterDynamicModulationAnalytics.cpp
     src/tests/test_DynamicsMeasurementAdapter.cpp
     src/tests/test_ModulationMeasurementAdapter.cpp
     src/tests/test_DynamicsAndModulationExport.cpp
+    src/math/UnitTests/EnvelopeAnalysisTests.cpp
     src/tests/test_MeasurementStimulusCapture.cpp
     src/tests/test_MeasurementAudioThroughCapture.cpp
     src/tests/test_MeasurementPersistenceAndReport.cpp
@@ -894,6 +1048,9 @@ add_executable(ABDAudioLab_Tests
     src/synth/ExternalPluginFixture.cpp
     src/synth/SynthTargetLifecycleAdapters.cpp
     src/synth/ModelEvaluationBuilder.cpp
+    src/synth/MultiObjectiveModelSelector.cpp
+    src/synth/HoldoutStimulusGenerator.cpp
+    src/synth/OutOfSampleHoldoutEngine.cpp
     src/synth/AdaptiveExperimentPlanner.cpp
     src/gui/session/ProfilingSessionCoordinator.cpp
     src/gui/session/ProfilingSessionController.cpp
@@ -911,11 +1068,13 @@ add_executable(ABDAudioLab_Tests
     src/math/FarinaDeconvolver.cpp
     src/math/IntermodulationAnalyzer.cpp
     src/math/LabAnalyticEngine.cpp
+    src/math/LabEnvelopeCurveAnalyzer.cpp
     src/math/analytics/FilterAnalytics.cpp
     src/math/analytics/EnvelopeAnalytics.cpp
     src/math/analytics/DynamicsAnalytics.cpp
     src/math/analytics/ModulationAnalytics.cpp
     src/math/PreScanSpectrumAnalyzer.cpp
+    src/math/PreflightPingProbe.cpp
     src/math/ModulationMatrixProfile.cpp
     src/math/ModulationEstimator.cpp
     src/math/WienerHammersteinFitter.cpp
@@ -923,19 +1082,28 @@ add_executable(ABDAudioLab_Tests
     src/math/LoopbackCalibrator.cpp
     src/calibration/CalibrationProfileStore.cpp
     src/calibration/CalibrationMatchEvaluator.cpp
+    src/calibration/CalibrationSnapshot.cpp
+    src/calibration/CalibrationNoiseBaselineRunner.cpp
+    src/calibration/CalibrationCompatibilityEvaluator.cpp
+    src/calibration/ActiveCalibrationContext.cpp
+    src/calibration/LoopbackProfile.cpp
+    src/calibration/LoopbackProfileStore.cpp
+    src/calibration/AsyncLoopbackProfileLoader.cpp
     src/hardware/MidiIdentityDetector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioCzVirtualController.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/CasioNibbleCodec.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/FskAudioModem.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/JunoTapeModem.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/SysExCodec.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareDrivers/NRPNParser.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Alignment.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABComparator_Spectral.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/AudioComparator/AudioABVerdictEngine.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/WebView2Bridge/WebView2ResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioCzVirtualController.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/CasioNibbleCodec.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/FskAudioModem.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/JunoTapeModem.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/SysExCodec.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareDrivers/NRPNParser.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Alignment.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABComparator_Spectral.cpp
+    ${ABDSHARED_CODE_DIR}/AudioComparator/AudioABVerdictEngine.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/JuceMidiHardwareBackend.cpp
+    ${ABDSHARED_CODE_DIR}/WebView2Bridge/WebView2ResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyResourceProvider.cpp
+    ${ABDSHARED_CODE_DIR}/StudioTopology/StudioTopologyController.cpp
     src/core/AutoTestPresetEngine.cpp
     src/core/presets/FilterPresetCatalog.cpp
     src/core/presets/ModulationPresetCatalog.cpp
@@ -982,6 +1150,7 @@ add_executable(ABDAudioLab_Tests
     src/gui/soundid/SoundIdSidebarStepper.cpp
     src/gui/soundid/SoundIdHardwareCatalogSelector.cpp
     src/export/CertificationReportExporter.cpp
+    src/export/CurveReportExporter.cpp
     src/export/ModelExportNaming.cpp
     src/ipc/Win32NamedPipe.cpp
     src/ipc/WorkerProcessHost.cpp
@@ -1088,11 +1257,11 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_TargetProfileLegacyConsumerParity.cpp
     src/tests/test_TargetProfileLegacyHotplugParity.cpp
     src/tests/test_TargetProfilePhysicalPreflightBench.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_JuceMidiHardwareBackendStrictOpen.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_HardwareMidiDetectorIdentityState.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/HardwareMidiDetect/MidiEndpointSafetyPolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode/tests/test_MidiEndpointSafetyPolicyWiring.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_JuceMidiHardwareBackendStrictOpen.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_HardwareMidiDetectorIdentityState.cpp
+    ${ABDSHARED_CODE_DIR}/HardwareMidiDetect/MidiEndpointSafetyPolicy.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_MidiEndpointSafetyPolicy.cpp
+    ${ABDSHARED_CODE_DIR}/tests/test_MidiEndpointSafetyPolicyWiring.cpp
     src/hardware/adapter/SharedMidiHardwareAdapter.cpp
     src/tests/test_SharedMidiHardwareIntegrationContract.cpp
     src/tests/test_AudioABCanonicalPresetRuns5D.cpp
@@ -1102,6 +1271,20 @@ add_executable(ABDAudioLab_Tests
     src/tests/test_AudioABComparatorAndVerdict5D.cpp
     src/tests/test_AudioABBaselineManifestValidation5D.cpp
     src/tests/test_PinkNoiseGenerator.cpp
+    src/tests/test_ScopeContractsAndLifetime.cpp
+    src/tests/test_ScopeBundleAndThemeParity.cpp
+    src/tests/test_LoopbackProfileStore.cpp
+    src/tests/test_SyntheticGroundTruthFixtures.cpp
+    src/tests/test_MultiObjectiveModelSelector.cpp
+    src/tests/test_OutOfSampleHoldoutEngine.cpp
+    src/export/ProfileValidationScopeReportExporter.cpp
+    src/tests/test_ProfileValidationScopeReportExporter.cpp
+    src/export/ExportReadinessEvaluator.cpp
+    src/tests/test_ConditionalExportWithMetadata.cpp
+    src/tests/test_PreflightPingProbe.cpp
+    src/tests/test_HardwareHookupPreflightIntegration.cpp
+    src/tests/test_PresetAudit5DEngine.cpp
+    src/tests/test_UniversalABComparatorIntegration.cpp
 
     # Guard del cuelgue sin CPU: frena los ScopedJuceInitialiser_GUI anidados en
     # TEST_CASEs y prohibe SystemClipboard en los tests. Es la causa del proceso
@@ -1152,8 +1335,7 @@ add_custom_command(TARGET ABDAudioLab_PluginWorker POST_BUILD
 target_include_directories(ABDAudioLab_Tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDScope/Source
-        ${CMAKE_CURRENT_SOURCE_DIR}/../ABDSharedCode
+        ${ABDSHARED_CODE_DIR}
 )
 
 target_compile_definitions(ABDAudioLab_Tests
@@ -1162,6 +1344,8 @@ target_compile_definitions(ABDAudioLab_Tests
         NOMINMAX
         JUCE_PLUGINHOST_VST3=1
         JUCE_PLUGINHOST_AU=$<IF:$<PLATFORM_ID:Darwin>,1,0>
+        JUCE_USE_WIN_WEBVIEW2=1
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
         ABD_TESTING=1
         # Necesario para MessageManager::runDispatchLoopUntil(): el runner Catch2 es
         # headless y debe bombear el message loop de JUCE para materializar las
@@ -1184,12 +1368,21 @@ target_link_libraries(ABDAudioLab_Tests
         juce::juce_audio_utils
         juce::juce_dsp
         nlohmann_json::nlohmann_json
-        ABDScope::ABDScopeCore
+        ABDShared::ScopeCore
         ABDShared::HardwareMidiDetect
+        ABDShared::StudioTopologyAssets
 )
 
 if(WIN32)
     target_link_libraries(ABDAudioLab_Tests PRIVATE dbghelp)
+    if(TARGET juce::juce_webview2)
+        target_link_libraries(ABDAudioLab_Tests PRIVATE juce::juce_webview2)
+    endif()
+endif()
+
+if(MSVC)
+    target_compile_options(ABDAudioLab PRIVATE /utf-8)
+    target_compile_options(ABDAudioLab_Tests PRIVATE /utf-8)
 endif()
 
 include(CTest)

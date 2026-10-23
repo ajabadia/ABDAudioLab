@@ -240,5 +240,23 @@ namespace test_support
 Para la especificación completa, reglas normativas, delimitación de responsabilidades y contratos de fail-closed y emulación, consultar el documento permanente:
 👉 [`docs/ROADMAP_HARDWARE_AND_EMULATION.md`](docs/ROADMAP_HARDWARE_AND_EMULATION.md)
 
+---
+
+## 🎯 PLAN DE IMPLEMENTACIÓN: HITO-CONTRACT-01 (Profiling por Contrato, Init Patch y Sonda Preflight)
+
+> **Documento de Diseño Arquitectónico:** [`docs/contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md`](contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md)
+
+### Secuencia de Tareas Atómicas
+
+| Tarea | Alcance | Archivos Clave | Estado | Criterio de Aceptación |
+|---|---|---|:---:|---|
+| **TASK-01** | Parsing y DTOs de `wiringGuide.steps` y `lifecycle` | `src/core/HardwareContractRegistry.{h,cpp}`, `src/core/SharedHardwareContractAdapter.{h,cpp}` | ✅ **COMPLETADA** | Lectura de pasos textuales de cableado e inicialización sin errores de validación JSON. Test unitario PASS en `test_HardwareProfileValidation.cpp`. |
+| **TASK-02** | Motor DSP de la Sonda Preflight (Ping Probe 1.5s) | `src/math/PreflightPingProbe.{h,cpp}`, `src/tests/test_PreflightPingProbe.cpp` | ✅ **COMPLETADA** | Detección determinista de: 1) señal presente ($>-60$ dBFS), 2) no recorte ($<-0.5$ dBFS), 3) coherencia vs zumbido de masa (50/60 Hz). Registrado en CMake y testeado. |
+| **TASK-03** | Componentes UI en Paso 3 (`Hardware Hookup & Preflight`: 3A, 3B, 3C) | `WebUI/src/stages/stage3_preflight.js`, `WebUI/src/styles/stage3_preflight.css`, `WebUI/src/app.js` | ✅ **COMPLETADA** | Implementación del Paso 3 en el Stepper (5 pasos totales). Separación estricta WebUI/Core: tarjeta 3A (cabling + espacio topología), tarjeta 3B (SysEx init vs perillas vectoriales) y tarjeta 3C (vúmetro de sonda, ejecución 1.5s y compuerta a Paso 4). |
+| **TASK-04** | Contratos de Referencia Certificados (Pedal, Eurorack, Synth) | `profiles/targets/boss_ds1_distortion.target.json`, `profiles/targets/behringer_pro800.target.json`, `contracts/hardware/manual_eurorack_vcf.json` | ✅ **COMPLETADA** | Contratos enriquecidos con `routingGuide.steps` y `lifecycle.preSessionSetup` para las tres familias taxonómicas. |
+| **TASK-05** | Certificación E2E de Flujo y Regresión Global | `src/tests/test_HardwareHookupPreflightIntegration.cpp` | ✅ **COMPLETADA** | Suite de tests automatizados headless validando: carga de perfil $\to$ verificación de cables $\to$ setup $\to$ ejecución acústica del Ping Probe y detección de fallo/zumbido. Registrado en `CMakeLists.txt`. |
+
+
+
 
 

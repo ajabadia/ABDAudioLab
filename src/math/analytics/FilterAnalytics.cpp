@@ -46,12 +46,53 @@ FilterStatisticalPair FilterAnalytics::calculateStatistics(const std::vector<flo
     return res;
 }
 
+std::vector<float> FilterAnalytics::computeSynchronousTimeDomainAverage(
+    const std::vector<std::vector<float>>& recordedPasses)
+{
+    std::vector<float> validIndices;
+    size_t minSamples = 0;
+    size_t validCount = 0;
+
+    for (const auto& pass : recordedPasses)
+    {
+        if (!pass.empty())
+        {
+            minSamples = (validCount == 0) ? pass.size() : std::min(minSamples, pass.size());
+            ++validCount;
+        }
+    }
+
+    if (validCount == 0 || minSamples == 0)
+        return {};
+
+    if (validCount == 1)
+    {
+        for (const auto& pass : recordedPasses)
+            if (!pass.empty())
+                return pass;
+    }
+
+    std::vector<float> averaged(minSamples, 0.0f);
+    const float invCount = 1.0f / static_cast<float>(validCount);
+
+    for (const auto& pass : recordedPasses)
+    {
+        if (pass.empty())
+            continue;
+        for (size_t n = 0; n < minSamples; ++n)
+            averaged[n] += pass[n] * invCount;
+    }
+
+    return averaged;
+}
+
 FilterAnalysisData FilterAnalytics::analyzeFilterPasses(const std::vector<std::vector<float>>& recordedPasses,
                                                        const std::vector<float>& inverseFilter,
                                                        double sampleRate,
                                                        double durationSec,
                                                        float startFreqHz,
-                                                       float endFreqHz)
+                                                       float endFreqHz,
+                                                       bool useKirkebyRegularization)
 {
     FilterAnalysisData result;
     if (recordedPasses.empty())
@@ -65,17 +106,55 @@ FilterAnalysisData FilterAnalytics::analyzeFilterPasses(const std::vector<std::v
     resonances.reserve(recordedPasses.size());
     thds.reserve(recordedPasses.size());
 
+    const bool canUseKirkeby = useKirkebyRegularization && sampleRate > 0.0 && durationSec > 0.0
+                               && startFreqHz > 0.0f && endFreqHz > startFreqHz;
+    std::vector<float> forwardSweep;
+    if (canUseKirkeby)
+    {
+        // Reconstruct matched forward sweep from time-reversed inverse filter if lengths match,
+        // or synthesize the nominal forward sweep for Kirkeby regularization.
+        forwardSweep = FarinaDeconvolver::generateLogFarinaSweep(
+            sampleRate, durationSec, startFreqHz, endFreqHz, 0.0, 0.0);
+    }
+
+    auto deconvolveSingle = [&](const std::vector<float>& pass) -> DeconvolutionResult
+    {
+        if (canUseKirkeby && !forwardSweep.empty())
+        {
+            return FarinaDeconvolver::deconvolveKirkeby(
+                pass, forwardSweep, sampleRate, startFreqHz, endFreqHz);
+        }
+        return FarinaDeconvolver::deconvolve(
+            pass, inverseFilter, sampleRate, durationSec, startFreqHz, endFreqHz);
+    };
+
     for (const auto& pass : recordedPasses)
     {
-        auto deco = FarinaDeconvolver::deconvolve(pass, inverseFilter, sampleRate, durationSec, startFreqHz, endFreqHz);
+        if (pass.empty())
+            continue;
+
+        auto deco = deconvolveSingle(pass);
         cutoffs.push_back(deco.peakFrequencyHz);
         resonances.push_back(deco.resonancePeakDb);
         thds.push_back(deco.thdPercent);
 
-        if (result.frequencyCurveHz.empty())
+        if (recordedPasses.size() == 1 && result.frequencyCurveHz.empty())
         {
-            result.frequencyCurveHz = deco.frequenciesHz;
-            result.magnitudeCurveDb = deco.frequencyResponseMagnitudeDb;
+            result.frequencyCurveHz = std::move(deco.frequenciesHz);
+            result.magnitudeCurveDb = std::move(deco.frequencyResponseMagnitudeDb);
+        }
+    }
+
+    // When multiple passes are available, extract the representative frequency response
+    // from the Synchronous Time-Domain Average (STA) for +10*log10(K) dB noise floor suppression.
+    if (recordedPasses.size() > 1)
+    {
+        auto staBuffer = computeSynchronousTimeDomainAverage(recordedPasses);
+        if (!staBuffer.empty())
+        {
+            auto staDeco = deconvolveSingle(staBuffer);
+            result.frequencyCurveHz = std::move(staDeco.frequenciesHz);
+            result.magnitudeCurveDb = std::move(staDeco.frequencyResponseMagnitudeDb);
         }
     }
 

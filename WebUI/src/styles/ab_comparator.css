@@ -1,0 +1,523 @@
+/* ==========================================================================
+   UNIVERSAL A/B DIFF & NULL-TEST COMPARATOR STYLES
+   Fully harmonized with ABDShared Design Tokens & ABDAudioLab Modals / Cards
+   ========================================================================== */
+
+.ab-comparator-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 99999);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ab-comparator-overlay.active {
+  opacity: 1;
+}
+
+.ab-comparator-modal {
+  width: 95vw;
+  max-width: 1260px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-panel-bg);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-xl, 14px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), var(--shadow-elevation-2, 0 10px 30px rgba(0, 0, 0, 0.2));
+  overflow: hidden;
+  transform: scale(0.97) translateY(6px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  box-sizing: border-box;
+}
+
+.ab-comparator-overlay.active .ab-comparator-modal {
+  transform: scale(1) translateY(0);
+}
+
+/* 1. Modal Header */
+.ab-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: var(--color-panel-surface);
+  border-bottom: 1px solid var(--color-panel-border);
+  flex-shrink: 0;
+}
+
+.ab-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ab-modal-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-text-main);
+  text-transform: uppercase;
+}
+
+.ab-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm, 6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ab-modal-close-btn:hover {
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-text-main);
+}
+
+/* 2. Metrological Advisor Banner */
+.ab-advisor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 22px;
+  background: var(--color-panel-surface-elevated);
+  border-bottom: 1px solid var(--color-panel-border);
+  font-size: 11.5px;
+  gap: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ab-advisor-status-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ab-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  color: var(--color-text-muted);
+  box-sizing: border-box;
+}
+
+.ab-status-chip.good {
+  background: var(--color-accent-dim);
+  border-color: rgba(var(--color-accent-rgb), 0.35);
+  color: var(--color-accent);
+}
+
+.ab-status-chip.warn {
+  background: rgba(var(--color-warning-rgb), 0.12);
+  border-color: rgba(var(--color-warning-rgb), 0.35);
+  color: var(--color-warning);
+}
+
+.ab-advisor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 3. Modal Scrollable Body */
+.ab-modal-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Decks Split */
+.ab-decks-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ab-deck-card {
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.ab-deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ab-deck-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ab-source-select {
+  font-size: 11.5px;
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md, 6px);
+  padding: 5px 10px;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color var(--transition-fast, 0.15s ease);
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.ab-source-select:focus {
+  border-color: var(--color-accent);
+}
+
+/* Dropzone */
+.ab-dropzone {
+  border: 1.5px dashed var(--color-panel-border);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px 14px;
+  text-align: center;
+  background: var(--color-panel-surface-elevated);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.ab-dropzone:hover,
+.ab-dropzone.dragover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+}
+
+.ab-dropzone-icon {
+  color: var(--color-text-dim);
+}
+
+.ab-dropzone-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.ab-dropzone-sub {
+  font-size: 10px;
+  color: var(--color-text-dim);
+}
+
+/* Deck File Details */
+.ab-deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  background: var(--color-panel-surface-elevated);
+  border-radius: var(--radius-md, 6px);
+  padding: 10px 12px;
+  border: 1px solid var(--color-panel-border);
+}
+
+.ab-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-dim);
+}
+
+.ab-info-val {
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-main);
+}
+
+/* Synchronous Stimulus Generator Bar */
+.ab-stimulus-bar {
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--shadow-card);
+  flex-wrap: wrap;
+}
+
+.ab-stimulus-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ab-stimulus-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 4. Instant Audition Monitor Bar */
+.ab-audition-bar {
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.ab-audition-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ab-buttons-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.ab-audition-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-panel-surface-elevated);
+  border: 1.5px solid var(--color-panel-border);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.ab-audition-btn:hover {
+  border-color: var(--color-panel-border-strong);
+  color: var(--color-text-main);
+}
+
+.ab-audition-btn.active.btn-a {
+  background: var(--color-accent-dim);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 16px var(--color-accent-dim);
+}
+
+.ab-audition-btn.active.btn-b {
+  background: rgba(var(--color-info-rgb), 0.12);
+  border-color: var(--color-info);
+  color: var(--color-info);
+  box-shadow: 0 0 16px rgba(var(--color-info-rgb), 0.2);
+}
+
+.ab-audition-btn.active.btn-delta {
+  background: rgba(var(--color-warning-rgb), 0.12);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  box-shadow: 0 0 16px rgba(var(--color-warning-rgb), 0.2);
+}
+
+.ab-btn-main {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.ab-btn-sub {
+  font-size: 10px;
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.ab-audition-sub-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-panel-border);
+  font-size: 11px;
+}
+
+.ab-boost-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 5. Metrics Grid */
+.ab-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.ab-metric-card {
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md, 6px);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-sizing: border-box;
+}
+
+.ab-metric-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ab-metric-title .rho-symbol {
+  text-transform: none;
+  font-style: normal;
+}
+
+.ab-metric-val {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ab-metric-val.grade-green {
+  color: var(--color-accent);
+}
+
+.ab-metric-val.grade-yellow,
+.ab-metric-val.grade-warn {
+  color: var(--color-warning);
+}
+
+.ab-metric-val.grade-red,
+.ab-metric-val.grade-fail {
+  color: var(--color-danger);
+}
+
+.ab-metric-desc {
+  font-size: 10px;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 6. Visualizer Container */
+.ab-visualizer-card {
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.ab-vis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ab-vis-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.ab-vis-tab-btn {
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  color: var(--color-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.ab-vis-tab-btn:hover {
+  color: var(--color-text-main);
+  border-color: var(--color-panel-border-strong);
+}
+
+.ab-vis-tab-btn.active {
+  background: var(--color-accent);
+  color: var(--color-bg-base);
+  border-color: var(--color-accent);
+  font-weight: 700;
+}
+
+.ab-svg-canvas {
+  width: 100%;
+  height: 180px;
+  background: var(--color-panel-surface-elevated);
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--color-panel-border);
+  display: block;
+}
+
+/* 7. Modal Footer */
+.ab-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: var(--color-panel-surface);
+  border-top: 1px solid var(--color-panel-border);
+  flex-shrink: 0;
+}

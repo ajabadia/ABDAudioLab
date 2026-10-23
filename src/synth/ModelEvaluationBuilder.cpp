@@ -301,9 +301,14 @@ nlohmann::json toCanonicalJsonObject(const ModelEvaluation& eval)
 {
     nlohmann::json j;
     nlohmann::json dec;
+    dec["bestRawFidelityModelId"] = eval.decision.bestRawFidelityModelId;
     dec["rationale"] = eval.decision.rationale;
     dec["recommendedModelId"] = eval.decision.recommendedModelId;
+    dec["runnerUpGap"] = eval.decision.runnerUpGap;
+    dec["runnerUpModelId"] = eval.decision.runnerUpModelId;
+    dec["selectionScore"] = eval.decision.selectionScore;
     dec["status"] = selectionStatusToString(eval.decision.status);
+    dec["uncertaintyMargin"] = eval.decision.uncertaintyMargin;
     j["decision"] = dec;
 
     nlohmann::json diag;
@@ -483,6 +488,11 @@ EvaluationLoadStatus ModelEvaluationBuilder::fromJsonString(const std::string& j
     const auto& dec = j["decision"];
     outEval.decision.status = selectionStatusFromString(dec.value("status", "Inconclusive"));
     outEval.decision.recommendedModelId = dec.value("recommendedModelId", "");
+    outEval.decision.bestRawFidelityModelId = dec.value("bestRawFidelityModelId", "");
+    outEval.decision.runnerUpModelId = dec.value("runnerUpModelId", "");
+    outEval.decision.selectionScore = dec.value("selectionScore", 0.0);
+    outEval.decision.runnerUpGap = dec.value("runnerUpGap", 0.0);
+    outEval.decision.uncertaintyMargin = dec.value("uncertaintyMargin", 0.0);
     outEval.decision.rationale = dec.value("rationale", "");
 
     outEval.warnings.clear();

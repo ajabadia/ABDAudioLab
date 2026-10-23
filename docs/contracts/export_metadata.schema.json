@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://abdaudiolab.org/schemas/v1/export-metadata.schema.json",
+  "title": "ABDAudioLab Metrological Export Certification",
+  "description": "Especificación formal de metadatos trazables, compuerta pre-export y límites dinámicos certificados (Fase 19.6).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "verdict",
+    "status",
+    "isExportPermitted",
+    "verdictReason",
+    "canonicalEvaluationHash",
+    "selectedModelId",
+    "domainOfValidity",
+    "metrics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Versión del esquema normativo de metadatos de exportación."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["Permitted", "PermittedWithWarning", "Blocked"],
+      "description": "Veredicto formal de la compuerta de exportación."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Accepted", "AcceptedWithWarnings", "Inconclusive", "Rejected", "InvalidMeasurement"],
+      "description": "Estado formal de selección del modelo candidato."
+    },
+    "isExportPermitted": {
+      "type": "boolean",
+      "description": "Indica si la exportación física a disco está permitida sin intervención de override."
+    },
+    "verdictReason": {
+      "type": "string",
+      "description": "Justificación metrológica del veredicto."
+    },
+    "canonicalEvaluationHash": {
+      "type": "string",
+      "description": "Hash criptográfico SHA-256 canónico RFC 8785 de la evaluación."
+    },
+    "selectedModelId": {
+      "type": "string",
+      "description": "Identificador del modelo de síntesis/emulación seleccionado."
+    },
+    "domainOfValidity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleRateHz", "minInputDbfs", "maxInputDbfs", "warmupTimeMinutes", "extrapolationWarning"],
+      "properties": {
+        "sampleRateHz": { "type": "number", "minimum": 22050.0 },
+        "minInputDbfs": { "type": "number", "maximum": 0.0 },
+        "maxInputDbfs": { "type": "number", "maximum": 0.0 },
+        "warmupTimeMinutes": { "type": "integer", "minimum": 0 },
+        "extrapolationWarning": { "type": "string" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rSquared", "errorToSignalRatioDb", "rootMeanSquareError", "peakAutocorrelation", "combinedUncertaintyDb"],
+      "properties": {
+        "rSquared": { "type": "number" },
+        "errorToSignalRatioDb": { "type": "number" },
+        "rootMeanSquareError": { "type": "number", "minimum": 0.0 },
+        "peakAutocorrelation": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "combinedUncertaintyDb": { "type": "number", "minimum": 0.0 }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lista de advertencias metrológicas o motivos de bloqueo."
+    }
+  }
+}

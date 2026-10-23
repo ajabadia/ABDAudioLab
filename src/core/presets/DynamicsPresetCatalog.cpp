@@ -9,7 +9,7 @@ std::vector<ComponentPresetRecommendation> DynamicsPresetCatalog::getPresets()
     std::vector<ComponentPresetRecommendation> list;
 
     // =========================================================================
-    // Dinámica, Saturación & No-Lineal Clásicos (4 presets)
+    // Dinámica, Saturación & No-Lineal Clásicos (6 presets)
     // =========================================================================
     {
         ComponentPresetRecommendation p;
@@ -51,6 +51,44 @@ std::vector<ComponentPresetRecommendation> DynamicsPresetCatalog::getPresets()
     }
     {
         ComponentPresetRecommendation p;
+        p.typologyId = "sat_guitar_overdrive_pedal";
+        p.displayName = "Guitar Overdrive / Distortion Pedal (Drive & Tone Stack)";
+        p.category = ComponentCategory::DynamicsAndNonLinear;
+        p.badgeText = "PEDAL";
+        p.algorithmName = "Farina Volterra Sweep (H1..H5) + Wiener-Hammerstein LNL / NAM";
+        p.stimulusType = audio::StimulusType::LogFarinaSweep;
+        p.captureMode = "FIXED_TIME";
+        p.recommendedSamples = 96000;
+        p.recommendedFftSize = 4096;
+        p.burstDurationSec = 2.0f;
+        p.preRollMs = 50.0f;
+        p.settlingWaitMs = 100.0f;
+        p.recommendedSteps = 8;
+        p.stimulusDescription = "Logarithmic Sine Sweep (20 Hz - 20 kHz) with harmonic distortion deconvolution";
+        p.routingNotes = "Interface DAC Out -> Reamp Box -> Pedal Input -> Pedal Output -> DI Box -> Interface ADC In";
+        list.push_back(p);
+    }
+    {
+        ComponentPresetRecommendation p;
+        p.typologyId = "dyn_tape_saturation_preamp";
+        p.displayName = "Analog Tape Saturation & Magnetic Hysteresis";
+        p.category = ComponentCategory::DynamicsAndNonLinear;
+        p.badgeText = "TAPE";
+        p.algorithmName = "Asymmetric Sigmoid + Dynamic Magnetic Hysteresis (Jiles-Atherton)";
+        p.stimulusType = audio::StimulusType::AmplitudeRamp;
+        p.captureMode = "FIXED_TIME";
+        p.recommendedSamples = 65536;
+        p.recommendedFftSize = 4096;
+        p.burstDurationSec = 1.5f;
+        p.preRollMs = 50.0f;
+        p.settlingWaitMs = 50.0f;
+        p.recommendedSteps = 16;
+        p.stimulusDescription = "Continuous level-ramped tones for magnetic saturation and compression curve";
+        p.routingNotes = "Line Out -> Tape Machine In (Rec) -> Tape Repro Head Out -> Line In";
+        list.push_back(p);
+    }
+    {
+        ComponentPresetRecommendation p;
         p.typologyId = "dyn_compressor_limiter";
         p.displayName = "Compressor / Limiter / Gate Dynamics";
         p.category = ComponentCategory::DynamicsAndNonLinear;
@@ -62,7 +100,7 @@ std::vector<ComponentPresetRecommendation> DynamicsPresetCatalog::getPresets()
         p.recommendedFftSize = 4096;
         p.burstDurationSec = 2.5f;
         p.preRollMs = 100.0f;
-        p.settlingWaitMs = 100.0f;
+        p.settlingWaitMs = 500.0f; // 500ms to allow vintage/optical release reset
         p.recommendedSteps = 16;
         p.stimulusDescription = "Trapezoidal ascending/descending level burst";
         p.routingNotes = "Direct loopback across compressor.";
