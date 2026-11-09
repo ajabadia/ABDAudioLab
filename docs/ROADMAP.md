@@ -2372,121 +2372,128 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
 
 ---
 
-### HITO-CAL-PARITY-01.5: Metodologías y Técnicas de Laboratorio Metrológico (HITO-DEEPMIND-FIELD-EVIDENCE)
+### HITO-CAL-PARITY-01.5: Metodologías y Técnicas de Laboratorio Metrológico (`HITO-DEEPMIND-FIELD-EVIDENCE`)
 
 > [!NOTE]
-> **Propósito para ABDAudioLab:** Este hito documenta exclusivamente los **métodos de campo, scripts, heurísticas de análisis acústico y patrones de arquitectura** desarrollados durante las campañas de calibración física en vivo para su estudio, reutilización e integración en **ABDAudioLab**. Los valores numéricos, curvas y constantes específicas de cada sintetizador residen en el repositorio propio del instrumento (ABDEep/resources/calibrations/dm12_hardware_measured.json y ABDEep/ROADMAP.md).
+> **Propósito para ABDAudioLab:** Este hito documenta exclusivamente los **métodos de campo, scripts, heurísticas de análisis acústico y patrones de arquitectura** desarrollados durante las campañas de calibración física en vivo para su estudio, reutilización e integración en **`ABDAudioLab`**. Los valores numéricos, curvas y constantes específicas de cada sintetizador residen en el repositorio propio del instrumento ([`ABDEep/resources/calibrations/dm12_hardware_measured.json`](file:///d:/desarrollos/ABDSynths/ABDEep/resources/calibrations/dm12_hardware_measured.json) y [`ABDEep/ROADMAP.md`](file:///d:/desarrollos/ABDSynths/ABDEep/ROADMAP.md)).
 
 - [x] **1. Protocolo de Transmisión por Bloques Atómicos y Descarte Silencioso en MIDI SysEx**:
   - **Técnica / Problema:** El hardware descarta tramas SysEx si no llegan en múltiplos exactos de frontera de empaquetado 7-to-8 bits, sin emitir mensaje de error y dejando el motor en estado inconsistente.
-  - **Patrón para ABDAudioLab:** En el transporte de hardware (HardwareTransportPreflightService), implementar **handshake atómico con verificación de eco forzado**: tras escribir en el buffer temporal (CMD_EDIT_BUFFER), solicitar un volcado de lectura (CMD_EDIT_BUFFER_REQ) y verificar el hash SHA-256 de los bytes recibidos antes de iniciar la excitación de audio.
+  - **Patrón para ABDAudioLab:** En el transporte de hardware (`HardwareTransportPreflightService`), implementar **handshake atómico con verificación de eco forzado**: tras escribir en el buffer temporal (`CMD_EDIT_BUFFER`), solicitar un volcado de lectura (`CMD_EDIT_BUFFER_REQ`) y verificar el hash SHA-256 de los bytes recibidos antes de iniciar la excitación de audio.
 
 - [x] **2. Acondicionamiento de Canal e Inmunidad a Ruido de Masa Analógico**:
-  - **Técnica / Problema:** Las interfaces de audio analógicas pueden presentar asimetría de ganancia entre canales L/R y picos parásitos de masa USB. Sumar L+R en mono en capturas hardware adultera el cálculo de sonoridad RMS y falsea el centroide espectral.
-  - **Patrón para ABDAudioLab:** En el Paso 1 (HardwareRouting), habilitar modo de análisis mono estricto sobre el canal físico calibrado con filtro paso alto de bloqueo de continua (DC-Block) previo al cálculo del Error-to-Signal Ratio (ESR) y del Coseno Espectral.
+  - **Técnica / Problema:** Las interfaces de audio analógicas pueden presentar asimetría de ganancia entre canales L/R y picos parásitos de masa USB. Sumar L+R en mono en capturas hardware sin verificar fase adultera el cálculo de sonoridad RMS y falsea el centroide espectral.
+  - **Patrón para ABDAudioLab:** En el Paso 1 (`HardwareRouting`), habilitar acondicionamiento con filtro paso alto de bloqueo de continua (`DC-Block`) previo al cálculo del Error-to-Signal Ratio (`ESR`) y del Coseno Espectral, y seleccionar extracción mono o estéreo ponderada por energía según la naturaleza mono o estéreo del bloque bajo prueba.
 
-- [x] **3. Protocolo de Aislamiento Clínico por Bisección Ortogonal (Test A)**:
+- [x] **3. Protocolo de Aislamiento Clínico por Bisección Ortogonal (`Test A`)**:
   - **Técnica:** Para aislar cada circuito analógico individual (DCO, VCF, VCA, LFO, Envolventes) y evitar que realimentaciones o modulaciones cruzadas enmascaren las leyes físicas:
     1. *Bypass Estricto de Efectos Digitales:* Forzar bypass analógico total previo a los conversores ADC/DAC.
-    2. *Desacoplo de Seguimiento de Teclado (Keytrack = 0):* Elimina la variación de apertura por nota.
+    2. *Desacoplo de Seguimiento de Teclado (`Keytrack = 0`):* Elimina la variación de apertura por nota.
     3. *Moduladores a Cero:* LFOs y modulaciones cruzadas a profundidad nula.
     4. *Aislamiento de Osciladores:* Excitación con una sola fuente a la vez (ej. rampa pura, segundo oscilador silenciado, ruido silenciado).
 
 - [x] **4. Extracción Herciana Directa mediante Ciclo Límite (Auto-Oscilación Pura)**:
   - **Técnica:** Medir la ley de transferencia del filtro analógico desconectando osciladores y forzando el filtro a ciclo límite (auto-oscilación senoidal pura por realimentación).
   - **Algoritmo de Extracción:** Localización de la fundamental por pico global en FFT para obtener la frecuencia de corte física exacta en Hz sin interferencia armónica del oscilador.
-  - **Ajuste Matemático:** Regresión exponencial biparamétrica (t) = f_{\min} \cdot (\text{base})^t$ mediante búsqueda grid search o mínimos cuadrados no lineales.
+  - **Ajuste Matemático:** Regresión exponencial biparamétrica $f_c(t) = f_{\min} \cdot (\text{base})^t$ mediante búsqueda *grid search* o mínimos cuadrados no lineales.
 
 - [x] **5. Análisis Forense de Dinámica Temporal de Envolventes**:
-  - **Técnica de Medida de Ataque:** Ventana temporal normalizada desde el umbral de silencio hasta el tramo útil del pico ({10\% \to 90\%}$), inmune a fluctuaciones de continua iniciales.
-  - **Técnica de Medida de Relajación/Decaimiento:** Cronometraje de caída exponencial desde Note-Off hasta el umbral de ruido de fondo.
-  - **Detección de Curvatura (AUC Normalizada):** Integración numérica del Área Bajo la Curva (AUC) en la ventana normalizada $[0, 1]$ para clasificar el perfil de respuesta: $\text{AUC} \approx 0.50$ (Lineal), $\text{AUC} > 0.55$ (Logarítmica/Convexa), $\text{AUC} < 0.45$ (Exponencial/Cóncava).
+  - **Técnica de Medida de Ataque:** Ventana temporal normalizada desde el umbral de silencio hasta el tramo útil del pico ($T_{10\% \to 90\%}$), inmune a fluctuaciones de continua iniciales.
+  - **Técnica de Medida de Relajación/Decaimiento:** Cronometraje de caída exponencial desde `NoteOff` hasta el umbral de ruido de fondo.
+  - **Detección de Curvatura (`AUC` Normalizada):** Integración numérica del Área Bajo la Curva (`AUC`) en la ventana normalizada $[0, 1]$ para clasificar el perfil de respuesta: $\text{AUC} \approx 0.50$ (Lineal), $\text{AUC} > 0.55$ (Logarítmica/Convexa), $\text{AUC} < 0.45$ (Exponencial/Cóncava).
 
 - [x] **6. Demodulación FM Instantánea para Medición de Moduladores LFO**:
-  - **Técnica:** Extracción de frecuencia de LFOs mediante detección de cruces por cero del carrier de audio, interpolación uniforme de la trayectoria de frecuencia instantánea y FFT de la señal demodulada, permitiendo detectar suelos de saturación baja (knees antialiasing) y leyes exponenciales de acumulador.
-  - **Detección de Retardo e Incepción (Fade-in):** Ventana deslizante de desviación estándar local sobre la trayectoria de modulación para separar la ventana de silencio inicial de la rampa de aparición cuadrática/lineal.
+  - **Técnica:** Extracción de frecuencia de LFOs mediante detección de cruces por cero del *carrier* de audio, interpolación uniforme de la trayectoria de frecuencia instantánea y FFT de la señal demodulada, permitiendo detectar suelos de saturación baja (*knees* antialiasing) y leyes exponenciales de acumulador.
+  - **Detección de Retardo e Incepción (`Fade-in`):** Ventana deslizante de desviación estándar local sobre la trayectoria de modulación para separar la ventana de silencio inicial de la rampa de aparición cuadrática/lineal.
 
 - [x] **7. Muestreo Cíclico Round-Robin Multi-Voz para Mapeo de Dispersión Analógica**:
   - **Técnica / Problema:** En sintetizadores analógicos polifónicos, cada tarjeta de voz física posee componentes discretos con tolerancias propias. Medir una sola nota produce sesgo de tarjeta.
-  - **Metodología de Ráfaga Cíclica:** Disparar secuencias de $ notas consecutivas idénticas ( = \text{número de voces físicas}$) en modo polifónico libre para forzar al Voice Allocator a rotar secuencialmente por todas las tarjetas físicas y repetir en distintos registros para detectar compresión espectral por saturación de riel.
-  - **Métricas Extraídas:** Media espectral ($\mu$), desviación estándar ($\sigma$), coeficiente de variación inter-voz ($\sigma / \mu$) y Spread Ratio ($\text{RMS}_{\max} / \text{RMS}_{\min}$).
+  - **Metodología de Ráfaga Cíclica:** Disparar secuencias de $N$ notas consecutivas idénticas ($N = \text{número de voces físicas}$) en modo polifónico libre para forzar al *Voice Allocator* a rotar secuencialmente por todas las tarjetas físicas y repetir en distintos registros para detectar compresión espectral por saturación de riel.
+  - **Métricas Extraídas:** Media espectral ($\mu$), desviación estándar ($\sigma$), coeficiente de variación inter-voz ($\sigma / \mu$) y *Spread Ratio* ($\text{RMS}_{\max} / \text{RMS}_{\min}$).
 
 - [x] **8. Perfilado de Rolloff de Ruido Analógico, Colapso de Pulso PWM y THD de Wave-Folding**:
-  - **Técnica de Rolloff Espectral de Ruido:** Cálculo del percentil de energía espectral acumulada (ej. percentil 85% via 
-p.cumsum(|FFT|)) para cuantificar el filtrado paso-bajo parásito de circuitos generadores de ruido analógico (uniones Zener/transistor) frente al ruido blanco digital plano, parametrizando un filtro IIR de 1 polo por voz.
-  - **Detección de Colapso de Ciclo de Trabajo PWM:** Barrido denso en el extremo superior del control de ancho de pulso para distinguir entre un *soft-clamp* digital idealizado y el colapso físico completo a continua (0% de energía AC) cuando el umbral del comparador supera el pico de rampa.
-  - **Perfilado THD Armónico de Modulación de Tono:** Extracción de picos armónicos (, 2f_0, \dots, K f_0$) con ventana Hanning para caracterizar etapas de *wave-folding* o sobremultiplicación no lineal.
+  - **Técnica de Rolloff Espectral de Ruido:** Cálculo del percentil de energía espectral acumulada (`np.cumsum(|FFT|)`) para cuantificar el filtrado paso-bajo parásito de circuitos generadores de ruido analógico (uniones Zener/transistor) frente al ruido blanco digital plano, parametrizando un filtro IIR en cascada por voz.
+  - **Detección de Colapso de Ciclo de Trabajo PWM:** Barrido denso en el extremo superior del control de ancho de pulso para distinguir entre un *soft-clamp* digital idealizado y el colapso físico completo a continua (`0%` de energía AC) cuando el umbral del comparador supera el pico de rampa.
+  - **Perfilado THD Armónico de Modulación de Tono:** Extracción de picos armónicos ($f_0, 2f_0, \dots, K f_0$) con ventana Hanning para caracterizar etapas de *wave-folding* o sobremultiplicación no lineal.
 
 - [x] **9. Caracterización de Transición HPF, Ganancia Discreta de Bass Boost y Medición Estéreo RSS en Unison**:
   - **Técnica de Energía Sub-Banda HPF:** Integración de energía espectral en la banda fundamental grave durante un barrido de fader HPF para localizar la rodilla de transición respecto al suelo de ruido del canal.
-  - **Aislamiento de Etapas Discretas de Realce (Bass Boost Shelf):** Comparación diferencial de sonoridad RMS con el filtro en su frecuencia mínima al conmutar el realce analógico de graves, extrayendo el multiplicador estático de tensión para inyectarlo en el contrato de calibración (CalibrationSpec).
-  - **Medición Estéreo RSS (Root-Sum-of-Squares) en Modos Unison/Pan Spread:** En modos de apilamiento Unison o Pan Spread, el motor de asignación puede distribuir voces en *hard-panning* extremo (L=0.0, R=1.0). Evaluar únicamente el canal izquierdo en el renderizador software produce falsas caídas a cero; la sonda software debe evaluar $\text{RMS}_{\text{stereo}} = \sqrt{0.5 \cdot (\text{RMS}_L^2 + \text{RMS}_R^2)}$ para mantener invariancia energética frente al panorama.
+  - **Aislamiento de Etapas Discretas de Realce (`Bass Boost Shelf`):** Comparación diferencial de sonoridad RMS con el filtro en su frecuencia mínima al conmutar el realce analógico de graves, extrayendo el multiplicador estático de tensión para inyectarlo en el contrato de calibración (`CalibrationSpec`).
+  - **Medición Estéreo RSS (*Root-Sum-of-Squares*) en Modos Unison/Pan Spread:** En modos de apilamiento Unison o Pan Spread, el motor de asignación puede distribuir voces en *hard-panning* extremo (`L=0.0`, `R=1.0`). Evaluar únicamente el canal izquierdo en el renderizador software produce falsas caídas a cero; la sonda software debe evaluar $\text{RMS}_{\text{stereo}} = \sqrt{0.5 \cdot (\text{RMS}_L^2 + \text{RMS}_R^2)}$ para mantener invariancia energética frente al panorama.
 
-- [x] **10. Cronometraje de Envolvente de Energía para Puerta de Arpegiador y Secuenciador (Gate Time)**:
-  - **Técnica:** Captura de múltiples ciclos de reloj del arpegiador y cálculo de la integral de energía RMS por ciclo en función del parámetro de duración de puerta (*Gate Time*), permitiendo detectar techos de saturación prematura en la normalización del motor MIDI/Arp.
+- [x] **10. Cronometraje de Envolvente de Energía para Puerta de Arpegiador y Secuenciador (`Gate Time`)**:
+  - **Técnica:** Captura de múltiples ciclos de reloj del arpegiador y cálculo de la integral de energía RMS por ciclo en función del parámetro de duración de puerta (*Gate Time*), permitiendo detectar techos de saturación prematura o eventos `NoteOff` diferidos huérfanos al re-disparar notas en el motor de arpegio.
 
----
+- [x] **11. Higiene de Reset de Controladores Continuos y Desacoplo de Pan Spread Antes de Varianza Multi-Voz**:
+  - **Técnica / Problema:** Si un experimento previo deja un controlador continuo en cero (ej. pedal de expresión `CC#11` o pedal de sustain `CC#64` retenido) o si el parche mantiene activo el parámetro de dispersión de panorama (*VCA Pan Spread*), el sintetizador puede quedar silenciado en baterías posteriores o alternar las tarjetas de voz entre el canal izquierdo y el derecho en cada disparo, falseando la varianza inter-voz al medir un único canal.
+  - **Patrón para ABDAudioLab:**
+    1. Ejecutar un bloque `try / finally` de limpieza MIDI al cierre de cada batería (`All Notes Off CC#123`, `Reset All Controllers CC#121`, `Sustain CC#64 = 0`, `Expression CC#11 = máx`, `ModWheel CC#1 = 0`, `Breath CC#2 = 0`, `Foot CC#4 = 0`, `Channel Aftertouch = 0`).
+    2. Forzar explícitamente `vca_pan_spread = 0` en el parche estímulo de varianza de voces y calcular el **centroide espectral estéreo ponderado por energía** ($\sum (E_L C_L + E_R C_R) / (E_L + E_R)$) para ser inmune al balance de canal.
 
-### 🛠️ Caja de Herramientas y Scripts de Laboratorio Metrológico (scripts/calibration/)
+- [x] **12. Auditoría de Pedal de Sustain (`CC#64`) y Linealidad de Controladores de Expresión en Matriz de Modulación**:
+  - **Técnica de Retención de Sustain (`Hold` vs `Latch`):** Dividir la captura en dos ventanas temporales separadas por el instante de `NoteOff`: ventana `Hold` (nota pulsada) y ventana `Latch` (nota liberada con `CC#64` desactivado vs activado), evaluando el cociente adimensional $\text{Latch Ratio} = \text{RMS}_{\text{latch}} / \text{RMS}_{\text{hold}}$ tanto en el hardware como en el renderizador CLI (inyectando eventos `--cc 64:<val>:<timeSec>` con marca temporal).
+  - **Técnica de Barrido de Controladores en Matriz de Modulación:** Asignar un único slot de la matriz de modulación desde cada fuente física (`ModWheel CC#1`, `FootPedal CC#4`, `Breath CC#2`, `Channel Aftertouch`, `Expression CC#11`) hacia la frecuencia de corte del filtro a máxima profundidad y barrer puntos equidistantes del rango MIDI para verificar la curva de transferencia de la fuente y detectar acoplamientos secundarios (como la interacción de `CC#11` con el bus de ganancia global).
 
-Todos los algoritmos e instrumentos de medida desarrollados para esta campaña están disponibles en el repositorio para su estudio, reutilización y exportación como CLI hacia **ABDAudioLab**:
+- [x] **13. Telemetría Espacial Estéreo (`stereo_width` M/S y Correlación `stereo_corr`) e Inyección de Vectores Canónicos de Efectos**:
+  - **Técnica / Problema:** Muchos procesadores de efectos estéreo (Chorus dimensionales, Flangers, Reverbs y Enhancers) invierten la fase de la componente húmeda entre los canales L y R ($\text{Wet}_R = -\text{Wet}_L$). Promediar $(L+R)/2$ antes de analizar el espectro o el RMS cancela por completo la señal procesada. Además, activar un algoritmo de efecto dejando todos sus parámetros en cero provoca estados degenerados (ganancias en $-\infty\text{ dB}$, cortes de filtro cerrados o mezclas húmedas nulas), y los bytes de parámetros de efecto en el volcado SysEx suelen emplear escalas nativas distintas a las de los faders analógicos de voz (ej. escala porcentual o límites discretos de enumeración frente a byte completo).
+  - **Patrón para ABDAudioLab:**
+    1. Evaluar la energía mediante $\text{RMS}_{\text{stereo}} = \sqrt{0.5 \cdot (\text{RMS}_L^2 + \text{RMS}_R^2)}$, la anchura espacial Mid/Side $\text{Width} = \text{RMS}_{\text{Side}} / \sqrt{\text{RMS}_{\text{Mid}}^2 + \text{RMS}_{\text{Side}}^2}$ y la correlación interaural de Pearson $r_{LR} \in [-1, +1]$.
+    2. Inyectar para cada algoritmo de efecto su vector canónico de parámetros de fábrica (*canonical defaults*) junto con la ganancia nominal de inserción del slot, y normalizar en el decodificador de parches (`PatchByteCodec`) cada byte de efecto contra su rango máximo nativo documentado (continuo o enumerado).
 
-1. **[deepmind_device.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_device.py)**:
-   - Capa de transporte y control físico del sintetizador, empaquetado atómico de tramas SysEx (pack_deepmind_sysex) y captura síncrona PCM mediante sounddevice.
-2. **[init_patch.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/init_patch.py)**:
-   - Generación del parche estímulo clínico neutro desprovisto de artefactos (bypass de efectos, matriz de modulación limpia y aislamiento de osciladores/moduladores).
-3. **[cf_resonance_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/vcf_resonance_lab.py)**:
-   - Instrumentación completa del **Bloque 1**: absorción de graves en lazo OTA (
-un_gain_comp_test), comparativa de pendientes 12/24 dB (
-un_pole_mode_test), umbral de auto-oscilación (
-un_self_osc_test), THD por saturación (
-un_saturation_thd_test) y regresión exponencial de corte por ciclo límite.
-4. **[envelope_dyn_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/envelope_dyn_lab.py)**:
-   - Instrumentación completa del **Bloque 2**: tiempos de ataque {10\% \to 90\%}$ (
-un_attack_battery), decaimiento/relajación {90\% \to 10\%}$ (
-un_decay_release_battery) y curvatura por Área Bajo la Curva AUC (
-un_curve_battery).
-5. **[lfo_dyn_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/lfo_dyn_lab.py)**:
-   - Instrumentación completa del **Bloque 3**: ley de escala de frecuencia de LFOs mediante demodulación FM (
-un_rate_battery) y caracterización de retardo/fade-in (
-un_delay_battery).
-6. **[mod_voice_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/mod_voice_lab.py)**:
-   - Instrumentación completa del **Bloque 4**: dispersión multi-voz del Key Tracking en ráfaga Round-Robin de 12 voces (
-un_keytrack_variance_battery) y excursión de envolvente VCF (
-un_env_depth_excursion_battery).
-7. **[osc_wave_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/osc_wave_lab.py)**:
-   - Instrumentación completa del **Bloque 5**: densidad espectral y rolloff de ruido analógico (
-un_noise_battery), modulación PWM y detección de colapso de pulso (
-un_pwm_battery), y THD armónico de Tone Mod (
-un_tone_mod_battery).
-8. **[hpf_vca_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/hpf_vca_lab.py)**:
-   - Instrumentación completa del **Bloque 6**: atenuación espectral HPF (
-un_hpf_cutoff_battery), realce discreto de Bass Boost (
-un_bass_boost_battery), sensibilidad de velocidad VCA (
-un_vca_velocity_battery) y distribución Pan Spread (
-un_vca_pan_spread_battery).
-9. **[	rigger_unison_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/trigger_unison_lab.py)**:
-   - Instrumentación completa del **Bloque 7**: modos de disparo y bucle de envolventes (
-un_trigger_mode_battery) y densidades Unison con medición estéreo RSS invariante al paneo (
-un_unison_density_battery).
-10. **[rp_seq_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/arp_seq_lab.py)**:
-    - Instrumentación completa del **Bloque 8**: ratios de tiempo de puerta (*Gate Time*) del arpegiador (
-un_arp_gate_battery).
-11. **[
-un_all_nightly.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/run_all_nightly.py)**:
-    - Orquestador autónomo continuo de los 8 bloques con registro de marcas de tiempo UTC, escritura CSV con unión dinámica de claves heterogéneas y generación del manifiesto global (master_calibration_manifest.json).
-12. **[deepmind_live_parity.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_live_parity.py)**:
-    - Orquestador del barrido espectral automatizado, renderizado C++ headless mediante ABDEep_Render.exe y cálculo de correlación cruzada, similitud coseno y distancia de centroide espectral.
+- [x] **14. Estímulo de Dos Etapas (Sustain + Ventana de Cola Post-Release) y Estandarización de Deltas por Categoría de Efecto**:
+  - **Técnica:** Excitar cada procesador con una nota sostenida seguida de una ventana de silencio post-`NoteOff` de igual duración, extrayendo simultáneamente:
+    - $\text{Sustain RMS}$ y $\text{Tail Ratio} = \text{RMS}_{\text{tail}} / \text{RMS}_{\text{sustain}}$ (para Reverbs y Delays).
+    - $\text{Stereo Width}$ y $\text{Stereo Correlation}$ (para Chorus, Phasers, Flangers, Rotary y Enhancers).
+    - $\text{Spectral Centroid}$ y $\text{THD}\%$ (para Distorsiones, Amp Sims, Filtros Modulados y EQs).
+    - $\text{AM Modulation Index}$ (desviación estándar / media de la envolvente de amplitud para Tremolo/AutoPan) y $\text{Tail Peak Latency}$ (tiempo al pico máximo post-release para ecos de Delay).
+  - **Agrupación Estadística por Categoría:** Agregar los deltas $\Delta = \text{HW} - \text{SW}$ por familia funcional (`reverb`, `delay`, `modulation`, `hybrid`, `distortion`, `filter_mod`, `shaper`, `pitch`, `eq`, `dynamics`) reportando media, desviación estándar muestral y extremos ($\min, \max$) para priorizar correcciones algorítmicas por subsistema DSP.
 
 ---
 
-### 🎹 ESTADO DE LOS BLOQUES DE CALIBRACIÓN METROLÓGICA (ABDEep <-> DeepMind 12)
+### 🛠️ Caja de Herramientas y Scripts de Laboratorio Metrológico (`scripts/calibration/`)
+
+Todos los algoritmos e instrumentos de medida desarrollados para esta campaña están disponibles en el repositorio para su estudio, reutilización y exportación como CLI hacia **`ABDAudioLab`**:
+
+1. **[`deepmind_device.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_device.py)**:
+   - Capa de transporte y control físico del sintetizador, empaquetado atómico de tramas SysEx (`pack_deepmind_sysex`), envío de controladores MIDI (`send_cc`, `send_channel_pressure`) y captura síncrona PCM estéreo mediante `sounddevice`.
+2. **[`init_patch.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/init_patch.py)**:
+   - Generación del parche estímulo clínico neutro desprovisto de artefactos (bypass de efectos, `vca_pan_spread = 0`, matriz de modulación limpia y aislamiento de osciladores/moduladores).
+3. **[`vcf_resonance_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/vcf_resonance_lab.py)**:
+   - Instrumentación completa del **Bloque 1**: absorción de graves en lazo OTA (`run_gain_comp_test`), comparativa de pendientes (`run_pole_mode_test`), umbral de auto-oscilación (`run_self_osc_test`), THD por saturación (`run_saturation_thd_test`) y regresión exponencial de corte por ciclo límite.
+4. **[`envelope_dyn_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/envelope_dyn_lab.py)**:
+   - Instrumentación completa del **Bloque 2**: tiempos de ataque $T_{10\% \to 90\%}$ (`run_attack_battery`), decaimiento/relajación $T_{90\% \to 10\%}$ (`run_decay_release_battery`) y curvatura por Área Bajo la Curva `AUC` (`run_curve_battery`).
+5. **[`lfo_dyn_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/lfo_dyn_lab.py)**:
+   - Instrumentación completa del **Bloque 3**: ley de escala de frecuencia de LFOs mediante demodulación FM (`run_rate_battery`) y caracterización de retardo/fade-in (`run_delay_battery`).
+6. **[`mod_voice_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/mod_voice_lab.py)**:
+   - Instrumentación completa del **Bloque 4.A y 4.B**: dispersión multi-voz del Key Tracking en ráfaga Round-Robin sin Pan Spread con centroide espectral estéreo ponderado por energía (`run_keytrack_variance_battery`) y excursión de envolvente VCF (`run_env_depth_excursion_battery`).
+7. **[`performance_ctrl_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/performance_ctrl_lab.py)**:
+   - Instrumentación completa del **Bloque 4.C**: auditoría de retención del pedal de sustain `CC#64` (`run_sustain_pedal_battery`) y barrido de linealidad de controladores físicos (`ModWheel`, `FootPedal`, `Breath`, `Aftertouch`, `Expression`) en la matriz de modulación (`run_modmatrix_controllers_battery`).
+8. **[`osc_wave_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/osc_wave_lab.py)**:
+   - Instrumentación completa del **Bloque 5**: densidad espectral y rolloff de ruido analógico (`run_noise_battery`), modulación PWM y detección de colapso de pulso (`run_pwm_battery`), y THD armónico de Tone Mod (`run_tone_mod_battery`).
+9. **[`hpf_vca_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/hpf_vca_lab.py)**:
+   - Instrumentación completa del **Bloque 6**: atenuación espectral HPF (`run_hpf_cutoff_battery`), realce discreto de Bass Boost (`run_bass_boost_battery`), sensibilidad de velocidad VCA (`run_vca_velocity_battery`) y distribución Pan Spread (`run_vca_pan_spread_battery`).
+10. **[`trigger_unison_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/trigger_unison_lab.py)**:
+    - Instrumentación completa del **Bloque 7**: modos de disparo y bucle de envolventes (`run_trigger_mode_battery`) y densidades Unison con medición estéreo RSS invariante al paneo (`run_unison_density_battery`).
+11. **[`arp_seq_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/arp_seq_lab.py)**:
+    - Instrumentación completa del **Bloque 8**: ratios de tiempo de puerta (*Gate Time*) del arpegiador (`run_arp_gate_battery`).
+12. **[`fx_forensic_lab.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/fx_forensic_lab.py)**:
+    - Instrumentación completa del **Bloque 9**: escaneo forense automatizado de todos los algoritmos de efectos con vectores canónicos de fábrica, estímulo de dos etapas (Sustain + Tail) y extracción multidimensional (`sustain_rms`, `tail_ratio`, `stereo_corr`, `stereo_width`, `centroid_hz`, `thd_pct`, `am_mod_index`, `tail_peak_ms`).
+13. **[`run_all_nightly.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/run_all_nightly.py)** y **[`consolidate_hardware_json.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/consolidate_hardware_json.py)**:
+    - Orquestador autónomo continuo de todos los bloques con registro de marcas de tiempo UTC, escritura CSV con unión dinámica de claves heterogéneas y consolidación automática en el contrato JSON del instrumento.
+14. **[`deepmind_live_parity.py`](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_live_parity.py)**:
+    - Orquestador del barrido espectral automatizado, renderizado C++ headless mediante `ABDEep_Render.exe` y cálculo de correlación cruzada, similitud coseno y distancia de centroide espectral.
+
+---
+
+### 🎹 ESTADO DE LOS BLOQUES DE CALIBRACIÓN METROLÓGICA (`ABDEep` <-> Hardware)
 
 - [x] **Bloque 1: Filtro VCF (Leyes de Corte, Resonancia y Auto-Oscilación)** — *Completado y validado.*
 - [x] **Bloque 2: Envolventes Analógicas (Tiempos Reales, Curvaturas y Suelo Anti-Click)** — *Completado y validado.*
 - [x] **Bloque 3: Osciladores de Baja Frecuencia (LFO Rates, Suelo Físico y Delays Cuadráticos)** — *Completado y validado.*
-- [x] **Bloque 4: Modulaciones, Keytrack y Dispersión Multi-Voz Round-Robin (12 Tarjetas)** — *Completado y validado.*
+- [x] **Bloque 4.A & 4.B: Modulaciones, Keytrack y Dispersión Multi-Voz Round-Robin sin Pan Spread** — *Completado y validado.*
+- [x] **Bloque 4.C: Pedal de Sustain (`CC#64`), Aftertouch y Controladores en Matriz de Modulación** — *Completado y validado.*
 - [x] **Bloque 5: Osciladores DCO, PWM y Ruido Analógico (Límites de Onda, Rolloff y Tone Mod)** — *Completado y validado.*
-- [x] **Bloque 6: Filtro Paso-Altos (HPF), Bass Boost (+7 dB Shelf) y VCA / Pan Spread** — *Completado y validado.*
+- [x] **Bloque 6: Filtro Paso-Altos (HPF), Etapa Discreta de Bass Boost y VCA / Pan Spread** — *Completado y validado.*
 - [x] **Bloque 7: Modos de Disparo de Envolvente y Densidades Unison (Medición Estéreo RSS)** — *Completado y validado.*
 - [x] **Bloque 8: Reloj y Gate Time de Arpegiador / Secuenciador de Control** — *Completado y validado.*
+- [x] **Bloque 9: Auditoría Forense Multi-Métrica de los Algoritmos de Efectos Digitales** — *Completado y validado.*
