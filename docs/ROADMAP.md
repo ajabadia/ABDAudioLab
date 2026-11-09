@@ -32,6 +32,7 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 4. **`ProfilingSessionController` es la autoridad de sesión y snapshots**: Publica snapshots inmutables con secuencia monotónica hacia la UI.
 5. **Cero máquinas de estado paralelas**: Se prohíben bucles de ejecución o despachadores duplicados en vistas.
 6. **Instrumentación de audio siempre visible**: Vúmetros y analizador FFT permanecen visibles en todos los pasos.
+
 7. **Arquitectura limpia post-HITO-07**: `stepperBar`, `loopbackModal`, `hardwareRoutingPanel` y `SoundIdGuidedWorkflowContainer` han sido retirados. La autoridad canónica reside en `WorkflowNavigationController`, `SoundIdSidebarStepper`, `CanonicalCalibrationState`, `SoundIdHardwareCatalogSelector` y `resolveCanonicalTarget()`.
 8. **Conservación estricta de tests**: Cada nuevo corte debe mantener el 100% de la suite previa en verde (615 test cases en baseline actual, Build #402).
 9. **Convergencia absoluta en exportación e informe único**: Todos los modos (Automated MIDI/VST3 y Manual Operator/Analógico) convergen en un modelo común de evaluación (`EvaluationSnapshot`) y en una única cadena de exportación (`ReportExportService` -> `ProductionPackage`); las diferencias metrológicas se expresan exclusivamente mediante metadatos y secciones condicionales en el manifest e informe unificado, nunca mediante exportadores paralelos.
@@ -57,10 +58,11 @@ Integrar las capacidades metrológicas ricas del modo guiado en el **Stepper cl�
 | **FASE-24** | Precisión metrológica avanzada: FIR de fase mínima por Cepstrum real, Kaiser $I_0(x)$, ERB + Spline $C^2$, Schroeder `noiseFloorKnee` ($T_{30}/T_{20}/T_{10}$), PID Auto-Trim, doble piloto de deriva de reloj, inversión de Kirkeby, convolución particionada de latencia cero y lista negra ASIO | **Completado** | `HITO-DSP-24.1` a `24.7` ([MATHEMATICAL_MODELS.md](MATHEMATICAL_MODELS.md)) — 44/44 suites (87.350 aserciones) |
 | **PARITY-01** | Auditoría de convergencia y paridad Guiado/Exploración | **Planificación** | [ADR-001](ADR-001_CONVERGENCIA_GUIADO_EXPLORACION.md) — pendiente de ejecución |
 | **HITO-09** | Unificación de flujo operativo mediante presets, macrotareas y plan canónico | **Pendiente** | Condicionado a resultados de PARITY-01 |
-| **HITO-DSP-25** | Analítica de Osciladores/FX, Target Korg MS2000 (ROM v1.07), Auditoría 5D de 128 Presets y Teclado Hardware Canónico | **Planificado** | Extracción compartida `ABDShared/Code` y arquitectura de profiling de síntesis |
+| **HITO-DSP-25** | Analítica de Osciladores/FX, Target Korg MS2000 (ROM v1.07), Auditoría 5D de 128 Presets y Teclado Hardware Canónico | **Completado** | Extracción compartida `ABDShared/Code` y arquitectura de profiling de síntesis |
 | **HITO-CONTRACT-01** | Perfilado por Contrato Declarativo, Init Patch Engine y Desconstrucción Funcional (Cero Hardcoding C++) | **Completado** | [HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md](contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md) |
 | **HITO-DATASET-01** | Paquete de Telemetría Empírica, Datasets Multivariables y Validación Científica (Análisis Conjunto sin Compilar C++) | **Completado** | Sección HITO-DATASET-01 (Exportación CSV/JSON, Nivel Escalonado, Multitono IMD, Float32 WAVs y Validación SPICE) |
 | **HITO-AB-DIFF-01** | Sistema de Comparación y Validación A/B Universal (WAV Regrabado vs. Hardware Físico, VST/Standalone, Grabación Previa y Diffs) | **Completado** | Sección HITO-AB-DIFF-01 (Superando `ABDMS2000`, Alineación Sinc Sub-Muestra, Invarianza de Fase, ESR dB, 24 Bandas y Audición 5ms) |
+| **HITO-CAL-PARITY-01** | Fase de Estudio: Framework Generalizado de Calibración por Bisección (`P1`), Trazabilidad Grey-Box (`P2`), Suite Metrológica 3 Niveles (`P3`) y Gate CI de Paridad (`P4`) | **Estudio / Planificado** | [CALIBRATION_AND_PARITY_FRAMEWORK_STUDY.md](CALIBRATION_AND_PARITY_FRAMEWORK_STUDY.md) |
 
 ---
 
@@ -2331,7 +2333,160 @@ Esta fase actualiza el núcleo matemático de calibración, deconvolución y an�
   - **Unificación de Modos de Ejecución VST3 (Filosofía DRY)**: Estandarización en inglés de los 3 modos canónicos (`Mode: Live`, `Mode: Turbo`, `Mode: Safe`) compartidos entre el comparador y el stepper de perfilado.
   - **Ergonomía Visual y Anti-Slop Estricto**: Purgado total de emojis conforme a regla R-13, sustitución por iconos vectoriales SVG limpios y modal ampliada a 1260px (`95vw`) con disposición en 2 filas limpias para erradicar cualquier recorte visual.
 
+---
 
+## 🧪 FASE 25: ESTUDIO Y GENERALIZACIÓN DEL FRAMEWORK DE CALIBRACIÓN CERRADA POR BISECCIÓN, TRAZABILIDAD GREY-BOX Y GATE CI DE PARIDAD (`HITO-CAL-PARITY-01`) [EN ESTUDIO]
 
+> [!IMPORTANT]
+> **Informe Técnico de Referencia:** Véase [`docs/CALIBRATION_AND_PARITY_FRAMEWORK_STUDY.md`](CALIBRATION_AND_PARITY_FRAMEWORK_STUDY.md).
+> Esta fase estudia e incorpora de forma general en `ABDAudioLab` la metodología de calibración en 5 etapas (`P0` a `P4`) desarrollada y validada con éxito en el proyecto hermano **`ABDMS2000`**, transformando las herramientas analíticas puntuales del laboratorio en un sistema automatizado de **atribución de errores por bisección de una sola variable, verificación de contratos de firmware/LUT y certificación continua CI/CD de paridad multi-preset**.
 
+### HITO-CAL-PARITY-01.1: Campaña Guiada de Atribución por Bisección Ortogonal (`P1` $\to$ `BisectionAttributionEngine`)
+- [ ] **Protocolo de 7 Experimentos Ortogonales sobre `Init Patch` (`HITO-CONTRACT-01`)**:
+  - **Paso 1 (`P1.1` — Oscilador Crudo + Post-LPF)**: VCF abierto al máximo, resonancia cero y VCA en modo compuerta (`Gate`) para aislar forma de onda base, antialiasing y filtro de reconstrucción DAC.
+  - **Paso 2 (`P1.2` — VCF Cutoff Sweep sobre Ruido Blanco)**: Osciladores apagados y generador de ruido blanco activo; barrido de corte (`16, 32, 48, 64, 80, 96, 112`) para verificar ley Hz vs parámetro y pendiente en $\text{dB/oct}$ sin interferencia armónica.
+  - **Paso 3 (`P1.3` — VCF Resonancia $Q$ y Auto-Oscilación)**: Barrido de resonancia a corte fijo (`64`) para calibrar factor $Q$, compresión de pasabanda y umbral de auto-oscilación (`Resonance > 105`).
+  - **Paso 4 (`P1.4` — Ley Temporal y Curvatura de Envolventes ADSR)**: Tono senoidal puro de $1\text{ kHz}$ modulado por VCA/EG para extraer tiempos reales $10\% \to 90\%$ (Attack) y $90\% \to 10\%$ (Decay/Release) y factor de curvatura exponencial.
+  - **Paso 5 (`P1.5` — Escalera de Nivel, Gain Staging y Saturación No Lineal)**: Barrido de niveles pre-filtro y post-VCA con onda senoidal para aislar progresión de $\text{THD}\%$ y puntos de saturación.
+  - **Paso 6 (`P1.6` — Impulso y Barrido en Efectos Aislados)**: Inyección de impulso/tono sobre cada efecto individual (Chorus/Flanger, Ensemble, Phaser, Delay, EQ) para auditar tiempos de retardo sub-milisegundo, fase estéreo L/R y feedback.
+  - **Paso 7 (`P1.7` — Acorde Polifónico y Headroom de Suma de Voces)**: Excitación simultánea de 4 notas para certificar ley de escalado de bus polifónico y margen anti-clipping.
+- [ ] **Árbol Automático de Atribución de Culpabilidad (*Culprit Block Report*)**:
+  - Emisión de dictamen secuencial identificando el primer bloque en fallar antes de permitir ajustes aguas abajo.
 
+### HITO-CAL-PARITY-01.2: Esquema Declarativo de Trazabilidad Grey-Box (`P2` $\to$ `greybox_dsp_words.schema.json`)
+- [ ] **Estandarización de `dsp_words.json` en `ABDShared/Assets/contracts/`**:
+  - Definición de esquema JSON universal para vincular cada parámetro normalizado o MIDI (`0..127`) con su dirección de tabla ROM de firmware, registro de memoria DSP (`X:`/`Y:`), formato numérico (`Q23`, punto flotante, código de condensador SPICE), ley de transferencia analítica y anclas empíricas medidas.
+- [ ] **Verificador Automático de Leyes de Transferencia ($R^2 \ge 0.999$)**:
+  - Contraste directo en `ABDAudioLab` entre la curva acústica extraída del target y la ecuación/LUT declarada en su contrato grey-box.
+
+### HITO-CAL-PARITY-01.3: Runner Generalizado de Certificación en 3 Niveles (`P3` $\to$ `TargetCalibrationSuite`)
+- [ ] **Ejecución Automatizada sobre Cualquier `ITargetContract` (VST3 / Hardware / Standalone)**:
+  - **Nivel 1 (Leyes Matemáticas y Monotonicidad)**: Verificación de regresión OLS ($R^2$) y monotonicidad estricta en barridos de controles.
+  - **Nivel 2 (Sondas Acústicas por Bloque vía `DspMetrologicalProbes`)**: Ejecución sin intervención humana de sondas de corte $-3\text{ dB}$, pendiente en $\text{dB/oct}$, tiempos ADSR, PWM/FM/Sync, ecos de delay e interacción dinámica KeyTrack/EG.
+  - **Nivel 3 (Auditoría 5D de 128 Presets y Ortogonalidad de Controles)**: Validación masiva de bancos completos (`PresetAudit5DEngine`) garantizando cero `NaN`/`Inf`, cero silencios espurios y techo estricto $\le 0.0\text{ dBFS}$.
+
+### HITO-CAL-PARITY-01.4: Score Compuesto de Paridad Multi-Preset y Gate CI (`P4` $\to$ `ParityCorpusEvaluator`)
+- [ ] **Motor C++ y CLI Headless de Paridad de Corpus**:
+  - Integración de la métrica compuesta ponderada ($40\%$ similitud espectral en 24 bandas de 1/3 de octava, $25\%$ correlación de envolvente RMS, $20\%$ balance de nivel/headroom, $15\%$ centroide espectral) en `ABDShared/Code/AudioComparator/`.
+  - Verificación criptográfica de referencias congeladas (`hashes.json` SHA-256), exportación de `metrics.csv` / `parity_report.md` y bloqueo automático en CI si algún preset del corpus retrocede más de un `10%` respecto a `baseline_scores.json`.
+
+---
+
+### HITO-CAL-PARITY-01.5: Metodologías y Técnicas de Laboratorio Metrológico (HITO-DEEPMIND-FIELD-EVIDENCE)
+
+> [!NOTE]
+> **Propósito para ABDAudioLab:** Este hito documenta exclusivamente los **métodos de campo, scripts, heurísticas de análisis acústico y patrones de arquitectura** desarrollados durante las campañas de calibración física en vivo para su estudio, reutilización e integración en **ABDAudioLab**. Los valores numéricos, curvas y constantes específicas de cada sintetizador residen en el repositorio propio del instrumento (ABDEep/resources/calibrations/dm12_hardware_measured.json y ABDEep/ROADMAP.md).
+
+- [x] **1. Protocolo de Transmisión por Bloques Atómicos y Descarte Silencioso en MIDI SysEx**:
+  - **Técnica / Problema:** El hardware descarta tramas SysEx si no llegan en múltiplos exactos de frontera de empaquetado 7-to-8 bits, sin emitir mensaje de error y dejando el motor en estado inconsistente.
+  - **Patrón para ABDAudioLab:** En el transporte de hardware (HardwareTransportPreflightService), implementar **handshake atómico con verificación de eco forzado**: tras escribir en el buffer temporal (CMD_EDIT_BUFFER), solicitar un volcado de lectura (CMD_EDIT_BUFFER_REQ) y verificar el hash SHA-256 de los bytes recibidos antes de iniciar la excitación de audio.
+
+- [x] **2. Acondicionamiento de Canal e Inmunidad a Ruido de Masa Analógico**:
+  - **Técnica / Problema:** Las interfaces de audio analógicas pueden presentar asimetría de ganancia entre canales L/R y picos parásitos de masa USB. Sumar L+R en mono en capturas hardware adultera el cálculo de sonoridad RMS y falsea el centroide espectral.
+  - **Patrón para ABDAudioLab:** En el Paso 1 (HardwareRouting), habilitar modo de análisis mono estricto sobre el canal físico calibrado con filtro paso alto de bloqueo de continua (DC-Block) previo al cálculo del Error-to-Signal Ratio (ESR) y del Coseno Espectral.
+
+- [x] **3. Protocolo de Aislamiento Clínico por Bisección Ortogonal (Test A)**:
+  - **Técnica:** Para aislar cada circuito analógico individual (DCO, VCF, VCA, LFO, Envolventes) y evitar que realimentaciones o modulaciones cruzadas enmascaren las leyes físicas:
+    1. *Bypass Estricto de Efectos Digitales:* Forzar bypass analógico total previo a los conversores ADC/DAC.
+    2. *Desacoplo de Seguimiento de Teclado (Keytrack = 0):* Elimina la variación de apertura por nota.
+    3. *Moduladores a Cero:* LFOs y modulaciones cruzadas a profundidad nula.
+    4. *Aislamiento de Osciladores:* Excitación con una sola fuente a la vez (ej. rampa pura, segundo oscilador silenciado, ruido silenciado).
+
+- [x] **4. Extracción Herciana Directa mediante Ciclo Límite (Auto-Oscilación Pura)**:
+  - **Técnica:** Medir la ley de transferencia del filtro analógico desconectando osciladores y forzando el filtro a ciclo límite (auto-oscilación senoidal pura por realimentación).
+  - **Algoritmo de Extracción:** Localización de la fundamental por pico global en FFT para obtener la frecuencia de corte física exacta en Hz sin interferencia armónica del oscilador.
+  - **Ajuste Matemático:** Regresión exponencial biparamétrica (t) = f_{\min} \cdot (\text{base})^t$ mediante búsqueda grid search o mínimos cuadrados no lineales.
+
+- [x] **5. Análisis Forense de Dinámica Temporal de Envolventes**:
+  - **Técnica de Medida de Ataque:** Ventana temporal normalizada desde el umbral de silencio hasta el tramo útil del pico ({10\% \to 90\%}$), inmune a fluctuaciones de continua iniciales.
+  - **Técnica de Medida de Relajación/Decaimiento:** Cronometraje de caída exponencial desde Note-Off hasta el umbral de ruido de fondo.
+  - **Detección de Curvatura (AUC Normalizada):** Integración numérica del Área Bajo la Curva (AUC) en la ventana normalizada $[0, 1]$ para clasificar el perfil de respuesta: $\text{AUC} \approx 0.50$ (Lineal), $\text{AUC} > 0.55$ (Logarítmica/Convexa), $\text{AUC} < 0.45$ (Exponencial/Cóncava).
+
+- [x] **6. Demodulación FM Instantánea para Medición de Moduladores LFO**:
+  - **Técnica:** Extracción de frecuencia de LFOs mediante detección de cruces por cero del carrier de audio, interpolación uniforme de la trayectoria de frecuencia instantánea y FFT de la señal demodulada, permitiendo detectar suelos de saturación baja (knees antialiasing) y leyes exponenciales de acumulador.
+  - **Detección de Retardo e Incepción (Fade-in):** Ventana deslizante de desviación estándar local sobre la trayectoria de modulación para separar la ventana de silencio inicial de la rampa de aparición cuadrática/lineal.
+
+- [x] **7. Muestreo Cíclico Round-Robin Multi-Voz para Mapeo de Dispersión Analógica**:
+  - **Técnica / Problema:** En sintetizadores analógicos polifónicos, cada tarjeta de voz física posee componentes discretos con tolerancias propias. Medir una sola nota produce sesgo de tarjeta.
+  - **Metodología de Ráfaga Cíclica:** Disparar secuencias de $ notas consecutivas idénticas ( = \text{número de voces físicas}$) en modo polifónico libre para forzar al Voice Allocator a rotar secuencialmente por todas las tarjetas físicas y repetir en distintos registros para detectar compresión espectral por saturación de riel.
+  - **Métricas Extraídas:** Media espectral ($\mu$), desviación estándar ($\sigma$), coeficiente de variación inter-voz ($\sigma / \mu$) y Spread Ratio ($\text{RMS}_{\max} / \text{RMS}_{\min}$).
+
+- [x] **8. Perfilado de Rolloff de Ruido Analógico, Colapso de Pulso PWM y THD de Wave-Folding**:
+  - **Técnica de Rolloff Espectral de Ruido:** Cálculo del percentil de energía espectral acumulada (ej. percentil 85% via 
+p.cumsum(|FFT|)) para cuantificar el filtrado paso-bajo parásito de circuitos generadores de ruido analógico (uniones Zener/transistor) frente al ruido blanco digital plano, parametrizando un filtro IIR de 1 polo por voz.
+  - **Detección de Colapso de Ciclo de Trabajo PWM:** Barrido denso en el extremo superior del control de ancho de pulso para distinguir entre un *soft-clamp* digital idealizado y el colapso físico completo a continua (0% de energía AC) cuando el umbral del comparador supera el pico de rampa.
+  - **Perfilado THD Armónico de Modulación de Tono:** Extracción de picos armónicos (, 2f_0, \dots, K f_0$) con ventana Hanning para caracterizar etapas de *wave-folding* o sobremultiplicación no lineal.
+
+- [x] **9. Caracterización de Transición HPF, Ganancia Discreta de Bass Boost y Medición Estéreo RSS en Unison**:
+  - **Técnica de Energía Sub-Banda HPF:** Integración de energía espectral en la banda fundamental grave durante un barrido de fader HPF para localizar la rodilla de transición respecto al suelo de ruido del canal.
+  - **Aislamiento de Etapas Discretas de Realce (Bass Boost Shelf):** Comparación diferencial de sonoridad RMS con el filtro en su frecuencia mínima al conmutar el realce analógico de graves, extrayendo el multiplicador estático de tensión para inyectarlo en el contrato de calibración (CalibrationSpec).
+  - **Medición Estéreo RSS (Root-Sum-of-Squares) en Modos Unison/Pan Spread:** En modos de apilamiento Unison o Pan Spread, el motor de asignación puede distribuir voces en *hard-panning* extremo (L=0.0, R=1.0). Evaluar únicamente el canal izquierdo en el renderizador software produce falsas caídas a cero; la sonda software debe evaluar $\text{RMS}_{\text{stereo}} = \sqrt{0.5 \cdot (\text{RMS}_L^2 + \text{RMS}_R^2)}$ para mantener invariancia energética frente al panorama.
+
+- [x] **10. Cronometraje de Envolvente de Energía para Puerta de Arpegiador y Secuenciador (Gate Time)**:
+  - **Técnica:** Captura de múltiples ciclos de reloj del arpegiador y cálculo de la integral de energía RMS por ciclo en función del parámetro de duración de puerta (*Gate Time*), permitiendo detectar techos de saturación prematura en la normalización del motor MIDI/Arp.
+
+---
+
+### 🛠️ Caja de Herramientas y Scripts de Laboratorio Metrológico (scripts/calibration/)
+
+Todos los algoritmos e instrumentos de medida desarrollados para esta campaña están disponibles en el repositorio para su estudio, reutilización y exportación como CLI hacia **ABDAudioLab**:
+
+1. **[deepmind_device.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_device.py)**:
+   - Capa de transporte y control físico del sintetizador, empaquetado atómico de tramas SysEx (pack_deepmind_sysex) y captura síncrona PCM mediante sounddevice.
+2. **[init_patch.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/init_patch.py)**:
+   - Generación del parche estímulo clínico neutro desprovisto de artefactos (bypass de efectos, matriz de modulación limpia y aislamiento de osciladores/moduladores).
+3. **[cf_resonance_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/vcf_resonance_lab.py)**:
+   - Instrumentación completa del **Bloque 1**: absorción de graves en lazo OTA (
+un_gain_comp_test), comparativa de pendientes 12/24 dB (
+un_pole_mode_test), umbral de auto-oscilación (
+un_self_osc_test), THD por saturación (
+un_saturation_thd_test) y regresión exponencial de corte por ciclo límite.
+4. **[envelope_dyn_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/envelope_dyn_lab.py)**:
+   - Instrumentación completa del **Bloque 2**: tiempos de ataque {10\% \to 90\%}$ (
+un_attack_battery), decaimiento/relajación {90\% \to 10\%}$ (
+un_decay_release_battery) y curvatura por Área Bajo la Curva AUC (
+un_curve_battery).
+5. **[lfo_dyn_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/lfo_dyn_lab.py)**:
+   - Instrumentación completa del **Bloque 3**: ley de escala de frecuencia de LFOs mediante demodulación FM (
+un_rate_battery) y caracterización de retardo/fade-in (
+un_delay_battery).
+6. **[mod_voice_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/mod_voice_lab.py)**:
+   - Instrumentación completa del **Bloque 4**: dispersión multi-voz del Key Tracking en ráfaga Round-Robin de 12 voces (
+un_keytrack_variance_battery) y excursión de envolvente VCF (
+un_env_depth_excursion_battery).
+7. **[osc_wave_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/osc_wave_lab.py)**:
+   - Instrumentación completa del **Bloque 5**: densidad espectral y rolloff de ruido analógico (
+un_noise_battery), modulación PWM y detección de colapso de pulso (
+un_pwm_battery), y THD armónico de Tone Mod (
+un_tone_mod_battery).
+8. **[hpf_vca_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/hpf_vca_lab.py)**:
+   - Instrumentación completa del **Bloque 6**: atenuación espectral HPF (
+un_hpf_cutoff_battery), realce discreto de Bass Boost (
+un_bass_boost_battery), sensibilidad de velocidad VCA (
+un_vca_velocity_battery) y distribución Pan Spread (
+un_vca_pan_spread_battery).
+9. **[	rigger_unison_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/trigger_unison_lab.py)**:
+   - Instrumentación completa del **Bloque 7**: modos de disparo y bucle de envolventes (
+un_trigger_mode_battery) y densidades Unison con medición estéreo RSS invariante al paneo (
+un_unison_density_battery).
+10. **[rp_seq_lab.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/arp_seq_lab.py)**:
+    - Instrumentación completa del **Bloque 8**: ratios de tiempo de puerta (*Gate Time*) del arpegiador (
+un_arp_gate_battery).
+11. **[
+un_all_nightly.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/run_all_nightly.py)**:
+    - Orquestador autónomo continuo de los 8 bloques con registro de marcas de tiempo UTC, escritura CSV con unión dinámica de claves heterogéneas y generación del manifiesto global (master_calibration_manifest.json).
+12. **[deepmind_live_parity.py](file:///d:/desarrollos/ABDSynths/ABDEep/scripts/calibration/deepmind_live_parity.py)**:
+    - Orquestador del barrido espectral automatizado, renderizado C++ headless mediante ABDEep_Render.exe y cálculo de correlación cruzada, similitud coseno y distancia de centroide espectral.
+
+---
+
+### 🎹 ESTADO DE LOS BLOQUES DE CALIBRACIÓN METROLÓGICA (ABDEep <-> DeepMind 12)
+
+- [x] **Bloque 1: Filtro VCF (Leyes de Corte, Resonancia y Auto-Oscilación)** — *Completado y validado.*
+- [x] **Bloque 2: Envolventes Analógicas (Tiempos Reales, Curvaturas y Suelo Anti-Click)** — *Completado y validado.*
+- [x] **Bloque 3: Osciladores de Baja Frecuencia (LFO Rates, Suelo Físico y Delays Cuadráticos)** — *Completado y validado.*
+- [x] **Bloque 4: Modulaciones, Keytrack y Dispersión Multi-Voz Round-Robin (12 Tarjetas)** — *Completado y validado.*
+- [x] **Bloque 5: Osciladores DCO, PWM y Ruido Analógico (Límites de Onda, Rolloff y Tone Mod)** — *Completado y validado.*
+- [x] **Bloque 6: Filtro Paso-Altos (HPF), Bass Boost (+7 dB Shelf) y VCA / Pan Spread** — *Completado y validado.*
+- [x] **Bloque 7: Modos de Disparo de Envolvente y Densidades Unison (Medición Estéreo RSS)** — *Completado y validado.*
+- [x] **Bloque 8: Reloj y Gate Time de Arpegiador / Secuenciador de Control** — *Completado y validado.*
