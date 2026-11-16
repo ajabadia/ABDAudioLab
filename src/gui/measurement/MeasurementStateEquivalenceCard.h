@@ -38,7 +38,7 @@ private:
     std::vector<std::pair<int, int>> availablePairs_;
     std::optional<PairwiseComparisonResult> currentResult_;
 
-    juce::Label lblTitle_ { {}, juce::String::fromUTF8(u8"Equivalencia de Estado Metrológica (Por Pares)") };
+    juce::Label lblTitle_ { {}, "Metrological State Equivalence (Pairwise)" };
     juce::Label lblStatusBadge_;
     juce::Label lblReason_;
 

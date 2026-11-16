@@ -10,7 +10,7 @@ namespace
 
 constexpr int padding        = 16;
 constexpr int altoCabecera   = 28;
-constexpr int altoBoton      = 30;
+constexpr int altoBoton      = SoundIdTheme::ButtonTokens::height;
 constexpr int anchoBoton     = 130;
 constexpr int separacion     = 8;
 
@@ -130,8 +130,8 @@ StartupWarningsPanel::StartupWarningsPanel()
     viewport.setScrollBarsShown(true, false);
 
     addAndMakeVisible(btnCerrar);
-    btnCerrar.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
-    btnCerrar.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnCerrar.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
+    btnCerrar.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::primaryText());
 
     // Cerrar es ocultar, no vaciar. Vaciar pierde los avisos, y quien los
     // estaba leyendo todavia los necesita: un aviso que desaparece al pulsar

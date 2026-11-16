@@ -61,8 +61,8 @@ private:
     std::vector<SeriesRenderData> seriesList_;
 
     // Mode Selector buttons
-    juce::TextButton btnModeLevel_ { "Nivel (dBFS)" };
-    juce::TextButton btnModeCentroid_ { "Centroide (Hz)" };
+    juce::TextButton btnModeLevel_ { "Level (dBFS)" };
+    juce::TextButton btnModeCentroid_ { "Centroid (Hz)" };
     juce::TextButton btnModeRolloff_ { "Rolloff (Hz)" };
 
     // Hover tooltip tracking

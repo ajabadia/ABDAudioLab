@@ -121,12 +121,16 @@ public:
      */
     static void computeAdaptiveRoadmap(PreScanResult& result, float gradientThreshold = 0.05f);
 
+    static std::vector<float> computeSynchronousTimeDomainAverage(
+        const std::vector<std::vector<float>>& recordedPasses);
+
     static FilterAnalysisResult analyzeFilterPasses(const std::vector<std::vector<float>>& recordedPasses,
                                                    const std::vector<float>& inverseFilter,
                                                    double sampleRate,
                                                    double durationSec,
                                                    float startFreqHz,
-                                                   float endFreqHz);
+                                                   float endFreqHz,
+                                                   bool useKirkebyRegularization = true);
 
     static TimeDynamicAnalysisResult analyzeAdsrEnvelopes(const std::vector<std::vector<float>>& recordedPasses,
                                                          double sampleRate);

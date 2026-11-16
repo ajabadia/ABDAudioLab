@@ -26,6 +26,61 @@
       "KORG MS"
     ]
   },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "All Sound Off",
+        "method": "MIDI_CC",
+        "controlNumber": 120,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Reset All Controllers",
+        "method": "MIDI_CC",
+        "controlNumber": 121,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Modulation Wheel Zero",
+        "method": "MIDI_CC",
+        "controlNumber": 1,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Filter EG Intensity to Center (Neutral)",
+        "method": "MIDI_CC",
+        "controlNumber": 79,
+        "normalizedValue": 0.5,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Mod Effect Depth Zero (Dry)",
+        "method": "MIDI_CC",
+        "controlNumber": 93,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Delay Depth Zero (Dry)",
+        "method": "MIDI_CC",
+        "controlNumber": 94,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 50
+      }
+    ],
+    "postSessionTeardown": [
+      {
+        "description": "All Sound Off Post-Session",
+        "method": "MIDI_CC",
+        "controlNumber": 120,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 20
+      }
+    ]
+  },
   "functions": [
     {
       "id": "dsp_multimode_filter",

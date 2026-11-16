@@ -263,10 +263,51 @@ PluginLoadResult PluginHostManager::loadPluginFromFile(const juce::File& file,
         return { false, {}, "FILE_NOT_FOUND", "Plugin file does not exist: " + file.getFullPathName().toStdString() };
     }
 
+    // 1. Check if the file (or bundle directory) is already known in cached plugins
+    for (const auto& desc : knownPlugins.getTypes())
+    {
+        juce::File descFile(desc.fileOrIdentifier);
+        if (desc.fileOrIdentifier == file.getFullPathName()
+            || descFile == file
+            || file.isAChildOf(descFile)
+            || descFile.isAChildOf(file)
+            || descFile.getFileNameWithoutExtension().equalsIgnoreCase(file.getFileNameWithoutExtension()))
+        {
+            juce::Logger::writeToLog("[PluginHost] Found existing plugin description in cache: " + desc.name);
+            return loadPlugin(desc, sampleRate, blockSize);
+        }
+    }
+
+    // 2. Resolve bundle root if file is inside a bundle directory (e.g. Contents/x86_64-win)
+    juce::File targetFile = file;
+    auto parent = file.getParentDirectory();
+    while (parent != parent.getParentDirectory())
+    {
+        if (parent.getFileExtension().equalsIgnoreCase(".vst3")
+            || parent.getFileExtension().equalsIgnoreCase(".component"))
+        {
+            targetFile = parent;
+            break;
+        }
+        parent = parent.getParentDirectory();
+    }
+
     for (auto* format : formatManager.getFormats())
     {
         if (format == nullptr) continue;
-        if (format->fileMightContainThisPluginType(file.getFullPathName()))
+        if (format->fileMightContainThisPluginType(targetFile.getFullPathName()))
+        {
+            juce::OwnedArray<juce::PluginDescription> typesFound;
+            format->findAllTypesForFile(typesFound, targetFile.getFullPathName());
+            if (typesFound.size() > 0)
+            {
+                auto* desc = typesFound[0];
+                knownPlugins.addType(*desc);
+                return loadPlugin(*desc, sampleRate, blockSize);
+            }
+        }
+
+        if (targetFile != file && format->fileMightContainThisPluginType(file.getFullPathName()))
         {
             juce::OwnedArray<juce::PluginDescription> typesFound;
             format->findAllTypesForFile(typesFound, file.getFullPathName());
@@ -345,10 +386,53 @@ void PluginHostManager::loadPluginFromFileAsync(const juce::File& file,
         return;
     }
 
+    // 1. Check if the file (or bundle directory) is already known in cached plugins
+    for (const auto& desc : knownPlugins.getTypes())
+    {
+        juce::File descFile(desc.fileOrIdentifier);
+        if (desc.fileOrIdentifier == file.getFullPathName()
+            || descFile == file
+            || file.isAChildOf(descFile)
+            || descFile.isAChildOf(file)
+            || descFile.getFileNameWithoutExtension().equalsIgnoreCase(file.getFileNameWithoutExtension()))
+        {
+            juce::Logger::writeToLog("[PluginHost] Found existing plugin description in cache: " + desc.name);
+            loadPluginAsync(desc, sampleRate, blockSize, std::move(callback));
+            return;
+        }
+    }
+
+    // 2. Resolve bundle root if file is inside a bundle directory (e.g. Contents/x86_64-win)
+    juce::File targetFile = file;
+    auto parent = file.getParentDirectory();
+    while (parent != parent.getParentDirectory())
+    {
+        if (parent.getFileExtension().equalsIgnoreCase(".vst3")
+            || parent.getFileExtension().equalsIgnoreCase(".component"))
+        {
+            targetFile = parent;
+            break;
+        }
+        parent = parent.getParentDirectory();
+    }
+
     for (auto* format : formatManager.getFormats())
     {
         if (format == nullptr) continue;
-        if (format->fileMightContainThisPluginType(file.getFullPathName()))
+        if (format->fileMightContainThisPluginType(targetFile.getFullPathName()))
+        {
+            juce::OwnedArray<juce::PluginDescription> typesFound;
+            format->findAllTypesForFile(typesFound, targetFile.getFullPathName());
+            if (typesFound.size() > 0)
+            {
+                auto* desc = typesFound[0];
+                knownPlugins.addType(*desc);
+                loadPluginAsync(*desc, sampleRate, blockSize, std::move(callback));
+                return;
+            }
+        }
+
+        if (targetFile != file && format->fileMightContainThisPluginType(file.getFullPathName()))
         {
             juce::OwnedArray<juce::PluginDescription> typesFound;
             format->findAllTypesForFile(typesFound, file.getFullPathName());

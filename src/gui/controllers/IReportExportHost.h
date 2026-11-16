@@ -26,6 +26,10 @@ struct ReportExportSnapshot
     std::string operatorNotes;
     double ambientTemperatureC { 21.0 };
     double warmupMinutes { 15.0 };
+
+    // Resultado de lectura rápida: idéntico para modo guiado y modo clásico
+    // "Qué hiciste / qué salió / qué puedes hacer después"
+    std::string resultSummaryText;
 };
 
 /**

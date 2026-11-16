@@ -68,7 +68,13 @@
       "routingGuide": {
         "stimulusOutput": "Salida Audio 1 (L) -> Audio In (o MIDI Note On C3)",
         "responseInput": "Stereo Out (L/R) -> Entradas Audio 1 y 2",
-        "notes": "Filtro analógico de estado variable discreto con modos conmutables 12dB (2-Pole) y 24dB (4-Pole) y realce de graves."
+        "notes": "Filtro analógico de estado variable discreto con modos conmutables 12dB (2-Pole) y 24dB (4-Pole) y realce de graves.",
+        "steps": [
+          "Connect USB/MIDI cable from host PC to DeepMind 12 USB-B port.",
+          "Connect DeepMind 12 Main Out (L/Mono) to Audio Interface In 1.",
+          "Power ON DeepMind 12 and verify MIDI communication on Channel 1.",
+          "Ensure Master Volume fader is set to 75% nominal gain."
+        ]
       },
       "controls": [
         {

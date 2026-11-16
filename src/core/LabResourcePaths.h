@@ -149,4 +149,15 @@ struct RepoRootResolution
  */
 [[nodiscard]] juce::File sharedAssetsDir();
 
+/**
+ * @brief ABDShared/Contracts/ (o ABDSharedAssets/contracts/) — contratos compartidos.
+ *
+ * Resuelve el cuadrante Contracts de la arquitectura unificada ABDShared,
+ * con fallback a ABDSharedAssets/contracts y a sharedAssetsDir().getChildFile("contracts").
+ *
+ * @return El directorio si existe; un File inválido si no se encuentra.
+ */
+[[nodiscard]] juce::File sharedContractsDir();
+
 } // namespace abdaudiolab::core
+

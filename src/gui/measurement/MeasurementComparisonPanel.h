@@ -52,10 +52,9 @@ private:
     MeasurementAudioPlayerComponent audioPlayerComponent_;
 
     // Master toolbar
-    juce::Label lblHeader_ { {}, juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL") };
-    juce::ComboBox cmbMetricMode_;
-    juce::TextButton btnExportReport_ { "Exportar Informe HTML..." };
-    juce::Label lblProvenance_ { {}, "Fuente de Audio: Ninguna" };
+    juce::Label lblHeader_ { {}, "ABDAudioLab - Multivariate Measurement Comparison" };
+    juce::TextButton btnExportReport_ { "Export HTML Report..." };
+    juce::Label lblProvenance_ { {}, "Audio Source: None" };
 
     std::unique_ptr<juce::FileChooser> fileChooser_;
 

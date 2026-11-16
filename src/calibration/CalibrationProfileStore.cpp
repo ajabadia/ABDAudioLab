@@ -292,6 +292,46 @@ std::optional<CalibrationRecord> CalibrationProfileStore::load(const std::string
         if (schema != 1)
             return std::nullopt;
 
+        // Si este archivo es un CalibrationSnapshot nuevo, adaptarlo a CalibrationRecord
+        if (j.contains("compatibility") && j.contains("result"))
+        {
+            auto snapOpt = CalibrationSnapshot::fromJsonSafe(j);
+            if (snapOpt.has_value() && snapOpt->result.isValid())
+            {
+                CalibrationRecord rec;
+            rec.schemaVersion = 1;
+            rec.profileId = snapOpt->profileId;
+            rec.createdAt = snapOpt->createdAt;
+            rec.deviceSnapshot.deviceName = snapOpt->compatibility.deviceStableId;
+            rec.deviceSnapshot.driverType = snapOpt->compatibility.driverType;
+            rec.deviceSnapshot.sampleRate = snapOpt->compatibility.sampleRateHz;
+            rec.deviceSnapshot.bufferSizeSamples = snapOpt->compatibility.bufferSamples;
+            rec.routingSnapshot.inputChannelIndex = snapOpt->compatibility.inputChannelIndex;
+            rec.routingSnapshot.outputChannelIndex = snapOpt->compatibility.outputChannelIndex;
+            rec.routingSnapshot.outputChannelLabel = "Output " + std::to_string(snapOpt->compatibility.outputChannelIndex + 1);
+            rec.routingSnapshot.inputChannelLabel = "Input " + std::to_string(snapOpt->compatibility.inputChannelIndex + 1);
+            rec.calibrationResult.isCalibrated = snapOpt->result.isValid();
+            rec.calibrationResult.sampleRate = snapOpt->compatibility.sampleRateHz;
+            rec.calibrationResult.recommendedTrimGain = std::pow(10.0f, snapOpt->result.interfaceTrimDb / 20.0f);
+            rec.calibrationResult.targetHeadroomDbfs = -3.0f;
+            rec.calibrationResult.roundTripLatencyMs = static_cast<float>(snapOpt->result.rtlMs);
+            rec.calibrationResult.latencySamples = snapOpt->result.rtlSamples;
+            rec.calibrationResult.peakInDbfs = snapOpt->result.peakDbfs;
+            rec.calibrationResult.snrDb = snapOpt->result.snrDb;
+            rec.calibrationResult.frequencyFlatnessDb = snapOpt->result.flatnessDeltaDb;
+            rec.calibrationResult.phaseInversionDetected = (snapOpt->result.polarity == "Inverted");
+            rec.calibrationResult.phaseInversionCorrelation = (snapOpt->result.polarity == "Inverted") ? -1.0f : 1.0f;
+            rec.calibrationResult.clippingDetected = (snapOpt->result.clippingSamples > 0);
+            rec.calibrationResult.clippedSamplesCount = snapOpt->result.clippingSamples;
+            rec.calibrationResult.deviceName = juce::String(snapOpt->compatibility.deviceStableId);
+            rec.calibrationResult.timestamp = juce::String(snapOpt->createdAt);
+
+            rec.provenance.applicationVersion = "2.1.0";
+            rec.provenance.calibrationAlgorithmVersion = 1;
+            return rec;
+        }
+    }
+
         CalibrationRecord rec;
         rec.schemaVersion = schema;
         rec.profileId = j.value("profileId", profileId);
@@ -402,6 +442,143 @@ bool CalibrationProfileStore::remove(const std::string& profileId)
         return false;
 
     return targetFile.deleteFile();
+}
+
+CalibrationProfileStore::SaveResult CalibrationProfileStore::saveSnapshot(const CalibrationSnapshot& snapshot, bool overwrite)
+{
+    if (!isValidProfileId(snapshot.profileId))
+    {
+        return { false, snapshot.profileId, "Identificador de perfil no valido" };
+    }
+    if (!snapshot.result.isValid())
+    {
+        return { false, snapshot.profileId, "La medicion no esta marcada como valida o presento saturacion" };
+    }
+
+    if (!storageDir.exists())
+    {
+        auto res = storageDir.createDirectory();
+        if (res.failed())
+        {
+            return { false, snapshot.profileId, "No se pudo crear el directorio de perfiles: " + res.getErrorMessage().toStdString() };
+        }
+    }
+
+    auto targetFile = storageDir.getChildFile(juce::String(snapshot.profileId) + ".json");
+    auto tempFile   = storageDir.getChildFile(juce::String(snapshot.profileId) + ".json.tmp");
+
+    if (targetFile.existsAsFile() && !overwrite)
+    {
+        return { false, snapshot.profileId, "El perfil ya existe y no se solicito sobrescritura" };
+    }
+
+    try
+    {
+        auto j = snapshot.toJson();
+        if (!tempFile.replaceWithText(j.dump(2)))
+        {
+            return { false, snapshot.profileId, "Error al escribir archivo temporal .tmp" };
+        }
+
+        if (targetFile.existsAsFile())
+        {
+            if (!targetFile.deleteFile())
+            {
+                tempFile.deleteFile();
+                return { false, snapshot.profileId, "No se pudo reemplazar el archivo existente de perfil" };
+            }
+        }
+
+        if (!tempFile.moveFileTo(targetFile))
+        {
+            return { false, snapshot.profileId, "Error al promover archivo temporal a destino final" };
+        }
+
+        return { true, snapshot.profileId, "" };
+    }
+    catch (const std::exception& e)
+    {
+        if (tempFile.existsAsFile())
+            tempFile.deleteFile();
+        return { false, snapshot.profileId, std::string("Fallo al serializar snapshot a JSON: ") + e.what() };
+    }
+}
+
+std::optional<CalibrationSnapshot> CalibrationProfileStore::loadSnapshot(const std::string& profileId) const
+{
+    if (!isValidProfileId(profileId))
+        return std::nullopt;
+
+    auto file = storageDir.getChildFile(juce::String(profileId) + ".json");
+    if (!file.existsAsFile())
+        return std::nullopt;
+
+    try
+    {
+        auto text = file.loadFileAsString();
+        auto j = nlohmann::json::parse(text.toStdString());
+
+        // Try direct snapshot parse first
+        if (j.contains("compatibility") && j.contains("result"))
+        {
+            auto snapOpt = CalibrationSnapshot::fromJsonSafe(j);
+            if (snapOpt.has_value() && snapOpt->result.isValid())
+                return snapOpt;
+        }
+
+        // Try legacy CalibrationRecord fallback conversion
+        auto recOpt = load(profileId);
+        if (recOpt.has_value())
+        {
+            const auto& rec = *recOpt;
+            CalibrationCompatibility compat;
+            compat.deviceStableId = rec.deviceSnapshot.deviceName;
+            compat.driverType = rec.deviceSnapshot.driverType;
+            compat.sampleRateHz = rec.deviceSnapshot.sampleRate;
+            compat.bufferSamples = rec.deviceSnapshot.bufferSizeSamples;
+            compat.inputChannelIndex = rec.routingSnapshot.inputChannelIndex;
+            compat.outputChannelIndex = rec.routingSnapshot.outputChannelIndex;
+            compat.routingDescription = rec.routingSnapshot.outputChannelLabel + " -> " + rec.routingSnapshot.inputChannelLabel;
+
+            CalibrationCaptureMetadata cap;
+            int rateKhz = static_cast<int>(std::lround(compat.sampleRateHz / 1000.0));
+            std::string dispName = compat.deviceStableId + " — " + compat.routingDescription + " — " + std::to_string(rateKhz) + " kHz";
+
+            return CalibrationSnapshot::create(dispName, rec.profileId, compat, cap, rec.calibrationResult, 0);
+        }
+
+        return std::nullopt;
+    }
+    catch (...)
+    {
+        return std::nullopt;
+    }
+}
+
+std::vector<CalibrationSnapshot> CalibrationProfileStore::listSnapshots() const
+{
+    std::vector<CalibrationSnapshot> snapshots;
+    if (!storageDir.exists() || !storageDir.isDirectory())
+        return snapshots;
+
+    auto files = storageDir.findChildFiles(juce::File::findFiles, false, "*.json");
+    for (const auto& file : files)
+    {
+        if (file.getFileName().endsWithIgnoreCase(".tmp"))
+            continue;
+
+        auto snap = loadSnapshot(file.getFileNameWithoutExtension().toStdString());
+        if (snap.has_value())
+            snapshots.push_back(std::move(*snap));
+    }
+
+    std::sort(snapshots.begin(), snapshots.end(), [](const CalibrationSnapshot& a, const CalibrationSnapshot& b) {
+        if (a.createdAt != b.createdAt)
+            return a.createdAt > b.createdAt;
+        return a.profileId < b.profileId;
+    });
+
+    return snapshots;
 }
 
 } // namespace abdaudiolab::calibration

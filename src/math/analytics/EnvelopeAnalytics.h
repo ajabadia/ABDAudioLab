@@ -27,6 +27,9 @@ class EnvelopeAnalytics
 public:
     static EnvelopeAnalysisData analyzeAdsrEnvelopes(const std::vector<std::vector<float>>& recordedPasses,
                                                      double sampleRate);
+
+    static EnvelopeAnalysisData analyzeDelayImpulses(const std::vector<std::vector<float>>& recordedPasses,
+                                                     double sampleRate);
 };
 
 } // namespace abdaudiolab::math::analytics

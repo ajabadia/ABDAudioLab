@@ -6,6 +6,7 @@
  */
 
 #include "MainContentComponent.h"
+#include "core/LabDataDirectories.h"
 
 namespace abdaudiolab
 {
@@ -41,7 +42,40 @@ core::SessionManifest MainContentComponent::buildCurrentSessionManifest()
     sm.activeFunctionId = drawer.getSelectedFunctionId().toStdString();
     sm.activeFunctionName = drawer.getActiveFunctionDisplayName().toStdString();
     sm.sampleRate = audioEngine.getSampleRate();
-    sm.lineCalibrationGainDb = -3.0f;
+    sm.gainPlan = sequencer.getGainPlan();
+    sm.lineCalibrationGainDb = sm.gainPlan.effectiveTrimDb;
+    const bool isBypassed = workflowNavController.isCalibrationSkipped() || canonicalCalibrationState.isSkipped;
+    sm.calibrationMode = isBypassed ? "Bypass" : "ValidatedPhysicalLoopback";
+    if (isBypassed)
+    {
+        sm.calibrationSnapshot = std::nullopt;
+        sm.hasPhysicalNoiseBaseline = false;
+        sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+    }
+    else if (auto ctx = sequencer.getActiveCalibrationContext())
+    {
+        const auto& snapOpt = ctx->getSnapshot();
+        if (snapOpt.has_value())
+        {
+            sm.calibrationSnapshot = *snapOpt;
+            const auto& baseline = snapOpt->noiseBaseline;
+            sm.noiseBaselineStatus = baseline.status;
+            if (baseline.status == calibration::NoiseBaselineStatus::Valid
+                || baseline.status == calibration::NoiseBaselineStatus::BelowMeasurementFloor)
+            {
+                sm.measuredNoiseFloorRmsDbfs = baseline.rmsDbfs;
+                sm.measuredNoiseFloorPeakDbfs = baseline.peakDbfs;
+                sm.hasPhysicalNoiseBaseline = true;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::PhysicalNoiseBaseline;
+            }
+            else
+            {
+                sm.hasPhysicalNoiseBaseline = false;
+                sm.snrMeasurementMethod = math::SnrMeasurementMethod::NotAvailable;
+            }
+        }
+    }
+    // Acceptance policy threshold remains strictly decoupled from observed physical measurement
     sm.noiseFloorThresholdDb = -85.0f;
     sm.totalMeasuredPoints = totalPointsMeasured;
     sm.operatorNotes = drawer.getOperatorNotes().toStdString();
@@ -281,7 +315,8 @@ gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() con
     snapshot.manifest.targetModule = targetModule.toStdString();
 
     snapshot.measuredPoints = sessionManager.getMeasuredPoints();
-    snapshot.exportDirectory = sessionIoController.getExportDirectory().getFullPathName().toStdString();
+    auto labDirs = core::resolveLabDataDirectories();
+    snapshot.exportDirectory = labDirs.reports.getFullPathName().toStdString();
 
     juce::String base = (hwId.isNotEmpty() ? hwId : "hardware").toLowerCase() + "_" + (funcId.isNotEmpty() ? funcId : "profile").toLowerCase();
     snapshot.baseFileName = base.toStdString();
@@ -291,6 +326,46 @@ gui::ReportExportSnapshot MainContentComponent::createReportExportSnapshot() con
     snapshot.operatorNotes = drawer.getOperatorNotes().toStdString();
     snapshot.ambientTemperatureC = drawer.getAmbientTemperature();
     snapshot.warmupMinutes = drawer.getWarmupTimeMinutes();
+
+    // --- Rellenar resultado de lectura rápida (modo guiado y modo clásico idéntico) ---
+    // Construimos el texto "Qué hiciste / qué salió / qué puedes hacer después"
+    // usando los datos disponibles del manifiesto y la sesión.
+    std::string summary;
+
+    // Qué hiciste: target/plugin y función medidos
+    if (!hwName.isEmpty())
+    {
+        summary = "Medición de " + std::string(hwName.toRawUTF8());
+        if (!funcName.isEmpty() && funcName != hwName)
+            summary += " (" + std::string(funcName.toRawUTF8()) + ")";
+    }
+    else if (!funcId.isEmpty())
+    {
+        summary = "Medición de " + std::string(funcId.toRawUTF8());
+    }
+    else
+    {
+        summary = "Medición sin target seleccionado";
+    }
+
+    // Añadimos qué salió basado en los puntos medidos
+    auto measuredPoints = sessionManager.getMeasuredPoints();
+    if (!measuredPoints.empty())
+    {
+        // Ya hay datos de medición, el resultado depende de la validación
+        // Usar un texto genérico coherente con el modo guiado
+        summary += " — Sesión completada con " + std::to_string(measuredPoints.size()) + " punto(s) medido(s)";
+    }
+    else
+    {
+        summary += " — Aún sin datos de medición";
+    }
+
+    // Qué puedes hacer después (siempre las mismas acciones)
+    summary += " • Exportar paquete de producción • Revisar informe HTML • Comparar o reanalizar";
+
+    snapshot.resultSummaryText = summary;
+    // ------------------------------------------------------------
 
     return snapshot;
 }
@@ -326,6 +401,8 @@ void MainContentComponent::updateExportReportMetrics(const exporting::Calculated
 void MainContentComponent::notifyExportSuccess(const juce::File& destinationDir, const juce::String& baseName)
 {
     exportReportPanel.showExportSuccess(destinationDir.getFullPathName(), baseName);
+    workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                        gui::SoundIdSidebarStepper::StepStatus::Completed);
 }
 
 void MainContentComponent::showPanelStatus(const juce::String& statusMessage, bool isWarning)

@@ -128,5 +128,44 @@
     "allowsBulkDump": false,
     "requiresVerifiedIdentity": false,
     "allowsUserConfirmedUnverifiedIdentity": true
+  },
+  "routingGuide": {
+    "stimulusOutput": "USB MIDI / 5-pin DIN -> PRO-800 MIDI IN",
+    "responseInput": "PRO-800 Main Out (Mono) -> Audio In 1 (L)",
+    "notes": "Ensure PRO-800 MIDI channel is set to 1 and Main Volume is ~75%.",
+    "steps": [
+      "Connect USB cable from PC (or 5-pin DIN from interface) to PRO-800 MIDI IN.",
+      "Connect PRO-800 AUDIO OUT to Audio Interface In 1 with 1/4\" TS cable.",
+      "Power on PRO-800 and set MASTER VOLUME to 2 o'clock (~75%).",
+      "Ensure synth is set to receive on MIDI Channel 1."
+    ]
+  },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Send MIDI CC 121 (Reset All Controllers)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "controlNumber": 121,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 100
+      },
+      {
+        "description": "Initialize VCF Cutoff to fully open (CC 74 = 127)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "controlNumber": 74,
+        "normalizedValue": 1.0,
+        "settlingDelayMs": 50
+      },
+      {
+        "description": "Reset VCF Resonance to 0 (CC 71 = 0)",
+        "method": "MIDI_CC",
+        "channel": 1,
+        "controlNumber": 71,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 50
+      }
+    ]
   }
 }

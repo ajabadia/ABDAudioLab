@@ -1,0 +1,967 @@
+/* ==========================================================================
+   STAGE 3: MEASUREMENT, PLOTTER & GUIDED WIZARD
+   ========================================================================== */
+
+.stage3-plotter-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 100px;
+  background: var(--color-bg-base);
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  width: 100%;
+  overflow: hidden;
+  transition: background-color 0.15s ease;
+}
+
+[data-theme="audiolab-light"] .stage3-plotter-canvas {
+  background: var(--color-panel-bg);
+}
+
+.plotter-grid-line {
+  stroke: var(--color-panel-border);
+  transition: stroke 0.15s ease;
+}
+
+.plotter-axis-text {
+  fill: var(--color-text-dim);
+  transition: fill 0.15s ease;
+}
+
+/* Stage 3 Main Header & Submode Switcher */
+.stage3-main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.stage3-submode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-base);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-panel-border);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.stage3-submode-btn {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Stage 3 Classic Root Container */
+.stage3-classic-root {
+  container-type: inline-size;
+  container-name: stage3Classic;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 0. Target Objective & Recipe Bar (4th Selector) */
+.stage3-recipe-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.stage3-recipe-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.stage3-recipe-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stage3-recipe-chip {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 600;
+  background: var(--color-bg-base);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-panel-border);
+  white-space: nowrap;
+}
+
+.stage3-recipe-chip strong {
+  color: var(--color-accent);
+}
+
+.stage3-recipe-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.stage3-recipe-select {
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-sm, 4px);
+  min-width: 240px;
+  max-width: 380px;
+  cursor: pointer;
+}
+
+.stage3-recipe-select optgroup {
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-panel-surface-elevated);
+}
+
+.stage3-recipe-select option {
+  font-weight: 500;
+  color: var(--color-text-main);
+  background: var(--color-bg-base);
+}
+
+/* 1. Governance Bar */
+.stage3-governance-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.stage3-gov-group-left,
+.stage3-gov-group-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* 2. Health & Metrics Banner */
+.stage3-metrics-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 700;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.stage3-metrics-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* 3. Queue Toolbar Header */
+.stage3-queue-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  background: var(--color-panel-surface-elevated);
+  border-bottom: 1px solid var(--color-panel-border);
+  padding: 5px 8px;
+  min-height: 36px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.stage3-queue-tools-left,
+.stage3-queue-tools-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.stage3-queue-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+/* 4. Multi-Tab Plotter Header */
+.stage3-plotter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-panel-surface-elevated);
+  border-bottom: 1px solid var(--color-panel-border);
+  padding: 0 8px;
+  min-height: 32px;
+  gap: 8px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.stage3-tabs-scroll-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none;
+}
+
+.stage3-plotter-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.stage3-tab-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-dim);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.stage3-tab-pill:hover {
+  color: var(--color-text-main);
+  background: var(--color-panel-surface);
+}
+
+.stage3-tab-pill.active {
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* 5. Queue Item Rows */
+.stage3-queue-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.stage3-queue-item-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stage3-queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.stage3-queue-subtable {
+  background: var(--color-panel-surface);
+  border-top: 1px solid var(--color-panel-border-dim);
+}
+
+.stage3-queue-progress-bar {
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-text-dim);
+  border-bottom: 1px solid var(--color-panel-border-dim);
+  text-align: center;
+  padding: 6px 14px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.stage3-queue-point-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 14px 5px 28px;
+  border-bottom: 1px solid var(--color-panel-border-dim);
+  font-size: 11px;
+  background: transparent;
+  transition: background-color 0.1s ease;
+}
+
+.stage3-queue-point-row:hover {
+  background: var(--color-panel-surface-elevated);
+}
+
+.stage3-param-card {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* Guided Parameter Wizard */
+.stage3-wizard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.stage3-wizard-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 10px);
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.wizard-step:hover {
+  opacity: 0.9;
+}
+
+.wizard-step-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--color-panel-border-strong);
+  background: transparent;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.wizard-step.active .wizard-step-dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-dim);
+}
+
+.wizard-step.completed .wizard-step-dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent-dim);
+}
+
+.wizard-step-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.wizard-step.active .wizard-step-label {
+  color: var(--color-text-main);
+  font-weight: 700;
+}
+
+.wizard-step-line {
+  flex: 1;
+  min-width: 24px;
+  max-width: 60px;
+  height: 1.5px;
+  background: var(--color-panel-border);
+}
+
+.wizard-step-line.completed {
+  background: var(--color-accent);
+}
+
+.stage3-wizard-body {
+  display: grid;
+  grid-template-columns: 1fr 290px;
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.stage3-wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 0 8px 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: auto;
+}
+
+.stage3-wizard-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stage3-nav-btn {
+  height: 38px;
+  padding: 0 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive Queries */
+@container stage3Classic (max-width: 520px) {
+  .stage3-gov-group-left,
+  .stage3-gov-group-right {
+    width: 100%;
+  }
+
+  .stage3-gov-group-right {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+    gap: 4px;
+  }
+
+  .stage3-gov-group-right .btn {
+    width: 100%;
+    text-align: center;
+    font-size: 9.5px;
+    padding: 4px 6px;
+  }
+
+  .stage3-queue-item-desc {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .stage3-wizard-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Full Square Artwork Card with bottom gradient overlay */
+.stage3-wizard-art-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 18px 16px 16px 16px;
+  background: var(--color-panel-surface-elevated);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 12px);
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  max-width: 290px;
+  height: 290px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  text-align: center;
+  align-self: start;
+}
+
+.wizard-art-img-full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  z-index: 1;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stage3-wizard-art-card:hover .wizard-art-img-full {
+  transform: scale(1.04);
+}
+
+.wizard-art-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.70) 25%,
+    rgba(255, 255, 255, 0.25) 45%,
+    transparent 65%
+  );
+}
+
+[data-theme="audiolab"] .wizard-art-gradient-overlay {
+  background: linear-gradient(
+    to top,
+    rgba(22, 31, 44, 0.95) 0%,
+    rgba(22, 31, 44, 0.70) 25%,
+    rgba(22, 31, 44, 0.25) 45%,
+    transparent 65%
+  );
+}
+
+.wizard-art-content-bottom {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.wizard-art-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.wizard-art-sub {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--color-text-dim);
+  max-width: 260px;
+  margin: 0 auto;
+  line-height: 1.35;
+  text-align: center;
+}
+
+/* ==========================================================================
+   POINTS MATRIX GRID & SIGNAL PATH STATUS
+   ========================================================================== */
+
+.stage3-points-matrix-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-bg-base);
+  border-top: 1px solid var(--color-panel-border);
+}
+
+.stage3-points-matrix-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.stage3-points-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.stage3-point-pill {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 4px 2px;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.stage3-point-pill:hover {
+  border-color: var(--color-accent);
+  background: var(--color-panel-surface-elevated);
+  transform: translateY(-1px);
+}
+
+.stage3-point-pill.is-active-point {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 0 10px rgba(0, 230, 118, 0.3);
+  background: rgba(0, 230, 118, 0.1);
+}
+
+.stage3-point-pill.is-completed {
+  border-color: rgba(0, 230, 118, 0.4);
+  background: rgba(0, 230, 118, 0.06);
+}
+
+.stage3-point-pill.is-running {
+  border-color: var(--color-warning);
+  background: rgba(255, 171, 0, 0.15);
+  box-shadow: 0 0 0 1px var(--color-warning), 0 0 10px rgba(255, 171, 0, 0.3);
+  animation: pulse-border 1.5s infinite;
+}
+
+.stage3-point-pill.is-selected {
+  outline: 2px solid var(--color-info);
+  outline-offset: 1px;
+}
+
+.stage3-point-pill .pt-num {
+  font-size: 11px;
+  font-weight: 800;
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-main);
+  line-height: 1;
+}
+
+.stage3-point-pill .pt-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  margin-top: 2px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stage3-point-pill.is-completed .pt-badge {
+  color: var(--color-accent);
+}
+
+.stage3-point-pill.is-running .pt-badge {
+  color: var(--color-warning);
+}
+
+.stage3-point-pill.is-queued .pt-badge {
+  color: var(--color-text-dim);
+}
+
+.signal-path-verified-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid rgba(0, 230, 118, 0.35);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+/* Stage 3 Unified Footer Metrics Banner */
+.stage3-footer-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  margin-top: 8px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  box-sizing: border-box;
+  width: 100%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.stage3-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stage3-footer-left .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.stage3-footer-left .status-dot.dot-clean {
+  background: var(--color-accent);
+}
+
+.stage3-footer-left strong {
+  color: var(--color-text-main);
+  font-family: var(--font-mono, monospace);
+}
+
+.stage3-footer-left .noise-sep {
+  color: var(--color-panel-border);
+}
+
+.stage3-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stage3-footer-right .mono-num {
+  color: var(--color-accent);
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+}
+
+/* Operator Step Modal Semantic Theming */
+.operator-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.operator-modal-card {
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255,255,255,0.2);
+  width: 94vw;
+  max-width: 1080px;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transform: scale(0.96) translateY(8px);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.operator-modal-header {
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-panel-border);
+  background: var(--color-panel-surface-elevated);
+}
+
+.operator-modal-takes-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  max-height: none;
+  overflow: visible;
+  padding: 8px 16px;
+  background: var(--color-bg-base);
+  border-bottom: 1px solid var(--color-panel-border);
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.op-take-pill {
+  padding: 2px 6.5px;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  cursor: pointer;
+  border: 1px solid var(--color-panel-border);
+  background: var(--color-panel-surface);
+  color: var(--color-text-dim);
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  user-select: none;
+}
+
+.op-take-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-main);
+}
+
+.op-take-pill.chip-completed {
+  background: rgba(0, 230, 118, 0.14);
+  border-color: rgba(0, 230, 118, 0.45);
+  color: var(--color-accent);
+}
+
+.op-take-pill.chip-running {
+  background: rgba(255, 171, 0, 0.18);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  box-shadow: 0 0 10px rgba(255, 171, 0, 0.35);
+}
+
+.op-take-pill.chip-queued {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-panel-border);
+  color: var(--color-text-dim);
+}
+
+.op-take-pill.chip-invalid {
+  background: rgba(255, 82, 82, 0.16);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.op-take-pill.active {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  color: var(--color-text-main);
+  font-weight: 800;
+}
+
+.operator-modal-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--color-panel-border-dim, rgba(255,255,255,0.06));
+  position: relative;
+}
+
+.operator-modal-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.25s ease;
+}
+
+.operator-modal-cards-mount {
+  padding: 16px 20px;
+  background: var(--color-panel-surface);
+  border-bottom: 1px solid var(--color-panel-border);
+}
+
+.operator-modal-telemetry-strip {
+  padding: 10px 18px;
+  background: var(--color-bg-base);
+  border-bottom: 1px solid var(--color-panel-border);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.operator-mini-plotter-box {
+  flex: 1;
+  height: 95px;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border);
+  border-radius: var(--radius-sm, 6px);
+  position: relative;
+  overflow: hidden;
+}
+
+.operator-telemetry-metrics {
+  width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.operator-modal-footer {
+  padding: 12px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-panel-surface-elevated);
+  border-top: 1px solid var(--color-panel-border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Invalid / Needs Retake Point Pill */
+.stage3-point-pill.is-invalid {
+  border-color: rgba(255, 82, 82, 0.5);
+  background: rgba(255, 82, 82, 0.08);
+}
+
+.stage3-point-pill.is-invalid .pt-badge {
+  color: var(--color-danger);
+}
+
+.operator-modal-footer .btn:disabled {
+  opacity: 0.38 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: grayscale(0.5);
+}
+
+
+

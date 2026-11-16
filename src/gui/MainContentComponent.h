@@ -38,6 +38,9 @@
 #include "gui/InfoDrawer.h"
 #include "gui/AboutModalDialog.h"
 #include "gui/NativeCalibrationPanel.h"
+#include "calibration/ActiveCalibrationContext.h"
+#include "calibration/LoopbackProfileStore.h"
+#include "calibration/AsyncLoopbackProfileLoader.h"
 #include "gui/HardwareSelectorPill.h"
 #include "gui/AudioMidiStatusPill.h"
 #include "gui/SoundIdSplashScreen.h"
@@ -74,6 +77,7 @@
 #include "gui/session/ProfilingSessionController.h"
 #include "gui/session/UiStrings.h"
 #include "gui/soundid/SoundIdProfilingRunView.h"
+#include "gui/soundid/SoundIdResultsSummaryView.h"
 #include "gui/soundid/SoundIdTargetView.h"
 #include "gui/soundid/SoundIdExcitationConfigPanel.h"
 
@@ -125,6 +129,10 @@ public:
     void showInfoDrawer();
     void updateSetupDrawerInfo();
     void chooseExportFolder();
+    void promptSelectWorkingDirectory();
+    void openWorkingDirectoryInExplorer();
+    void openReportsFolderInExplorer();
+    void applyWorkingDirectory(const juce::File& newRoot);
     void onHardwareSelected(const juce::String& hwId, const juce::String& funcId);
     void hidePromptAfterDelay(int delayMs = 4000);
     void handleClearPoint(int queueIdx, int pointIdx);
@@ -133,6 +141,8 @@ public:
     void confirmManualStep();
     void openAudioMidiSettings();
     void showAboutDialog();
+    void triggerAsyncLoopbackProfileDetection();
+    void loadAndApplyLoopbackProfile(const calibration::LoopbackProfile& profile);
 
     core::ProfilingSession buildProfilingSessionFromQueue(const std::string& hwName, const std::string& modeStr);
     void startTargetedPatchSession(const std::vector<std::pair<int, int>>& pointsToPatch);
@@ -228,6 +238,9 @@ private:
     gui::PluginWindowController pluginWindowController;
     gui::PluginScanDirectoriesModal pluginScanModal;
     std::unique_ptr<ABDShared::AutoUpdater> autoUpdater;
+    std::shared_ptr<calibration::ActiveCalibrationContext> activeCalibrationContext { std::make_shared<calibration::ActiveCalibrationContext>() };
+    calibration::LoopbackProfileStore loopbackProfileStore;
+    juce::ThreadPool backgroundThreadPool { 2 };
     core::ProfilingSequencer sequencer;
     core::SessionManager sessionManager;
 
@@ -238,6 +251,8 @@ private:
     juce::File settingsFile;
     juce::File exportDirectory;
     gui::SessionReportManager sessionReportManager;
+    std::unique_ptr<juce::FileChooser> workingDirectoryChooser;
+    bool userDismissedDirectoryWarning { false };
     int totalPointsMeasured { 0 };
     bool isPatchingSession { false };
 
@@ -321,6 +336,7 @@ private:
 
     // Profiling Views and Workflow State
     std::unique_ptr<gui::soundid::SoundIdProfilingRunView> profilingRunView;
+    std::unique_ptr<gui::soundid::SoundIdResultsSummaryView> resultsSummaryView;
     gui::session::UiWorkflowMode currentWorkflowMode { gui::session::UiWorkflowMode::Classic };
     void setWorkflowMode(gui::session::UiWorkflowMode mode);
     void setupGuidedWorkflowInitialData();

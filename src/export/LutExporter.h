@@ -12,6 +12,7 @@
 #include <utility>
 #include "../math/LabAnalyticEngine.h"
 #include "../core/ProfilingSession.h"
+#include "../synth/ModelEvaluationTypes.h"
 
 namespace abdaudiolab::exporting
 {
@@ -81,6 +82,7 @@ struct SessionManifestData
     float autoTrimGainDb { 0.0f };       /**< Auto-trim gain offset in dB. */
     float noiseFloorRmsDb { -80.0f };    /**< Noise floor RMS level in dBFS. */
     float averageSnrDb { 30.0f };        /**< Average SNR across measurements. */
+    std::string calibrationMode { "ValidatedPhysicalLoopback" }; /**< Loopback calibration mode ("ValidatedPhysicalLoopback" or "Bypass"). */
     std::vector<ControlGridManifest> gridConfig; /**< Control grid configuration vector. */
     std::string cppHeaderFilename;       /**< Generated C++ header filename. */
     std::string jsonReportFilename;      /**< Generated JSON report filename. */
@@ -136,6 +138,38 @@ public:
     static bool exportToJsonReport(const std::string& destinationJsonPath,
                                    const core::ProfilingMetadata& metadata,
                                    const std::vector<MeasuredPoint>& points);
+
+    /**
+     * @brief Exports measured points into a certified C++17 header with metrological validation metadata and compile-time guards.
+     * @param destinationHeaderPath Target filesystem path for header output.
+     * @param metadata Profiling session metadata.
+     * @param tableName C++ variable identifier name for the generated LUT array.
+     * @param points Vector of measured data points.
+     * @param evaluation Full canonical evaluation record.
+     * @param allowUnvalidatedOverride If true, exports unvalidated models with fatal #error compile guard.
+     * @return true on success, false if blocked by failed validation (without override) or write error.
+     */
+    static bool exportToCertifiedCppHeader(const std::string& destinationHeaderPath,
+                                           const core::ProfilingMetadata& metadata,
+                                           const std::string& tableName,
+                                           const std::vector<MeasuredPoint>& points,
+                                           const synth::ModelEvaluation& evaluation,
+                                           bool allowUnvalidatedOverride = false);
+
+    /**
+     * @brief Exports measured session points into a structured JSON report with metrological certification block.
+     * @param destinationJsonPath Target filesystem path for JSON report.
+     * @param metadata Profiling session metadata.
+     * @param points Vector of measured data points.
+     * @param evaluation Full canonical evaluation record.
+     * @param allowUnvalidatedOverride If true, exports unvalidated models.
+     * @return true on success, false if blocked by failed validation (without override) or write error.
+     */
+    static bool exportToCertifiedJsonReport(const std::string& destinationJsonPath,
+                                            const core::ProfilingMetadata& metadata,
+                                            const std::vector<MeasuredPoint>& points,
+                                            const synth::ModelEvaluation& evaluation,
+                                            bool allowUnvalidatedOverride = false);
 
     /**
      * @brief Exports full session manifest metadata and measurement points into JSON container file.

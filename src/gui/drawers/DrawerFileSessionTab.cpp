@@ -72,7 +72,7 @@ DrawerFileSessionTab::DrawerFileSessionTab()
     txtOperatorNotes.setColour(juce::TextEditor::textColourId, SoundIdTheme::textPrimary);
     addAndMakeVisible(txtOperatorNotes);
 
-    lblAmbientTemp.setText("Ambient Temp (\xc2\xb0\x43):", juce::dontSendNotification);
+    lblAmbientTemp.setText(juce::String::fromUTF8(u8"Ambient Temp (°C):"), juce::dontSendNotification);
     lblAmbientTemp.setFont(juce::FontOptions(10.0f));
     lblAmbientTemp.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
     addAndMakeVisible(lblAmbientTemp);

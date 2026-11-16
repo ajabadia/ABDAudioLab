@@ -77,6 +77,11 @@ public:
     static std::vector<ComponentPresetRecommendation> getPresetsForCategory(ComponentCategory cat);
     static ComponentPresetRecommendation getPresetById(const std::string& typologyId);
     static ComponentPresetRecommendation getDefaultFilterPreset();
+
+    // Query & Taxonomy Helpers
+    static bool hasPreset(const std::string& typologyId);
+    static std::vector<ComponentPresetRecommendation> getPresetsForBadge(const std::string& badgeText);
+    static std::vector<std::string> getAllTypologyIds();
 };
 
 } // namespace abdaudiolab::core

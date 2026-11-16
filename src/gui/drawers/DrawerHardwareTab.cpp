@@ -22,7 +22,7 @@ public:
                          std::function<void(const abd::hwid::HardwarePickResult&)> onResult,
                          const abd::hwid::HardwareMidiDetector::DetectionConfig& config = {},
                          bool startVisible = true)
-        : DocumentWindow("Hardware MIDI Auto-Detection (ABDSharedCode)",
+        : DocumentWindow("Hardware MIDI Auto-Detection (ABDShared)",
                          AppTheme::BackgroundApp,
                          DocumentWindow::closeButton),
           resultCallback(std::move(onResult))
@@ -39,7 +39,7 @@ public:
             },
             contracts,
             config,
-            AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light"
+            AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light"
         );
 
         setContentOwned(picker, true);
@@ -86,7 +86,7 @@ public:
         setBackgroundColour(AppTheme::BackgroundApp);
         if (auto* picker = dynamic_cast<abd::hwid::JuceHardwareMidiPicker*>(getContentComponent()))
         {
-            picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "dark" : "audiolab-light");
+            picker->setTheme(AppTheme::currentMode == AppTheme::ThemeMode::Dark ? "audiolab" : "audiolab-light");
         }
         repaint();
     }
@@ -323,8 +323,12 @@ void DrawerHardwareTab::openHardwarePickerModal()
 
 void DrawerHardwareTab::preWarmHardwarePicker()
 {
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() called.");
     if (pickerWindow != nullptr)
+    {
+        juce::Logger::writeToLog("[DrawerHardwareTab] pickerWindow already exists, returning.");
         return;
+    }
 
     std::vector<abd::hwid::HardwareContract> sharedContracts;
     sharedContracts.reserve(availableContracts.size());
@@ -362,6 +366,7 @@ void DrawerHardwareTab::preWarmHardwarePicker()
     detectionConfig.includeHeuristic = true;
     detectionConfig.requireSysExVerified = false;
 
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() instantiating HardwarePickerWindow...");
     pickerWindow = std::make_unique<HardwarePickerWindow>(
         *midiBackend,
         sharedContracts,
@@ -369,6 +374,7 @@ void DrawerHardwareTab::preWarmHardwarePicker()
         detectionConfig,
         false // Start invisible to pre-warm WebView2 runtime in background
     );
+    juce::Logger::writeToLog("[DrawerHardwareTab] preWarmHardwarePicker() completed.");
 }
 
 void DrawerHardwareTab::setHardwareList(const std::vector<HardwareItem>& list)

@@ -35,6 +35,12 @@ void MainContentComponent::startProfilingSession(bool resumeFromExisting)
     if (sessionCoordinator.isRunningSession())
         return;
 
+    if (currentWorkflowMode == gui::session::UiWorkflowMode::Guided &&
+        !gui::session::hasRealTargetInSnapshot(profilingSessionController.getCurrentSnapshot()))
+    {
+        return;
+    }
+
     if (suiteList.getQueueSize() <= 0)
     {
         manualPromptLabel.setText("Please add at least one test to the Session Plan before starting.", juce::dontSendNotification);

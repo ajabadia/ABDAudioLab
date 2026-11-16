@@ -28,24 +28,73 @@ void parseSetupActions (const nlohmann::json& arrJson,
             continue;
 
         HardwareSetupAction act;
-        act.description = aJson.value ("description", "");
+        if (aJson.contains("description") && aJson["description"].is_string())
+            act.description = aJson["description"].get<std::string>();
 
-        const auto methodStr = aJson.value ("method", "MIDI_CC");
+        std::string methodStr = "MIDI_CC";
+        if (aJson.contains("method") && aJson["method"].is_string())
+            methodStr = aJson["method"].get<std::string>();
 
         if (methodStr == "NRPN")              act.method = HardwareMethod::NRPN;
         else if (methodStr == "SYSEX_RAW")    act.method = HardwareMethod::SYSEX_RAW;
         else if (methodStr == "MANUAL_PROMPT") act.method = HardwareMethod::MANUAL_PROMPT;
         else                                  act.method = HardwareMethod::MIDI_CC;
 
-        act.channel = aJson.value ("channel", 1);
-        act.controlNumber = aJson.value ("controlNumber",
-                                         aJson.value ("cc", aJson.value ("nrpn", -1)));
-        act.normalizedValue = aJson.value ("normalizedValue",
-                                           aJson.value ("value", 0.0f));
-        act.sysexHexPayload = aJson.value ("sysexHexPayload",
-                                           aJson.value ("sysexHex", ""));
-        act.settlingDelayMs = aJson.value ("settlingDelayMs", 50);
+        if (aJson.contains("channel") && aJson["channel"].is_number())
+            act.channel = aJson["channel"].get<int>();
+
+        if (aJson.contains("controlNumber") && aJson["controlNumber"].is_number())
+            act.controlNumber = aJson["controlNumber"].get<int>();
+        else if (aJson.contains("cc") && aJson["cc"].is_number())
+            act.controlNumber = aJson["cc"].get<int>();
+        else if (aJson.contains("nrpn") && aJson["nrpn"].is_number())
+            act.controlNumber = aJson["nrpn"].get<int>();
+
+        if (aJson.contains("normalizedValue") && aJson["normalizedValue"].is_number())
+            act.normalizedValue = aJson["normalizedValue"].get<float>();
+        else if (aJson.contains("value") && aJson["value"].is_number())
+            act.normalizedValue = aJson["value"].get<float>();
+
+        if (aJson.contains("sysexHexPayload") && aJson["sysexHexPayload"].is_string())
+            act.sysexHexPayload = aJson["sysexHexPayload"].get<std::string>();
+        else if (aJson.contains("sysexHex") && aJson["sysexHex"].is_string())
+            act.sysexHexPayload = aJson["sysexHex"].get<std::string>();
+
+        if (aJson.contains("settlingDelayMs") && aJson["settlingDelayMs"].is_number())
+            act.settlingDelayMs = aJson["settlingDelayMs"].get<int>();
+
         actions.push_back (act);
+    }
+}
+
+void parseRoutingGuide (const nlohmann::json& rgJson,
+                        HardwareRoutingGuide& guide)
+{
+    if (! rgJson.is_object())
+        return;
+
+    if (rgJson.contains("stimulusOutput") && rgJson["stimulusOutput"].is_string())
+        guide.stimulusOutput = rgJson["stimulusOutput"].get<std::string>();
+    else if (rgJson.contains("stimulusOutput") && rgJson["stimulusOutput"].is_null())
+        guide.stimulusOutput.clear();
+
+    if (rgJson.contains("responseInput") && rgJson["responseInput"].is_string())
+        guide.responseInput = rgJson["responseInput"].get<std::string>();
+    else if (rgJson.contains("responseInput") && rgJson["responseInput"].is_null())
+        guide.responseInput.clear();
+
+    if (rgJson.contains("notes") && rgJson["notes"].is_string())
+        guide.notes = rgJson["notes"].get<std::string>();
+    else if (rgJson.contains("notes") && rgJson["notes"].is_null())
+        guide.notes.clear();
+
+    if (rgJson.contains ("steps") && rgJson["steps"].is_array())
+    {
+        for (const auto& stepItem : rgJson["steps"])
+        {
+            if (stepItem.is_string())
+                guide.steps.push_back (stepItem.get<std::string>());
+        }
     }
 }
 
@@ -112,6 +161,11 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         if (jsonFile.getFileName().endsWithIgnoreCase(".schema.json"))
             return false;
 
+        // Descartar silenciosamente especificaciones de parámetros de sintetizadores (*_parameter_spec.json)
+        // que residen en contratos compartidos pero son para motores DSP y WebUI, no perfiles de hardware
+        if (jsonFile.getFileName().endsWithIgnoreCase("_parameter_spec.json"))
+            return false;
+
         // Descartar silenciosamente contratos de otros subsistemas que declaran su propio esquema ajeno a hardware_profile
         if (j.contains("$schema") && j["$schema"].is_string())
         {
@@ -154,8 +208,8 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
         // contrato YA retenido sea visible como tal en cualquier consumidor que
         // lo reciba por otra via —el adaptador, un snapshot—, y no solo como una
         // ausencia en esta lista.
-        c.status = j.value("status", std::string());
-        c.statusReason = j.value("statusReason", std::string());
+        c.status = j.value(quarantine::campoEstado, std::string());
+        c.statusReason = j.value(quarantine::campoMotivo, std::string());
         c.brand = j.value("brand", std::string(""));
         c.brandLogo = j.value("brandLogo", std::string(""));
         c.modelImage = j.value("modelImage", std::string(""));
@@ -227,6 +281,12 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
                 parseSetupActions (lc["postSessionTeardown"], c.lifecycle.postSessionTeardown);
         }
 
+        // Parse Contract-Level Routing Guide (Physical Hookup & Cable Verification)
+        if (j.contains("routingGuide") && j["routingGuide"].is_object())
+            parseRoutingGuide (j["routingGuide"], c.routingGuide);
+        else if (j.contains("wiringGuide") && j["wiringGuide"].is_object())
+            parseRoutingGuide (j["wiringGuide"], c.routingGuide);
+
         // Parse Functions (Schema v2)
         if (j.contains("functions") && j["functions"].is_array())
         {
@@ -244,12 +304,17 @@ bool HardwareContractRegistry::loadProfileResilient(const juce::File& jsonFile, 
                 f.silenceThresholdDb = fJson.value("silenceThresholdDb", -60.0f);
 
                 if (fJson.contains("routingGuide") && fJson["routingGuide"].is_object())
-                {
-                    const auto& rg = fJson["routingGuide"];
-                    f.routingGuide.stimulusOutput = rg.value("stimulusOutput", std::string(""));
-                    f.routingGuide.responseInput = rg.value("responseInput", std::string(""));
-                    f.routingGuide.notes = rg.value("notes", std::string(""));
-                }
+                    parseRoutingGuide (fJson["routingGuide"], f.routingGuide);
+                else if (fJson.contains("wiringGuide") && fJson["wiringGuide"].is_object())
+                    parseRoutingGuide (fJson["wiringGuide"], f.routingGuide);
+
+                // Inherit contract-level routing guide defaults if function does not override them
+                if (f.routingGuide.steps.empty() && !c.routingGuide.steps.empty())
+                    f.routingGuide.steps = c.routingGuide.steps;
+                if (f.routingGuide.stimulusOutput.empty() && !c.routingGuide.stimulusOutput.empty())
+                    f.routingGuide.stimulusOutput = c.routingGuide.stimulusOutput;
+                if (f.routingGuide.responseInput.empty() && !c.routingGuide.responseInput.empty())
+                    f.routingGuide.responseInput = c.routingGuide.responseInput;
 
                 if (fJson.contains("measurementRecipe") && fJson["measurementRecipe"].is_object())
                 {
@@ -353,11 +418,15 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
 
     std::vector<HardwareContract> loadedContracts;
 
+    juce::Logger::writeToLog("[HardwareContractRegistry] loadContractsFromDirectory: scanning " + juce::String(files.size()) + " files in " + contractsDir.getFileName());
+
     for (const auto& file : files)
     {
         // Los esquemas JSON Schema (*.schema.json) no son perfiles de hardware
         if (file.getFileName().endsWithIgnoreCase(".schema.json"))
             continue;
+
+        juce::Logger::writeToLog("[HardwareContractRegistry] Evaluating file: " + file.getFileName());
 
         // ── LA CUARENTENA SE MIRA ANTES DE PARSEAR ──
         //
@@ -424,7 +493,7 @@ bool HardwareContractRegistry::loadContractsFromDirectory(const juce::File& cont
             // cajon sin que nadie haya decidido que eso es lo correcto.
             const auto estado = contract.status;
 
-            if (!estado.empty() && estado != "quarantined")
+            if (!estado.empty() && estado != quarantine::valorEstado)
             {
                 const juce::String aviso = "Contrato '" + juce::String(contract.id)
                                            + "' lleva status '" + estado

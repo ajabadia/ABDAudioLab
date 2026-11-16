@@ -65,12 +65,12 @@ void PlotterModulationTableRenderer::paint(juce::Graphics& g)
     float colBarW = 120.0f;
 
     float startX = contentArea.getX();
-    g.drawText("Source ID", startX, currentY, colSrcW, rowHeight, juce::Justification::centredLeft, true);
-    g.drawText("Dest ID", startX + colSrcW, currentY, colDstW, rowHeight, juce::Justification::centredLeft, true);
-    g.drawText("Gain (K)", startX + colSrcW + colDstW, currentY, colGainW, rowHeight, juce::Justification::centredLeft, true);
-    g.drawText("Offset (c)", startX + colSrcW + colDstW + colGainW, currentY, colOffsetW, rowHeight, juce::Justification::centredLeft, true);
-    g.drawText("Linearity (R^2)", startX + colSrcW + colDstW + colGainW + colOffsetW, currentY, colLinW, rowHeight, juce::Justification::centredLeft, true);
-    g.drawText("Fit Quality", startX + colSrcW + colDstW + colGainW + colOffsetW + colLinW, currentY, colBarW, rowHeight, juce::Justification::centredLeft, true);
+    g.drawText("Source ID", juce::Rectangle<float>(startX, currentY, colSrcW, rowHeight), juce::Justification::centredLeft, true);
+    g.drawText("Dest ID", juce::Rectangle<float>(startX + colSrcW, currentY, colDstW, rowHeight), juce::Justification::centredLeft, true);
+    g.drawText("Gain (K)", juce::Rectangle<float>(startX + colSrcW + colDstW, currentY, colGainW, rowHeight), juce::Justification::centredLeft, true);
+    g.drawText("Offset (c)", juce::Rectangle<float>(startX + colSrcW + colDstW + colGainW, currentY, colOffsetW, rowHeight), juce::Justification::centredLeft, true);
+    g.drawText("Linearity (R^2)", juce::Rectangle<float>(startX + colSrcW + colDstW + colGainW + colOffsetW, currentY, colLinW, rowHeight), juce::Justification::centredLeft, true);
+    g.drawText("Fit Quality", juce::Rectangle<float>(startX + colSrcW + colDstW + colGainW + colOffsetW + colLinW, currentY, colBarW, rowHeight), juce::Justification::centredLeft, true);
 
     currentY += rowHeight + 2.0f;
     g.setColour(SoundIdTheme::borderSubtle);
@@ -95,16 +95,16 @@ void PlotterModulationTableRenderer::paint(juce::Graphics& g)
         }
 
         g.setColour(SoundIdTheme::textPrimary);
-        g.drawText("Src #" + juce::String(node.sourceID), startX, currentY, colSrcW, rowHeight, juce::Justification::centredLeft, true);
-        g.drawText("Dst #" + juce::String(node.destID), startX + colSrcW, currentY, colDstW, rowHeight, juce::Justification::centredLeft, true);
+        g.drawText("Src #" + juce::String(node.sourceID), juce::Rectangle<float>(startX, currentY, colSrcW, rowHeight), juce::Justification::centredLeft, true);
+        g.drawText("Dst #" + juce::String(node.destID), juce::Rectangle<float>(startX + colSrcW, currentY, colDstW, rowHeight), juce::Justification::centredLeft, true);
 
         // K scalar
         g.setColour(juce::Colour(0xff06b6d4)); // Cyan
-        g.drawText(juce::String(node.kScalar, 4), startX + colSrcW + colDstW, currentY, colGainW, rowHeight, juce::Justification::centredLeft, true);
+        g.drawText(juce::String(node.kScalar, 4), juce::Rectangle<float>(startX + colSrcW + colDstW, currentY, colGainW, rowHeight), juce::Justification::centredLeft, true);
 
         // Offset c
         g.setColour(SoundIdTheme::textSecondary);
-        g.drawText(juce::String(node.offsetC, 2), startX + colSrcW + colDstW + colGainW, currentY, colOffsetW, rowHeight, juce::Justification::centredLeft, true);
+        g.drawText(juce::String(node.offsetC, 2), juce::Rectangle<float>(startX + colSrcW + colDstW + colGainW, currentY, colOffsetW, rowHeight), juce::Justification::centredLeft, true);
 
         // R^2 badge
         juce::Colour statusColor = (node.rSquared >= 0.95f) ? juce::Colour(0xff10b981) // Emerald Green
@@ -112,7 +112,7 @@ void PlotterModulationTableRenderer::paint(juce::Graphics& g)
                                  : juce::Colour(0xffef4444);                          // Red
 
         g.setColour(statusColor);
-        g.drawText(juce::String(node.rSquared, 4), startX + colSrcW + colDstW + colGainW + colOffsetW, currentY, colLinW, rowHeight, juce::Justification::centredLeft, true);
+        g.drawText(juce::String(node.rSquared, 4), juce::Rectangle<float>(startX + colSrcW + colDstW + colGainW + colOffsetW, currentY, colLinW, rowHeight), juce::Justification::centredLeft, true);
 
         // Progress-style Quality Bar
         float barX = startX + colSrcW + colDstW + colGainW + colOffsetW + colLinW;

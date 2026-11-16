@@ -305,3 +305,105 @@ TEST_CASE("CalibrationProfileStore: Directorio no escribible o fallo de escritur
     CHECK(store.list().empty());
 }
 
+TEST_CASE("CalibrationProfileStore: Guardado atomico y carga de CalibrationSnapshot con displayName", "[calibration][store][snapshot]")
+{
+    auto scratch = abdaudiolab::test::ScratchDir("calib_store_snapshot_save");
+    CalibrationProfileStore store(scratch.path());
+
+    CalibrationSnapshot snap;
+    snap.schemaVersion = 1;
+    snap.displayName = "PreSonus AudioBox USB — Out 1 -> In 1 — 44.1 kHz";
+    snap.profileId = "audiobox-out1-in1-44k";
+    snap.createdAt = "2026-10-05T10:00:00Z";
+
+    snap.compatibility.deviceStableId = "AudioBox USB";
+    snap.compatibility.driverType = "ASIO";
+    snap.compatibility.sampleRateHz = 44100.0;
+    snap.compatibility.bufferSamples = 256;
+    snap.compatibility.inputChannelIndex = 0;
+    snap.compatibility.outputChannelIndex = 0;
+    snap.compatibility.routingDescription = "Main Out 1 -> Input 1";
+
+    snap.result.calibrationStatus = "Valid";
+    snap.result.rtlSamples = 256;
+    snap.result.rtlMs = 5.80;
+    snap.result.peakDbfs = -3.0f;
+    snap.result.flatnessDeltaDb = 0.5f;
+    snap.result.snrDb = 90.7f;
+    snap.result.interfaceTrimDb = -2.57f;
+    snap.result.clippingSamples = 0;
+
+    snap.integrity.snapshotHash = snap.computeHash();
+
+    // 1. Guardado
+    auto res = store.saveSnapshot(snap);
+    REQUIRE(res.success == true);
+    REQUIRE(res.profileId == "audiobox-out1-in1-44k");
+
+    // 2. Carga y verificación de displayName
+    auto loadedOpt = store.loadSnapshot("audiobox-out1-in1-44k");
+    REQUIRE(loadedOpt.has_value());
+    const auto& loaded = *loadedOpt;
+
+    CHECK(loaded.displayName == "PreSonus AudioBox USB — Out 1 -> In 1 — 44.1 kHz");
+    CHECK(loaded.profileId == "audiobox-out1-in1-44k");
+    CHECK(loaded.compatibility.sampleRateHz == 44100.0);
+    CHECK(loaded.result.rtlSamples == 256);
+    CHECK(loaded.verifyIntegrity() == true);
+
+    // 3. Listado de snapshots
+    auto list = store.listSnapshots();
+    REQUIRE(list.size() == 1);
+    CHECK(list[0].displayName == "PreSonus AudioBox USB — Out 1 -> In 1 — 44.1 kHz");
+}
+
+TEST_CASE("CalibrationProfileStore: loadSnapshot migra de forma transparente registros legacy", "[calibration][store][migration]")
+{
+    auto scratch = abdaudiolab::test::ScratchDir("calib_store_legacy_migration");
+    CalibrationProfileStore store(scratch.path());
+
+    // Save legacy record
+    auto legacy = makeValidRecord("legacy-focusrite", "2026-10-04T10:00:00Z");
+    REQUIRE(store.save(legacy).success);
+
+    // Load as snapshot
+    auto snapOpt = store.loadSnapshot("legacy-focusrite");
+    REQUIRE(snapOpt.has_value());
+    const auto& snap = *snapOpt;
+
+    CHECK(snap.profileId == "legacy-focusrite");
+    CHECK(snap.compatibility.deviceStableId == "Focusrite USB ASIO");
+    CHECK(snap.compatibility.sampleRateHz == 48000.0);
+    CHECK(snap.result.rtlSamples == 595);
+    CHECK_FALSE(snap.displayName.empty());
+
+    // Bidireccional: un snapshot guardado con saveSnapshot es cargado por load() legacy
+    CalibrationSnapshot newSnap;
+    newSnap.schemaVersion = 1;
+    newSnap.profileId = "new-snapshot-bidir";
+    newSnap.displayName = "Focusrite — Out 1 -> In 1 — 48 kHz";
+    newSnap.createdAt = "2026-10-05T12:00:00Z";
+    newSnap.compatibility.deviceStableId = "Focusrite USB ASIO";
+    newSnap.compatibility.driverType = "ASIO";
+    newSnap.compatibility.sampleRateHz = 48000.0;
+    newSnap.compatibility.bufferSamples = 256;
+    newSnap.result.calibrationStatus = "Valid";
+    newSnap.result.rtlSamples = 595;
+    newSnap.result.rtlMs = 12.39;
+    newSnap.result.peakDbfs = -2.57f;
+    newSnap.result.interfaceTrimDb = -2.57f;
+    newSnap.integrity.snapshotHash = newSnap.computeHash();
+
+    REQUIRE(store.saveSnapshot(newSnap).success);
+
+    auto loadedViaLegacy = store.load("new-snapshot-bidir");
+    REQUIRE(loadedViaLegacy.has_value());
+    CHECK(loadedViaLegacy->profileId == "new-snapshot-bidir");
+    CHECK(loadedViaLegacy->deviceSnapshot.deviceName == "Focusrite USB ASIO");
+    CHECK(loadedViaLegacy->calibrationResult.latencySamples == 595);
+
+    auto allLegacyList = store.list();
+    CHECK(allLegacyList.size() == 2);
+}
+
+

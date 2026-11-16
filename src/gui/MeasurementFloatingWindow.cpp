@@ -7,6 +7,7 @@
 
 #include "MeasurementFloatingWindow.h"
 #include "SoundIdTheme.h"
+#include "NativeTitleBarDwm.h"
 
 namespace abdaudiolab::gui
 {
@@ -24,6 +25,9 @@ MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
     setResizable (true, true);
     setResizeLimits (minWidth, minHeight, 2560, 1440);
     setContentOwned (contentComponent, true);
+
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+    applyNativeTitleBarDarkMode (this, isDark);
 
     setSize (defaultWidth, defaultHeight);
     if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
@@ -44,6 +48,8 @@ MeasurementFloatingWindow::MeasurementFloatingWindow (const juce::String& title,
 
 void MeasurementFloatingWindow::updateTheme()
 {
+    const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+    applyNativeTitleBarDarkMode (this, isDark);
     setBackgroundColour (AppTheme::BackgroundApp);
 
     // Sin `dynamic_cast` y sin preguntar de que tipo es el contenido: el puntero
@@ -53,6 +59,16 @@ void MeasurementFloatingWindow::updateTheme()
         themedContent->updateTheme();
 
     repaint();
+}
+
+void MeasurementFloatingWindow::visibilityChanged()
+{
+    DocumentWindow::visibilityChanged();
+    if (isVisible())
+    {
+        const bool isDark = (gui::AppTheme::currentMode == gui::AppTheme::ThemeMode::Dark);
+        applyNativeTitleBarDarkMode (this, isDark);
+    }
 }
 
 void MeasurementFloatingWindow::closeButtonPressed()

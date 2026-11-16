@@ -36,6 +36,14 @@ public:
         repaint();
     }
 
+    void setCalibrationStatus(bool calibrated, bool firActive = false, float clockDriftPpm = 0.0f)
+    {
+        isCalibrated = calibrated;
+        isFirActive = firActive;
+        currentClockDriftPpm = clockDriftPpm;
+        repaint();
+    }
+
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
@@ -116,7 +124,37 @@ public:
             g.fillRoundedRectangle(barArea.withWidth(barArea.getWidth() * progressFrac), 1.5f);
         }
 
-        // --- 5. Active Test ID ---
+        // --- 5. Calibration / FIR Badge ---
+        area.removeFromLeft(10.0f);
+        auto calArea = area.removeFromLeft(110.0f);
+        auto calBadge = calArea.withSizeKeepingCentre(calArea.getWidth(), 18.0f);
+        const juce::Colour calColor = isCalibrated
+            ? (isFirActive ? SoundIdTheme::accentGreen : SoundIdTheme::accentCyan)
+            : SoundIdTheme::textMuted;
+        const juce::String calLabel = isCalibrated
+            ? (isFirActive ? "CAL: FIR+TRIM" : "CAL: TRIM")
+            : "UNCALIBRATED";
+        g.setColour(calColor.withAlpha(0.16f));
+        g.fillRoundedRectangle(calBadge, 6.0f);
+        g.setColour(calColor.withAlpha(0.75f));
+        g.drawRoundedRectangle(calBadge, 6.0f, 1.0f);
+        g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+        g.setColour(calColor.darker(0.15f));
+        g.drawText(calLabel, calBadge, juce::Justification::centred, true);
+
+        if (std::abs(currentClockDriftPpm) >= 5.0f)
+        {
+            area.removeFromLeft(8.0f);
+            auto driftArea = area.removeFromLeft(90.0f);
+            const bool highDrift = std::abs(currentClockDriftPpm) > 50.0f;
+            g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+            g.setColour(highDrift ? SoundIdTheme::accentAmber : SoundIdTheme::textSecondary);
+            const juce::String sign = currentClockDriftPpm >= 0.0f ? "+" : "";
+            g.drawText("Drift: " + sign + juce::String(currentClockDriftPpm, 0) + " ppm",
+                       driftArea, juce::Justification::centredLeft, true);
+        }
+
+        // --- 6. Active Test ID ---
         if (latestTestId.isNotEmpty())
         {
             g.setColour(SoundIdTheme::textMuted);
@@ -132,6 +170,9 @@ private:
     float currentNoiseFloorDb { -96.0f };
     int currentPointsDone { 0 };
     int currentPointsTotal { 0 };
+    bool isCalibrated { false };
+    bool isFirActive { false };
+    float currentClockDriftPpm { 0.0f };
     juce::String latestTestId;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MeasurementHealthPanel)

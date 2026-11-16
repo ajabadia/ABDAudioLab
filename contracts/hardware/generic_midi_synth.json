@@ -12,6 +12,40 @@
     "model": "Generic CC/NRPN Synth",
     "autoDetectSysEx": "F0 7E 7F 06 01 F7"
   },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "All Sound Off",
+        "method": "MIDI_CC",
+        "controlNumber": 120,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Reset All Controllers",
+        "method": "MIDI_CC",
+        "controlNumber": 121,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      },
+      {
+        "description": "Modulation Wheel Zero",
+        "method": "MIDI_CC",
+        "controlNumber": 1,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 30
+      }
+    ],
+    "postSessionTeardown": [
+      {
+        "description": "All Sound Off Post-Session",
+        "method": "MIDI_CC",
+        "controlNumber": 120,
+        "normalizedValue": 0.0,
+        "settlingDelayMs": 20
+      }
+    ]
+  },
   "functions": [
     {
       "id": "filter_section",

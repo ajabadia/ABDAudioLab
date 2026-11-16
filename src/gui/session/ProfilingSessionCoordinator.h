@@ -14,6 +14,8 @@
 #include "synth/ModelEvaluationTypes.h"
 #include "synth/ModelEvaluationBuilder.h"
 
+namespace abdaudiolab::audio { class LabAudioEngine; }
+
 namespace abdaudiolab::gui::session
 {
 
@@ -103,8 +105,17 @@ public:
     ~ProfilingSessionCoordinator() override;
 
     void setListener(ICoordinatorListener* listener);
+    void setAudioEngine(audio::LabAudioEngine* engine) noexcept { audioEngine_ = engine; }
+    [[nodiscard]] audio::LabAudioEngine* getAudioEngine() const noexcept { return audioEngine_; }
 
-    [[nodiscard]] bool start(const TargetSelectionState& target, uint64_t sessionGeneration, int totalTrials = 20, int trialDelayMs = 40);
+    [[nodiscard]] bool start(const TargetSelectionState& target,
+                             uint64_t sessionGeneration,
+                             int totalTrials = 20,
+                             int trialDelayMs = 40,
+                             double trialDurationSec = 2.0,
+                             bool adaptiveTailEnabled = false,
+                             double tailThresholdDb = -60.0,
+                             AcquisitionExecutionMode executionMode = AcquisitionExecutionMode::Realtime);
     void pause();
     void resume();
     void requestCancel();
@@ -114,7 +125,7 @@ public:
     [[nodiscard]] uint64_t getCurrentRunId() const noexcept { return currentRunId_.load(std::memory_order_acquire); }
     [[nodiscard]] bool isRunning() const;
 
-    void waitForWorkerToStop(int timeoutMs = 3000);
+    bool waitForWorkerToStop(int timeoutMs = 3000);
 
     // Permite inyectar fallo para pruebas unitarias
     void setSimulateValidationFailure(bool fail) noexcept { simulateValidationFailure_ = fail; }
@@ -134,13 +145,18 @@ private:
     std::atomic<bool> cancelRequested_ { false };
     std::atomic<bool> isPaused_ { false };
     std::atomic<bool> simulateValidationFailure_ { false };
-    std::atomic<double> watchdogBlockTimeoutMs_ { 500.0 };
+    std::atomic<double> watchdogBlockTimeoutMs_ { 5000.0 };
 
     int totalTrialsToRun_ { 20 };
     int trialDelayMs_ { 40 };
+    double trialDurationSec_ { 2.0 };
+    bool adaptiveTailEnabled_ { false };
+    double tailThresholdDb_ { -60.0 };
+    AcquisitionExecutionMode executionMode_ { AcquisitionExecutionMode::Realtime };
 
     TargetSelectionState activeTarget_;
     CoordinatorSnapshot latestSnapshot_;
+    audio::LabAudioEngine* audioEngine_ { nullptr };
 
     std::shared_ptr<std::atomic<bool>> aliveToken_;
 

@@ -34,9 +34,12 @@ bool writeWavSamples(const juce::File& file, std::span<const float> samples, dou
     if (file.exists()) file.deleteFile();
     file.getParentDirectory().createDirectory();
 
+    auto outStream = std::unique_ptr<juce::FileOutputStream>(file.createOutputStream());
+    if (outStream == nullptr) return false;
+
     juce::WavAudioFormat wav;
     std::unique_ptr<juce::AudioFormatWriter> writer(wav.createWriterFor(
-        new juce::FileOutputStream(file),
+        outStream.get(),
         sampleRateHz,
         1,
         16,
@@ -44,6 +47,7 @@ bool writeWavSamples(const juce::File& file, std::span<const float> samples, dou
         0));
 
     if (writer == nullptr) return false;
+    outStream.release(); // AudioFormatWriter took ownership
     if (samples.empty()) return true;
 
     int totalSamples = static_cast<int>(samples.size());

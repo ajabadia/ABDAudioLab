@@ -138,8 +138,42 @@ TEST_CASE("LabDataDirectories: Prioridad estricta de resolución", "[directories
         CHECK(dirs.isValid());
         CHECK(dirs.experiments.isDirectory());
         CHECK(dirs.exports.isDirectory());
+        CHECK(dirs.loopbackProfiles.isDirectory());
+        CHECK(dirs.presets.isDirectory());
+        CHECK(dirs.reports.isDirectory());
 
         clearExplicitDataRootOverride();
+    }
+
+    SECTION("6. Subdirectorios unificados por función se crean y resuelven")
+    {
+        juce::String err;
+        REQUIRE(setExplicitDataRootOverride(explicitDir, err));
+        auto dirs = resolveLabDataDirectories();
+        CHECK(dirs.loopbackProfiles.isDirectory());
+        CHECK(dirs.presets.isDirectory());
+        CHECK(dirs.reports.isDirectory());
+        CHECK(dirs.loopbackProfiles.getFullPathName() == explicitDir.getChildFile("loopback_profiles").getFullPathName());
+        CHECK(dirs.presets.getFullPathName() == explicitDir.getChildFile("presets").getFullPathName());
+        CHECK(dirs.reports.getFullPathName() == explicitDir.getChildFile("reports").getFullPathName());
+        CHECK(dirs.isValid());
+        clearExplicitDataRootOverride();
+    }
+
+    SECTION("7. Persistencia y carga de preferencia en lab_settings.json")
+    {
+        juce::File userPrefDir = tempRoot.getChildFile("UserPreferredRoot");
+        userPrefDir.createDirectory();
+
+        juce::String err;
+        bool ok = persistDataRootPreference(userPrefDir, &err);
+        REQUIRE(ok);
+
+        juce::File loaded = loadPersistedDataRootPreference();
+        CHECK(loaded.getFullPathName() == userPrefDir.getFullPathName());
+
+        clearPersistedDataRootPreference();
+        CHECK(loadPersistedDataRootPreference() == juce::File());
     }
 
     tempRoot.deleteRecursively();

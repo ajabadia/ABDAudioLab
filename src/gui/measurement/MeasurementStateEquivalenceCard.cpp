@@ -101,10 +101,10 @@ void MeasurementStateEquivalenceCard::rebuildPairSelector()
     else
     {
         currentResult_.reset();
-        lblStatusBadge_.setText("SIN PARES SUFICIENTES", juce::dontSendNotification);
+        lblStatusBadge_.setText("Awaiting 2+ Captures", juce::dontSendNotification);
         lblStatusBadge_.setColour(juce::Label::backgroundColourId, gui::AppTheme::SurfaceSubtle);
-        lblStatusBadge_.setColour(juce::Label::textColourId, gui::AppTheme::TextMuted);
-        lblReason_.setText("Carga al menos 2 contenedores verificados para comparar equivalencia de estado.", juce::dontSendNotification);
+        lblStatusBadge_.setColour(juce::Label::textColourId, gui::AppTheme::TextSecondary);
+        lblReason_.setText("Load at least 2 verified containers to compare pairwise state equivalence.", juce::dontSendNotification);
         repaint();
     }
 }
@@ -154,7 +154,7 @@ void MeasurementStateEquivalenceCard::paint(juce::Graphics& g)
 
     const int rowH = 18;
     auto row1 = area.removeFromTop(rowH);
-    juce::String dimText = "Nivel: " + pairwiseEquivalenceToString(currentResult_->levelEquivalence) +
+    juce::String dimText = "Level: " + pairwiseEquivalenceToString(currentResult_->levelEquivalence) +
                            " (Delta: " + juce::String(currentResult_->maxAudioDelta, 6) + ")";
     if (currentResult_->timbreEquivalence != PairwiseStateEquivalence::NotComparable)
     {

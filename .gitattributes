@@ -43,3 +43,7 @@
 # que un diff no enseña. Es el mismo agujero que el de los JSON, en un repo que
 # ya lo deja escrito para los JSON, asi que aqui solo se copia la regla.
 *.generado.h text eol=lf
+
+# .sh en LF, incluido .github/prune_baselines.sh: un sh con CRLF no arranca
+# (bash se come el retorno de carro y el fallo sale como error de sintaxis).
+*.sh text eol=lf

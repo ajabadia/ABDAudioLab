@@ -303,7 +303,7 @@ void MeasurementAudioPlayerComponent::paint(juce::Graphics& g)
         g.setColour(AppTheme::AccentError);
         g.drawRoundedRectangle(waveformBounds_, 4.0f, 1.5f);
         g.setFont(juce::Font(12.0f, juce::Font::bold));
-        g.drawText(juce::String::fromUTF8(u8"[X] PLAYBACK BLOCKED — ARTIFACT HASH MISMATCH"), waveformBounds_, juce::Justification::centred, false);
+        g.drawText("[X] PLAYBACK BLOCKED - ARTIFACT HASH MISMATCH", waveformBounds_, juce::Justification::centred, false);
         return;
     }
 

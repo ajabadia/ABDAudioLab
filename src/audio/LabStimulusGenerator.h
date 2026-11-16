@@ -6,6 +6,7 @@
 #include <vector>
 #include <cstdint>
 #include <atomic>
+#include <mutex>
 
 namespace abdaudiolab::audio
 {
@@ -22,7 +23,9 @@ enum class StimulusType
     LogFarinaSweep,
     AmplitudeRamp,
     NamCalibration,    // Full multi-stage Neural Calibration sequence (Sync, dynamic sweep, noise bursts, multitone transients)
-    MetronomeTick     // Rhythmic 800 Hz click for continuous manual calibration sweeps (-24 dBFS)
+    MetronomeTick,     // Rhythmic 800 Hz click for continuous manual calibration sweeps (-24 dBFS)
+    LevelLadderSweep,  // Multi-amplitude logarithmic sweep ladder (-24 dBFS to 0 dBFS)
+    MultitoneIMD       // 31-tone non-harmonic multi-sine battery for intermodulation distortion
 };
 
 /**
@@ -80,24 +83,21 @@ public:
     void processBlock(float* outputBuffer, int numSamples) noexcept;
 
 private:
-    double sampleRate { 96000.0 };
-    StimulusType currentType { StimulusType::Silence };
+    std::atomic<double> sampleRate { 96000.0 };
+    std::atomic<StimulusType> currentType { StimulusType::Silence };
     std::atomic<bool> playing { false };
     std::atomic<bool> finished { false };
 
     std::atomic<int64_t> currentSampleIndex { 0 };
     std::atomic<int64_t> totalSamples { 0 };
 
-    float startFreq { 20.0f };
-    float endFreq { 20000.0f };
-    double sweepDurationSec { 2.0 };
+    std::atomic<float> startFreq { 20.0f };
+    std::atomic<float> endFreq { 20000.0f };
+    std::atomic<double> sweepDurationSec { 2.0 };
 
-    // Los coeficientes del ruido rosa viven en `math/PinkNoise.h`, no aqui.
-    // La matematica estaba duplicada byte a byte con el coordinador de
-    // estimulacion de medicion, y dos copias de la misma regla numerica
-    // divergen sin ruido: el dia que una se toca y la otra no, los dos caminos
-    // dan series distintas y el fallo aparece en un hash, a kilometros del sitio
-    // del cambio. Ver el comentario de ese header para el resto del porque.
+    // Lock-free noise state synchronization between control and audio thread (Zero Mutex in RT)
+    std::atomic<bool> pendingNoiseReseed { false };
+    std::atomic<bool> pendingNoiseFilterClear { false };
     math::PinkNoiseGenerator pinkNoise;
 };
 

@@ -19,7 +19,7 @@ namespace abdaudiolab::core
 std::vector<ComponentPresetRecommendation> AutoTestPresetEngine::getAllPresets()
 {
     std::vector<ComponentPresetRecommendation> masterList;
-    masterList.reserve(52);
+    masterList.reserve(64);
 
     auto filters        = presets::FilterPresetCatalog::getPresets();
     auto modulations    = presets::ModulationPresetCatalog::getPresets();
@@ -62,6 +62,41 @@ ComponentPresetRecommendation AutoTestPresetEngine::getPresetById(const std::str
 ComponentPresetRecommendation AutoTestPresetEngine::getDefaultFilterPreset()
 {
     return getPresetById("vcf_ladder_ota_svf");
+}
+
+bool AutoTestPresetEngine::hasPreset(const std::string& typologyId)
+{
+    auto all = getAllPresets();
+    for (const auto& p : all)
+    {
+        if (p.typologyId == typologyId)
+            return true;
+    }
+    return false;
+}
+
+std::vector<ComponentPresetRecommendation> AutoTestPresetEngine::getPresetsForBadge(const std::string& badgeText)
+{
+    auto all = getAllPresets();
+    std::vector<ComponentPresetRecommendation> matched;
+    for (const auto& p : all)
+    {
+        if (p.badgeText == badgeText)
+            matched.push_back(p);
+    }
+    return matched;
+}
+
+std::vector<std::string> AutoTestPresetEngine::getAllTypologyIds()
+{
+    auto all = getAllPresets();
+    std::vector<std::string> ids;
+    ids.reserve(all.size());
+    for (const auto& p : all)
+    {
+        ids.push_back(p.typologyId);
+    }
+    return ids;
 }
 
 } // namespace abdaudiolab::core

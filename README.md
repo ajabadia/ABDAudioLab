@@ -101,3 +101,53 @@ ABDAudioLab/
 * [Fundamentos Matemáticos y Modelos DSP](docs/MATHEMATICAL_MODELS.md)
 * [Plan de Calidad y Pruebas (QA)](docs/QA_TEST_PLAN.md)
 * [Documento de Traspaso Técnico (Handoff)](docs/HANDOFF.md)
+
+---
+
+## 🔬 Estudio pendiente: integrar las nuevas funciones de ABDShared (grabación + IA)
+
+> Origen: utilidad Rec Recorder de ABDNeuModMakr (roadmap §34, adelanto 2026-11-02).
+> La base ya vive en `@abdsynths/shared` y es reutilizable desde ABDAudioLab (WebUI vía TS,
+> C++ vía port de los algoritmos puros). Estudiar antes del próximo hito de captura/análisis.
+
+### 1. DSP de takes + núcleo grabador (`@abdsynths/shared/dsp/take`, puro TS, cero dependencias)
+- ✅ `recordingEngine.ts` (2026-11-02): máquina de estados + `pushSamples()` + WAV 16-bit
+  sobre interfaz `AudioInputSource` inyectada — la WebUI puede usarlo tal cual implementando
+  el adaptador; el motor C++ necesitaría port del algoritmo, no del código.
+- `normalizePeak` / `normalizeRms` (con tope `maxGainDb`) / `dcBlock` — candidatos a espejo C++
+  en `src/math/` junto a `NoiseFloorTracker` (misma familia funcional: acondicionamiento previo
+  a la medición; el normalizador de exportación ya existe en `RawSamplerExporter`).
+- `detectSilenceRanges` (puerta RMS + hangover) / `trimSilence` — contrasta con el *Adaptive
+  Auto-Tail Cutoff* (Fase 1.7.5): misma necesidad, dos implementaciones; estudiar convergencia
+  en un único detector con parámetros declarativos.
+- `computeNoiseProfile` (nivel dBFS + bandas log + hum 50/60 Hz) — alimenta el mismo caso de uso
+  que `NoiseFloorTracker.h` (`Noise_RMS`, FFT 32 bandas); el `TakeNoiseProfile` puede viajar en el
+  manifiesto `.abdlabtest` como huella de ruido de la sesión.
+- `classifyTake` (router chromatic/drums desde descriptores acústicos) — útil para clasificar
+  automáticamente la excitación capturada (tono musical vs golpe de percusión) antes del análisis.
+
+### 2. Contratos (`Contracts/recordingSession.ts` + `recording_session.schema.json` v1.0.0)
+- `RecordingSession` / `RecordingTake` / `TransportBinding` / `TakeNoiseProfile` — estudiar mapear
+  `ExperimentPlan`/`ProfilingSession` a este contrato para interoperar sesiones grabadas entre
+  ABDAudioLab y ABDNeuModMakr (import de takes clasificados como estímulo de referencia A/B).
+
+### 3. MIDI transporte (`midiLearnStore.js`: `NOTE` + `SYSEX_TRANSPORT`/MMC)
+- `parseMmcCommand()` (SysEx universal `F0 7F … 06 cmd F7`) + badges `MMC PLAY/STOP/…` — reutilizable
+  para control de superficies Mackie/HUI sobre el secuenciador (`ProfilingSequencer` play/stop/record).
+- Los bindings discretos NOTE/MMC conviven con la matriz N:M existente (CC/NRPN/AT/PB).
+
+### 4. Componentes WebUI compartidos (ya en `Components/`, vanilla ES)
+- `VuMeter` (IN/OUT, pico + clip), `SpectrumPlotter`, `ledLadder`, `peakLED` — evaluar para la
+  WebUI (`WebUI/src/`): monitorización de captura sin duplicar vúmetros (`SoundIdMeterStrip`).
+
+### 5. IA a llevar a ABDShared (estudio específico, aún en la app NeuModMakr)
+- `WebNeuralEngine` (WebGPU/WASM/DSP, solo depende de `DspMath`): portable tal cual como
+  abstracción de provider de inferencia en navegador — la WebUI de ABDAudioLab podría usarla
+  para clasificación/timbre sin coste de servidor.
+- Núcleo YIN + descriptores + clasificador de `AcousticIntelligence.ts`: portable tras desacoplar
+  imports de app; migración propuesta a `Code/DspCore/NeuronAnalysis/takeClassification.ts`
+  (mismo patrón que `LayerClustering.ts`, ya portado). counterpart C++: `ModulationEstimator` /
+  `IntermodulationAnalyzer` como referencia de validación cruzada.
+- `MasterWaveEnhancer` / `AudioSlicerEngine`: NO portables hoy (dependen de UI/decoders de app);
+  solo extraer sus núcleos DSP puros si ABDAudioLab los necesita (NCC de `LoopEditorTools`,
+  anclaje a zero-crossing).

@@ -9,7 +9,7 @@ std::vector<ComponentPresetRecommendation> FilterPresetCatalog::getPresets()
     std::vector<ComponentPresetRecommendation> list;
 
     // =========================================================================
-    // Filtros & Tone Shapers Clásicos (4 presets)
+    // Filtros & Tone Shapers Clásicos (5 presets)
     // =========================================================================
     {
         ComponentPresetRecommendation p;
@@ -28,6 +28,25 @@ std::vector<ComponentPresetRecommendation> FilterPresetCatalog::getPresets()
         p.recommendedSteps = 16;
         p.stimulusDescription = "Logarithmic Sine Sweep 10 Hz - 24 kHz";
         p.routingNotes = "Interface DAC Out -> VCF Audio In -> Interface ADC In";
+        list.push_back(p);
+    }
+    {
+        ComponentPresetRecommendation p;
+        p.typologyId = "filter_tpt_state_variable";
+        p.displayName = "TPT / ZDF Multi-Mode State Variable Filter (LP/BP/HP/Notch)";
+        p.category = ComponentCategory::FiltersAndToneShapers;
+        p.badgeText = "SVF";
+        p.algorithmName = "Topology-Preserving Transform (ZDF) Pole-Zero Decomposition + Q Tuning";
+        p.stimulusType = audio::StimulusType::LogFarinaSweep;
+        p.captureMode = "FIXED_TIME";
+        p.recommendedSamples = 96000;
+        p.recommendedFftSize = 4096;
+        p.burstDurationSec = 2.0f;
+        p.preRollMs = 100.0f;
+        p.settlingWaitMs = 250.0f;
+        p.recommendedSteps = 16;
+        p.stimulusDescription = "Logarithmic Sine Sweep (10 Hz - 24 kHz) at nominal -12 dBFS";
+        p.routingNotes = "DAC Out -> SVF Input -> SVF Mode Output (LP/BP/HP) -> ADC In";
         list.push_back(p);
     }
     {

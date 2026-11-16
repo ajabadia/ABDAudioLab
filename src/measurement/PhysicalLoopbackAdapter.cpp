@@ -24,9 +24,13 @@ bool writeWavFile(const juce::File& file, const std::vector<float>& samples, dou
     if (file.exists())
         file.deleteFile();
 
+    auto outStream = std::unique_ptr<juce::FileOutputStream>(file.createOutputStream());
+    if (outStream == nullptr)
+        return false;
+
     juce::WavAudioFormat wavFormat;
     std::unique_ptr<juce::AudioFormatWriter> writer(wavFormat.createWriterFor(
-        new juce::FileOutputStream(file),
+        outStream.get(),
         sampleRate,
         1,
         24,
@@ -35,6 +39,8 @@ bool writeWavFile(const juce::File& file, const std::vector<float>& samples, dou
 
     if (writer == nullptr)
         return false;
+
+    outStream.release(); // AudioFormatWriter took ownership
 
     if (samples.empty())
         return true;

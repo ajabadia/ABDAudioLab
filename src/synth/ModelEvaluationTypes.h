@@ -54,6 +54,50 @@ enum class SelectionStatus
 }
 
 /**
+ * @brief Veredicto formal de la compuerta de exportación pre-export (Fase 19.6).
+ */
+enum class ExportGateVerdict
+{
+    Permitted,            /**< Modelo Accepted: Exportación nominal autorizada sin restricciones. */
+    PermittedWithWarning, /**< Modelo AcceptedWithWarnings: Exportación autorizada con advertencias documentadas. */
+    Blocked               /**< Modelo Inconclusive/Rejected/Invalid: Exportación bloqueada salvo override explícito. */
+};
+
+[[nodiscard]] inline std::string exportGateVerdictToString(ExportGateVerdict verdict)
+{
+    switch (verdict)
+    {
+        case ExportGateVerdict::Permitted:            return "Permitted";
+        case ExportGateVerdict::PermittedWithWarning: return "PermittedWithWarning";
+        case ExportGateVerdict::Blocked:              return "Blocked";
+        default:                                      return "Unknown";
+    }
+}
+
+[[nodiscard]] inline ExportGateVerdict exportGateVerdictFromString(const std::string& str)
+{
+    if (str == "Permitted")            return ExportGateVerdict::Permitted;
+    if (str == "PermittedWithWarning") return ExportGateVerdict::PermittedWithWarning;
+    return ExportGateVerdict::Blocked;
+}
+
+/**
+ * @brief Evaluación de aptitud para exportación con metadatos trazables (Fase 19.6).
+ */
+struct ExportReadiness
+{
+    ExportGateVerdict verdict { ExportGateVerdict::Blocked };
+    SelectionStatus status { SelectionStatus::Rejected };
+    bool isExportPermitted { false };
+    bool requiresOperatorOverride { false };
+    std::string primaryModelId;
+    std::string canonicalHash;
+    std::string verdictReason;
+    std::vector<std::string> blockingIssues;
+    std::vector<std::string> certifiedLimits;
+};
+
+/**
  * @brief Estado de carga y verificación criptográfica de un informe de evaluación.
  */
 enum class EvaluationLoadStatus
@@ -343,6 +387,7 @@ struct HoldoutValidationPoint
     std::string pointId;
     std::vector<TypedCoordinate> coordinates;
     std::vector<float> targetGroundTruthAudio;
+    std::vector<float> inputStimulusAudio;
     double measuredRmsDb { -120.0 };
     double measuredSpectralCentroidHz { 0.0 };
     std::string acousticHash;
@@ -531,6 +576,7 @@ struct SelectionDecision
 {
     SelectionStatus status { SelectionStatus::Inconclusive };
     std::string recommendedModelId;
+    std::string bestRawFidelityModelId;
     std::string runnerUpModelId;
     double selectionScore { 0.0 };
     double runnerUpGap { 0.0 };
@@ -581,6 +627,7 @@ struct ModelEvaluation
     UncertaintyDecomposition uncertainty;
     ResourceFootprint resourceCost;
     SelectionDecision decision;
+    ExportReadiness exportReadiness;
 
     std::vector<std::string> warnings;
     std::vector<std::string> limitations;

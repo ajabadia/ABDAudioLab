@@ -18,6 +18,7 @@ public:
     void updateFromSnapshot(const session::ProfilingSessionSnapshot& snapshot);
 
     // Métodos de consulta y auditoría para testing e integración
+    [[nodiscard]] bool hasEvaluation() const noexcept { return hasEvaluation_; }
     [[nodiscard]] bool isExportEnabled() const noexcept { return canExport_; }
     [[nodiscard]] synth::SelectionStatus getCurrentVerdict() const noexcept { return currentVerdict_; }
     [[nodiscard]] const std::string& getFullCanonicalHash() const noexcept { return fullCanonicalHash_; }
@@ -35,6 +36,8 @@ public:
     [[nodiscard]] bool isModelAudioAvailable() const noexcept { return modelAudioAvailable_; }
     [[nodiscard]] bool isResidualAudioAvailable() const noexcept { return residualAudioAvailable_; }
     [[nodiscard]] bool isHtmlReportAvailable() const noexcept { return htmlReportAvailable_; }
+
+    std::function<void()> onExportCompleted;
 
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -60,6 +63,11 @@ private:
     juce::Label warningsLabel_;
 
     // Auditoría de Nivel 2: Procedencia y Hash Canónico
+    // Primer plano de lectura guiada: qué hiciste / qué salió / qué puedes hacer después
+    juce::Label resultDidLabel_;
+    juce::Label resultOutcomeLabel_;
+    juce::Label resultNextLabel_;
+
     juce::Label hashAuditLabel_;
     juce::Label hashVerifiedBadgeLabel_;
     juce::TextButton copyHashButton_;
@@ -76,12 +84,16 @@ private:
     juce::TextButton viewAuditDetailsButton_;
     juce::TextButton restartSessionButton_;
 
+    bool showResultPlano_ { false };
+
     void openHtmlReport();
 
     std::shared_ptr<juce::FileChooser> fileChooser_;
 
+    bool hasEvaluation_ { false };
     bool canExport_ { false };
     bool hashVerified_ { false };
+
     std::string fullCanonicalHash_;
     synth::SelectionStatus currentVerdict_ { synth::SelectionStatus::Inconclusive };
 
@@ -94,6 +106,7 @@ private:
     bool modelAudioAvailable_ { false };
     bool residualAudioAvailable_ { false };
     bool htmlReportAvailable_ { false };
+
     juce::File targetAudioFile_;
     juce::File modelAudioFile_;
     juce::File residualAudioFile_;

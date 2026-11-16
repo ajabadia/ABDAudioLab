@@ -374,18 +374,18 @@ enum class ProfilingSessionStatus
     switch (status)
     {
         case ProfilingSessionStatus::Idle:                      return "Idle";
-        case ProfilingSessionStatus::TargetSelected:            return "TargetSelected";
+        case ProfilingSessionStatus::TargetSelected:            return "Target selected";
         case ProfilingSessionStatus::Auditing:                  return "Auditing";
-        case ProfilingSessionStatus::ReadyToProfile:            return "ReadyToProfile";
+        case ProfilingSessionStatus::ReadyToProfile:            return "Ready to profile";
         case ProfilingSessionStatus::Profiling:                 return "Profiling";
         case ProfilingSessionStatus::Paused:                    return "Paused";
         case ProfilingSessionStatus::Completed:                 return "Completed";
-        case ProfilingSessionStatus::EvaluationLoadedForReview: return "EvaluationLoadedForReview";
+        case ProfilingSessionStatus::EvaluationLoadedForReview: return "Loaded for review";
         case ProfilingSessionStatus::Exporting:                 return "Exporting";
         case ProfilingSessionStatus::Exported:                  return "Exported";
-        case ProfilingSessionStatus::AuditRejected:             return "AuditRejected";
-        case ProfilingSessionStatus::UnsupportedTarget:         return "UnsupportedTarget";
-        case ProfilingSessionStatus::MeasurementInvalid:        return "MeasurementInvalid";
+        case ProfilingSessionStatus::AuditRejected:             return "Audit rejected";
+        case ProfilingSessionStatus::UnsupportedTarget:         return "Unsupported target";
+        case ProfilingSessionStatus::MeasurementInvalid:        return "Measurement invalid";
         case ProfilingSessionStatus::Cancelled:                 return "Cancelled";
         case ProfilingSessionStatus::Failed:                    return "Failed";
         default:                                                return "Unknown";
@@ -652,6 +652,32 @@ struct ProfilingSessionSnapshot
 };
 
 /**
+ * @brief Evalúa si el snapshot cuenta con un target real configurado (no synthetic_fixture_demo ni vacío).
+ */
+[[nodiscard]] inline bool hasRealTargetInSnapshot(const ProfilingSessionSnapshot& snap) noexcept
+{
+    if (snap.target.targetId.empty())
+        return false;
+    if (snap.target.targetId == "synthetic_fixture_demo")
+        return false;
+    return true;
+}
+
+/**
+ * @brief Evalúa si una sesión de perfilado puede iniciarse según las guardas metrológicas.
+ * Regla de autoridad única compartida:
+ * canStart = hasRealTarget && hasValidRecipe && requiredCalibrationIsAvailableOrBypassed && !sessionRunning;
+ */
+[[nodiscard]] inline bool canStartProfilingFromSnapshot(const ProfilingSessionSnapshot& snap, bool sessionRunning) noexcept
+{
+    const bool hasRealTarget = hasRealTargetInSnapshot(snap);
+    const bool hasValidRecipe = snap.excitation.isValid && (snap.excitation.status == RecipeStatus::Valid);
+    const bool calReady = snap.calibration.isReadyForProfiling();
+
+    return hasRealTarget && hasValidRecipe && calReady && !sessionRunning;
+}
+
+/**
  * @brief Evalúa las guardas metrológicas sobre cualquier snapshot inmutable de sesión.
  * Función pura sin efectos secundarios, autoridad compartida entre controlador, vistas y tests.
  */
@@ -819,6 +845,27 @@ struct ProfilingSessionSnapshot
 }
 
 /**
+ * @brief Modo de ejecución del proceso de adquisición acústica.
+ */
+enum class AcquisitionExecutionMode
+{
+    Realtime = 0,    ///< Tiempo real a través del driver de audio con audición en monitores.
+    FastOffline = 1, ///< Render digital directo en RAM a velocidad de CPU (plugins VST3).
+    SafeSlow = 2     ///< Tiempo real con pausas de estabilización (settling) y purga de notas para plugins que se traban.
+};
+
+inline const char* acquisitionExecutionModeToString(AcquisitionExecutionMode mode) noexcept
+{
+    switch (mode)
+    {
+        case AcquisitionExecutionMode::FastOffline: return "FastOffline";
+        case AcquisitionExecutionMode::SafeSlow:    return "SafeSlow";
+        case AcquisitionExecutionMode::Realtime:
+        default:                                   return "Realtime";
+    }
+}
+
+/**
  * @brief Interfaz pura para envío de comandos desde la GUI (Command segregation).
  */
 class IProfilingSessionCommands
@@ -828,7 +875,11 @@ public:
 
     virtual bool selectTarget(const TargetSelectionState& target) = 0;
     virtual bool requestAudit() = 0;
-    virtual bool startProfiling() = 0;
+    virtual bool startProfiling(int totalTrials = 20,
+                                double trialDurationSec = 2.0,
+                                bool adaptiveTailEnabled = false,
+                                double tailThresholdDb = -60.0,
+                                AcquisitionExecutionMode executionMode = AcquisitionExecutionMode::Realtime) = 0;
     virtual bool pauseProfiling() = 0;
     virtual bool resumeProfiling() = 0;
     virtual bool cancelProfiling() = 0;

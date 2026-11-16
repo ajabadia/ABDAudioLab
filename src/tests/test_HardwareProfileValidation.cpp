@@ -107,3 +107,4 @@ TEST_CASE("HardwareContractRegistry Resilient Profile Loading", "[HardwareContra
         REQUIRE(warning.isNotEmpty());
     }
 }
+

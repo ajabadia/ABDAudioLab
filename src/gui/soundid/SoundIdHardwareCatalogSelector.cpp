@@ -1,6 +1,8 @@
 #include "SoundIdHardwareCatalogSelector.h"
 #include "../SoundIdTheme.h"
+#include "../drawers/AssetLocator.h"
 #include <algorithm>
+#include <cctype>
 
 namespace abdaudiolab::gui
 {
@@ -48,7 +50,7 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     btnLoadPlugin.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentBlue.withAlpha(0.2f));
     btnLoadPlugin.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentBlue);
     btnLoadPlugin.onClick = [this] {
-        juce::Logger::writeToLog("[CatalogSelector] 'Cargar Plugin desde archivo...' button clicked.");
+        juce::Logger::writeToLog("[CatalogSelector] 'Load Plugin from file...' button clicked.");
         if (onLoadPluginFromFileRequested)
             onLoadPluginFromFileRequested();
     };
@@ -61,7 +63,7 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     btnShowPluginGui.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentPurple.withAlpha(0.2f));
     btnShowPluginGui.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentPurple);
     btnShowPluginGui.onClick = [this] {
-        juce::Logger::writeToLog("[CatalogSelector] 'Abrir GUI del Plugin' button clicked.");
+        juce::Logger::writeToLog("[CatalogSelector] 'Open Plugin GUI' button clicked.");
         if (onShowPluginGuiRequested)
             onShowPluginGuiRequested();
     };
@@ -69,12 +71,12 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
     addChildComponent(btnShowPluginGui);
 
     // Virtual Keyboard button (visible only in plugin mode)
-    btnVirtualKeyboard.setButtonText("Teclado Virtual");
-    btnVirtualKeyboard.setTooltip("Abrir teclado virtual interactivo para interpretar este plugin (sin emojis)");
+    btnVirtualKeyboard.setButtonText("Virtual Keyboard");
+    btnVirtualKeyboard.setTooltip("Open interactive virtual keyboard to play this plugin");
     btnVirtualKeyboard.setColour(juce::TextButton::buttonColourId, SoundIdTheme::accentGreen.withAlpha(0.2f));
     btnVirtualKeyboard.setColour(juce::TextButton::textColourOffId, SoundIdTheme::accentGreen);
     btnVirtualKeyboard.onClick = [this] {
-        juce::Logger::writeToLog("[CatalogSelector] 'Teclado Virtual' button clicked.");
+        juce::Logger::writeToLog("[CatalogSelector] 'Virtual Keyboard' button clicked.");
         if (onOpenKeyboardRequested)
             onOpenKeyboardRequested();
     };
@@ -141,7 +143,10 @@ SoundIdHardwareCatalogSelector::SoundIdHardwareCatalogSelector()
 
     // Visual cards
     addAndMakeVisible(deviceDisplayCard);
-    addAndMakeVisible(wiringDiagram);
+    topologyComponent = std::make_unique<abd::topology::JuceStudioTopologyComponent>(
+        SoundIdTheme::isDarkMode() ? "audiolab" : "audiolab-light");
+    addAndMakeVisible(*topologyComponent);
+    addChildComponent(wiringDiagram);
 
     // Navigation buttons
     btnContinue.setButtonText(juce::String::fromUTF8("Proceed to Run Session (Step 3) \xE2\x86\x92"));
@@ -224,8 +229,21 @@ void SoundIdHardwareCatalogSelector::updateTheme()
     }
 
     deviceDisplayCard.repaint();
+    if (topologyComponent != nullptr)
+        topologyComponent->setTheme(SoundIdTheme::isDarkMode() ? "audiolab" : "audiolab-light");
     wiringDiagram.repaint();
     repaint();
+}
+
+void SoundIdHardwareCatalogSelector::setAudioDeviceManager(juce::AudioDeviceManager* dm)
+{
+    audioDeviceManager = dm;
+    syncVisualCards();
+}
+
+void SoundIdHardwareCatalogSelector::refreshTopology()
+{
+    syncVisualCards();
 }
 
 void SoundIdHardwareCatalogSelector::setContracts(const std::vector<core::HardwareContract>& contracts)
@@ -484,8 +502,8 @@ void SoundIdHardwareCatalogSelector::rebuildObjectivesForCurrentModel()
         }
     }
 
-    // Always append "Libre / Modo Manual" as an option
-    comboObjective.addItem("Libre / Inspeccion Manual", 9999);
+    // Always append "Free / Manual Inspection" as an option
+    comboObjective.addItem("Free / Manual Inspection", 9999);
 
     if (comboObjective.getNumItems() > 0)
         comboObjective.setSelectedId(1, juce::sendNotification);
@@ -493,6 +511,8 @@ void SoundIdHardwareCatalogSelector::rebuildObjectivesForCurrentModel()
 
 void SoundIdHardwareCatalogSelector::syncVisualCards()
 {
+    abd::topology::TopologyTargetInfo targetInfo;
+
     if (isPluginMode)
     {
         if (auto* desc = getSelectedPluginDescription())
@@ -516,47 +536,148 @@ void SoundIdHardwareCatalogSelector::syncVisualCards()
                     "ABDAudioLab Capture",
                     "Direct digital closed loop. Zero physical converter coloration.");
             }
+
+            targetInfo.name = desc->name;
+            targetInfo.category = desc->isInstrument ? "VST3 Virtual Instrument" : "VST3 Virtual Effect";
+            targetInfo.details = "Virtual VST3 | Internal Direct Bus (ITB)";
+            targetInfo.imageRelPath = desc->isInstrument ? "models/generic-digital-keyboard.png" : "models/generic-audio-rack.png";
+            targetInfo.hasMidi = true;
+            targetInfo.isVirtualPlugin = true;
         }
         else
         {
-            deviceDisplayCard.setPluginInfo("Plugin Virtual", "Generic", "VST3 / AU", true);
+            deviceDisplayCard.setPluginInfo("Virtual Plugin", "Generic", "VST3 / AU", true);
             wiringDiagram.setPluginRouting(
                 juce::String::fromUTF8(u8"Stimulus Generator"),
                 juce::String::fromUTF8(u8"Plugin (In)"),
                 juce::String::fromUTF8(u8"Plugin (Out)"),
                 juce::String::fromUTF8(u8"ABDAudioLab Capture"),
                 juce::String::fromUTF8(u8"Internal Direct Bus \u2013 Zero Converter Coloration"));
-        }
-        repaint();
-        return;
-    }
 
-    int selIndex = comboModel.getSelectedId() - 1;
-    if (selIndex >= 0 && selIndex < static_cast<int>(contractsList.size()) && !isLibreMode)
-    {
-        const auto& c = contractsList[static_cast<size_t>(selIndex)];
-        deviceDisplayCard.setDevice(&c);
-
-        int fnSel = comboObjective.getSelectedId() - 1;
-        if (fnSel >= 0 && fnSel < static_cast<int>(c.functions.size()))
-        {
-            const auto& fn = c.functions[static_cast<size_t>(fnSel)];
-            bool isAutonomous = (c.deviceType == "AUTOMATED_SYSEX" || c.deviceType == "AUTOMATED_MIDI_CC");
-            wiringDiagram.setRouting(fn.routingGuide.stimulusOutput,
-                                     fn.routingGuide.responseInput,
-                                     fn.routingGuide.notes,
-                                     isAutonomous);
-        }
-        else
-        {
-            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Free Mode / Manual Routing", false);
+            targetInfo.name = "Virtual Plugin";
+            targetInfo.category = "VST3 / AU";
+            targetInfo.details = "Internal Direct Bus";
+            targetInfo.imageRelPath = "models/generic-digital-keyboard.png";
+            targetInfo.hasMidi = true;
+            targetInfo.isVirtualPlugin = true;
         }
     }
     else
     {
-        deviceDisplayCard.clear();
-        wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Custom / Unlisted Setup", false);
+        int selIndex = comboModel.getSelectedId() - 1;
+        if (selIndex >= 0 && selIndex < static_cast<int>(contractsList.size()) && !isLibreMode)
+        {
+            const auto& c = contractsList[static_cast<size_t>(selIndex)];
+            deviceDisplayCard.setDevice(&c);
+
+            int fnSel = comboObjective.getSelectedId() - 1;
+            juce::String fnName;
+            if (fnSel >= 0 && fnSel < static_cast<int>(c.functions.size()))
+            {
+                const auto& fn = c.functions[static_cast<size_t>(fnSel)];
+                fnName = fn.name;
+                bool isAutonomous = (c.deviceType == "AUTOMATED_SYSEX" || c.deviceType == "AUTOMATED_MIDI_CC");
+                wiringDiagram.setRouting(fn.routingGuide.stimulusOutput,
+                                         fn.routingGuide.responseInput,
+                                         fn.routingGuide.notes,
+                                         isAutonomous);
+            }
+            else
+            {
+                wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Free Mode / Manual Routing", false);
+            }
+
+            targetInfo.name = c.displayName.empty() ? juce::String(c.id) : juce::String(c.displayName);
+            targetInfo.category = juce::String(c.deviceType);
+            targetInfo.details = fnName.isNotEmpty() ? ("Profile: " + fnName) : "Direct Loopback";
+            targetInfo.isVirtualPlugin = false;
+
+            if (c.deviceType != "ANALOGUE_PEDAL" && 
+                c.deviceType != "MANUAL_EURORACK" && 
+                c.deviceType != "VIRTUAL_LOOPBACK_ASIO")
+            {
+                if (!c.midiIdentity.model.empty() || 
+                    !c.midiIdentity.manufacturer.empty() ||
+                    !c.midiIdentity.portNameMatches.empty() ||
+                    c.deviceType == "AUTOMATED_SYSEX" || 
+                    c.deviceType == "AUTOMATED_MIDI_CC")
+                {
+                    targetInfo.hasMidi = true;
+                }
+            }
+
+            if (!c.modelImage.empty())
+            {
+                auto f = gui::locateAssetFile(c.modelImage);
+                if (f.existsAsFile())
+                    targetInfo.imageRelPath = juce::String(c.modelImage);
+            }
+            else
+            {
+                std::string catLower = targetInfo.category.toStdString();
+                std::transform(catLower.begin(), catLower.end(), catLower.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                if (catLower.find("pedal") != std::string::npos || catLower.find("guitar") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-guitar-pedal.png";
+                else if (catLower.find("eurorack") != std::string::npos || catLower.find("modular") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-eurorack.png";
+                else if (catLower.find("rack") != std::string::npos || catLower.find("studio") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-audio-rack.png";
+                else if (catLower.find("anal") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-analog-keyboard.png";
+                else if (catLower.find("drum") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-drum-machine.png";
+                else if (catLower.find("preamp") != std::string::npos || catLower.find("mic") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-mic-preamp.png";
+                else if (catLower.find("desktop") != std::string::npos)
+                    targetInfo.imageRelPath = "models/generic-desktop-module.png";
+                else
+                    targetInfo.imageRelPath = "models/generic-digital-keyboard.png";
+            }
+        }
+        else
+        {
+            deviceDisplayCard.clear();
+            wiringDiagram.setRouting("Audio Out 1 (L)", "Audio In 1 (L)", "Custom / Unlisted Setup", false);
+
+            targetInfo.name = isLibreMode ? "Unlisted Device / Free Mode" : "No Target Selected";
+            targetInfo.category = "Custom Hardware";
+            targetInfo.details = "Manual Audio Routing";
+            targetInfo.imageRelPath = "models/generic-guitar-pedal.png";
+            targetInfo.hasMidi = false;
+            targetInfo.isVirtualPlugin = false;
+        }
     }
+
+    if (topologyComponent != nullptr)
+    {
+        if (audioDeviceManager != nullptr)
+        {
+            abd::topology::TopologyContext ctx {
+                *audioDeviceManager,
+                targetInfo,
+                SoundIdTheme::isDarkMode() ? "audiolab" : "audiolab-light",
+                SoundIdTheme::isDarkMode() ? SoundIdTheme::bgDark : SoundIdTheme::bgLight
+            };
+            auto payload = abd::topology::StudioTopologyController::buildTopologyPayload(ctx);
+            topologyComponent->updateTopology(payload);
+        }
+        else
+        {
+            nlohmann::json root;
+            root["target"] = {
+                {"name", targetInfo.name.toStdString()},
+                {"category", targetInfo.category.toStdString()},
+                {"details", targetInfo.details.toStdString()},
+                {"image", targetInfo.imageRelPath.toStdString()},
+                {"hasMidi", targetInfo.hasMidi},
+                {"isVirtual", targetInfo.isVirtualPlugin}
+            };
+            root["devices"] = nlohmann::json::array();
+            root["connections"] = nlohmann::json::array();
+            topologyComponent->updateTopology(root);
+        }
+    }
+
     updateRecipeCard();
     repaint();
 }
@@ -570,12 +691,12 @@ void SoundIdHardwareCatalogSelector::updateRecipeCard()
             juce::String name = desc->name;
             bool isInst = desc->isInstrument;
             juce::String excStr = isInst 
-                ? juce::String::fromUTF8(u8"Notas MIDI (Canal 1, C4) + Automatización")
-                : juce::String::fromUTF8(u8"Barrido Senoidal Logarítmico (20 Hz - 20 kHz)");
+                ? juce::String("MIDI Notes (Ch 1, C4) + Automation")
+                : juce::String("Logarithmic Sine Sweep (20 Hz - 20 kHz)");
             int pts = isInst ? 32 : 1;
-            juce::String text = juce::String::fromUTF8(u8"Receta: ") + name + " Standard Profiling  •  Puntos: " 
-                + juce::String(pts) + juce::String::fromUTF8(u8"  •  Excitación: ") + excStr 
-                + juce::String::fromUTF8(u8"  •  Estado: Preparada ✓");
+            juce::String text = juce::String("Recipe: ") + name + " Standard Profiling  •  Points: " 
+                + juce::String(pts) + "  •  Excitation: " + excStr 
+                + "  •  Status: Ready ✓";
             lblRecipeCard.setText(text, juce::dontSendNotification);
             lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
             btnContinue.setEnabled(true);
@@ -583,10 +704,10 @@ void SoundIdHardwareCatalogSelector::updateRecipeCard()
         }
         else
         {
-            lblRecipeCard.setText(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"), juce::dontSendNotification);
+            lblRecipeCard.setText("Cannot proceed: this profile has no valid measurement recipe", juce::dontSendNotification);
             lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
             btnContinue.setEnabled(false);
-            btnContinue.setTooltip(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"));
+            btnContinue.setTooltip("Cannot proceed: this profile has no valid measurement recipe");
         }
         return;
     }
@@ -615,19 +736,19 @@ void SoundIdHardwareCatalogSelector::updateRecipeCard()
 
             juce::String excStr;
             if (fn.excitationMode == core::ExcitationMode::MidiNotes)
-                excStr = juce::String::fromUTF8(u8"Notas MIDI + Automatización");
+                excStr = "MIDI Notes + Automation";
             else if (fn.excitationMode == core::ExcitationMode::ManualCapture || c.deviceType.find("MANUAL") != std::string::npos)
-                excStr = juce::String::fromUTF8(u8"Ajuste Manual de Perillas");
+                excStr = "Manual Knob Adjustment";
             else
-                excStr = juce::String::fromUTF8(u8"Barrido Senoidal Logarítmico (20 Hz - 20 kHz)");
+                excStr = "Logarithmic Sine Sweep (20 Hz - 20 kHz)";
 
             juce::String recName = fn.measurementRecipe.description.empty() 
                 ? juce::String(fn.name) 
                 : juce::String(fn.measurementRecipe.description);
 
-            juce::String text = juce::String::fromUTF8(u8"Receta: ") + recName + "  •  Puntos: " 
-                + juce::String(totalPts) + juce::String::fromUTF8(u8"  •  Excitación: ") + excStr 
-                + juce::String::fromUTF8(u8"  •  Estado: Preparada ✓");
+            juce::String text = juce::String("Recipe: ") + recName + "  •  Points: " 
+                + juce::String(totalPts) + "  •  Excitation: " + excStr 
+                + "  •  Status: Ready ✓";
             lblRecipeCard.setText(text, juce::dontSendNotification);
             lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentGreen);
             btnContinue.setEnabled(true);
@@ -635,7 +756,7 @@ void SoundIdHardwareCatalogSelector::updateRecipeCard()
         }
         else
         {
-            lblRecipeCard.setText(juce::String::fromUTF8(u8"Modo Libre / Manual  •  Captura bajo demanda sin receta fija"), juce::dontSendNotification);
+            lblRecipeCard.setText("Free Mode / Manual  •  On-demand capture without fixed recipe", juce::dontSendNotification);
             lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::textSecondary);
             btnContinue.setEnabled(true);
             btnContinue.setTooltip({});
@@ -643,17 +764,17 @@ void SoundIdHardwareCatalogSelector::updateRecipeCard()
     }
     else if (isLibreMode)
     {
-        lblRecipeCard.setText(juce::String::fromUTF8(u8"Dispositivo no listado (Modo Libre)  •  Captura bajo demanda"), juce::dontSendNotification);
+        lblRecipeCard.setText("Unlisted Device (Free Mode)  •  On-demand capture", juce::dontSendNotification);
         lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::accentAmber);
         btnContinue.setEnabled(true);
         btnContinue.setTooltip({});
     }
     else
     {
-        lblRecipeCard.setText(juce::String::fromUTF8(u8"Selecciona un dispositivo para preparar la receta de medición."), juce::dontSendNotification);
+        lblRecipeCard.setText("Select a device to prepare the measurement recipe.", juce::dontSendNotification);
         lblRecipeCard.setColour(juce::Label::textColourId, SoundIdTheme::textMuted);
         btnContinue.setEnabled(false);
-        btnContinue.setTooltip(juce::String::fromUTF8(u8"No se puede iniciar: este perfil no tiene una receta de medición válida"));
+        btnContinue.setTooltip("Cannot proceed: please select a valid target profile");
     }
 }
 
@@ -893,7 +1014,9 @@ void SoundIdHardwareCatalogSelector::resized()
     auto rightCol = b;
 
     deviceDisplayCard.setBounds(leftCol);
-    wiringDiagram.setBounds(rightCol);
+    if (topologyComponent != nullptr)
+        topologyComponent->setBounds(rightCol);
+    wiringDiagram.setBounds({});
 }
 
 } // namespace abdaudiolab::gui

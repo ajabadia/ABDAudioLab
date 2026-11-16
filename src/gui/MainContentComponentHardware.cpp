@@ -6,6 +6,7 @@
  */
 
 #include "MainContentComponent.h"
+#include "core/LabDataDirectories.h"
 #include "hardware/AudioMidiInterfaceDetector.h"
 #include "gui/measurement/MeasurementViewerPanel.h"
 #include "gui/measurement/MeasurementComparisonPanel.h"
@@ -36,6 +37,7 @@ namespace abdaudiolab
 // ==============================================================================
 void MainContentComponent::preWarmScopeWindow()
 {
+    juce::Logger::writeToLog("[MainComponent] preWarmScopeWindow() starting...");
     if (scopeWebWindow == nullptr)
     {
         scopeWebWindow = std::make_unique<gui::ScopeWebFloatingWindow>(
@@ -46,11 +48,14 @@ void MainContentComponent::preWarmScopeWindow()
         );
         scopeWebWindow->setVisible(false);
     }
+    juce::Logger::writeToLog("[MainComponent] preWarmScopeWindow() completed.");
 }
 
 void MainContentComponent::preWarmHardwareDetector()
 {
+    juce::Logger::writeToLog("[MainComponent] preWarmHardwareDetector() starting...");
     drawer.preWarmHardwareDetector();
+    juce::Logger::writeToLog("[MainComponent] preWarmHardwareDetector() completed.");
 }
 
 void MainContentComponent::performOfflineReanalysis()
@@ -152,7 +157,7 @@ void MainContentComponent::openMeasurementViewerWindow()
     {
         auto* panel = new gui::measurement::MeasurementViewerPanel();
         measurementViewerWindow = std::make_unique<gui::MeasurementFloatingWindow>(
-            juce::String::fromUTF8(u8"ABDAudioLab — Visor de Mediciones FAIR / LNL"),
+            "ABDAudioLab - FAIR / LNL Measurement Viewer",
             panel,
             1050, 720, 800, 550
         );
@@ -169,7 +174,7 @@ void MainContentComponent::openMeasurementComparisonWindow()
     {
         auto* panel = new gui::measurement::MeasurementComparisonPanel();
         measurementComparisonWindow = std::make_unique<gui::MeasurementFloatingWindow>(
-            juce::String::fromUTF8(u8"ABDAudioLab — Comparador Multivariante de Mediciones FAIR / LNL"),
+            "ABDAudioLab - Multivariate Measurement Comparison",
             panel,
             1150, 750, 900, 600
         );
@@ -463,12 +468,76 @@ void MainContentComponent::chooseExportFolder()
         if (chosen.isDirectory())
         {
             exportDirectory = chosen;
+            sessionIoController.setExportDirectory(exportDirectory);
             drawer.openFileDrawer(exportDirectory.getFullPathName());
             manualPromptLabel.setText("Target export folder updated to: " + exportDirectory.getFullPathName(), juce::dontSendNotification);
             manualPromptLabel.setVisible(true);
             hidePromptAfterDelay(5000);
         }
     });
+}
+
+void MainContentComponent::promptSelectWorkingDirectory()
+{
+    auto currentDirs = core::resolveLabDataDirectories();
+    workingDirectoryChooser = std::make_unique<juce::FileChooser>(
+        "Select ABDAudioLab Working Directory...",
+        currentDirs.dataRoot,
+        "*"
+    );
+
+    auto chooserFlags = juce::FileBrowserComponent::openMode |
+                         juce::FileBrowserComponent::canSelectDirectories;
+
+    workingDirectoryChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc) {
+        auto chosen = fc.getResult();
+        if (chosen.isDirectory())
+        {
+            applyWorkingDirectory(chosen);
+        }
+    });
+}
+
+void MainContentComponent::applyWorkingDirectory(const juce::File& newRoot)
+{
+    juce::String err;
+    if (core::setAndPersistDataRootOverride(newRoot, err))
+    {
+        auto labDirs = core::resolveLabDataDirectories();
+        exportDirectory = labDirs.exports;
+        sessionIoController.setExportDirectory(exportDirectory);
+        loopbackProfileStore.setStorageDirectory(labDirs.loopbackProfiles);
+
+        triggerAsyncLoopbackProfileDetection();
+
+        manualPromptLabel.setText("Working directory set to: " + labDirs.dataRoot.getFullPathName(), juce::dontSendNotification);
+        manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(5000);
+    }
+    else
+    {
+        manualPromptLabel.setText("Failed to set working directory: " + err, juce::dontSendNotification);
+        manualPromptLabel.setColour(juce::Label::textColourId, juce::Colours::coral);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(5000);
+    }
+}
+
+void MainContentComponent::openWorkingDirectoryInExplorer()
+{
+    auto dirs = core::resolveLabDataDirectories();
+    if (!dirs.dataRoot.exists())
+        dirs.dataRoot.createDirectory();
+    dirs.dataRoot.revealToUser();
+}
+
+void MainContentComponent::openReportsFolderInExplorer()
+{
+    auto dirs = core::resolveLabDataDirectories();
+    if (!dirs.reports.exists())
+        dirs.reports.createDirectory();
+    dirs.reports.revealToUser();
 }
 
 void MainContentComponent::onHardwareSelected(const juce::String& hwId, const juce::String& funcId)
@@ -560,7 +629,9 @@ void MainContentComponent::onHardwareSelected(const juce::String& hwId, const ju
     targetView.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     auto calStatus = sidebarStepper.getStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
-    if (calStatus != gui::SoundIdSidebarStepper::StepStatus::Completed && calStatus != gui::SoundIdSidebarStepper::StepStatus::Skipped)
+    if (calStatus != gui::SoundIdSidebarStepper::StepStatus::Completed &&
+        calStatus != gui::SoundIdSidebarStepper::StepStatus::Skipped &&
+        calStatus != gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory)
     {
         sidebarStepper.setCurrentStep(gui::SoundIdSidebarStepper::Step::CalibrateLoopback);
         workflowNavController.setStep(gui::WorkflowNavigationController::Step::CalibrateLoopback);

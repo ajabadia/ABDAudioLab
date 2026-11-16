@@ -96,12 +96,32 @@ public:
 
             // 3. Smooth fade-out transition
             juce::Component::SafePointer<gui::SoundIdSplashWindow> safeSplash(splashWindow.get());
+            juce::Logger::writeToLog("[App] Scheduling 550ms fade-out transition timer...");
             juce::Timer::callAfterDelay(550, [safeSplash, this]() {
+                juce::Logger::writeToLog("[App] 550ms transition timer fired.");
                 if (safeSplash != nullptr)
                 {
+                    juce::Logger::writeToLog("[App] Triggering safeSplash->dismiss()...");
                     safeSplash->dismiss([this]() {
-                        splashWindow.reset();
+                        juce::Logger::writeToLog("[App] Splash dismiss callback reached. Deferring splashWindow.reset() via callAsync...");
+                        juce::MessageManager::callAsync([this]() {
+                            juce::Logger::writeToLog("[App] Inside callAsync: resetting splashWindow...");
+                            splashWindow.reset();
+                            juce::Logger::writeToLog("[App] splashWindow reset completed successfully.");
+
+                            if (mainWindow != nullptr)
+                            {
+                                mainWindow->toFront(true);
+                                juce::Logger::writeToLog("[App] LabMainWindow brought to front.");
+                            }
+                        });
                     });
+                }
+                else
+                {
+                    juce::Logger::writeToLog("[App] safeSplash was null on timer fire.");
+                    if (mainWindow != nullptr)
+                        mainWindow->toFront(true);
                 }
             });
         });

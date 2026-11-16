@@ -99,8 +99,8 @@ SlideInDrawer::SlideInDrawer()
     bottomBar.addAndMakeVisible(btnCancel);
 
     btnConfirm.setTooltip("Accept - Apply selected hardware and routing");
-    btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
-    btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
+    btnConfirm.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::primaryText());
     btnConfirm.onClick = [this] {
         if (currentViewMode == DrawerViewMode::HardwareAndRouting)
         {
@@ -129,19 +129,12 @@ void SlideInDrawer::updateTheme()
     testEditorPanel.updateTheme();
     tabSetup.updateTheme();
 
-    btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
-    btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
+    const bool isDark = (AppTheme::currentMode == AppTheme::ThemeMode::Dark);
+    btnCancel.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::secondaryBg(isDark));
+    btnCancel.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::secondaryText(isDark));
 
-    if (AppTheme::currentMode == AppTheme::ThemeMode::Dark)
-    {
-        btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::surfaceSubtle);
-        btnConfirm.setColour(juce::TextButton::textColourOffId, SoundIdTheme::textPrimary);
-    }
-    else
-    {
-        btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::pillBlackBg);
-        btnConfirm.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    }
+    btnConfirm.setColour(juce::TextButton::buttonColourId, SoundIdTheme::ButtonTokens::primaryBg());
+    btnConfirm.setColour(juce::TextButton::textColourOffId, SoundIdTheme::ButtonTokens::primaryText());
 
     contentComp.repaint();
     panel.repaint();
@@ -392,8 +385,8 @@ void SlideInDrawer::layoutDrawerContent()
 
     int bottomH = 58;
     bottomBar.setBounds(0, getHeight() - bottomH, static_cast<int>(panelWidth), bottomH);
-    btnCancel.setBounds(24, 12, 110, 34);
-    btnConfirm.setBounds(static_cast<int>(panelWidth) - 200, 12, 176, 34);
+    btnCancel.setBounds(24, 11, 110, SoundIdTheme::ButtonTokens::height);
+    btnConfirm.setBounds(static_cast<int>(panelWidth) - 200, 11, 176, SoundIdTheme::ButtonTokens::height);
 
     int viewTop = 44;
     int viewHeight = getHeight() - viewTop - bottomH;

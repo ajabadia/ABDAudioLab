@@ -38,14 +38,22 @@ void LabAnalyticEngine::computeAdaptiveRoadmap(PreScanResult& result, float grad
     analytics::DynamicsAnalytics::computeAdaptiveRoadmap(result, gradientThreshold);
 }
 
+std::vector<float> LabAnalyticEngine::computeSynchronousTimeDomainAverage(
+    const std::vector<std::vector<float>>& recordedPasses)
+{
+    return analytics::FilterAnalytics::computeSynchronousTimeDomainAverage(recordedPasses);
+}
+
 FilterAnalysisResult LabAnalyticEngine::analyzeFilterPasses(const std::vector<std::vector<float>>& recordedPasses,
                                                            const std::vector<float>& inverseFilter,
                                                            double sampleRate,
                                                            double durationSec,
                                                            float startFreqHz,
-                                                           float endFreqHz)
+                                                           float endFreqHz,
+                                                           bool useKirkebyRegularization)
 {
-    auto data = analytics::FilterAnalytics::analyzeFilterPasses(recordedPasses, inverseFilter, sampleRate, durationSec, startFreqHz, endFreqHz);
+    auto data = analytics::FilterAnalytics::analyzeFilterPasses(
+        recordedPasses, inverseFilter, sampleRate, durationSec, startFreqHz, endFreqHz, useKirkebyRegularization);
     FilterAnalysisResult res;
     res.cutoffHz = { data.cutoffHz.mean, data.cutoffHz.stdDev };
     res.resonanceDb = { data.resonanceDb.mean, data.resonanceDb.stdDev };
@@ -71,8 +79,14 @@ TimeDynamicAnalysisResult LabAnalyticEngine::analyzeAdsrEnvelopes(const std::vec
 TimeDynamicAnalysisResult LabAnalyticEngine::analyzeDelayImpulses(const std::vector<std::vector<float>>& recordedPasses,
                                                                  double sampleRate)
 {
-    // Reuse envelope transient analysis for delay impulse response
-    return analyzeAdsrEnvelopes(recordedPasses, sampleRate);
+    auto data = analytics::EnvelopeAnalytics::analyzeDelayImpulses(recordedPasses, sampleRate);
+    TimeDynamicAnalysisResult res;
+    res.attackTimeMs = { data.attackTimeMs.mean, data.attackTimeMs.stdDev };
+    res.decayTimeMs = { data.decayTimeMs.mean, data.decayTimeMs.stdDev };
+    res.sustainLevel = { data.sustainLevel.mean, data.sustainLevel.stdDev };
+    res.releaseTimeMs = { data.releaseTimeMs.mean, data.releaseTimeMs.stdDev };
+    res.delayTimeMs = { data.delayTimeMs.mean, data.delayTimeMs.stdDev };
+    return res;
 }
 
 WaveShaperAnalysisResult LabAnalyticEngine::analyzeWaveShaperRamps(const std::vector<std::vector<float>>& recordedPasses,

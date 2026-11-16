@@ -129,5 +129,36 @@
     "allowsBulkDump": false,
     "requiresVerifiedIdentity": false,
     "allowsUserConfirmedUnverifiedIdentity": true
+  },
+  "routingGuide": {
+    "stimulusOutput": "Audio Out 1 (L) -> BOSS DS-1 Input",
+    "responseInput": "BOSS DS-1 Output -> Audio In 1 (L)",
+    "notes": "Shielded 1/4 inch TS instrument cables. 9V DC isolated center-negative power.",
+    "steps": [
+      "Connect Audio Interface Out 1 (L) to DS-1 INPUT jack with a 1/4\" TS cable.",
+      "Connect DS-1 OUTPUT jack to Audio Interface In 1 (L) with a 1/4\" TS cable.",
+      "Connect 9V DC power supply (or ensure a fresh 9V battery is installed).",
+      "Step on the footswitch and verify the CHECK LED illuminates red.",
+      "Set TONE to 12 o'clock, LEVEL to 12 o'clock, and DIST to 9 o'clock."
+    ]
+  },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Align TONE pot to neutral 12 o'clock",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Align LEVEL pot to unity 12 o'clock",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Set DIST pot to low baseline 9 o'clock",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.25
+      }
+    ]
   }
 }

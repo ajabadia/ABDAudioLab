@@ -43,10 +43,15 @@ public:
         if (currentStep == targetStep) return;
 
         if (stepStatuses[currentStep] == StepStatus::Current)
-            stepStatuses[currentStep] = StepStatus::Completed;
+            stepStatuses[currentStep] = StepStatus::Pending;
 
         currentStep = targetStep;
-        stepStatuses[currentStep] = StepStatus::Current;
+        if (stepStatuses[currentStep] != StepStatus::Completed &&
+            stepStatuses[currentStep] != StepStatus::Skipped &&
+            stepStatuses[currentStep] != StepStatus::Warning)
+        {
+            stepStatuses[currentStep] = StepStatus::Current;
+        }
         repaint();
     }
 

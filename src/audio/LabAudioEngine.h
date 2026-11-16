@@ -11,6 +11,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include <juce_events/juce_events.h>
 #include "../math/PinkNoise.h"
 #include <atomic>
 #include <array>
@@ -22,6 +23,7 @@
 #include <Core/ScopeDataCollector.h>
 #include <Core/ScopeFrameSerializer.h>
 #include "../dsp/AnalogLutFilterModule.h"
+#include "../math/LoopbackCalibrator.h"
 
 namespace abdaudiolab::audio
 {
@@ -29,8 +31,12 @@ namespace abdaudiolab::audio
 /**
  * @class LabAudioEngine
  * @brief High-performance standalone audio engine with real-time lock-free I/O dispatching.
+ *
+ * Also observes the device lifecycle (juce::ChangeListener on the owned AudioDeviceManager) so that
+ * callers can detect that the hardware interface was closed or disconnected while it was in use.
  */
-class LabAudioEngine : public juce::AudioIODeviceCallback
+class LabAudioEngine : public juce::AudioIODeviceCallback,
+                       public juce::ChangeListener
 {
 public:
     LabAudioEngine();
@@ -44,6 +50,12 @@ public:
     bool initializeAudioDevices(const juce::File& settingsFile);
 
     /**
+     * @brief Automatically detects connected MIDI hardware, enabling available MIDI inputs,
+     *        attaching liveMidiCollector, and setting default MIDI output if none is configured.
+     */
+    void autoDetectAndEnableMidiDevices();
+
+    /**
      * @brief Persists current audio device settings to XML file.
      * @param settingsFile Target file path.
      */
@@ -53,6 +65,33 @@ public:
      * @brief Gets reference to JUCE AudioDeviceManager.
      */
     juce::AudioDeviceManager& getDeviceManager() { return deviceManager; }
+
+    /** @brief Safely returns current buffer size in samples from active audio device (default 256). */
+    [[nodiscard]] int getCurrentBufferSizeSamples() const noexcept;
+
+    /** @brief Safely returns CPU usage percentage (0.0 to 100.0). */
+    [[nodiscard]] double getCpuUsagePercent() const noexcept;
+
+    /** @brief True while an audio device is open (non-null current device on the manager). */
+    [[nodiscard]] bool isAudioDeviceOpen() const noexcept;
+
+    /**
+     * @brief Samples the device-open state and latches the sticky "device lost" flag on an
+     *        open -> closed edge.
+     *
+     * Called from changeListenerCallback() so the edge is seen as soon as JUCE broadcasts it, and
+     * re-callable by consumers (e.g. from their timer) to catch back-ends that close the device
+     * without broadcasting a change. Idempotent and thread-safe.
+     */
+    void pollAudioDeviceState() noexcept;
+
+    /**
+     * @brief Returns (and clears) the sticky "device was closed" flag.
+     *
+     * Sticky until acknowledged, so the interruption survives the device coming straight back.
+     * Callers poll it from their own timer; a returned true must always be acted upon.
+     */
+    [[nodiscard]] bool consumeAudioDeviceLost() noexcept;
 
     /**
      * @brief Real-time audio I/O callback invoked by audio driver thread.
@@ -74,6 +113,16 @@ public:
      */
     void audioDeviceStopped() override;
 
+    //==========================================================================
+    // juce::ChangeListener (message thread)
+    //==========================================================================
+
+    /**
+     * @brief Fired whenever the AudioDeviceManager broadcasts a change: a device was opened,
+     *        closed, its stream stopped, or the device list was re-scanned (unplug).
+     */
+    void changeListenerCallback(juce::ChangeBroadcaster* source) override;
+
     // Direct accessors to generator and receiver
     LabStimulusGenerator& getStimulusGenerator() noexcept { return generator; }
     LabAudioReceiver& getResponseReceiver() noexcept { return receiver; }
@@ -83,7 +132,14 @@ public:
     /**
      * @brief Attaches mock hardware controller for offline self-test loopback.
      */
-    void setMockHardware(hardware::MockHardwareController* mock) noexcept { mockHardware = mock; }
+    void setMockHardware(hardware::MockHardwareController* mock) noexcept
+    {
+        mockHardware.store(mock, std::memory_order_release);
+    }
+    [[nodiscard]] hardware::MockHardwareController* getMockHardware() const noexcept
+    {
+        return mockHardware.load(std::memory_order_acquire);
+    }
 
     /**
      * @brief Attaches active software plugin instance for direct internal digital loopback (VST3, AU, LV2).
@@ -119,6 +175,12 @@ public:
     [[nodiscard]] bool isPluginMonitoringEnabled() const noexcept { return pluginMonitoringEnabled.load(std::memory_order_acquire); }
 
     /**
+     * @brief Enables or disables direct audio passthrough monitoring for physical hardware inputs.
+     */
+    void setDirectMonitoringEnabled(bool enabled) noexcept { directMonitoringActive.store(enabled, std::memory_order_release); }
+    [[nodiscard]] bool isDirectMonitoringEnabled() const noexcept { return directMonitoringActive.load(std::memory_order_acquire); }
+
+    /**
      * @brief Posts live MIDI messages (from Virtual Keyboard or hardware MIDI) to active plugin in a thread-safe manner.
      */
     void postLiveMidiMessage(const juce::MidiMessage& message);
@@ -145,27 +207,65 @@ public:
      */
     void enableDiagnosticTestTone(bool enable, float freqHz = 1000.0f, float levelLinear = 0.5f) noexcept
     {
-        diagnosticToneFreq.store(freqHz, std::memory_order_relaxed);
-        diagnosticToneLevel.store(levelLinear, std::memory_order_relaxed);
+        diagnosticToneFreq.store(freqHz, std::memory_order_release);
+        diagnosticToneLevel.store(levelLinear, std::memory_order_release);
         diagnosticToneActive.store(enable, std::memory_order_release);
     }
 
     /**
      * @brief Returns true if diagnostic test tone is active.
      */
-    [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_relaxed); }
+    [[nodiscard]] bool isDiagnosticTestToneActive() const noexcept { return diagnosticToneActive.load(std::memory_order_acquire); }
+
+    /**
+     * @brief Plays an in-memory audio buffer directly through the physical DAC outputs.
+     * Thread-safe and lock-free on the audio thread.
+     */
+    void playPreviewBuffer(const juce::AudioBuffer<float>& buffer)
+    {
+        previewPlaying.store(false, std::memory_order_release);
+        previewBuffer.setSize(buffer.getNumChannels(), buffer.getNumSamples());
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            previewBuffer.copyFrom(ch, 0, buffer, ch, 0, buffer.getNumSamples());
+        previewReadPos.store(0, std::memory_order_release);
+        previewPlaying.store(true, std::memory_order_release);
+    }
+
+    void stopPreviewBuffer() noexcept
+    {
+        previewPlaying.store(false, std::memory_order_release);
+    }
+
+    [[nodiscard]] bool isPreviewPlaying() const noexcept
+    {
+        return previewPlaying.load(std::memory_order_relaxed);
+    }
+
+    enum class AuditionKind : int
+    {
+        Model = 0,
+        Residual = 1
+    };
 
     /**
      * @brief Enables or disables real-time audition mode ("Comprobar cómo sonaría").
      */
-    void enableAuditionMode(bool enable) noexcept
+    void enableAuditionMode(bool enable, AuditionKind kind = AuditionKind::Model, float boostDb = 0.0f) noexcept
     {
+        auditionKind.store(kind, std::memory_order_release);
+        float boostLin = std::pow(10.0f, juce::jlimit(0.0f, 36.0f, boostDb) / 20.0f);
+        auditionResidualBoostLinear.store(boostLin, std::memory_order_release);
         auditionActive.store(enable, std::memory_order_release);
     }
 
     [[nodiscard]] bool isAuditionActive() const noexcept
     {
         return auditionActive.load(std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] AuditionKind getAuditionKind() const noexcept
+    {
+        return auditionKind.load(std::memory_order_relaxed);
     }
 
     void setAuditionParameters(float cutoff, float resonance) noexcept
@@ -193,21 +293,21 @@ public:
     /**
      * @brief Gets current active sampling rate in Hz.
      */
-    [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate; }
+    [[nodiscard]] double getSampleRate() const noexcept { return currentSampleRate.load(std::memory_order_relaxed); }
     [[nodiscard]] double getCurrentSampleRate() const noexcept { return getSampleRate(); }
     void setSampleRate(double newSampleRate) noexcept
     {
         if (newSampleRate > 1000.0)
         {
-            currentSampleRate = newSampleRate;
-            generator.prepare(currentSampleRate);
-            receiver.prepare(currentSampleRate);
-            liveMidiCollector.reset(currentSampleRate);
+            currentSampleRate.store(newSampleRate, std::memory_order_release);
+            generator.prepare(newSampleRate);
+            receiver.prepare(newSampleRate);
+            liveMidiCollector.reset(newSampleRate);
         }
     }
 
     // Telemetry Multi-Tap Collector & Serializer for ABDScope
-    [[nodiscard]] abd::scope::ScopeTap& getScopeTap() noexcept { return *tapHardwareIn; }
+    [[nodiscard]] abd::scope::ScopeTap& getScopeTap() noexcept { return *tapHardwareIn.load(std::memory_order_acquire); }
     [[nodiscard]] abd::scope::ScopeDataCollector& getScopeCollector() noexcept { return scopeCollector; }
     [[nodiscard]] abd::scope::ScopeFrameSerializer& getFrameSerializer() noexcept { return frameSerializer; }
 
@@ -221,6 +321,44 @@ public:
     [[nodiscard]] float getOutputPeakR() const noexcept { return outputPeakR.load(std::memory_order_relaxed); }
     [[nodiscard]] float getOutputRmsL() const noexcept { return outputRmsL.load(std::memory_order_relaxed); }
     [[nodiscard]] float getOutputRmsR() const noexcept { return outputRmsR.load(std::memory_order_relaxed); }
+
+    /**
+     * @brief Checks if audio callback has confirmed zero digital output rendered for at least minSilentBlocks.
+     * Guarantees no residual sweep, test tone, or metronome remains in the output queue.
+     */
+    [[nodiscard]] bool isOutputConfirmedSilent(int minSilentBlocks = 2) const noexcept
+    {
+        if (generator.isPlaying() || diagnosticToneActive.load(std::memory_order_acquire) || auditionActive.load(std::memory_order_relaxed))
+            return false;
+        auto* dev = deviceManager.getCurrentAudioDevice();
+        if (dev == nullptr || !dev->isPlaying())
+            return true;
+        return silentOutputBlocksRendered.load(std::memory_order_acquire) >= minSilentBlocks;
+    }
+
+    /**
+     * @brief Enables or disables physical loopback isolation mode.
+     * When active, software plugins and mock hardware are strictly bypassed in the audio callback,
+     * ensuring receiver records purely from the physical ADC (input channel 0).
+     */
+    void setPhysicalLoopbackIsolation(bool isolated) noexcept
+    {
+        physicalLoopbackIsolation.store(isolated, std::memory_order_release);
+    }
+    [[nodiscard]] bool isPhysicalLoopbackIsolationActive() const noexcept
+    {
+        return physicalLoopbackIsolation.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Verifies whether the input capture path is guaranteed to be the physical ADC.
+     */
+    [[nodiscard]] bool isCaptureSourcePhysicalAdc() const noexcept
+    {
+        if (physicalLoopbackIsolation.load(std::memory_order_acquire))
+            return true;
+        return mockHardware.load(std::memory_order_relaxed) == nullptr && activePlugin.load(std::memory_order_relaxed) == nullptr;
+    }
 
     // Auto-Trim input gain (scaling to -3 dBfs)
     void setInputAutoTrim(float linearGain) noexcept { inputTrimGain.store(linearGain, std::memory_order_release); }
@@ -261,6 +399,24 @@ public:
     }
 
     /**
+     * @brief Closed-loop Dead-Time Compensated PID Auto-Trim step (HITO-DSP-24.5).
+     *        Adjusts inputTrimGain accounting for hardware round-trip latency and anti-windup.
+     */
+    void configureAutoTrimPid(const math::DeadTimePidConfig& cfg) noexcept { autoTrimPidController.configure(cfg); }
+    void resetAutoTrimPid(float initialGainDb = 0.0f) noexcept { autoTrimPidController.reset(initialGainDb); }
+    math::DeadTimePidState stepAutoGainTrimPid(float targetHeadroomDbfs = -3.0f,
+                                               double chunkDurationSec = 0.05,
+                                               double roundTripDelaySec = 0.01) noexcept;
+
+    /**
+     * @brief Loads a minimum-phase inverse FIR kernel into the real-time zero-latency
+     *        partitioned convolver (Gardner 1995, HITO-DSP-24.7) for live ADC de-coloring.
+     */
+    bool loadInputDeColoringFir(const std::vector<float>& firKernel, size_t partitionSize = 64);
+    void setInputDeColoringEnabled(bool enabled) noexcept { inputDeColoringEnabled.store(enabled, std::memory_order_release); }
+    [[nodiscard]] bool isInputDeColoringEnabled() const noexcept { return inputDeColoringEnabled.load(std::memory_order_acquire); }
+
+    /**
      * @brief Triggers a gentle 800 Hz metronome tick (-24 dBFS, 15ms Hann window)
      *        to guide the operator during manual continuous sweeps.
      *        Thread-safe and real-time audio safe (zero allocations).
@@ -268,13 +424,13 @@ public:
     void triggerMetronomeTick() noexcept
     {
         metronomeCurrentSample.store(0, std::memory_order_relaxed);
-        int totalSamples = static_cast<int>(std::lround(0.015 * currentSampleRate));
+        int totalSamples = static_cast<int>(std::lround(0.015 * currentSampleRate.load(std::memory_order_relaxed)));
         metronomeTotalSamples.store(totalSamples > 0 ? totalSamples : 1440, std::memory_order_release);
     }
 
 private:
     juce::AudioDeviceManager deviceManager;
-    double currentSampleRate { 96000.0 };
+    std::atomic<double> currentSampleRate { 96000.0 };
 
     // Metronome pulse state for manual rhythm guide (real-time lock-free)
     std::atomic<int> metronomeCurrentSample { 0 };
@@ -282,11 +438,17 @@ private:
 
     LabStimulusGenerator generator;
     LabAudioReceiver receiver;
-    hardware::MockHardwareController* mockHardware { nullptr };
+    std::atomic<hardware::MockHardwareController*> mockHardware { nullptr };
     std::atomic<juce::AudioPluginInstance*> activePlugin { nullptr };
     std::atomic<bool> pluginMonitoringEnabled { false };
+    std::atomic<bool> directMonitoringActive { false };
     juce::MidiBuffer pluginMidiMessages;
     juce::MidiMessageCollector liveMidiCollector;
+
+    // Take audio preview playback state
+    juce::AudioBuffer<float> previewBuffer;
+    std::atomic<int> previewReadPos { 0 };
+    std::atomic<bool> previewPlaying { false };
 
     // Diagnostic tone state
     std::atomic<bool> diagnosticToneActive { false };
@@ -304,8 +466,21 @@ private:
     std::atomic<float> outputPeakR { 0.0f };
     std::atomic<float> outputRmsL { 0.0f };
     std::atomic<float> outputRmsR { 0.0f };
+    std::atomic<int> silentOutputBlocksRendered { 0 };
+    std::atomic<bool> physicalLoopbackIsolation { false };
+
+    // Device lifecycle (message thread writes, any thread reads).
+    std::atomic<bool> audioDeviceOpen { false };  // Last sampled open state, for edge detection.
+    std::atomic<bool> audioDeviceLost { false };  // Sticky until consumed (see consumeAudioDeviceLost).
 
     std::atomic<float> inputTrimGain { 1.0f };
+    math::DeadTimeCompensatedPidController autoTrimPidController {};
+
+    // Real-time zero-latency hardware de-coloring convolver (Gardner 1995)
+    juce::SpinLock deColorConvolverLock;
+    math::ZeroLatencyPartitionedConvolver deColorConvolverL {};
+    math::ZeroLatencyPartitionedConvolver deColorConvolverR {};
+    std::atomic<bool> inputDeColoringEnabled { false };
 
     // Plugin MIDI delivery & audio verification telemetry
     std::atomic<int> pluginMidiEventsDelivered { 0 };
@@ -318,9 +493,9 @@ private:
     std::vector<float> tempProcessBufferL;
     std::vector<float> tempProcessBufferR;
     abd::scope::ScopeDataCollector scopeCollector;
-    abd::scope::ScopeTap* tapHardwareIn { nullptr };
-    abd::scope::ScopeTap* tapStimulus   { nullptr };
-    abd::scope::ScopeTap* tapDiagTone   { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapHardwareIn { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapStimulus   { nullptr };
+    std::atomic<abd::scope::ScopeTap*> tapDiagTone   { nullptr };
     double diagTonePhase { 0.0 };
     double diagToneSpreadPhase { 0.0 };
     abd::scope::ScopeFrameSerializer frameSerializer { 512 };
@@ -336,6 +511,8 @@ private:
 
     // Audition preview state (real-time DSP preview of trained LUT)
     std::atomic<bool> auditionActive { false };
+    std::atomic<AuditionKind> auditionKind { AuditionKind::Model };
+    std::atomic<float> auditionResidualBoostLinear { 1.0f };
     std::atomic<float> auditionCutoff { 0.5f };
     std::atomic<float> auditionResonance { 0.5f };
     std::atomic<int> auditionWaveform { 0 }; // 0: Saw, 1: Square, 2: Noise

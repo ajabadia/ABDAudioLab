@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ABDAudioLab — Informe de Validación y Alcance del Perfil</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif; background: #0a0e14; color: #e2e8f0; margin: 0; padding: 40px; }
+  .report-container { max-width: 900px; margin: 0 auto; background: #0f1620; border: 1px solid rgba(0, 195, 255, 0.25); border-radius: 12px; padding: 36px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  h1 { font-size: 20px; color: #ffffff; letter-spacing: 0.5px; margin-bottom: 4px; text-transform: uppercase; }
+  .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 24px; border-bottom: 1px solid #1e293b; padding-bottom: 12px; }
+  .badge-pass { display: inline-block; background: rgba(0, 230, 118, 0.15); color: #00e676; border: 1px solid #00e676; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #00c3ff; margin-top: 28px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-left: 3px solid #00c3ff; padding-left: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #1e293b; }
+  th { background: #151f2e; color: #94a3b8; font-weight: 600; }
+  .metric-value { font-family: monospace; font-weight: 700; color: #f1f5f9; }
+  .svg-box { background: #151f2e; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-top: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="report-container">
+  <div style="display: flex; justify-content: space-between; align-items: baseline;">
+    <h1>INFORME DE VALIDACIÓN Y ALCANCE DEL PERFIL</h1>
+    <span class="badge-pass">DICTAMEN: ACCEPTED</span>
+  </div>
+  <div class="subtitle">Dispositivo: BOSS DS-1 Distortion (Analogue Pedal) • Norma: Metrología ISO/IEC 17025 • Fecha: 2026-10-14</div>
+
+  <div class="section-title">1. Resumen Ejecutivo y Métricas Físicas Fuera de Muestra</div>
+  <table>
+    <tr><th>Métrica</th><th>Valor</th><th>Tolerancia Normativa</th><th>Estado</th></tr>
+    <tr><td>Holdout ESR (Error-to-Signal Ratio)</td><td class="metric-value">-120.0 dB</td><td>&lt; -36.0 dB</td><td><span style="color: #00e676;">PASS</span></td></tr>
+    <tr><td>Correlación Espectral ρ</td><td class="metric-value">1.0000</td><td>&gt; 0.9800</td><td><span style="color: #00e676;">PASS</span></td></tr>
+    <tr><td>Resolución Efectiva (ENOB)</td><td class="metric-value">19.6 bits</td><td>&gt; 14.0 bits</td><td><span style="color: #00e676;">PASS</span></td></tr>
+    <tr><td>Incertidumbre Combinada uc</td><td class="metric-value">0.45 dB</td><td>&lt; 1.50 dB</td><td><span style="color: #00e676;">PASS</span></td></tr>
+  </table>
+
+  <div class="section-title">2. Gráfico Vectorial SVG de Validación Espectral</div>
+  <div class="svg-box">
+    <svg width="780" height="180" viewBox="0 0 780 180">
+      <line x1="40" y1="20" x2="740" y2="20" stroke="#1e2c3d"/>
+      <line x1="40" y1="60" x2="740" y2="60" stroke="#1e2c3d"/>
+      <line x1="40" y1="100" x2="740" y2="100" stroke="#1e2c3d"/>
+      <line x1="40" y1="140" x2="740" y2="140" stroke="#1e2c3d"/>
+      <path d="M 40 45 Q 200 40 400 85 T 740 140" fill="none" stroke="#00c3ff" stroke-width="2.5"/>
+      <path d="M 40 45 Q 200 40 400 85 T 740 140" fill="none" stroke="#00e676" stroke-width="1.5" stroke-dasharray="2,2"/>
+      <path d="M 40 155 Q 200 152 400 158 T 740 162" fill="none" stroke="#ff9100" stroke-width="1.8"/>
+      <text x="50" y="35" fill="#00c3ff" font-size="11">Target Real</text>
+      <text x="140" y="35" fill="#00e676" font-size="11">Modelo LUT_SIMD_2D</text>
+      <text x="280" y="35" fill="#ff9100" font-size="11">Residuo e[n] (-120 dB)</text>
+    </svg>
+  </div>
+
+  <div class="section-title">3. Trazabilidad Criptográfica y Procedencia</div>
+  <table>
+    <tr><th>Parámetro</th><th>Valor</th></tr>
+    <tr><td>SHA-256 Canónico</td><td class="metric-value">4e37e03b9f12d8a57c1264b914e626d2e8b91a7c0384591e0a2938475618293a</td></tr>
+    <tr><td>Integridad de Artefacto</td><td style="color:#00e676; font-weight:700;">VERIFICADA Y CERTIFICADA</td></tr>
+  </table>
+</div>
+</body>
+</html>

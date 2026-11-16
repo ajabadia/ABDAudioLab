@@ -35,6 +35,7 @@ struct HardwareRoutingGuide
     std::string stimulusOutput; // e.g. "Audio Out 1 (L) -> GATE IN (+5V pulse)"
     std::string responseInput;  // e.g. "ENV 1 OUT -> Audio In 1 (L)"
     std::string notes;          // e.g. "Manual gate button can also be used"
+    std::vector<std::string> steps; // Step-by-step physical cabling and checklist steps
 };
 
 enum class HardwareMethod
@@ -81,6 +82,12 @@ struct HardwareSetupAction
  */
 void parseSetupActions (const nlohmann::json& arrJson,
                         std::vector<HardwareSetupAction>& actions);
+
+/**
+ * @brief Lee una estructura JSON de `routingGuide` (o `wiringGuide`) en un HardwareRoutingGuide.
+ */
+void parseRoutingGuide (const nlohmann::json& rgJson,
+                        HardwareRoutingGuide& guide);
 
 struct NoteSequenceEvent
 {
@@ -175,6 +182,7 @@ struct HardwareContract
 
     MidiIdentityContract midiIdentity;
 
+    HardwareRoutingGuide routingGuide;
     HardwareLifecycleContract lifecycle;
     std::vector<HardwareFunction> functions;
 };

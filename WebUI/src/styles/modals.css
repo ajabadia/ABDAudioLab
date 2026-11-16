@@ -1,0 +1,263 @@
+/* ==========================================================================
+   MODAL DIALOGS & POPUPS (ABDAudioLab Local Modals)
+   Unified on ABDShared modals.css & buttons.css architecture
+   ========================================================================== */
+
+/* 1. Modal Overlay Backdrop */
+.soundid-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 999999);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.soundid-modal-overlay.active,
+.modal-overlay.active,
+.modal-overlay.is-active,
+.abd-about-overlay.active,
+.abd-about-overlay.is-active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Form Controls & Selects in Modals */
+.abd-select,
+.form-select,
+select.form-control {
+  height: 38px;
+  min-height: 38px;
+  line-height: normal;
+  padding: 6px 12px;
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-panel-border);
+  box-sizing: border-box;
+  font-family: var(--font-sans, inherit);
+  cursor: pointer;
+}
+
+/* 2. Alert & Confirm Modal Card */
+.soundid-modal-card {
+  width: 560px;
+  max-width: 94vw;
+  background: var(--color-panel-bg);
+  border-radius: var(--radius-xl, 18px);
+  padding: 26px 28px 24px 28px;
+  box-sizing: border-box;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), var(--shadow-elevation-2);
+  border: 1px solid var(--color-panel-border);
+  transform: scale(0.95) translateY(6px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.soundid-modal-card.modal-large {
+  width: 720px;
+  max-width: 95vw;
+}
+
+.soundid-modal-card.modal-xl {
+  width: 840px;
+  max-width: 96vw;
+}
+
+.soundid-modal-overlay.active .soundid-modal-card {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.soundid-modal-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  width: 32px;
+  height: 32px;
+}
+.soundid-modal-icon-wrap.soundid-icon-warning { color: var(--color-warning); }
+.soundid-modal-icon-wrap.soundid-icon-error   { color: var(--color-danger); }
+.soundid-modal-icon-wrap.soundid-icon-success { color: var(--color-accent); }
+.soundid-modal-icon-wrap.soundid-icon-info    { color: var(--color-info); }
+
+.soundid-modal-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-text-main);
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+
+.soundid-modal-secondary-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease;
+}
+.soundid-modal-secondary-link:hover {
+  color: var(--color-text-main);
+  text-decoration: underline;
+}
+
+/* Modal Actions Unified with Tokenized Buttons */
+.soundid-modal-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--color-panel-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 8px 18px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.soundid-modal-cancel-btn:hover {
+  background: var(--color-panel-surface-elevated);
+  color: var(--color-text-main);
+  border-color: var(--color-panel-border-strong);
+}
+
+.soundid-modal-primary-btn {
+  background: var(--color-accent);
+  color: var(--color-bg-base);
+  border: 1px solid var(--color-accent);
+  border-radius: 9999px;
+  padding: 9px 24px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px var(--color-accent-dim);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+}
+.soundid-modal-primary-btn:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  box-shadow: 0 4px 12px var(--color-accent-dim);
+}
+.soundid-modal-primary-btn:active {
+  background: var(--color-accent-active);
+}
+.soundid-modal-primary-btn.danger-action {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-text-main);
+  box-shadow: 0 2px 8px rgba(var(--color-danger-rgb), 0.3);
+}
+
+/* 3. Test Configuration Modal Dialog */
+.test-config-modal-card {
+  position: relative;
+  width: 960px;
+  max-width: 95vw;
+  max-height: 82vh;
+  background: var(--color-panel-bg);
+  border-radius: var(--radius-xl, 16px);
+  border: 1px solid var(--color-panel-border);
+  box-shadow: 0 28px 72px rgba(0, 0, 0, 0.65);
+  transform: scale(0.96) translateY(10px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.soundid-modal-overlay.active .test-config-modal-card {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.test-config-hardware-watermark {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 440px;
+  height: 320px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: right bottom;
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: 0;
+  filter: grayscale(1);
+  transition: opacity 0.3s ease;
+}
+
+[data-theme="audiolab-light"] .test-config-hardware-watermark {
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+}
+
+.test-config-modal-header,
+.test-config-modal-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-panel-border);
+  background: var(--color-panel-surface);
+  flex-shrink: 0;
+}
+.test-config-modal-footer {
+  border-bottom: none;
+  border-top: 1px solid var(--color-panel-border);
+}
+
+.test-config-modal-body {
+  position: relative;
+  z-index: 1;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+/* Prompt Modal Text Input */
+.soundid-modal-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-panel-surface);
+  border: 1px solid var(--color-panel-border-strong);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-main);
+  font-family: var(--font-sans);
+  font-size: var(--text-base, 13px);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color var(--transition-fast, 0.15s ease), box-shadow var(--transition-fast, 0.15s ease);
+}
+
+.soundid-modal-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-dim);
+}

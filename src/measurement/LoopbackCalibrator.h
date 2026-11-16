@@ -16,7 +16,15 @@ namespace abdaudiolab::measurement
 
 /**
  * @class LoopbackCalibrator
- * @brief Implementa la caracterización física y metrológica de la interfaz de audio de referencia.
+ * @brief Calibrador de auditoría metrológica offline (Fase 20.11 T4) para registros `LoopbackCalibrationRecord`.
+ *
+ * Nota Arquitectónica (Frontera de Dominio):
+ * - `abdaudiolab::measurement::LoopbackCalibrator` (alias `LoopbackAuditCalibrator`) produce registros
+ *   estructurados de auditoría (`LoopbackCalibrationRecord`) con segregación estricta de artefactos
+ *   (`loopback_reference`, `dut_plus_chain`, `compensated_result`).
+ * - Para la calibración en vivo del motor DSP, síntesis de filtros FIR de fase mínima (`synthesizeMinimumPhaseFir`)
+ *   y perfiles `.abdloop` con suavizado psicoacústico ERB, véase `abdaudiolab::math::LoopbackCalibrator`
+ *   en `src/math/LoopbackCalibrator.h`.
  *
  * Criterio Metrológico Fundamental:
  * - La latencia se documenta como latencia total de ida y vuelta (round-trip), sin
@@ -57,5 +65,8 @@ public:
                                                      int blockSize = 512,
                                                      const std::string& customCalibrationId = "");
 };
+
+/** @brief Alias desambiguado frente a `abdaudiolab::math::LoopbackCalibrator`. */
+using LoopbackAuditCalibrator = LoopbackCalibrator;
 
 } // namespace abdaudiolab::measurement

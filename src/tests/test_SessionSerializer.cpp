@@ -1,4 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include "core/SessionSerializer.h"
 #include "core/ProfilingSession.h"
 #include <juce_core/juce_core.h>
@@ -67,4 +68,135 @@ TEST_CASE("SessionSerializer Serialization Roundtrip", "[core][serializer]")
 
     // Clean up
     tempPackageFile.deleteFile();
+}
+
+TEST_CASE("SessionSerializer: Physical Noise Baseline and Policy Decoupling Roundtrip", "[core][serializer][noise_baseline]")
+{
+    abdaudiolab::core::SessionSerializer serializer;
+
+    abdaudiolab::core::SessionManifest manifest;
+    manifest.sessionTitle = "NoiseBaseline_Test_Session";
+    manifest.hardwareName = "PHYSICAL_CONVERTER_LAB";
+    manifest.appVersion = "1.1.0";
+    manifest.sampleRate = 48000.0;
+    
+    // Policy acceptance threshold: -85.0 dBFS (must never be overwritten by measured noise)
+    manifest.noiseFloorThresholdDb = -85.0f;
+
+    // Physical noise baseline measured in Step 2A
+    manifest.measuredNoiseFloorRmsDbfs = -89.5f;
+    manifest.measuredNoiseFloorPeakDbfs = -75.2f;
+    manifest.noiseBaselineStatus = abdaudiolab::calibration::NoiseBaselineStatus::Valid;
+    manifest.hasPhysicalNoiseBaseline = true;
+    manifest.snrMeasurementMethod = abdaudiolab::math::SnrMeasurementMethod::PhysicalNoiseBaseline;
+
+    std::vector<abdaudiolab::exporting::MeasuredPoint> points;
+    abdaudiolab::exporting::MeasuredPoint p1;
+    p1.pointId = "P_001";
+    p1.snrDb = 92.5f;
+    points.push_back(p1);
+
+    juce::File tempPackageFile = abdaudiolab::test::scratchDir("SessionSerializer")
+                                     .getChildFile("noise_baseline_roundtrip.abdlabtest");
+    if (tempPackageFile.existsAsFile())
+        tempPackageFile.deleteFile();
+
+    bool saveOk = serializer.saveSessionToPackage(tempPackageFile, manifest, points);
+    REQUIRE(saveOk);
+
+    abdaudiolab::core::SessionManifest loaded;
+    std::vector<abdaudiolab::exporting::MeasuredPoint> loadedPoints;
+    juce::String err;
+
+    bool loadOk = serializer.loadSessionFromPackage(tempPackageFile, loaded, loadedPoints, err);
+    REQUIRE(loadOk);
+
+    // Invariant: Acceptance policy threshold remains unchanged
+    CHECK(loaded.noiseFloorThresholdDb == Catch::Approx(-85.0f));
+
+    // Invariant: Physical baseline measurements are faithfully preserved
+    REQUIRE(loaded.hasPhysicalNoiseBaseline);
+    REQUIRE(loaded.measuredNoiseFloorRmsDbfs.has_value());
+    CHECK(*loaded.measuredNoiseFloorRmsDbfs == Catch::Approx(-89.5f));
+    REQUIRE(loaded.measuredNoiseFloorPeakDbfs.has_value());
+    CHECK(*loaded.measuredNoiseFloorPeakDbfs == Catch::Approx(-75.2f));
+    CHECK(loaded.noiseBaselineStatus == abdaudiolab::calibration::NoiseBaselineStatus::Valid);
+    CHECK(loaded.snrMeasurementMethod == abdaudiolab::math::SnrMeasurementMethod::PhysicalNoiseBaseline);
+
+    tempPackageFile.deleteFile();
+}
+
+TEST_CASE("SessionSerializer: Legacy Session Decoupling Without Physical Baseline", "[core][serializer][legacy]")
+{
+    abdaudiolab::core::SessionSerializer serializer;
+
+    abdaudiolab::core::SessionManifest manifest;
+    manifest.sessionTitle = "Legacy_Session";
+    manifest.hardwareName = "LEGACY_SYNTH";
+    manifest.appVersion = "1.0.0";
+    manifest.noiseFloorThresholdDb = -85.0f;
+    manifest.hasPhysicalNoiseBaseline = false;
+    manifest.measuredNoiseFloorRmsDbfs = std::nullopt;
+    manifest.measuredNoiseFloorPeakDbfs = std::nullopt;
+    manifest.noiseBaselineStatus = abdaudiolab::calibration::NoiseBaselineStatus::NotMeasured;
+    manifest.snrMeasurementMethod = abdaudiolab::math::SnrMeasurementMethod::LegacyAssumedNoiseFloor;
+
+    juce::File tempPackageFile = abdaudiolab::test::scratchDir("SessionSerializer")
+                                     .getChildFile("legacy_session_roundtrip.abdlabtest");
+    if (tempPackageFile.existsAsFile())
+        tempPackageFile.deleteFile();
+
+    bool saveOk = serializer.saveSessionToPackage(tempPackageFile, manifest, {});
+    REQUIRE(saveOk);
+
+    abdaudiolab::core::SessionManifest loaded;
+    std::vector<abdaudiolab::exporting::MeasuredPoint> loadedPoints;
+    juce::String err;
+
+    bool loadOk = serializer.loadSessionFromPackage(tempPackageFile, loaded, loadedPoints, err);
+    REQUIRE(loadOk);
+
+    CHECK_FALSE(loaded.hasPhysicalNoiseBaseline);
+    CHECK_FALSE(loaded.measuredNoiseFloorRmsDbfs.has_value());
+    CHECK_FALSE(loaded.measuredNoiseFloorPeakDbfs.has_value());
+    CHECK(loaded.noiseBaselineStatus == abdaudiolab::calibration::NoiseBaselineStatus::NotMeasured);
+    CHECK(loaded.snrMeasurementMethod == abdaudiolab::math::SnrMeasurementMethod::LegacyAssumedNoiseFloor);
+    CHECK(loaded.noiseFloorThresholdDb == Catch::Approx(-85.0f));
+
+    tempPackageFile.deleteFile();
+}
+
+TEST_CASE("SessionSerializer: Rule of 5 Move Semantics & Safe Temp Dir Ownership", "[core][serializer][ruleof5]")
+{
+    STATIC_REQUIRE_FALSE(std::is_copy_constructible_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE_FALSE(std::is_copy_assignable_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE(std::is_nothrow_move_constructible_v<abdaudiolab::core::SessionSerializer>);
+    STATIC_REQUIRE(std::is_nothrow_move_assignable_v<abdaudiolab::core::SessionSerializer>);
+
+    juce::File movedFromDir;
+    {
+        abdaudiolab::core::SessionSerializer s1;
+        juce::File originalDir = s1.getWorkingTempDirectory();
+        REQUIRE(originalDir.isDirectory());
+
+        // Move constructor transfers directory ownership
+        abdaudiolab::core::SessionSerializer s2(std::move(s1));
+        CHECK(s2.getWorkingTempDirectory() == originalDir);
+        CHECK(s1.getWorkingTempDirectory() == juce::File());
+
+        // Move assignment
+        abdaudiolab::core::SessionSerializer s3;
+        juce::File s3OldDir = s3.getWorkingTempDirectory();
+        REQUIRE(s3OldDir.isDirectory());
+
+        s3 = std::move(s2);
+        CHECK(s3.getWorkingTempDirectory() == originalDir);
+        CHECK(s2.getWorkingTempDirectory() == juce::File());
+        // s3's previous directory was cleaned up
+        CHECK_FALSE(s3OldDir.isDirectory());
+
+        movedFromDir = originalDir;
+    }
+    // When s3 goes out of scope, originalDir is cleaned up
+    CHECK_FALSE(movedFromDir.isDirectory());
 }

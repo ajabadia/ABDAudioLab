@@ -292,6 +292,7 @@ VES debe servir para probar perfiles CZ-101, validar SysEx sin riesgo para hardw
 7. HITO-10V: VES / Casio CZ-101 emulado (Firmware-Emulated Target) (BLOQUEO PREVENTIVO TRAS V0.1)
 8. HITO-10E: Retirada gradual de duplicados legacy (CERTIFICADO)
 9. HITO-SHARED-SYNC: Enriquecimiento y Transferencia hacia ABDSharedCode (PROGRAMADO)
+10. HITO-CONTRACT-01: Profiling por Contrato, Init Patch y Desconstrucción Funcional (PLANIFICADO - docs/contracts/HARDWARE_PROFILING_BY_CONTRACT_DESIGN.md)
 ```
 
 ---

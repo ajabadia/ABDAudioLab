@@ -2,12 +2,16 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_devices/juce_audio_devices.h>
 #include "../../core/HardwareContractRegistry.h"
 #include "../HardwareWiringDiagramComponent.h"
 #include "../HardwareDeviceDisplayCardComponent.h"
+#include <StudioTopology/JuceStudioTopologyComponent.h>
+#include <StudioTopology/StudioTopologyController.h>
 #include <vector>
 #include <set>
 #include <functional>
+#include <memory>
 
 namespace abdaudiolab::gui
 {
@@ -47,6 +51,8 @@ public:
     [[nodiscard]] bool isLocked() const noexcept { return isHardwareLocked; }
     void resetSelection();
     void updateTheme();
+    void setAudioDeviceManager(juce::AudioDeviceManager* dm);
+    void refreshTopology();
 
     // Callbacks
     std::function<void(const juce::String& hwId, const juce::String& funcId)> onSelectionChanged;
@@ -87,6 +93,8 @@ private:
     // Visual cards
     HardwareDeviceDisplayCardComponent deviceDisplayCard;
     HardwareWiringDiagramComponent wiringDiagram;
+    std::unique_ptr<abd::topology::JuceStudioTopologyComponent> topologyComponent;
+    juce::AudioDeviceManager* audioDeviceManager { nullptr };
     juce::Label lblRecipeCard;
 
     void rebuildDeviceTypes();

@@ -6,6 +6,32 @@
   "brand": "Analogue Modular",
   "brandLogo": "brands/placeholder-manufacturer.svg",
   "modelImage": "models/placeholder-synth.svg",
+  "routingGuide": {
+    "stimulusOutput": "DAC Out 1 (Eurorack Level / -10dBV) -> Module Audio IN",
+    "responseInput": "Module Audio OUT -> ADC In 1 (with Eurorack Attenuator)",
+    "notes": "Use 3.5mm mono mini-jack patch cables. Ensure ADC is protected from 10Vpp modular levels.",
+    "steps": [
+      "Patch Audio Interface Out 1 to Eurorack Module Audio IN using a 3.5mm TS patch cable.",
+      "Patch Eurorack Module Audio OUT through an attenuator/line-level converter to Interface In 1.",
+      "Verify Eurorack case power rails (+12V/-12V/5V) are energized.",
+      "Set Resonance potentiometer fully counter-clockwise (0%).",
+      "Set Cutoff Frequency potentiometer to 12 o'clock (nominal center)."
+    ]
+  },
+  "lifecycle": {
+    "preSessionSetup": [
+      {
+        "description": "Set Cutoff Frequency pot to 12 o'clock (50%)",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.5
+      },
+      {
+        "description": "Set Resonance pot to fully closed 0%",
+        "method": "MANUAL_PROMPT",
+        "normalizedValue": 0.0
+      }
+    ]
+  },
   "midiIdentification": {
     "manufacturer": "Analogue Modular",
     "model": "Eurorack_VCF",

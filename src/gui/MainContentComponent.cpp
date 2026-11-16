@@ -156,6 +156,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     auto labDirs = core::resolveLabDataDirectories();
     exportDirectory = labDirs.exports;
     exportDirectory.createDirectory();
+    loopbackProfileStore.setStorageDirectory(labDirs.loopbackProfiles);
 
     // Auto-generate Casio CZ Automated Live Scan Session Manifest in assets/presets
     {
@@ -210,8 +211,11 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     sessionIoController.onSessionLoaded = [this](const core::SessionManifest& manifest, const std::vector<exporting::MeasuredPoint>& points) {
         applyLoadedSession(manifest, points);
     };
-    sessionIoController.onSessionSaved = [this](const juce::File& /*savedFile*/) {
-        drawer.openFileDrawer(exportDirectory.getFullPathName());
+    sessionIoController.onSessionSaved = [this](const juce::File& savedFile) {
+        manualPromptLabel.setText("Session saved successfully: " + savedFile.getFileName(), juce::dontSendNotification);
+        manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(5000);
     };
     sessionIoController.onStatusNotification = [this](const juce::String& msg, bool isError) {
         manualPromptLabel.setText(msg, juce::dontSendNotification);
@@ -236,6 +240,21 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
             dirs.experiments.createDirectory();
         dirs.experiments.revealToUser();
     };
+    mainHeader.onOpenReportsFolder = [this] { openReportsFolderInExplorer(); };
+    mainHeader.onOpenPresetsFolder = [this] {
+        auto dirs = core::resolveLabDataDirectories();
+        if (!dirs.presets.exists())
+            dirs.presets.createDirectory();
+        dirs.presets.revealToUser();
+    };
+    mainHeader.onOpenLoopbackProfilesFolder = [this] {
+        auto dirs = core::resolveLabDataDirectories();
+        if (!dirs.loopbackProfiles.exists())
+            dirs.loopbackProfiles.createDirectory();
+        dirs.loopbackProfiles.revealToUser();
+    };
+    mainHeader.onSetWorkingDirectory = [this] { promptSelectWorkingDirectory(); };
+    mainHeader.onOpenWorkingDirectoryFolder = [this] { openWorkingDirectoryInExplorer(); };
     mainHeader.onExitApp = [this] { confirmAndExit(); };
     mainHeader.onOpenMeasurementViewer = [this] { openMeasurementViewerWindow(); };
     mainHeader.onOpenMeasurementComparison = [this] { openMeasurementComparisonWindow(); };
@@ -447,7 +466,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     };
 
 
+    sequencer.setActiveCalibrationContext(activeCalibrationContext);
+
     nativeCalibrationPanel.onCalibrationApplied = [this](const math::LoopbackCalibrationData& cal) {
+        auto snapOpt = nativeCalibrationPanel.getActiveSnapshot();
+        if (snapOpt.has_value())
+        {
+            auto curConfig = calibration::CurrentAudioConfigurationSnapshot::captureFrom(
+                audioEngine.getDeviceManager().getCurrentAudioDevice(),
+                0, nativeCalibrationPanel.getCalibrationInputChannel(),
+                0, nativeCalibrationPanel.getCalibrationOutputChannel());
+            activeCalibrationContext->activate(*snapOpt, curConfig);
+        }
+
         float gainDb = 20.0f * std::log10(std::max(cal.recommendedTrimGain, 1e-4f));
         juce::String sign = (gainDb >= 0.0f) ? "+" : "";
         juce::String msg = "Calibration completed. Auto-trim applied: " + sign + juce::String(gainDb, 1) + " dB";
@@ -468,9 +499,225 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
         summary.loopbackCalibrated = true;
         summary.loopbackSnrDb = cal.snrDb > 0.0f ? cal.snrDb : 90.0f;
         sidebarStepper.setSessionSummary(summary);
+
+        // Guardado inteligente: auto-guardado si no existe previo, o confirmación si ya existe
+        auto* currentDev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+        if (currentDev != nullptr && cal.isCalibrated && !cal.clippingDetected)
+        {
+            auto loopProfile = calibration::LoopbackProfile::fromCalibrationData(
+                cal,
+                currentDev->getName().toStdString(),
+                currentDev->getTypeName().toStdString(),
+                currentDev->getCurrentSampleRate(),
+                currentDev->getCurrentBufferSizeSamples(),
+                0, nativeCalibrationPanel.getCalibrationInputChannel().toStdString(),
+                0, nativeCalibrationPanel.getCalibrationOutputChannel().toStdString());
+
+            if (loopProfile.has_value())
+            {
+                const std::string devName = currentDev->getName().toStdString();
+                const double sRate = currentDev->getCurrentSampleRate();
+                auto existingProfiles = loopbackProfileStore.findProfilesForDevice(devName, sRate);
+
+                if (existingProfiles.empty())
+                {
+                    // No hay perfil guardado para esta combinación -> Auto-guardado
+                    loopbackProfileStore.saveProfile(*loopProfile, true);
+                    loadAndApplyLoopbackProfile(*loopProfile);
+                    manualPromptLabel.setText(
+                        "Nueva medición calibrada y guardada automáticamente en directorio de trabajo.",
+                        juce::dontSendNotification);
+                    manualPromptLabel.setVisible(true);
+                    hidePromptAfterDelay(4000);
+                }
+                else
+                {
+                    // Ya existe perfil para esta combinación -> Preguntar al usuario
+                    confirmationModal.show(
+                        this,
+                        "Guardar Medición de Calibración",
+                        "Ya existe un perfil guardado para \"" + currentDev->getName() + "\" ("
+                            + juce::String(sRate / 1000.0, 1) + " kHz).\n\n"
+                            + "¿Deseas guardar esta nueva medición como el perfil activo?",
+                        "Guardar nuevo perfil",
+                        "Conservar anterior",
+                        "",
+                        [this, loopProfile = *loopProfile](gui::ConfirmationModalDialog::Result res) {
+                            if (res == gui::ConfirmationModalDialog::Result::Primary)
+                            {
+                                loopbackProfileStore.saveProfile(loopProfile, true);
+                                loadAndApplyLoopbackProfile(loopProfile);
+                                manualPromptLabel.setText(
+                                    "Nuevo perfil de calibración guardado y activado.",
+                                    juce::dontSendNotification);
+                            }
+                            else
+                            {
+                                manualPromptLabel.setText(
+                                    "Medición actual mantenida en memoria sin sobrescribir perfil guardado.",
+                                    juce::dontSendNotification);
+                            }
+                            manualPromptLabel.setVisible(true);
+                            hidePromptAfterDelay(4000);
+                        });
+                }
+            }
+        }
+
         resized();
     };
+
+    nativeCalibrationPanel.onPreflightCheck = [this](std::function<void(bool)> callback) {
+        auto labDirs = core::resolveLabDataDirectories();
+        if (labDirs.origin != core::DataRootOrigin::UserPersistedPreference && !userDismissedDirectoryWarning)
+        {
+            juce::String msg;
+            msg << "El Directorio de Trabajo no ha sido establecido expresamente por el usuario (usando carpeta por defecto en Documentos).\n\n"
+                << "Ruta actual: " << labDirs.dataRoot.getFullPathName() << "\n\n"
+                << "¿Deseas continuar con la medición usando esta carpeta o prefieres configurar tu directorio de trabajo en File -> Set Working Directory...?";
+
+            confirmationModal.show(
+                this,
+                "Directorio de Trabajo no configurado",
+                msg,
+                "Continuar con medición",
+                "",
+                "Cancelar y configurar",
+                [this, callback = std::move(callback)](gui::ConfirmationModalDialog::Result result) {
+                    if (result == gui::ConfirmationModalDialog::Result::Primary)
+                    {
+                        userDismissedDirectoryWarning = true;
+                        callback(true);
+                    }
+                    else
+                    {
+                        callback(false);
+                        promptSelectWorkingDirectory();
+                    }
+                });
+        }
+        else
+        {
+            callback(true);
+        }
+    };
+
+    nativeCalibrationPanel.onCalibrationResetRequested = [this] {
+        activeCalibrationContext->deactivate();
+        canonicalCalibrationState.isCalibrated = false;
+        canonicalCalibrationState.sampleRate = 0.0;
+        canonicalCalibrationState.isSkipped = false;
+        audioEngine.setInputAutoTrim(1.0f);
+
+        sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback,
+                                     gui::SoundIdSidebarStepper::StepStatus::Current);
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                            gui::SoundIdSidebarStepper::StepStatus::Current);
+        mainHeader.updateCalibrationStatus(false, 0.0, false);
+
+        manualPromptLabel.setText("Calibración reiniciada. Listo para volver a medir (Paso 2A).", juce::dontSendNotification);
+        manualPromptLabel.setVisible(true);
+        hidePromptAfterDelay(3000);
+        resized();
+        repaint();
+    };
+
+    nativeCalibrationPanel.onOpenProfileHistory = [this] {
+        auto profiles = loopbackProfileStore.listProfiles();
+        if (profiles.empty())
+        {
+            manualPromptLabel.setText("No hay perfiles .abdloop guardados en el directorio de trabajo.", juce::dontSendNotification);
+            manualPromptLabel.setVisible(true);
+            hidePromptAfterDelay(3000);
+            return;
+        }
+
+        juce::PopupMenu menu;
+        menu.addSectionHeader("Perfiles de Infraestructura (.abdloop) Guardados");
+
+        auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+        const std::string curDev = dev != nullptr ? dev->getName().toStdString() : "";
+        const double curSr = dev != nullptr ? dev->getCurrentSampleRate() : 0.0;
+
+        int id = 1;
+        for (const auto& p : profiles)
+        {
+            const bool isCurrentMatch = (!curDev.empty() && p.deviceName == curDev && std::abs(p.sampleRate - curSr) <= 1.0);
+            juce::String cleanDate = juce::String(p.createdAt).replace("T", " ").upToFirstOccurrenceOf(".", false, false);
+            if (cleanDate.endsWith("Z")) cleanDate = cleanDate.dropLastCharacters(1);
+
+            juce::String label;
+            label << (isCurrentMatch ? juce::String::fromUTF8(u8"★ ") : "  ")
+                  << p.deviceName << " | "
+                  << juce::String(p.sampleRate / 1000.0, 1) << " kHz | "
+                  << cleanDate
+                  << " (RTL: " << juce::String(p.roundTripLatencyMs, 2) << " ms, SNR: " << juce::String(p.snrDb, 1) << " dB)";
+
+            menu.addItem(id++, label, true, false);
+        }
+
+        menu.addSeparator();
+        menu.addItem(9999, "Explorar carpeta de perfiles (.abdloop)...", true, false);
+
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&nativeCalibrationPanel),
+            [this, profiles](int chosenId) {
+                if (chosenId == 9999)
+                {
+                    auto labDirs = core::resolveLabDataDirectories();
+                    labDirs.loopbackProfiles.startAsProcess();
+                }
+                else if (chosenId > 0 && chosenId <= static_cast<int>(profiles.size()))
+                {
+                    const auto& chosenProfile = profiles[static_cast<size_t>(chosenId - 1)];
+                    loadAndApplyLoopbackProfile(chosenProfile);
+                }
+            });
+    };
+
+    nativeCalibrationPanel.onRequestShowProfileDetails = [this](const calibration::CalibrationRecord& record) {
+        juce::String cleanDate = juce::String(record.createdAt).replace("T", " ").upToFirstOccurrenceOf(".", false, false);
+        if (cleanDate.endsWith("Z")) cleanDate = cleanDate.dropLastCharacters(1);
+
+        juce::String msg;
+        msg << "HARDWARE & ROUTING:\n"
+            << "  - Device: " << record.deviceSnapshot.deviceName << " (" << record.deviceSnapshot.driverType << ")\n"
+            << "  - Sample Rate: " << juce::String(record.deviceSnapshot.sampleRate / 1000.0, 1) << " kHz (" << record.deviceSnapshot.sampleRate << " Hz)\n"
+            << "  - Buffer Size: " << record.deviceSnapshot.bufferSizeSamples << " samples\n"
+            << "  - Routing: " << record.routingSnapshot.outputChannelLabel << " -> " << record.routingSnapshot.inputChannelLabel << "\n"
+            << "  - Measured: " << cleanDate << "\n\n"
+            << "CALIBRATION MEASUREMENT METRICS:\n"
+            << "  - RTL Latency: " << juce::String(record.calibrationResult.roundTripLatencyMs, 2) << " ms ("
+            << record.calibrationResult.latencySamples << " spls)\n"
+            << "  - SNR: " << juce::String(record.calibrationResult.snrDb, 1) << " dB\n"
+            << "  - Frequency Flatness: " << juce::String(record.calibrationResult.frequencyFlatnessDb, 2) << " dB\n"
+            << "  - THD+N: " << juce::String(record.calibrationResult.thdPlusNoisePercent * 100.0f, 3) << " %\n"
+            << "  - Recommended Trim: " << juce::String(record.calibrationResult.recommendedTrimGain, 3) << "x\n"
+            << "  - Polarity: " << (record.calibrationResult.phaseInversionDetected ? "Inverted" : "Normal") << "\n"
+            << "  - Saturation/Clipping: " << (record.calibrationResult.clippingDetected ? "Detected" : "None (Clean)");
+
+        confirmationModal.show(
+            this,
+            "Calibration Profile Details",
+            msg,
+            "Apply This Calibration",
+            "",
+            "Close",
+            [this, record](gui::ConfirmationModalDialog::Result result) {
+                if (result == gui::ConfirmationModalDialog::Result::Primary)
+                {
+                    nativeCalibrationPanel.applyProfileRecord(record);
+                    manualPromptLabel.setText("Calibration profile applied successfully.", juce::dontSendNotification);
+                    manualPromptLabel.setColour(juce::Label::textColourId, gui::SoundIdTheme::accentGreen);
+                    manualPromptLabel.setVisible(true);
+                    hidePromptAfterDelay(4000);
+                }
+            }
+        );
+    };
+
     nativeCalibrationPanel.onCalibrationSkipped = [this] {
+        activeCalibrationContext->deactivate();
+
         canonicalCalibrationState.isCalibrated = false;
         canonicalCalibrationState.sampleRate = 0.0;
         canonicalCalibrationState.isSkipped = true;
@@ -540,6 +787,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
     // Wire cascading catalog selector
     catalogSelector.setContracts(hardwareManager.getContractRegistry().getContracts());
+    catalogSelector.setAudioDeviceManager(&audioEngine.getDeviceManager());
     catalogSelector.onSelectionChanged = [this](const juce::String& hwId, const juce::String& funcId) {
         if (catalogSelector.isPluginVirtualMode())
         {
@@ -573,11 +821,19 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
 
         drawer.setSelectedHardwareId(hwId);
         onHardwareSelected(hwId, funcId);
+        const auto* c = hardwareManager.findContractById(hwId.toStdString());
         gui::SoundIdSidebarStepper::SessionSummaryInfo summary = sidebarStepper.getSessionSummary();
-        summary.hardwareName = hwId;
+        if (c != nullptr)
+        {
+            summary.hardwareName = juce::String(c->displayName);
+            summary.hardwareCategory = juce::String(c->deviceType);
+        }
+        else
+        {
+            summary.hardwareName = hwId.isNotEmpty() ? hwId : "None Selected";
+        }
         sidebarStepper.setSessionSummary(summary);
 
-        const auto* c = hardwareManager.findContractById(hwId.toStdString());
         suiteList.setStandardTestAvailable(c != nullptr && !c->functions.empty());
 
         // Actualizar ProfilingSessionController para target hardware físico (HITO-03.1)
@@ -1437,6 +1693,17 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     sessionCoordinator.onSessionFinished = [this](bool isPatching) {
         if (!isPatching)
         {
+            profilingSessionController.completeProfiling();
+            workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::RunSession,
+                                                gui::SoundIdSidebarStepper::StepStatus::Completed);
+            workflowNavController.setStepLocked(gui::WorkflowNavigationController::Step::ExportReport, false);
+            if (workflowNavController.getStepStatus(gui::WorkflowNavigationController::Step::ExportReport) !=
+                gui::SoundIdSidebarStepper::StepStatus::Completed)
+            {
+                workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                                    gui::SoundIdSidebarStepper::StepStatus::Pending);
+            }
+            workflowNavController.setStep(gui::WorkflowNavigationController::Step::ExportReport);
         }
         updateExportReportMetrics();
         sessionManager.triggerAutoSave(buildCurrentSessionManifest());
@@ -1500,7 +1767,7 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     suiteList.setStandardTestAvailable(false);
     suiteList.clearQueue();
 
-    setSize(1240, 780);
+    setSize(1520, 920);
 
     report("Precalentando Monitor Reactivo de Hardware MIDI...", 0.88f);
     // Pre-warm MIDI Hardware Hotplug Monitor & Detector in background
@@ -1509,24 +1776,38 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     report("Precalentando Motores Web Chromium (Scope & Detector)...", 0.96f);
     // Pre-warm WebView2 for ABDScope & Hardware Detector in background to eliminate first-click cold-start lag
     juce::MessageManager::callAsync([safeThis = juce::Component::SafePointer<MainContentComponent>(this)]() {
+        juce::Logger::writeToLog("[MainComponent] WebView2 pre-warm callAsync executing...");
         if (safeThis != nullptr)
         {
             safeThis->preWarmScopeWindow();
             safeThis->preWarmHardwareDetector();
         }
+        juce::Logger::writeToLog("[MainComponent] WebView2 pre-warm callAsync completed.");
     });
 
     profilingRunView = std::make_unique<gui::soundid::SoundIdProfilingRunView>(profilingSessionController);
     profilingRunView->onStartClicked = [this] {
+        if (!gui::session::hasRealTargetInSnapshot(profilingSessionController.getCurrentSnapshot()))
+            return;
+        profilingSessionController.startProfiling();
         startProfilingSession(false);
     };
     profilingRunView->onPauseClicked = [this] {
+        profilingSessionController.pauseProfiling();
         sessionCoordinator.togglePauseSession();
     };
     profilingRunView->onCancelClicked = [this] {
+        profilingSessionController.cancelProfiling();
         stopProfilingSession();
     };
     addChildComponent(profilingRunView.get());
+
+    resultsSummaryView = std::make_unique<gui::soundid::SoundIdResultsSummaryView>(profilingSessionController);
+    resultsSummaryView->onExportCompleted = [this] {
+        workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::ExportReport,
+                                            gui::SoundIdSidebarStepper::StepStatus::Completed);
+    };
+    addChildComponent(resultsSummaryView.get());
 
     setupGuidedWorkflowInitialData();
 
@@ -1535,8 +1816,11 @@ MainContentComponent::MainContentComponent(StartupProgressCallback onProgress)
     excitationConfigPanel.updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
     if (profilingRunView != nullptr)
         profilingRunView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
+    if (resultsSummaryView != nullptr)
+        resultsSummaryView->updateFromSnapshot(profilingSessionController.getCurrentSnapshot());
 
     report("Listo.", 1.0f);
+    triggerAsyncLoopbackProfileDetection();
     juce::Logger::writeToLog("[MainComponent] Constructor finished successfully.");
 }
 
@@ -1589,11 +1873,15 @@ void MainContentComponent::changeListenerCallback(juce::ChangeBroadcaster* sourc
     {
         mainHeader.updateAudioMidiStatus();
         updateSetupDrawerInfo();
+        catalogSelector.refreshTopology();
 
         if (topologyController.isWindowVisible())
         {
             toggleStudioTopologyWindow();
         }
+
+        // Sprint 1: Auto-detect loopback profile (.abdloop) upon device change
+        triggerAsyncLoopbackProfileDetection();
     }
 }
 
@@ -1640,6 +1928,66 @@ bool MainContentComponent::keyPressed(const juce::KeyPress& key, juce::Component
         }
     }
     return false;
+}
+
+void MainContentComponent::triggerAsyncLoopbackProfileDetection()
+{
+    auto* dev = audioEngine.getDeviceManager().getCurrentAudioDevice();
+    if (dev == nullptr)
+        return;
+
+    const std::string devName = dev->getName().toStdString();
+    const double sRate = dev->getCurrentSampleRate();
+    const int bufSize = dev->getCurrentBufferSizeSamples();
+
+    calibration::AsyncLoopbackProfileLoader::dispatch(
+        backgroundThreadPool,
+        loopbackProfileStore,
+        devName,
+        sRate,
+        bufSize,
+        [this](std::optional<calibration::LoopbackProfile> profileOpt) {
+            if (!profileOpt.has_value())
+                return;
+
+            loadAndApplyLoopbackProfile(*profileOpt);
+        });
+}
+
+void MainContentComponent::loadAndApplyLoopbackProfile(const calibration::LoopbackProfile& p)
+{
+    auto calData = p.toCalibrationData();
+
+    // 1. Set input auto trim in audio engine
+    audioEngine.setInputAutoTrim(calData.recommendedTrimGain);
+
+    // 2. Reflect profile in Step 2 NativeCalibrationPanel
+    nativeCalibrationPanel.applyLoadedLoopbackProfile(p);
+
+    // 3. Update stepper status to LoadedFromHistory
+    sidebarStepper.setStepStatus(gui::SoundIdSidebarStepper::Step::CalibrateLoopback,
+                                 gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory);
+    workflowNavController.setStepStatus(gui::WorkflowNavigationController::Step::CalibrateLoopback,
+                                        gui::SoundIdSidebarStepper::StepStatus::LoadedFromHistory);
+
+    canonicalCalibrationState.isCalibrated = true;
+    canonicalCalibrationState.sampleRate = calData.sampleRate;
+    canonicalCalibrationState.isSkipped = false;
+    mainHeader.updateCalibrationStatus(true, calData.sampleRate, false);
+
+    auto summary = sidebarStepper.getSessionSummary();
+    summary.loopbackCalibrated = true;
+    summary.loopbackSnrDb = calData.snrDb > 0.0f ? calData.snrDb : 90.0f;
+    sidebarStepper.setSessionSummary(summary);
+
+    manualPromptLabel.setText(
+        "Perfil .abdloop cargado: " + juce::String(p.deviceName) + " ("
+        + juce::String(p.sampleRate / 1000.0, 1) + " kHz)",
+        juce::dontSendNotification);
+    manualPromptLabel.setVisible(true);
+    hidePromptAfterDelay(4000);
+    resized();
+    repaint();
 }
 
 } // namespace abdaudiolab
